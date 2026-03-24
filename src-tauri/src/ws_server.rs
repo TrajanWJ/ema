@@ -64,6 +64,7 @@ async fn handle_connection(
     let allowed = Arc::new(AtomicBool::new(false));
     let allowed_inner = allowed.clone();
 
+    #[allow(clippy::result_large_err)]
     let callback =
         |req: &Request, resp: Response| -> Result<Response, _> {
             if let Some(origin) = req.headers().get("origin") {

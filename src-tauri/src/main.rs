@@ -72,7 +72,7 @@ fn main() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("place.org Companion")
                 .menu(&menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event({
                     let wm = wm.clone();
                     move |app, event| match event.id().as_ref() {

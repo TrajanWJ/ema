@@ -71,6 +71,7 @@ pub enum ClientMessage {
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
+#[allow(dead_code)] // Variants used once native window events are wired
 pub enum ServerMessage {
     Hello {
         version: String,

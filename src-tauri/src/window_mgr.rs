@@ -182,6 +182,7 @@ impl WindowManager {
     }
 
     /// Remove a window from tracking (called when Tauri reports window destroyed).
+    #[allow(dead_code)]
     pub fn on_window_destroyed(&mut self, label: &str) -> Option<(String, String)> {
         let window_id = label.strip_prefix("place_")?;
         let tracked = self.windows.remove(window_id)?;
@@ -199,17 +200,17 @@ fn tauri_label(window_id: &str) -> String {
 fn can_use_transparency() -> bool {
     #[cfg(target_os = "linux")]
     {
-        if std::env::var("XDG_SESSION_TYPE").ok().as_deref() == Some("x11") {
-            if std::env::var("WAYLAND_DISPLAY").is_err() {
-                let has_compositor = std::process::Command::new("xprop")
-                    .args(["-root", "_NET_WM_CM_S0"])
-                    .output()
-                    .map(|o| !o.stdout.is_empty() && o.status.success())
-                    .unwrap_or(false);
-                if !has_compositor {
-                    warn!("X11 without compositor detected — transparency disabled");
-                    return false;
-                }
+        if std::env::var("XDG_SESSION_TYPE").ok().as_deref() == Some("x11")
+            && std::env::var("WAYLAND_DISPLAY").is_err()
+        {
+            let has_compositor = std::process::Command::new("xprop")
+                .args(["-root", "_NET_WM_CM_S0"])
+                .output()
+                .map(|o| !o.stdout.is_empty() && o.status.success())
+                .unwrap_or(false);
+            if !has_compositor {
+                warn!("X11 without compositor detected — transparency disabled");
+                return false;
             }
         }
         true
