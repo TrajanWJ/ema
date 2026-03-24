@@ -28,15 +28,112 @@ fn is_allowed_url(url: &str) -> bool {
 /// Uses __TAURI_INTERNALS__ directly since these are external URLs
 /// without bundled @tauri-apps/api.
 const INIT_SCRIPT: &str = r#"
-window.__PLACE_COMPANION__ = true;
-window.__PLACE_COMPANION_REATTACH__ = function(windowId, appId) {
-    if (window.__TAURI_INTERNALS__) {
-        window.__TAURI_INTERNALS__.invoke('reattach', {
-            windowId: windowId,
-            appId: appId,
-        });
+(function() {
+    window.__PLACE_COMPANION__ = true;
+
+    // Extract windowId from URL params
+    var params = new URLSearchParams(window.location.search);
+    var windowId = params.get('windowId') || '';
+
+    // ── WebSocket connection to companion for drag + reattach ──
+    // The webview can't use __TAURI_INTERNALS__ (not available for external URLs).
+    // Instead, connect directly to the companion's WS server.
+    var ws = null;
+    var wsPort = 0;
+
+    function connectWs() {
+        // Try ports 27182-27189
+        var ports = [27182, 27183, 27184, 27185, 27186, 27187, 27188, 27189];
+        var idx = 0;
+        function tryNext() {
+            if (idx >= ports.length) {
+                setTimeout(connectWs, 5000); // retry after 5s
+                return;
+            }
+            var port = ports[idx++];
+            var s = new WebSocket('ws://localhost:' + port);
+            var timeout = setTimeout(function() { s.close(); tryNext(); }, 1000);
+            s.onopen = function() {
+                clearTimeout(timeout);
+                ws = s;
+                wsPort = port;
+                console.log('[place-companion] webview connected on port ' + port);
+            };
+            s.onerror = function() { clearTimeout(timeout); tryNext(); };
+            s.onclose = function() {
+                if (ws === s) {
+                    ws = null;
+                    setTimeout(connectWs, 2000);
+                }
+            };
+        }
+        tryNext();
     }
-};
+    connectWs();
+
+    function sendWs(msg) {
+        if (ws && ws.readyState === 1) {
+            ws.send(JSON.stringify(msg));
+        }
+    }
+
+    // ── Reattach ──
+    window.__PLACE_COMPANION_REATTACH__ = function(wid, appId) {
+        sendWs({ type: 'reattach-request', windowId: wid, appId: appId });
+        // The companion will handle the reattach flow
+    };
+
+    // ── Drag via mouse tracking + move-window commands ──
+    var dragging = false;
+    var dragStartScreenX = 0;
+    var dragStartScreenY = 0;
+    var winStartX = 0;
+    var winStartY = 0;
+
+    document.addEventListener('mousedown', function(e) {
+        var el = e.target;
+        // Walk up to find drag region
+        while (el && el !== document.body) {
+            if (el.hasAttribute && el.hasAttribute('data-tauri-drag-region')) {
+                if (e.target.closest && e.target.closest('button')) break;
+                e.preventDefault();
+                dragging = true;
+                dragStartScreenX = e.screenX;
+                dragStartScreenY = e.screenY;
+                // Get current window position from screen coords
+                winStartX = window.screenX || window.screenLeft || 0;
+                winStartY = window.screenY || window.screenTop || 0;
+                document.body.style.cursor = 'grabbing';
+                // Prevent text selection during drag
+                document.body.style.userSelect = 'none';
+                return;
+            }
+            el = el.parentElement;
+        }
+    }, true);
+
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        var dx = e.screenX - dragStartScreenX;
+        var dy = e.screenY - dragStartScreenY;
+        var newX = winStartX + dx;
+        var newY = winStartY + dy;
+        sendWs({
+            type: 'move-window',
+            windowId: windowId,
+            x: newX,
+            y: newY
+        });
+    }, true);
+
+    document.addEventListener('mouseup', function() {
+        if (dragging) {
+            dragging = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        }
+    }, true);
+})();
 "#;
 
 #[derive(Debug)]
