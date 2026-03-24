@@ -126,7 +126,10 @@ async fn handle_connection(
                 };
 
                 let text = match msg {
-                    Ok(Message::Text(t)) => t.to_string(),
+                    Ok(Message::Text(ref t)) => {
+                        info!("RAW MSG: {}", t.to_string().chars().take(200).collect::<String>());
+                        t.to_string()
+                    }
                     Ok(Message::Close(_)) => break,
                     Ok(Message::Ping(d)) => {
                         let _ = tx.send(Message::Pong(d)).await;

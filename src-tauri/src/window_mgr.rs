@@ -30,107 +30,40 @@ fn is_allowed_url(url: &str) -> bool {
 const INIT_SCRIPT: &str = r#"
 (function() {
     window.__PLACE_COMPANION__ = true;
-
-    // Extract windowId from URL params
     var params = new URLSearchParams(window.location.search);
     var windowId = params.get('windowId') || '';
 
-    // ── WebSocket connection to companion for drag + reattach ──
-    // The webview can't use __TAURI_INTERNALS__ (not available for external URLs).
-    // Instead, connect directly to the companion's WS server.
-    var ws = null;
-    var wsPort = 0;
-
-    function connectWs() {
-        // Try ports 27182-27189
-        var ports = [27182, 27183, 27184, 27185, 27186, 27187, 27188, 27189];
-        var idx = 0;
-        function tryNext() {
-            if (idx >= ports.length) {
-                setTimeout(connectWs, 5000); // retry after 5s
-                return;
-            }
-            var port = ports[idx++];
-            var s = new WebSocket('ws://localhost:' + port);
-            var timeout = setTimeout(function() { s.close(); tryNext(); }, 1000);
-            s.onopen = function() {
-                clearTimeout(timeout);
-                ws = s;
-                wsPort = port;
-                console.log('[place-companion] webview connected on port ' + port);
-            };
-            s.onerror = function() { clearTimeout(timeout); tryNext(); };
-            s.onclose = function() {
-                if (ws === s) {
-                    ws = null;
-                    setTimeout(connectWs, 2000);
-                }
-            };
-        }
-        tryNext();
-    }
-    connectWs();
-
-    function sendWs(msg) {
-        if (ws && ws.readyState === 1) {
-            ws.send(JSON.stringify(msg));
-        }
-    }
-
-    // ── Reattach ──
+    // Reattach: use Tauri IPC (withGlobalTauri=true makes __TAURI_INTERNALS__ available)
     window.__PLACE_COMPANION_REATTACH__ = function(wid, appId) {
-        sendWs({ type: 'reattach-request', windowId: wid, appId: appId });
-        // The companion will handle the reattach flow
+        if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke('reattach', { windowId: wid, appId: appId });
+        }
     };
 
-    // ── Drag via mouse tracking + move-window commands ──
-    var dragging = false;
-    var dragStartScreenX = 0;
-    var dragStartScreenY = 0;
-    var winStartX = 0;
-    var winStartY = 0;
+    // Debug: show IPC availability on page
+    document.addEventListener('DOMContentLoaded', function() {
+        var d = document.createElement('div');
+        var has = typeof window.__TAURI_INTERNALS__ !== 'undefined';
+        d.textContent = has ? 'IPC: YES' : 'IPC: NO';
+        d.style.cssText = 'position:fixed;bottom:4px;left:4px;z-index:99999;font-size:11px;font-weight:bold;padding:3px 8px;border-radius:4px;font-family:monospace;pointer-events:none;' +
+            (has ? 'background:rgba(0,200,0,0.3);color:#0f0;' : 'background:rgba(200,0,0,0.3);color:#f00;');
+        document.body.appendChild(d);
+        window.__DRAG_DBG__ = d;
+    });
 
+    // Drag: call start_dragging on mousedown in the titlebar region.
+    // With GDK_BACKEND=x11 this triggers XWayland's begin_move_drag which works.
     document.addEventListener('mousedown', function(e) {
-        var el = e.target;
-        // Walk up to find drag region
-        while (el && el !== document.body) {
-            if (el.hasAttribute && el.hasAttribute('data-tauri-drag-region')) {
-                if (e.target.closest && e.target.closest('button')) break;
-                e.preventDefault();
-                dragging = true;
-                dragStartScreenX = e.screenX;
-                dragStartScreenY = e.screenY;
-                // Get current window position from screen coords
-                winStartX = window.screenX || window.screenLeft || 0;
-                winStartY = window.screenY || window.screenTop || 0;
-                document.body.style.cursor = 'grabbing';
-                // Prevent text selection during drag
-                document.body.style.userSelect = 'none';
-                return;
+        if (e.clientY > 42) return;
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest('button')) return;
+        if (window.__TAURI_INTERNALS__) {
+            e.preventDefault();
+            window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging');
+            if (window.__DRAG_DBG__) {
+                window.__DRAG_DBG__.textContent = 'DRAG';
+                window.__DRAG_DBG__.style.color = '#0f0';
             }
-            el = el.parentElement;
-        }
-    }, true);
-
-    document.addEventListener('mousemove', function(e) {
-        if (!dragging) return;
-        var dx = e.screenX - dragStartScreenX;
-        var dy = e.screenY - dragStartScreenY;
-        var newX = winStartX + dx;
-        var newY = winStartY + dy;
-        sendWs({
-            type: 'move-window',
-            windowId: windowId,
-            x: newX,
-            y: newY
-        });
-    }, true);
-
-    document.addEventListener('mouseup', function() {
-        if (dragging) {
-            dragging = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
         }
     }, true);
 })();
@@ -253,12 +186,25 @@ impl WindowManager {
     }
 
     pub fn move_window(&mut self, window_id: &str, x: f64, y: f64) {
+        let label = tauri_label(window_id);
         if let Some(tracked) = self.windows.get_mut(window_id) {
             tracked.bounds.x = x;
             tracked.bounds.y = y;
-            if let Some(w) = self.app_handle.get_webview_window(&tauri_label(window_id)) {
-                let _ = w.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+            match self.app_handle.get_webview_window(&label) {
+                Some(w) => {
+                    let result = w.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+                    if let Err(e) = result {
+                        log::error!("set_position failed for {label}: {e}");
+                    }
+                }
+                None => {
+                    log::warn!("move_window: no Tauri window with label '{label}' (known windows: {:?})",
+                        self.windows.keys().collect::<Vec<_>>());
+                }
             }
+        } else {
+            log::warn!("move_window: windowId '{window_id}' not in tracked map (keys: {:?})",
+                self.windows.keys().collect::<Vec<_>>());
         }
     }
 

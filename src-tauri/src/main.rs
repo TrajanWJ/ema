@@ -17,6 +17,18 @@ use tokio::sync::Mutex;
 use window_mgr::WindowManager;
 
 fn main() {
+    // Force XWayland on Wayland sessions.
+    // Native Wayland breaks window dragging for frameless webview windows:
+    // - start_dragging / begin_move_drag loses the mouse serial through IPC
+    // - set_position is a no-op (compositors forbid apps from setting position)
+    // XWayland supports both, and transparency still works via the compositor.
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("XDG_SESSION_TYPE").ok().as_deref() == Some("wayland") {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+    }
+
     env_logger::init();
 
     tauri::Builder::default()
@@ -24,7 +36,7 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
-        .invoke_handler(tauri::generate_handler![commands::reattach])
+        .invoke_handler(tauri::generate_handler![commands::reattach, commands::drag_to])
         .setup(|app| {
             // Create window manager
             let wm = Arc::new(Mutex::new(WindowManager::new(app.handle().clone())));
