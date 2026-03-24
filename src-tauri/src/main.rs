@@ -3,6 +3,7 @@ mod commands;
 mod origin_check;
 mod protocol;
 mod window_mgr;
+mod ws_server;
 
 fn main() {
     env_logger::init();
