@@ -1,4 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod commands;
+mod origin_check;
+mod protocol;
 
 fn main() {
     env_logger::init();
