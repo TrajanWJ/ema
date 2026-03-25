@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use tauri::{command, State};
 use tokio::sync::broadcast;
 
@@ -11,30 +10,18 @@ pub struct ReattachEvent {
     pub app_id: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReattachArgs {
-    pub window_id: String,
-    pub app_id: String,
-}
-
 /// Called from the webview (PopoutTitleBar) when user clicks "Return to desktop".
-/// Sends the event over a broadcast channel. The WS server picks it up,
-/// forwards to the browser, and waits for reattach-ack (or 3s timeout)
-/// before closing the window.
+/// Tauri deserializes camelCase JS args into snake_case Rust params automatically.
 #[command]
 pub async fn reattach(
-    args: ReattachArgs,
+    window_id: String,
+    app_id: String,
     sender: State<'_, ReattachSender>,
 ) -> Result<(), String> {
-    log::info!(
-        "Reattach requested: windowId={}, appId={}",
-        args.window_id,
-        args.app_id
-    );
+    log::info!("Reattach requested: windowId={window_id}, appId={app_id}");
     let _ = sender.send(ReattachEvent {
-        window_id: args.window_id,
-        app_id: args.app_id,
+        window_id,
+        app_id,
     });
     Ok(())
 }
