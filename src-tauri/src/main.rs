@@ -13,6 +13,8 @@ use tauri::{
     tray::TrayIconBuilder,
     Manager,
 };
+#[cfg(target_os = "windows")]
+use tauri_plugin_autostart::ManagerExt as _;
 use tokio::sync::Mutex;
 use window_mgr::WindowManager;
 
@@ -26,7 +28,21 @@ fn main() {
         ))
         .invoke_handler(tauri::generate_handler![commands::reattach])
         .setup(|app| {
-            // Create window manager
+            // macOS: hide dock icon — tray-only background app
+            #[cfg(target_os = "macos")]
+            let _ = app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // Windows: re-enable autostart on every launch.
+            // Workaround for tauri-plugins-workspace#771 where the registry
+            // entry is removed after one reboot.
+            #[cfg(target_os = "windows")]
+            {
+                let mgr = app.autolaunch();
+                if mgr.is_enabled().unwrap_or(false) {
+                    let _ = mgr.enable();
+                }
+            }
+
             let wm = Arc::new(Mutex::new(WindowManager::new(app.handle().clone())));
 
             // Create reattach broadcast channel (IPC commands → WS server)
