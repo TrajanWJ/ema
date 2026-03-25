@@ -130,6 +130,31 @@ impl WindowManager {
 
         let win = builder.build().map_err(|e| format!("Failed to create window: {e}"))?;
 
+        // macOS: force NSWindow transparency via Objective-C runtime.
+        // Belt-and-suspenders fix — wry 0.54.2+ should handle this,
+        // but production DMG builds had issues (Tauri #13415).
+        // We manually set NSWindow.isOpaque=false + backgroundColor=clearColor
+        // after window creation to ensure transparency survives bundling.
+        // macOS: force NSWindow transparency via Objective-C runtime.
+        // Belt-and-suspenders fix — wry 0.54.2+ should handle this,
+        // but production DMG builds had issues (Tauri #13415).
+        #[cfg(target_os = "macos")]
+        if use_transparency {
+            if let Ok(ns_window_ptr) = win.ns_window() {
+                unsafe {
+                    use objc2::msg_send;
+                    use objc2::runtime::AnyObject;
+                    let ns_win = ns_window_ptr as *mut AnyObject;
+                    let _: () = msg_send![ns_win, setOpaque: false];
+                    let clear_color: *mut AnyObject = msg_send![
+                        objc2::class!(NSColor), clearColor
+                    ];
+                    let _: () = msg_send![ns_win, setBackgroundColor: clear_color];
+                }
+                info!("macOS: forced NSWindow transparency for {window_id}");
+            }
+        }
+
         let _ = win.show();
 
         let actual_bounds = bounds.clone();

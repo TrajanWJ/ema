@@ -2631,6 +2631,7 @@ dependencies = [
  "env_logger",
  "futures-util",
  "log",
+ "objc2",
  "open",
  "serde",
  "serde_json",
