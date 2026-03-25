@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use tauri::{command, Manager, State, WebviewWindow};
+use tauri::{command, State};
 use tokio::sync::broadcast;
 
 /// Channel for reattach events from webview IPC → WebSocket server.
@@ -37,24 +37,4 @@ pub async fn reattach(
         app_id: args.app_id,
     });
     Ok(())
-}
-
-// ── Drag via set_position (Wayland-compatible) ──
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DragToArgs {
-    pub x: f64,
-    pub y: f64,
-}
-
-/// Move the calling webview window to absolute screen coordinates.
-/// Called repeatedly during drag from the webview's mousemove handler.
-#[command]
-pub fn drag_to(window: WebviewWindow, args: DragToArgs) -> Result<(), String> {
-    window
-        .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
-            args.x, args.y,
-        )))
-        .map_err(|e| e.to_string())
 }
