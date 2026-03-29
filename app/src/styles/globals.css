@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pn-void: #060610;
+  --color-pn-base: #08090E;
+  --color-pn-surface-1: #0E1017;
+  --color-pn-surface-2: #141620;
+  --color-pn-surface-3: #1A1D2A;
+
+  --color-pn-primary-900: #064E3B;
+  --color-pn-primary-500: #0D9373;
+  --color-pn-primary-400: #2DD4A8;
+  --color-pn-primary-50: #CCFBF1;
+
+  --color-pn-secondary-900: #1E3A6E;
+  --color-pn-secondary-500: #4B7BE5;
+  --color-pn-secondary-400: #6B95F0;
+  --color-pn-secondary-50: #E0ECFD;
+
+  --color-pn-tertiary-900: #78350F;
+  --color-pn-tertiary-500: #D97706;
+  --color-pn-tertiary-400: #F59E0B;
+  --color-pn-tertiary-50: #FEF3C7;
+
+  --color-pn-error: #E24B4A;
+  --color-pn-success: #22C55E;
+  --color-pn-warning: #EAB308;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+
+  --ease-smooth: cubic-bezier(0.65, 0.05, 0, 1);
+}
+
+:root {
+  --pn-text-primary: rgba(255, 255, 255, 0.87);
+  --pn-text-secondary: rgba(255, 255, 255, 0.60);
+  --pn-text-tertiary: rgba(255, 255, 255, 0.40);
+  --pn-text-muted: rgba(255, 255, 255, 0.25);
+
+  --pn-border-subtle: rgba(255, 255, 255, 0.04);
+  --pn-border-default: rgba(255, 255, 255, 0.08);
+  --pn-border-strong: rgba(255, 255, 255, 0.15);
+}
+
+.glass-ambient {
+  background: rgba(14, 16, 23, 0.40);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+}
+
+.glass-surface {
+  background: rgba(14, 16, 23, 0.55);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-elevated, .glass {
+  background: rgba(14, 16, 23, 0.65);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body {
+  margin: 0;
+  background: var(--color-pn-base);
+  color: var(--pn-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
