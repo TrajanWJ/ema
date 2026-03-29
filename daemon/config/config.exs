@@ -7,19 +7,19 @@
 # General application configuration
 import Config
 
-config :place,
-  ecto_repos: [Place.Repo],
+config :ema,
+  ecto_repos: [Ema.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
-config :place, PlaceWeb.Endpoint,
+config :ema, EmaWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [json: PlaceWeb.ErrorJSON],
+    formats: [json: EmaWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Place.PubSub,
+  pubsub_server: Ema.PubSub,
   live_view: [signing_salt: "C7j8xZUA"]
 
 # Configure Elixir's Logger

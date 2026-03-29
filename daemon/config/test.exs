@@ -5,14 +5,14 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :place, Place.Repo,
-  database: Path.expand("~/.local/share/place-native/place_test.db"),
+config :ema, Ema.Repo,
+  database: Path.expand("~/.local/share/ema/ema_test.db"),
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :place, PlaceWeb.Endpoint,
+config :ema, EmaWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "3KN5JC6993F+dWmzrQ//vW/ej9yEgRtaSHhCAci2rJhVuQtDdhiHr+TYYjMy/51j",
   server: false

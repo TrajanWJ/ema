@@ -1,8 +1,8 @@
 import Config
 
 # Configure your database
-config :place, Place.Repo,
-  database: Path.expand("~/.local/share/place-native/place_dev.db"),
+config :ema, Ema.Repo,
+  database: Path.expand("~/.local/share/ema/ema_dev.db"),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -13,7 +13,7 @@ config :place, Place.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :place, PlaceWeb.Endpoint,
+config :ema, EmaWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4488],
   check_origin: false,
   code_reloader: true,
@@ -45,7 +45,7 @@ config :place, PlaceWeb.Endpoint,
 # different ports.
 
 # Enable dev routes for dashboard and mailbox
-config :place, dev_routes: true
+config :ema, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
