@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMA App Windows</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; padding: 24px; }
+  h2 { color: #fff; margin-bottom: 4px; font-size: 1.3rem; }
+  .subtitle { color: #8b95a5; font-size: 0.85rem; margin-bottom: 24px; }
+  h3 { color: #ccc; font-size: 1rem; margin: 32px 0 12px; }
+
+  /* Window frame shared by all apps */
+  .app-window {
+    background: #08090E;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    margin-bottom: 24px;
+  }
+  .app-titlebar {
+    height: 36px;
+    background: rgba(14,16,23, 0.55);
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .tb-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tb-icon {
+    font-size: 14px;
+  }
+  .tb-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .tb-breadcrumb {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.30);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .tb-controls {
+    display: flex;
+    gap: 8px;
+  }
+  .tb-controls span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    opacity: 0.8;
+  }
+  .ctrl-close { background: #E24B4A; }
+  .ctrl-min { background: #EAB308; }
+  .ctrl-max { background: #22C55E; }
+
+  .app-body {
+    padding: 20px;
+    min-height: 280px;
+  }
+
+  /* Glass card */
+  .glass {
+    background: rgba(14,16,23, 0.55);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  /* === Habits Window === */
+  .habits-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 16px;
+    width: fit-content;
+  }
+  .habits-tab {
+    padding: 5px 14px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    color: rgba(255,255,255,0.40);
+    cursor: pointer;
+  }
+  .habits-tab.active {
+    background: rgba(45,212,168,0.12);
+    color: #2dd4a8;
+  }
+  .habit-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    gap: 12px;
+  }
+  .habit-row:last-child { border-bottom: none; }
+  .habit-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+  }
+  .habit-check.done { background: rgba(45,212,168,0.15); }
+  .habit-name {
+    flex: 1;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.87);
+  }
+  .habit-streak {
+    font-size: 0.65rem;
+    font-family: "JetBrains Mono", monospace;
+    color: rgba(255,255,255,0.40);
+  }
+  .streak-grid {
+    display: flex;
+    gap: 2px;
+  }
+  .streak-cell {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+  }
+  .streak-cell.on { background: rgba(45,212,168,0.5); }
+  .streak-cell.bright { background: #2dd4a8; }
+
+  /* === Brain Dump Window === */
+  .bd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .bd-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .bd-tog {
+    padding: 5px 14px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    color: rgba(255,255,255,0.40);
+  }
+  .bd-tog.active { background: rgba(107,149,240,0.12); color: #6b95f0; }
+  .capture-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.30);
+    width: 100%;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .inbox-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(14,16,23, 0.55);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    gap: 12px;
+  }
+  .inbox-text {
+    flex: 1;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.87);
+  }
+  .inbox-time {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.25);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .inbox-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .inbox-act {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.40);
+  }
+
+  /* === Journal Window === */
+  .journal-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cal-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cal-day {
+    width: 36px;
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.40);
+    cursor: pointer;
+  }
+  .cal-day .day-num {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.60);
+  }
+  .cal-day.today {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.3);
+  }
+  .cal-day.today .day-num { color: #f59e0b; }
+  .cal-day.has-entry::after {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-top: 2px;
+  }
+  .cal-nav {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.30);
+    cursor: pointer;
+  }
+  .journal-editor {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 14px;
+    min-height: 120px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.70);
+    line-height: 1.7;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .mood-energy {
+    display: flex;
+    gap: 16px;
+  }
+  .mood-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mood-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .mood-circle.selected {
+    border-color: #22C55E;
+    background: rgba(34,197,94,0.12);
+  }
+  .energy-label {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.30);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .energy-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    width: 80px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  .energy-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* Layout: side by side windows */
+  .windows-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .window-full {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* Annotations */
+  .ann-grid {
+    max-width: 1100px;
+    margin: 24px auto 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .ann {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .ann .ann-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #2dd4a8;
+    margin-bottom: 6px;
+  }
+  .ann p {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
+  }
+
+  .options-area {
+    max-width: 1100px;
+    margin: 32px auto 0;
+    display: flex;
+    gap: 12px;
+  }
+  .opt {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .opt:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); }
+  .opt.selected { border-color: #2dd4a8; background: rgba(45,212,168,0.08); }
+  .opt h4 { font-size: 0.85rem; margin-bottom: 4px; }
+  .opt p { font-size: 0.75rem; color: rgba(255,255,255,0.50); }
+</style>
+</head>
+<body>
+
+<h2>EMA — App Window Design</h2>
+<p class="subtitle">Each app opens as its own OS window with shared chrome and its own accent color</p>
+
+<!-- Side by side: Habits + Brain Dump -->
+<div class="windows-row">
+  <!-- Habits Window -->
+  <div class="app-window">
+    <div class="app-titlebar">
+      <div class="tb-left">
+        <span class="tb-icon" style="color: #2dd4a8;">↻</span>
+        <span class="tb-name" style="color: #2dd4a8;">Habits</span>
+        <span class="tb-breadcrumb">· Today</span>
+      </div>
+      <div class="tb-controls">
+        <span class="ctrl-min"></span>
+        <span class="ctrl-max"></span>
+        <span class="ctrl-close"></span>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="habits-tabs">
+        <div class="habits-tab active">Today</div>
+        <div class="habits-tab">Week</div>
+        <div class="habits-tab">Month</div>
+        <div class="habits-tab">Streaks</div>
+      </div>
+      <div class="glass">
+        <div class="habit-row">
+          <div class="habit-check done" style="border-color: #2dd4a8; color: #2dd4a8;">✓</div>
+          <div class="habit-name">Meditate</div>
+          <div class="habit-streak">🔥 7</div>
+          <div class="streak-grid">
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell bright"></div>
+          </div>
+        </div>
+        <div class="habit-row">
+          <div class="habit-check" style="border-color: #6b95f0;"></div>
+          <div class="habit-name">Read 30 min</div>
+          <div class="habit-streak">🔥 12</div>
+          <div class="streak-grid">
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell"></div>
+          </div>
+        </div>
+        <div class="habit-row">
+          <div class="habit-check done" style="border-color: #f59e0b; color: #f59e0b;">✓</div>
+          <div class="habit-name">Exercise</div>
+          <div class="habit-streak">🔥 3</div>
+          <div class="streak-grid">
+            <div class="streak-cell"></div><div class="streak-cell"></div>
+            <div class="streak-cell on"></div><div class="streak-cell"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell bright"></div>
+          </div>
+        </div>
+        <div class="habit-row">
+          <div class="habit-check done" style="border-color: #a855f7; color: #a855f7;">✓</div>
+          <div class="habit-name">Journal</div>
+          <div class="habit-streak">🔥 21</div>
+          <div class="streak-grid">
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell bright"></div>
+          </div>
+        </div>
+        <div class="habit-row">
+          <div class="habit-check done" style="border-color: #ec4899; color: #ec4899;">✓</div>
+          <div class="habit-name">Drink 2L water</div>
+          <div class="habit-streak">🔥 5</div>
+          <div class="streak-grid">
+            <div class="streak-cell"></div><div class="streak-cell on"></div>
+            <div class="streak-cell on"></div><div class="streak-cell on"></div>
+            <div class="streak-cell"></div><div class="streak-cell on"></div>
+            <div class="streak-cell bright"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Brain Dump Window -->
+  <div class="app-window">
+    <div class="app-titlebar">
+      <div class="tb-left">
+        <span class="tb-icon" style="color: #6b95f0;">◎</span>
+        <span class="tb-name" style="color: #6b95f0;">Brain Dump</span>
+        <span class="tb-breadcrumb">· Queue</span>
+      </div>
+      <div class="tb-controls">
+        <span class="ctrl-min"></span>
+        <span class="ctrl-max"></span>
+        <span class="ctrl-close"></span>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="bd-header">
+        <div class="bd-toggle">
+          <div class="bd-tog active">Queue</div>
+          <div class="bd-tog">Kanban</div>
+        </div>
+      </div>
+      <div class="capture-input">
+        <span>What's on your mind?</span>
+        <span style="font-size: 0.6rem;">Super+Shift+C</span>
+      </div>
+      <div class="inbox-item">
+        <div class="inbox-text">Research Tauri 2 multi-window API</div>
+        <div class="inbox-time">12m ago</div>
+        <div class="inbox-actions">
+          <div class="inbox-act" style="color: #6b95f0; border-color: rgba(107,149,240,0.3);">→ Task</div>
+          <div class="inbox-act">→ Note</div>
+          <div class="inbox-act">✕</div>
+        </div>
+      </div>
+      <div class="inbox-item">
+        <div class="inbox-text">Call dentist re: appointment Thursday</div>
+        <div class="inbox-time">1h ago</div>
+        <div class="inbox-actions">
+          <div class="inbox-act" style="color: #6b95f0; border-color: rgba(107,149,240,0.3);">→ Task</div>
+          <div class="inbox-act">→ Note</div>
+          <div class="inbox-act">✕</div>
+        </div>
+      </div>
+      <div class="inbox-item">
+        <div class="inbox-text">Idea: weekly review template in vault</div>
+        <div class="inbox-time">3h ago</div>
+        <div class="inbox-actions">
+          <div class="inbox-act" style="color: #6b95f0; border-color: rgba(107,149,240,0.3);">→ Task</div>
+          <div class="inbox-act">→ Note</div>
+          <div class="inbox-act">✕</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Journal Window (full width) -->
+<h3 style="max-width: 1100px; margin: 24px auto 12px;">Journal — full-width app window</h3>
+
+<div class="window-full">
+  <div class="app-window">
+    <div class="app-titlebar">
+      <div class="tb-left">
+        <span class="tb-icon" style="color: #f59e0b;">✎</span>
+        <span class="tb-name" style="color: #f59e0b;">Journal</span>
+        <span class="tb-breadcrumb">· Sat 29 Mar 2026</span>
+      </div>
+      <div class="tb-controls">
+        <span class="ctrl-min"></span>
+        <span class="ctrl-max"></span>
+        <span class="ctrl-close"></span>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="journal-layout">
+        <!-- Calendar strip -->
+        <div class="cal-strip">
+          <span class="cal-nav">‹</span>
+          <div class="cal-day has-entry"><span style="font-size:0.55rem;">Mon</span><span class="day-num">24</span></div>
+          <div class="cal-day has-entry"><span style="font-size:0.55rem;">Tue</span><span class="day-num">25</span></div>
+          <div class="cal-day has-entry"><span style="font-size:0.55rem;">Wed</span><span class="day-num">26</span></div>
+          <div class="cal-day"><span style="font-size:0.55rem;">Thu</span><span class="day-num">27</span></div>
+          <div class="cal-day has-entry"><span style="font-size:0.55rem;">Fri</span><span class="day-num">28</span></div>
+          <div class="cal-day today has-entry"><span style="font-size:0.55rem;">Sat</span><span class="day-num">29</span></div>
+          <div class="cal-day"><span style="font-size:0.55rem;">Sun</span><span class="day-num">30</span></div>
+          <span class="cal-nav">›</span>
+          <span style="margin-left: 8px; font-size: 0.6rem; color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); padding: 3px 8px; border-radius: 4px;">Today</span>
+        </div>
+
+        <!-- One thing -->
+        <div style="background: rgba(255,255,255,0.02); border-left: 2px solid #D97706; padding: 8px 14px; border-radius: 4px;">
+          <span style="font-size: 0.6rem; color: #D97706; text-transform: uppercase; letter-spacing: 0.06em;">One Thing</span>
+          <div style="font-size: 0.85rem; color: rgba(255,255,255,0.87); margin-top: 2px;">Finish EMA multi-window architecture design</div>
+        </div>
+
+        <!-- Editor -->
+        <div class="journal-editor">
+          <div style="color: rgba(255,255,255,0.30); font-size: 0.7rem; margin-bottom: 8px;">Edit &nbsp;|&nbsp; Preview &nbsp;|&nbsp; Split</div>
+          Started the day with a clear head after meditation. Spent the morning on the EMA redesign — the multi-window approach feels right. Each app as its own native window is exactly what a desktop tool should be.<br><br>
+          [14:20] Brain dump: Research Tauri 2 multi-window API<br>
+          [15:05] Good progress on the design spec with Claude.
+        </div>
+
+        <!-- Mood + Energy -->
+        <div class="mood-energy">
+          <div class="mood-row">
+            <span style="font-size: 0.6rem; color: rgba(255,255,255,0.30); margin-right: 6px;">MOOD</span>
+            <div class="mood-circle">😫</div>
+            <div class="mood-circle">😔</div>
+            <div class="mood-circle">😐</div>
+            <div class="mood-circle selected">😊</div>
+            <div class="mood-circle">🤩</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div><span class="energy-label">Physical</span><div class="energy-bar"><div class="energy-fill" style="width: 70%; background: #22C55E;"></div></div></div>
+            <div><span class="energy-label">Mental</span><div class="energy-bar"><div class="energy-fill" style="width: 55%; background: #6b95f0;"></div></div></div>
+            <div><span class="energy-label">Emotional</span><div class="energy-bar"><div class="energy-fill" style="width: 80%; background: #f59e0b;"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Annotations -->
+<div class="ann-grid">
+  <div class="ann">
+    <div class="ann-title">Shared Window Chrome</div>
+    <p>Every app window gets the same 36px title bar: app icon + name in the app's accent color, breadcrumb showing current view, and min/max/close buttons. The title bar is the drag region.</p>
+  </div>
+  <div class="ann">
+    <div class="ann-title">Independent Lifecycle</div>
+    <p>Each window connects to the daemon independently via its own WebSocket channel. Closing a window disconnects that channel but doesn't affect others. Reopening reconnects and gets fresh state.</p>
+  </div>
+  <div class="ann">
+    <div class="ann-title">App Accent Colors</div>
+    <p><span style="color:#2dd4a8">Habits: teal</span> · <span style="color:#6b95f0">Brain Dump: blue</span> · <span style="color:#f59e0b">Journal: amber</span> · <span style="color:rgba(255,255,255,0.5)">Settings: neutral</span>. The accent carries through title bar, active states, and primary actions.</p>
+  </div>
+</div>
+
+<h3 style="max-width: 1100px; margin: 32px auto 12px; color: #ccc;">App window design — does this work?</h3>
+<p style="max-width: 1100px; margin: 0 auto 16px; font-size: 0.8rem; color: #8b95a5;">These are the existing V1 pages ported into independent windows with shared chrome</p>
+
+<div class="options-area" style="max-width: 1100px;">
+  <div class="opt" onclick="this.classList.toggle('selected')">
+    <h4>A — Looks right</h4>
+    <p>App windows match the vision, ready to finalize the spec</p>
+  </div>
+  <div class="opt" onclick="this.classList.toggle('selected')">
+    <h4>B — Needs changes</h4>
+    <p>I'll describe in the terminal</p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+<h2>EMA — Multi-Window Architecture</h2>
+<p class="subtitle">Single Tauri process, multiple OS-level windows, Elixir daemon backend</p>
+
+<div class="mockup">
+  <div class="mockup-header">System Architecture</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 24px; background: #0a0b10;">
+    <pre style="color: #8b95a5; margin: 0;">
+┌─── KDE Desktop ──────────────────────────────────────────────────────┐
+│                                                                       │
+│  ┌─ Launchpad Window ──┐  ┌─ Habits Window ──┐  ┌─ Journal Window ─┐ │
+│  │ <span style="color: #2dd4a8;">EMA</span>            ─ □ ✕│  │ <span style="color: #6b95f0;">Habits</span>      ─ □ ✕│  │ <span style="color: #f59e0b;">Journal</span>     ─ □ ✕│ │
+│  │                      │  │                   │  │                   │ │
+│  │  ┌────┐ ┌────┐      │  │  Today  Week      │  │  Mon 29 Mar       │ │
+│  │  │🧠 3│ │✅ 5│      │  │  ☑ Meditate  🔥7  │  │  ─────────────    │ │
+│  │  │Dump│ │Hbts│      │  │  ☐ Read      🔥12 │  │  Dear journal...  │ │
+│  │  ├────┤ ├────┤      │  │  ☑ Exercise  🔥3  │  │                   │ │
+│  │  │📓 │ │⚙️ │      │  │                   │  │  Mood: 😊         │ │
+│  │  │Jrnl│ │Sets│      │  │                   │  │  Energy: ███░░    │ │
+│  │  └────┘ └────┘      │  └───────────────────┘  └───────────────────┘ │
+│  │                      │                                               │
+│  │  ┌────┐ ┌────┐      │  Each window is a real OS window:             │
+│  │  │📋 │ │🎯 │      │  • Alt+Tab between them                       │
+│  │  │Task│ │Goal│      │  • KDE tiling / snapping                      │
+│  │  ├────┤ ├────┤      │  • Independent minimize / close               │
+│  │  │⏱️ │ │📝 │      │  • Taskbar entries                             │
+│  │  │Fcus│ │Note│      │                                               │
+│  │  └────┘ └────┘      │                                               │
+│  └──────────────────────┘                                               │
+│                                                                       │
+│  ┌─ System Tray ──────────────────────────────────────────────────────┐ │
+│  │  ... [EMA icon] ...                                                │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────┘
+
+                            │ WebSocket + REST │
+                            ▼                  ▼
+              ┌──────────────────────────────────────┐
+              │  <span style="color: #2dd4a8;">Elixir Daemon</span> (systemd user service)   │
+              │  Port 4488 — Phoenix Channels + REST  │
+              │  SQLite: ~/.local/share/ema/ema.db     │
+              │                                        │
+              │  Contexts: BrainDump │ Habits │ Journal │
+              │  Settings │ Tasks │ Goals │ Focus │ ... │
+              │                                        │
+              │  <span style="color: #6b95f0;">Window Manager State</span>                   │
+              │  (tracks open windows, positions, sizes)│
+              └──────────────────────────────────────────┘
+    </pre>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>Startup Flow</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px;">
+      <div class="label">Step 1</div>
+      <p style="margin: 8px 0 0; font-size: 13px;">systemd starts Elixir daemon</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px;">
+      <div class="label">Step 2</div>
+      <p style="margin: 8px 0 0; font-size: 13px;">KDE autostart launches EMA (Tauri)</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px;">
+      <div class="label">Step 3</div>
+      <p style="margin: 8px 0 0; font-size: 13px;">EMA reads saved workspace from daemon</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px;">
+      <div class="label">Step 4</div>
+      <p style="margin: 8px 0 0; font-size: 13px;">Restores Launchpad + previously open app windows at saved positions</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>Does this architecture match your vision?</h3>
+  <p class="subtitle">Click to confirm or flag concerns</p>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Looks right</h3>
+      <p>Architecture matches what I had in mind</p>
+    </div>
+  </div>
+  <div class="option" data-choice="concerns" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Concerns / changes</h3>
+      <p>I'll describe in the terminal</p>
+    </div>
+  </div>
+</div>

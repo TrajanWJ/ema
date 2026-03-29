@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMA Launchpad Design</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; padding: 24px; }
+
+  h2 { color: #fff; margin-bottom: 4px; font-size: 1.3rem; }
+  .subtitle { color: #8b95a5; font-size: 0.85rem; margin-bottom: 24px; }
+  h3 { color: #ccc; font-size: 1rem; margin: 24px 0 12px; }
+
+  /* === EMA Window Frame === */
+  .ema-window {
+    background: #08090E;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+
+  /* Ambient Strip (drag region) */
+  .ambient-strip {
+    height: 32px;
+    background: rgba(14,16,23, 0.40);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .ambient-strip .brand {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #2dd4a8;
+    text-transform: uppercase;
+  }
+  .ambient-strip .clock {
+    font-size: 0.65rem;
+    font-family: "JetBrains Mono", monospace;
+    color: rgba(255,255,255,0.40);
+  }
+  .ambient-strip .controls {
+    display: flex;
+    gap: 8px;
+  }
+  .ambient-strip .controls span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .ctrl-close { background: #E24B4A; }
+  .ctrl-min { background: #EAB308; }
+  .ctrl-max { background: #22C55E; }
+
+  /* Main content area */
+  .lp-body {
+    display: flex;
+    min-height: 520px;
+  }
+
+  /* Left sidebar — now a dock */
+  .dock {
+    width: 56px;
+    background: rgba(14,16,23, 0.55);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+  }
+  .dock-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    color: rgba(255,255,255,0.40);
+  }
+  .dock-icon:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.70); }
+  .dock-icon.active {
+    color: #2dd4a8;
+    background: rgba(45,212,168,0.08);
+  }
+  .dock-icon.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background: #2dd4a8;
+    border-radius: 0 2px 2px 0;
+  }
+  .dock-icon .running-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22C55E;
+    border: 1px solid #08090E;
+  }
+  .dock-sep {
+    width: 24px;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    margin: 4px 0;
+  }
+  .dock-spacer { flex: 1; }
+
+  /* Main canvas */
+  .canvas {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Greeting / context bar */
+  .greeting {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .greeting h1 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.87);
+  }
+  .greeting h1 span { color: #2dd4a8; }
+  .greeting .date {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.40);
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* One Thing banner */
+  .one-thing {
+    background: rgba(14,16,23, 0.55);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-left: 3px solid #D97706;
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+  .one-thing .label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #D97706;
+    margin-bottom: 4px;
+  }
+  .one-thing .text {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.87);
+  }
+
+  /* App tile grid */
+  .tile-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    flex: 1;
+  }
+
+  .app-tile {
+    background: rgba(14,16,23, 0.55);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .app-tile:hover {
+    border-color: rgba(255,255,255,0.10);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .app-tile .tile-icon {
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+  }
+  .app-tile .tile-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.87);
+    margin-bottom: 4px;
+  }
+  .app-tile .tile-status {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.40);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .app-tile .tile-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #2dd4a8;
+    color: #08090E;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .app-tile .tile-progress {
+    margin-top: auto;
+    padding-top: 10px;
+  }
+  .progress-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .tile-accent-braindump { border-top: 2px solid #6b95f0; }
+  .tile-accent-braindump .tile-icon { color: #6b95f0; }
+  .tile-accent-habits { border-top: 2px solid #2dd4a8; }
+  .tile-accent-habits .tile-icon { color: #2dd4a8; }
+  .tile-accent-journal { border-top: 2px solid #f59e0b; }
+  .tile-accent-journal .tile-icon { color: #f59e0b; }
+  .tile-accent-settings { border-top: 2px solid rgba(255,255,255,0.25); }
+  .tile-accent-settings .tile-icon { color: rgba(255,255,255,0.50); }
+
+  .tile-scaffold {
+    opacity: 0.45;
+    border-style: dashed;
+  }
+  .tile-scaffold:hover { opacity: 0.65; }
+  .tile-scaffold .tile-status { color: rgba(255,255,255,0.25); }
+
+  /* Command bar */
+  .command-bar {
+    height: 40px;
+    background: rgba(14,16,23, 0.40);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .cmd-input {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.30);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .cmd-action {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.30);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .cmd-action:hover { color: rgba(255,255,255,0.60); border-color: rgba(255,255,255,0.10); }
+
+  /* Annotations */
+  .annotations {
+    max-width: 900px;
+    margin: 24px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .annotation {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .annotation .ann-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #2dd4a8;
+    margin-bottom: 6px;
+  }
+  .annotation p {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.60);
+    line-height: 1.5;
+  }
+
+  /* Options */
+  .options-area {
+    max-width: 900px;
+    margin: 32px auto 0;
+    display: flex;
+    gap: 12px;
+  }
+  .opt {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .opt:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); }
+  .opt.selected { border-color: #2dd4a8; background: rgba(45,212,168,0.08); }
+  .opt h4 { font-size: 0.85rem; margin-bottom: 4px; }
+  .opt p { font-size: 0.75rem; color: rgba(255,255,255,0.50); }
+</style>
+</head>
+<body>
+
+<h2>EMA — Launchpad Design</h2>
+<p class="subtitle">Evolution of the current Shell into a multi-window workspace manager</p>
+
+<!-- The Launchpad Window -->
+<div class="ema-window">
+  <!-- Ambient Strip -->
+  <div class="ambient-strip">
+    <span class="brand">ema</span>
+    <span class="clock">14:32 &middot; Sat 29 Mar</span>
+    <div class="controls">
+      <span class="ctrl-min"></span>
+      <span class="ctrl-max"></span>
+      <span class="ctrl-close"></span>
+    </div>
+  </div>
+
+  <div class="lp-body">
+    <!-- Dock (evolved sidebar) -->
+    <div class="dock">
+      <div class="dock-icon active" title="Launchpad">◉</div>
+      <div class="dock-sep"></div>
+      <div class="dock-icon" title="Brain Dump" style="color: #6b95f0;">
+        ◎
+        <span class="running-dot"></span>
+      </div>
+      <div class="dock-icon" title="Habits" style="color: #2dd4a8;">↻</div>
+      <div class="dock-icon" title="Journal" style="color: #f59e0b;">
+        ✎
+        <span class="running-dot"></span>
+      </div>
+      <div class="dock-spacer"></div>
+      <div class="dock-sep"></div>
+      <div class="dock-icon" title="Settings">⚙</div>
+    </div>
+
+    <!-- Main Canvas -->
+    <div class="canvas">
+      <!-- Greeting -->
+      <div class="greeting">
+        <h1>Good afternoon, <span>Trajan</span></h1>
+        <div class="date">SAT 29 MAR 2026</div>
+      </div>
+
+      <!-- One Thing -->
+      <div class="one-thing">
+        <div class="label">One Thing</div>
+        <div class="text">Finish EMA multi-window architecture design</div>
+      </div>
+
+      <!-- App Tiles -->
+      <div class="tile-grid">
+        <!-- V1 Apps -->
+        <div class="app-tile tile-accent-braindump">
+          <div class="tile-badge">3</div>
+          <div class="tile-icon">◎</div>
+          <div class="tile-name">Brain Dump</div>
+          <div class="tile-status">3 unprocessed</div>
+        </div>
+
+        <div class="app-tile tile-accent-habits">
+          <div class="tile-icon">↻</div>
+          <div class="tile-name">Habits</div>
+          <div class="tile-status">5/7 today</div>
+          <div class="tile-progress">
+            <div class="progress-bar">
+              <div class="fill" style="width: 71%; background: #2dd4a8;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-tile tile-accent-journal">
+          <div class="tile-icon">✎</div>
+          <div class="tile-name">Journal</div>
+          <div class="tile-status">last entry 2h ago</div>
+        </div>
+
+        <div class="app-tile tile-accent-settings">
+          <div class="tile-icon">⚙</div>
+          <div class="tile-name">Settings</div>
+          <div class="tile-status">workspace · apps · data</div>
+        </div>
+
+        <!-- Scaffolded Future Apps -->
+        <div class="app-tile tile-scaffold">
+          <div class="tile-icon">☐</div>
+          <div class="tile-name">Tasks</div>
+          <div class="tile-status">coming soon</div>
+        </div>
+
+        <div class="app-tile tile-scaffold">
+          <div class="tile-icon">◎</div>
+          <div class="tile-name">Goals</div>
+          <div class="tile-status">coming soon</div>
+        </div>
+
+        <div class="app-tile tile-scaffold">
+          <div class="tile-icon">⏱</div>
+          <div class="tile-name">Focus</div>
+          <div class="tile-status">coming soon</div>
+        </div>
+
+        <div class="app-tile tile-scaffold">
+          <div class="tile-icon">✦</div>
+          <div class="tile-name">Notes</div>
+          <div class="tile-status">coming soon</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command Bar -->
+  <div class="command-bar">
+    <div class="cmd-input">Search everything... &nbsp; Ctrl+K</div>
+    <div class="cmd-action">+ Capture</div>
+    <div class="cmd-action">+ Journal</div>
+  </div>
+</div>
+
+<!-- Design Annotations -->
+<div class="annotations">
+  <div class="annotation">
+    <div class="ann-title">Dock Behavior</div>
+    <p>The sidebar evolves into a dock. Icons show <strong>running indicators</strong> (green dots) for apps with open windows. Clicking a dock icon focuses an open window or launches a new one. The Launchpad icon is always first.</p>
+  </div>
+  <div class="annotation">
+    <div class="ann-title">App Tiles</div>
+    <p>Each tile shows <strong>live glanceable data</strong> from the daemon — unprocessed count, habit progress, last journal entry. V1 apps are full color; scaffolded apps are dashed/dimmed. Click to open as a separate OS window.</p>
+  </div>
+  <div class="annotation">
+    <div class="ann-title">Workspace Restore</div>
+    <p>On startup, EMA reads saved workspace state from the daemon: which windows were open, their positions/sizes. It reopens them automatically. The "running dots" in the dock reflect this restored state.</p>
+  </div>
+  <div class="annotation">
+    <div class="ann-title">Window Chrome</div>
+    <p>Custom title bar with glass ambient background. Drag region on the ambient strip. Custom min/max/close buttons (right side). Each app window gets the same chrome but with its own accent color in the brand area.</p>
+  </div>
+</div>
+
+<h3 style="max-width: 900px; margin: 32px auto 12px; color: #ccc;">Does this Launchpad direction work?</h3>
+<p style="max-width: 900px; margin: 0 auto 16px; font-size: 0.8rem; color: #8b95a5;">Click to select, then tell me what to refine in the terminal</p>
+
+<div class="options-area">
+  <div class="opt" onclick="this.classList.toggle('selected')">
+    <h4>A — Approve direction</h4>
+    <p>This captures the vision, ready to detail the app windows next</p>
+  </div>
+  <div class="opt" onclick="this.classList.toggle('selected')">
+    <h4>B — Needs changes</h4>
+    <p>I'll describe what's off in the terminal</p>
+  </div>
+</div>
+
+</body>
+</html>

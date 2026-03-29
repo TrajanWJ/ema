@@ -25,7 +25,7 @@ pub fn run() {
                 .build()?;
 
             // Create tray icon
-            let _tray = TrayIconBuilder::new()
+            TrayIconBuilder::new()
                 .tooltip("EMA")
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -41,13 +41,12 @@ pub fn run() {
                     }
                     _ => {}
                 })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
-                    } = event
-                    {
+                    } => {
                         let app = tray.app_handle();
                         if let Some(window) = app.get_webview_window("launchpad") {
                             let _ = window.unminimize();
@@ -55,6 +54,7 @@ pub fn run() {
                             let _ = window.set_focus();
                         }
                     }
+                    _ => {}
                 })
                 .build(app)?;
 

@@ -1,7 +1,13 @@
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+
 const BASE = "http://localhost:4488/api";
 
+// Use Tauri's HTTP plugin which respects capability permissions,
+// fall back to browser fetch for dev in browser
+const doFetch = typeof window !== "undefined" && "__TAURI__" in window ? tauriFetch : globalThis.fetch;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await doFetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
