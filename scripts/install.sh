@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== place-native setup ==="
+echo "=== EMA setup ==="
 
 # Ensure Erlang + Elixir on PATH (mise-installed)
 export PATH="$HOME/.local/share/mise/installs/erlang/27.3.4.9/bin:$HOME/.local/share/mise/installs/elixir/1.18.4-otp-27/bin:$PATH"
@@ -46,6 +46,6 @@ pnpm install
 cd ..
 
 # Data directory
-mkdir -p ~/.local/share/place-native
+mkdir -p ~/.local/share/ema
 
 echo "=== Setup complete ==="

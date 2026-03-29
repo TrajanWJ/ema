@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateJournalEntries do
+defmodule Ema.Repo.Migrations.CreateJournalEntries do
   use Ecto.Migration
 
   def change do

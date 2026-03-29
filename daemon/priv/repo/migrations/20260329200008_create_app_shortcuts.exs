@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateAppShortcuts do
+defmodule Ema.Repo.Migrations.CreateAppShortcuts do
   use Ecto.Migration
 
   def change do

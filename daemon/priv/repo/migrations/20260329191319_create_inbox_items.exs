@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateInboxItems do
+defmodule Ema.Repo.Migrations.CreateInboxItems do
   use Ecto.Migration
 
   def change do

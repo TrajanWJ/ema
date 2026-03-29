@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateNotes do
+defmodule Ema.Repo.Migrations.CreateNotes do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateFocus do
+defmodule Ema.Repo.Migrations.CreateFocus do
   use Ecto.Migration
 
   def change do

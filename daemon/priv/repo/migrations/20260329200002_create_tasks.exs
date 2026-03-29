@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateTasks do
+defmodule Ema.Repo.Migrations.CreateTasks do
   use Ecto.Migration
 
   def change do

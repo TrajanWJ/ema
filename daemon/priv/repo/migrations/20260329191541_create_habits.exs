@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateHabits do
+defmodule Ema.Repo.Migrations.CreateHabits do
   use Ecto.Migration
 
   def change do

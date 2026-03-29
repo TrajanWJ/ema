@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateVaultIndex do
+defmodule Ema.Repo.Migrations.CreateVaultIndex do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Place.Repo.Migrations.CreateClaudeSessions do
+defmodule Ema.Repo.Migrations.CreateClaudeSessions do
   use Ecto.Migration
 
   def change do
