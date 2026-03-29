@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Shell } from "@/components/layout/Shell";
+import { DashboardPage } from "@/components/dashboard/DashboardPage";
+import { BrainDumpPage } from "@/components/brain-dump/BrainDumpPage";
 
 type Page = "dashboard" | "brain-dump" | "habits" | "journal" | "settings";
 
@@ -18,8 +20,8 @@ export default function App() {
 
   return (
     <Shell activePage={page} onNavigate={setPage}>
-      {page === "dashboard" && <Placeholder name="Dashboard" />}
-      {page === "brain-dump" && <Placeholder name="Brain Dump" />}
+      {page === "dashboard" && <DashboardPage onNavigate={setPage} />}
+      {page === "brain-dump" && <BrainDumpPage />}
       {page === "habits" && <Placeholder name="Habits" />}
       {page === "journal" && <Placeholder name="Journal" />}
       {page === "settings" && <Placeholder name="Settings" />}
