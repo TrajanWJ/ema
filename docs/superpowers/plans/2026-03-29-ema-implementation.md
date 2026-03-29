@@ -353,7 +353,7 @@ git commit -m "chore: add install script and document setup requirements"
 - [ ] **Step 1: Generate Phoenix project (no HTML, no assets, no mailer, no dashboard)**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 mix phx.new daemon --no-html --no-assets --no-mailer --no-dashboard --no-gettext --database sqlite3
 ```
 
@@ -434,7 +434,7 @@ Expected: Server starts on `http://localhost:4488`. Ctrl+C to stop.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: scaffold Phoenix daemon on localhost:4488 with SQLite"
 ```
@@ -559,7 +559,7 @@ Expected: 0 errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add WebSocket infrastructure with 5 channel stubs"
 ```
@@ -835,7 +835,7 @@ Expected: All tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add Brain Dump context with schema, queries, and tests"
 ```
@@ -1165,7 +1165,7 @@ Expected: All tests pass.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add Habits context with streak calculation and tests"
 ```
@@ -1414,7 +1414,7 @@ Expected: All tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add Journal context with entry management, search, and tests"
 ```
@@ -1577,7 +1577,7 @@ mix test test/place/settings_test.exs
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add Settings context with key-value store and defaults"
 ```
@@ -1959,7 +1959,7 @@ Expected: JSON response with today's dashboard data.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: add REST controllers and routing for all V1 endpoints"
 ```
@@ -2112,7 +2112,7 @@ cd daemon && mix compile
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: wire channels to deliver real data on join"
 ```
@@ -2631,7 +2631,7 @@ Expected: 0 errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add daemon/
 git commit -m "feat: scaffold 10 future contexts with migrations, schemas, and module docs"
 ```
@@ -2648,7 +2648,7 @@ git commit -m "feat: scaffold 10 future contexts with migrations, schemas, and m
 - [ ] **Step 1: Create Tauri project with React template**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 pnpm create tauri-app app --template react-ts --manager pnpm
 ```
 
@@ -2838,7 +2838,7 @@ Expected: Both build successfully. (First Cargo build will take a while — down
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add app/
 git commit -m "feat: scaffold Tauri + React + Vite + Tailwind with design tokens and glass system"
 ```
@@ -3094,7 +3094,7 @@ export function getMonthDays(year: number, month: number): string[] {
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add app/src/
 git commit -m "feat: add WebSocket client, REST client, types, and utility libs"
 ```
@@ -3419,7 +3419,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add app/src/stores/
 git commit -m "feat: add Zustand stores for all V1 apps with WebSocket sync"
 ```
@@ -3836,7 +3836,7 @@ cd app && pnpm tsc --noEmit
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add app/src/
 git commit -m "feat: add UI primitives, app shell with sidebar/strip/command bar, and page routing"
 ```
@@ -3882,7 +3882,7 @@ After all cards are built, update `App.tsx` to render `<DashboardPage />` instea
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add app/src/components/dashboard/ app/src/App.tsx
 git commit -m "feat: add Dashboard page with 6 executive summary cards"
 ```
@@ -3979,7 +3979,7 @@ WantedBy=default.target
 
 ```bash
 chmod +x scripts/dev.sh
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add scripts/
 git commit -m "feat: add dev script and systemd service for daemon"
 ```
@@ -3991,7 +3991,7 @@ git commit -m "feat: add dev script and systemd service for daemon"
 - [ ] **Step 1: Start the full stack**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 bash scripts/dev.sh
 ```
 
@@ -4015,7 +4015,7 @@ cd daemon && mix test
 - [ ] **Step 5: Final commit**
 
 ```bash
-cd /home/trajan/Projects/place-native
+cd /home/trajan/Projects/ema
 git add -A
 git commit -m "feat: place-native v0.1.0 — full stack working end-to-end"
 ```

@@ -35,7 +35,7 @@ defmodule EmaWeb.Endpoint do
   end
 
   socket "/socket", EmaWeb.UserSocket,
-    websocket: [timeout: 45_000],
+    websocket: [timeout: 45_000, check_origin: false],
     longpoll: false
 
   plug Plug.RequestId

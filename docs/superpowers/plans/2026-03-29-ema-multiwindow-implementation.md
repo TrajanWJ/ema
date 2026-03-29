@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform place-native from a single-window sidebar app into EMA — a multi-window desktop system where each app runs as its own OS window, with a central Launchpad and workspace persistence.
+**Goal:** Transform ema from a single-window sidebar app into EMA — a multi-window desktop system where each app runs as its own OS window, with a central Launchpad and workspace persistence.
 
 **Architecture:** Single Tauri 2 process spawns multiple OS windows via `WebviewWindow` API. Each window loads a route (`/`, `/brain-dump`, etc.) and connects independently to the Elixir daemon. A new `Ema.Workspace` context tracks window state for session restoration.
 
@@ -114,7 +114,7 @@ app/
 │       └── globals.css                        # Update brand vars
 ├── scripts/
 │   ├── dev.sh                                 # Rename references
-│   └── ema.service                            # Renamed from place-native.service
+│   └── ema.service                            # Renamed from ema.service
 ```
 
 ---
@@ -128,7 +128,7 @@ This is a bulk mechanical rename across all daemon files. Every `Place` becomes 
 - [ ] **Step 1: Rename directory structure**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 
 # Rename lib directories
 mv lib/place.ex lib/ema.ex
@@ -144,7 +144,7 @@ mv test/place_web test/ema_web 2>/dev/null || true
 - [ ] **Step 2: Bulk rename module references in all .ex and .exs files**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 
 # Replace PlaceWeb → EmaWeb (must come before Place → Ema to avoid PlaceWeb becoming EmaWeb)
 find . -name "*.ex" -o -name "*.exs" | xargs sed -i 's/PlaceWeb/EmaWeb/g'
@@ -198,7 +198,7 @@ In `config/runtime.exs`, update all `:place` references to `:ema` and `Place`/`P
 - [ ] **Step 5: Verify compilation**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix deps.get && mix compile
 ```
 
@@ -207,7 +207,7 @@ Expected: Clean compilation with no errors. There may be warnings about unused v
 - [ ] **Step 6: Run tests**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix test
 ```
 
@@ -235,7 +235,7 @@ New context that tracks which app windows are open, their positions and sizes.
 - [ ] **Step 1: Generate the migration file**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix ecto.gen.migration create_workspace_windows
 ```
 
@@ -420,7 +420,7 @@ end
 - [ ] **Step 6: Run migration and tests**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix ecto.migrate
 mix test test/ema/workspace_test.exs
 ```
@@ -538,7 +538,7 @@ In `daemon/lib/ema_web/user_socket.ex`, add:
 - [ ] **Step 4: Verify compilation**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix compile
 ```
 
@@ -555,7 +555,7 @@ git commit -m "feat: add workspace REST endpoints and WebSocket channel"
 
 ## Task 4: Rename Frontend Project Config
 
-Rename the Tauri app from place-native to ema and update identifiers.
+Rename the Tauri app from ema to ema and update identifiers.
 
 **Files:**
 - Modify: `app/package.json`
@@ -670,7 +670,7 @@ In `app/src/components/layout/AmbientStrip.tsx`, change the brand text from `"pl
 - [ ] **Step 6: Verify frontend compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 pnpm build
 ```
 
@@ -680,7 +680,7 @@ Expected: Successful build (Vite + TypeScript compile).
 
 ```bash
 git add -A
-git commit -m "refactor: rename frontend from place-native to ema"
+git commit -m "refactor: rename frontend from ema to ema"
 ```
 
 ---
@@ -817,7 +817,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 - [ ] **Step 3: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -842,7 +842,7 @@ The core module that opens, closes, and focuses app windows using Tauri's `Webvi
 - [ ] **Step 1: Install Tauri API dependency**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 pnpm add @tauri-apps/api
 ```
 
@@ -933,7 +933,7 @@ export async function saveWindowState(appId: string): Promise<void> {
 - [ ] **Step 3: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1074,7 +1074,7 @@ export function AppWindowChrome({
 - [ ] **Step 2: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1315,7 +1315,7 @@ export function AppTile({
 - [ ] **Step 3: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1484,7 +1484,7 @@ function formatRelativeTime(isoString: string): string {
 - [ ] **Step 2: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1705,7 +1705,7 @@ export function SettingsApp() {
 - [ ] **Step 5: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1857,7 +1857,7 @@ export function Shell({ children }: ShellProps) {
 - [ ] **Step 3: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -1999,7 +1999,7 @@ pub fn run() {
 - [ ] **Step 4: Verify Rust compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 pnpm tauri build --debug 2>&1 | tail -5
 ```
 
@@ -2008,7 +2008,7 @@ If there are compilation issues, check the Cargo.toml dependencies match the Tau
 Alternatively, just check the Rust compilation:
 
 ```bash
-cd /home/trajan/Projects/place-native/app/src-tauri
+cd /home/trajan/Projects/ema/app/src-tauri
 cargo check
 ```
 
@@ -2133,7 +2133,7 @@ export function AmbientStrip() {
 - [ ] **Step 2: Verify TypeScript compiles**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 npx tsc --noEmit
 ```
 
@@ -2154,20 +2154,20 @@ Rename scripts and systemd service for EMA.
 
 **Files:**
 - Modify: `scripts/dev.sh`
-- Rename: `scripts/place-native.service` → `scripts/ema.service`
+- Rename: `scripts/ema.service` → `scripts/ema.service`
 
 - [ ] **Step 1: Update dev.sh**
 
-Read `scripts/dev.sh` and replace all references to `place-native` with `ema` and `place` with `ema`. Update the data directory path to `~/.local/share/ema/`.
+Read `scripts/dev.sh` and replace all references to `ema` with `ema` and `place` with `ema`. Update the data directory path to `~/.local/share/ema/`.
 
 - [ ] **Step 2: Rename and update systemd service**
 
 ```bash
-cd /home/trajan/Projects/place-native
-mv scripts/place-native.service scripts/ema.service 2>/dev/null || true
+cd /home/trajan/Projects/ema
+mv scripts/ema.service scripts/ema.service 2>/dev/null || true
 ```
 
-Update `scripts/ema.service` — change the Description, ExecStart paths, and any `place-native` references to `ema`.
+Update `scripts/ema.service` — change the Description, ExecStart paths, and any `ema` references to `ema`.
 
 - [ ] **Step 3: Commit**
 
@@ -2191,7 +2191,7 @@ mkdir -p ~/.local/share/ema
 - [ ] **Step 2: Start the daemon**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix ecto.create
 mix ecto.migrate
 mix phx.server &
@@ -2211,7 +2211,7 @@ Expected: JSON responses with `data` arrays/objects.
 - [ ] **Step 4: Run all daemon tests**
 
 ```bash
-cd /home/trajan/Projects/place-native/daemon
+cd /home/trajan/Projects/ema/daemon
 mix test
 ```
 
@@ -2220,7 +2220,7 @@ Expected: All tests pass.
 - [ ] **Step 5: Build frontend**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 pnpm build
 ```
 
@@ -2229,7 +2229,7 @@ Expected: Clean build.
 - [ ] **Step 6: Test Tauri window**
 
 ```bash
-cd /home/trajan/Projects/place-native/app
+cd /home/trajan/Projects/ema/app
 pnpm tauri dev
 ```
 

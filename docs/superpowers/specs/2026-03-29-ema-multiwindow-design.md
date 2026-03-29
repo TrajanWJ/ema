@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-29
 **Status:** Approved
-**Replaces:** place-native single-window design
+**Replaces:** ema single-window design
 **Stack:** Tauri 2 + React 19 + TypeScript + Tailwind v4 + Zustand + Motion | Elixir Phoenix + Ecto + exqlite
 
 ---
@@ -11,7 +11,7 @@
 
 EMA is a native Linux command center where each app runs as its own OS-level window. A central Launchpad provides glanceable status and workspace management. The Elixir daemon remains the single source of truth — all windows connect to it independently via WebSocket + REST.
 
-**Key change from place-native:** The single-window sidebar-navigation model is replaced by a multi-window model using Tauri 2's `WebviewWindow` API. One Tauri process spawns multiple independent OS windows, each with its own webview and route.
+**Key change from ema:** The single-window sidebar-navigation model is replaced by a multi-window model using Tauri 2's `WebviewWindow` API. One Tauri process spawns multiple independent OS windows, each with its own webview and route.
 
 ---
 
@@ -287,14 +287,14 @@ async function openApp(appId: string, config: WindowConfig) {
 
 | Old | New |
 |-----|-----|
-| place-native | ema |
+| ema | ema |
 | place | ema |
 | Place (Elixir modules) | Ema |
 | PlaceWeb | EmaWeb |
-| ~/.local/share/place-native/ | ~/.local/share/ema/ |
+| ~/.local/share/ema/ | ~/.local/share/ema/ |
 | place.db | ema.db |
 | org.place.native | org.ema.app |
-| place-native.service | ema.service |
+| ema.service | ema.service |
 
 ---
 
@@ -336,7 +336,7 @@ Unchanged from the original spec. All tokens, glass tiers, animation springs, an
 - Update systemd service name
 
 ### Frontend
-- Rename project from place-native to ema
+- Rename project from ema to ema
 - Replace `Shell` + page-swapping `App.tsx` with route-based rendering
 - Extract shared `AppWindowChrome` component (custom title bar)
 - `Launchpad` component replaces `DashboardPage` (adds greeting, tiles, dock)
@@ -353,7 +353,7 @@ Unchanged from the original spec. All tokens, glass tiers, animation springs, an
 
 ## 14. Implementation Strategy
 
-1. Rename daemon (Place → Ema) and frontend (place-native → ema)
+1. Rename daemon (Place → Ema) and frontend (ema → ema)
 2. Add Workspace context to daemon
 3. Restructure frontend: route-based rendering, AppWindowChrome, Launchpad
 4. Wire multi-window lifecycle (open/close/focus/save state)
