@@ -1,21 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AmbientStrip } from "./AmbientStrip";
-import { Sidebar } from "./Sidebar";
+import { Dock } from "./Dock";
 import { CommandBar } from "./CommandBar";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useHabitsStore } from "@/stores/habits-store";
 import { useSettingsStore } from "@/stores/settings-store";
-
-type Page = "dashboard" | "brain-dump" | "habits" | "journal" | "settings";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { restoreWorkspace } from "@/lib/window-manager";
 
 interface ShellProps {
-  readonly activePage: Page;
-  readonly onNavigate: (page: Page) => void;
-  readonly children: React.ReactNode;
+  readonly children: ReactNode;
 }
 
-export function Shell({ activePage, onNavigate, children }: ShellProps) {
+export function Shell({ children }: ShellProps) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,25 +22,28 @@ export function Shell({ activePage, onNavigate, children }: ShellProps) {
 
     async function init() {
       try {
-        // Load data via REST first (fast, reliable)
         await Promise.all([
           useDashboardStore.getState().loadViaRest(),
           useBrainDumpStore.getState().loadViaRest(),
           useHabitsStore.getState().loadViaRest(),
           useSettingsStore.getState().load(),
+          useWorkspaceStore.getState().load(),
         ]);
         if (!cancelled) setReady(true);
 
-        // Then try WebSocket in background for live updates (non-blocking)
+        // Connect WebSockets in background
         Promise.all([
           useDashboardStore.getState().connect(),
           useBrainDumpStore.getState().connect(),
           useHabitsStore.getState().connect(),
           useSettingsStore.getState().connect(),
+          useWorkspaceStore.getState().connect(),
         ]).catch(() => {
-          // WS failed — app still works via REST
           console.warn("WebSocket connection failed, using REST fallback");
         });
+
+        // Restore previously open windows
+        await restoreWorkspace();
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Connection failed");
@@ -71,7 +72,7 @@ export function Shell({ activePage, onNavigate, children }: ShellProps) {
     <div className="h-screen flex flex-col" style={{ background: "var(--color-pn-base)" }}>
       <AmbientStrip />
       <div className="flex flex-1 min-h-0">
-        <Sidebar activePage={activePage} onNavigate={onNavigate} />
+        <Dock />
         <main className="flex-1 overflow-auto p-4">{children}</main>
       </div>
       <CommandBar />
