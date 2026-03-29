@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { joinChannel } from "@/lib/ws";
+import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
 
 interface DashboardHabit {
@@ -33,6 +34,7 @@ interface DashboardState {
   snapshot: DashboardSnapshot | null;
   connected: boolean;
   channel: Channel | null;
+  loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
 }
 
@@ -40,6 +42,11 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   snapshot: null,
   connected: false,
   channel: null,
+
+  async loadViaRest() {
+    const snapshot = await api.get<DashboardSnapshot>("/dashboard/today");
+    set({ snapshot });
+  },
 
   async connect() {
     const { channel } = await joinChannel("dashboard:lobby");

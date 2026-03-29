@@ -8,6 +8,7 @@ interface BrainDumpState {
   items: readonly InboxItem[];
   connected: boolean;
   channel: Channel | null;
+  loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
   add: (content: string, source?: InboxItem["source"]) => Promise<void>;
   process: (id: string, action: InboxItem["action"]) => Promise<void>;
@@ -18,6 +19,11 @@ export const useBrainDumpStore = create<BrainDumpState>((set) => ({
   items: [],
   connected: false,
   channel: null,
+
+  async loadViaRest() {
+    const data = await api.get<{ items: InboxItem[] }>("/brain-dump/items");
+    set({ items: data.items });
+  },
 
   async connect() {
     const { channel, response } = await joinChannel("brain_dump:queue");

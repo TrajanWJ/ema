@@ -24,13 +24,25 @@ export function Shell({ activePage, onNavigate, children }: ShellProps) {
 
     async function init() {
       try {
+        // Load data via REST first (fast, reliable)
         await Promise.all([
+          useDashboardStore.getState().loadViaRest(),
+          useBrainDumpStore.getState().loadViaRest(),
+          useHabitsStore.getState().loadViaRest(),
+          useSettingsStore.getState().load(),
+        ]);
+        if (!cancelled) setReady(true);
+
+        // Then try WebSocket in background for live updates (non-blocking)
+        Promise.all([
           useDashboardStore.getState().connect(),
           useBrainDumpStore.getState().connect(),
           useHabitsStore.getState().connect(),
           useSettingsStore.getState().connect(),
-        ]);
-        if (!cancelled) setReady(true);
+        ]).catch(() => {
+          // WS failed — app still works via REST
+          console.warn("WebSocket connection failed, using REST fallback");
+        });
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Connection failed");

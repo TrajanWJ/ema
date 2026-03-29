@@ -10,6 +10,7 @@ interface HabitsState {
   streaks: Record<string, number>;
   connected: boolean;
   channel: Channel | null;
+  loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
   addHabit: (name: string, frequency?: Habit["frequency"], target?: string | null) => Promise<void>;
   archiveHabit: (id: string) => Promise<void>;
@@ -22,6 +23,14 @@ export const useHabitsStore = create<HabitsState>((set) => ({
   streaks: {},
   connected: false,
   channel: null,
+
+  async loadViaRest() {
+    const [habitsData, logsData] = await Promise.all([
+      api.get<{ habits: Habit[] }>("/habits"),
+      api.get<{ logs: HabitLog[] }>("/habits/today"),
+    ]);
+    set({ habits: habitsData.habits, todayLogs: logsData.logs });
+  },
 
   async connect() {
     const { channel, response } = await joinChannel("habits:tracker");

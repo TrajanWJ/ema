@@ -20,6 +20,7 @@ interface SettingsState {
   settings: AppSettings;
   connected: boolean;
   channel: Channel | null;
+  load: () => Promise<void>;
   connect: () => Promise<void>;
   set: (key: string, value: string) => Promise<void>;
 }
@@ -29,16 +30,21 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   connected: false,
   channel: null,
 
+  async load() {
+    const response = await api.get<Record<string, string>>("/settings");
+    set({ settings: { ...DEFAULT_SETTINGS, ...response } as AppSettings });
+  },
+
   async connect() {
     const [{ channel }, response] = await Promise.all([
       joinChannel("settings:sync"),
-      api.get<{ settings: Record<string, string> }>("/settings"),
+      api.get<Record<string, string>>("/settings"),
     ]);
 
     set({
       channel,
       connected: true,
-      settings: { ...DEFAULT_SETTINGS, ...response.settings } as AppSettings,
+      settings: { ...DEFAULT_SETTINGS, ...response } as AppSettings,
     });
 
     channel.on("setting_updated", (payload: { key: string; value: string }) => {
