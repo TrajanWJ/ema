@@ -1,5 +1,5 @@
 defmodule Place.BrainDumpTest do
-  use Place.DataCase, async: true
+  use Place.DataCase, async: false
   alias Place.BrainDump
 
   describe "create_item/1" do

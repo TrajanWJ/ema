@@ -1,5 +1,5 @@
 defmodule Place.SettingsTest do
-  use Place.DataCase, async: true
+  use Place.DataCase, async: false
   alias Place.Settings
 
   describe "get/1" do

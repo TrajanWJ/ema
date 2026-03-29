@@ -1,5 +1,5 @@
 defmodule Place.JournalTest do
-  use Place.DataCase, async: true
+  use Place.DataCase, async: false
   alias Place.Journal
 
   describe "get_or_create_entry/1" do

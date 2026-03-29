@@ -1,5 +1,5 @@
 defmodule Place.HabitsTest do
-  use Place.DataCase, async: true
+  use Place.DataCase, async: false
   alias Place.Habits
 
   describe "create_habit/1" do
