@@ -1,5 +1,5 @@
 [Unit]
-Description=place-native Elixir daemon
+Description=EMA Daemon
 After=network.target
 
 [Service]

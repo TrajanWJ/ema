@@ -6,10 +6,10 @@ export PATH="$HOME/.local/share/mise/installs/erlang/27.3.4.9/bin:$HOME/.local/s
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$SCRIPT_DIR")"
 
-echo "=== place-native dev ==="
+echo "=== ema dev ==="
 
 # Ensure data dir exists
-mkdir -p ~/.local/share/place-native
+mkdir -p ~/.local/share/ema
 
 # Start Elixir daemon in background
 echo "Starting daemon on :4488..."
