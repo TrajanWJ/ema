@@ -56,7 +56,7 @@ export function AppWindowChrome({
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: "var(--color-pn-base)" }}>
+    <div className="h-screen flex flex-col rounded-xl overflow-hidden" style={{ background: "rgba(8, 9, 14, 0.85)" }}>
       {/* Custom title bar */}
       <div
         className="glass-surface flex items-center justify-between px-3.5 shrink-0"

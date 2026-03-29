@@ -58,8 +58,8 @@ export function Shell({ children }: ShellProps) {
   if (!ready) {
     return (
       <div
-        className="h-screen flex items-center justify-center"
-        style={{ background: "var(--color-pn-base)" }}
+        className="h-screen flex items-center justify-center rounded-xl overflow-hidden"
+        style={{ background: "rgba(8, 9, 14, 0.85)" }}
       >
         <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>
           {error ? `Connection error: ${error}` : "Connecting to daemon..."}
@@ -69,7 +69,7 @@ export function Shell({ children }: ShellProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: "var(--color-pn-base)" }}>
+    <div className="h-screen flex flex-col rounded-xl overflow-hidden" style={{ background: "rgba(8, 9, 14, 0.85)" }}>
       <AmbientStrip />
       <div className="flex flex-1 min-h-0">
         <Dock />

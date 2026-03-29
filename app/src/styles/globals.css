@@ -63,9 +63,20 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-body {
+/* Enable drag regions for custom titlebars */
+*[data-tauri-drag-region] {
+  app-region: drag;
+}
+
+/* Buttons inside drag regions must not be draggable */
+*[data-tauri-drag-region] button,
+*[data-tauri-drag-region] a {
+  app-region: no-drag;
+}
+
+html, body {
   margin: 0;
-  background: var(--color-pn-base);
+  background: transparent;
   color: var(--pn-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
