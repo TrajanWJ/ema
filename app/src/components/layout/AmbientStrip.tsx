@@ -34,7 +34,7 @@ export function AmbientStrip() {
         className="text-[0.65rem] font-medium tracking-wider"
         style={{ color: "var(--color-pn-secondary-400)" }}
       >
-        place
+        ema
       </span>
       <Clock />
       <span className="w-10" />

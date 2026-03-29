@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "place-native",
+  "productName": "ema",
   "version": "0.1.0",
-  "identifier": "org.place.native",
+  "identifier": "org.ema.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,11 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "place-native",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
+        "label": "launchpad",
+        "title": "EMA",
+        "width": 900,
+        "height": 650,
+        "minWidth": 700,
+        "minHeight": 500,
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
