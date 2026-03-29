@@ -6,6 +6,7 @@ defmodule EmaWeb.UserSocket do
   channel "habits:*", EmaWeb.HabitsChannel
   channel "journal:*", EmaWeb.JournalChannel
   channel "settings:*", EmaWeb.SettingsChannel
+  channel "workspace:*", EmaWeb.WorkspaceChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

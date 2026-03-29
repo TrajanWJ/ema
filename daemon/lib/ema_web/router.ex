@@ -30,5 +30,8 @@ defmodule EmaWeb.Router do
     put "/settings", SettingsController, :update
 
     get "/context/executive-summary", ContextController, :executive_summary
+
+    get "/workspace", WorkspaceController, :index
+    put "/workspace/:app_id", WorkspaceController, :update
   end
 end
