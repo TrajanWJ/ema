@@ -1,0 +1,16 @@
+[Unit]
+Description=place-native Elixir daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/place-native/daemon
+Environment=PATH=%h/.local/share/mise/installs/erlang/27.3.4.9/bin:%h/.local/share/mise/installs/elixir/1.18.4-otp-27/bin:/usr/local/bin:/usr/bin:/bin
+Environment=MIX_ENV=prod
+Environment=HOME=%h
+ExecStart=%h/.local/share/mise/installs/elixir/1.18.4-otp-27/bin/mix phx.server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
