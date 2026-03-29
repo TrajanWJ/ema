@@ -14,7 +14,7 @@ export function InboxQueue() {
   if (unprocessed.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <span className="text-[2rem] opacity-30">\u2728</span>
+        <span className="text-[2rem] opacity-30">~</span>
         <span
           className="text-[0.8rem]"
           style={{ color: "var(--pn-text-muted)" }}

@@ -39,7 +39,7 @@ const SCAFFOLDED_APPS = [
   { id: "tasks", name: "Tasks", icon: "☐" },
   { id: "goals", name: "Goals", icon: "◎" },
   { id: "focus", name: "Focus", icon: "⏱" },
-  { id: "notes", name: "Notes", icon: "✦" },
+  { id: "notes", name: "Notes", icon: "N" },
 ] as const;
 
 export function Launchpad() {
