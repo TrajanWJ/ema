@@ -9,6 +9,7 @@ interface AgentsState {
   selectedAgentId: string | null;
   messages: readonly AgentMessage[];
   conversationId: string | null;
+  conversations: readonly { id: string }[];
   connected: boolean;
   channel: Channel | null;
   chatChannel: Channel | null;
@@ -34,6 +35,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   selectedAgentId: null,
   messages: [],
   conversationId: null,
+  conversations: [],
   connected: false,
   channel: null,
   chatChannel: null,
@@ -88,7 +90,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       role: "user",
       content,
       tool_calls: [],
-      inserted_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
     set({ messages: [...state.messages, userMsg] });
 
@@ -106,7 +108,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       role: "assistant",
       content: resp.reply,
       tool_calls: resp.tool_calls ?? [],
-      inserted_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
     set({
@@ -119,7 +121,6 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     const data = await api.get<{ conversations: { id: string }[] }>(
       `/agents/${slug}/conversations`
     );
-    // Just load the list; conversation detail loaded on click
-    void data;
+    set({ conversations: data.conversations });
   },
 }));

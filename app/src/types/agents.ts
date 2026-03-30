@@ -10,7 +10,7 @@ export interface Agent {
   readonly max_tokens: number;
   readonly tools: string[];
   readonly project_id: string | null;
-  readonly inserted_at: string;
+  readonly created_at: string;
 }
 
 export interface AgentChannel {
@@ -26,5 +26,5 @@ export interface AgentMessage {
   readonly role: "user" | "assistant" | "system" | "tool";
   readonly content: string;
   readonly tool_calls: unknown[];
-  readonly inserted_at: string;
+  readonly created_at: string;
 }

@@ -4,7 +4,7 @@ export interface Canvas {
   readonly description: string | null;
   readonly canvas_type: string;
   readonly project_id: string | null;
-  readonly inserted_at: string;
+  readonly created_at: string;
 }
 
 export interface CanvasElement {

@@ -70,7 +70,7 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
   },
 
   async checkIn(id, status, note) {
-    await api.post(`/responsibilities/${id}/check_in`, { status, note });
+    await api.post(`/responsibilities/${id}/check-in`, { status, note });
   },
 
   byRole(role) {

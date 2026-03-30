@@ -8,7 +8,7 @@ export interface Project {
   readonly color: string | null;
   readonly linked_path: string | null;
   readonly parent_id: string | null;
-  readonly inserted_at: string;
+  readonly created_at: string;
   readonly updated_at: string;
   readonly task_count?: number;
   readonly proposal_count?: number;

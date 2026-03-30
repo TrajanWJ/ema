@@ -7,7 +7,7 @@ export interface VaultNote {
   readonly word_count: number;
   readonly source_type: string | null;
   readonly project_id: string | null;
-  readonly inserted_at: string;
+  readonly created_at: string;
 }
 
 export interface VaultLink {

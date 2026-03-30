@@ -11,12 +11,12 @@ export interface Task {
   readonly project_id: string | null;
   readonly parent_id: string | null;
   readonly completed_at: string | null;
-  readonly inserted_at: string;
+  readonly created_at: string;
 }
 
 export interface TaskComment {
   readonly id: string;
   readonly body: string;
   readonly source: "user" | "system" | "agent";
-  readonly inserted_at: string;
+  readonly created_at: string;
 }

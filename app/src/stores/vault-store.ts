@@ -34,8 +34,8 @@ export const useVaultStore = create<VaultState>((set) => ({
 
   async connect() {
     const { channel, response } = await joinChannel("vault:files");
-    const data = response as { tree: VaultNote[] };
-    set({ channel, connected: true, notes: data.tree });
+    const data = response as { notes: VaultNote[] };
+    set({ channel, connected: true, notes: data.notes });
 
     channel.on("note_created", (note: VaultNote) => {
       set((state) => ({ notes: [note, ...state.notes] }));

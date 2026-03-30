@@ -48,7 +48,7 @@ export function CanvasList({ canvases, onSelect }: CanvasListProps) {
               {canvas.canvas_type}
             </span>
             <span className="text-[0.6rem]" style={{ color: "var(--pn-text-tertiary)" }}>
-              {formatDate(canvas.inserted_at)}
+              {formatDate(canvas.created_at)}
             </span>
           </div>
           {canvas.description && (

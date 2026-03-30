@@ -11,7 +11,6 @@ interface CanvasState {
   connected: boolean;
   channel: Channel | null;
   loadViaRest: () => Promise<void>;
-  connect: () => Promise<void>;
   createCanvas: (data: {
     name: string;
     description?: string;
@@ -20,12 +19,13 @@ interface CanvasState {
   }) => Promise<void>;
   deleteCanvas: (id: string) => Promise<void>;
   selectCanvas: (id: string) => Promise<void>;
-  addElement: (canvasId: string, data: Partial<CanvasElement>) => Promise<void>;
-  updateElement: (canvasId: string, elementId: string, data: Partial<CanvasElement>) => Promise<void>;
-  removeElement: (canvasId: string, elementId: string) => Promise<void>;
+  leaveCanvas: () => void;
+  addElement: (data: Partial<CanvasElement>) => Promise<void>;
+  updateElement: (elementId: string, data: Partial<CanvasElement>) => Promise<void>;
+  removeElement: (elementId: string) => Promise<void>;
 }
 
-export const useCanvasStore = create<CanvasState>((set) => ({
+export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvases: [],
   selectedCanvasId: null,
   elements: [],
@@ -37,54 +37,87 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set({ canvases: data.canvases });
   },
 
-  async connect() {
-    const { channel, response } = await joinChannel("canvas:lobby");
-    const data = response as { canvases: Canvas[] };
-    set({ channel, connected: true, canvases: data.canvases });
-
-    channel.on("canvas_created", (canvas: Canvas) => {
-      set((state) => ({ canvases: [canvas, ...state.canvases] }));
-    });
-
-    channel.on("canvas_deleted", (payload: { id: string }) => {
-      set((state) => ({
-        canvases: state.canvases.filter((c) => c.id !== payload.id),
-      }));
-    });
-  },
-
   async createCanvas(data) {
     await api.post("/canvases", data);
+    // Reload the list after creating
+    const resp = await api.get<{ canvases: Canvas[] }>("/canvases");
+    set({ canvases: resp.canvases });
   },
 
   async deleteCanvas(id) {
     await api.delete(`/canvases/${id}`);
+    set((state) => ({
+      canvases: state.canvases.filter((c) => c.id !== id),
+    }));
   },
 
   async selectCanvas(id) {
-    const data = await api.get<{ canvas: Canvas; elements: CanvasElement[] }>(
-      `/canvases/${id}`
-    );
-    set({ selectedCanvasId: id, elements: data.elements });
+    // Leave any existing canvas channel
+    const existing = get().channel;
+    if (existing) {
+      existing.leave();
+    }
+
+    // Join the canvas-specific channel for real-time element sync
+    const { channel } = await joinChannel(`canvas:${id}`);
+    set({ selectedCanvasId: id, channel, connected: true, elements: [] });
+
+    // The channel sends a "snapshot" event after join with full canvas + elements
+    channel.on("snapshot", (payload: { elements: CanvasElement[] }) => {
+      set({ elements: payload.elements });
+    });
+
+    channel.on("element:created", (element: CanvasElement) => {
+      set((state) => ({ elements: [...state.elements, element] }));
+    });
+
+    channel.on("element:updated", (updated: CanvasElement) => {
+      set((state) => ({
+        elements: state.elements.map((e) => (e.id === updated.id ? updated : e)),
+      }));
+    });
+
+    channel.on("element:deleted", (payload: { id: string }) => {
+      set((state) => ({
+        elements: state.elements.filter((e) => e.id !== payload.id),
+      }));
+    });
+
+    channel.on("elements:reordered", (payload: { element_ids: string[] }) => {
+      set((state) => {
+        const byId = new Map(state.elements.map((e) => [e.id, e]));
+        const reordered = payload.element_ids
+          .map((eid, idx) => {
+            const el = byId.get(eid);
+            return el ? { ...el, z_index: idx } : null;
+          })
+          .filter((e): e is CanvasElement => e !== null);
+        return { elements: reordered };
+      });
+    });
   },
 
-  async addElement(canvasId, data) {
-    await api.post(`/canvases/${canvasId}/elements`, data);
-    // Reload elements after adding
-    const resp = await api.get<{ canvas: Canvas; elements: CanvasElement[] }>(
-      `/canvases/${canvasId}`
-    );
-    set({ elements: resp.elements });
+  leaveCanvas() {
+    const ch = get().channel;
+    if (ch) ch.leave();
+    set({ selectedCanvasId: null, elements: [], channel: null, connected: false });
   },
 
-  async updateElement(canvasId, elementId, data) {
-    await api.patch(`/canvases/${canvasId}/elements/${elementId}`, data);
+  async addElement(data) {
+    const ch = get().channel;
+    if (!ch) return;
+    ch.push("element:create", data);
   },
 
-  async removeElement(canvasId, elementId) {
-    await api.delete(`/canvases/${canvasId}/elements/${elementId}`);
-    set((state) => ({
-      elements: state.elements.filter((e) => e.id !== elementId),
-    }));
+  async updateElement(elementId, data) {
+    const ch = get().channel;
+    if (!ch) return;
+    ch.push("element:update", { id: elementId, ...data });
+  },
+
+  async removeElement(elementId) {
+    const ch = get().channel;
+    if (!ch) return;
+    ch.push("element:delete", { id: elementId });
   },
 }));

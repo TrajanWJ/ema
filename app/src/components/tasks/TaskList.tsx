@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTasksStore } from "@/stores/tasks-store";
 import type { Task } from "@/types/tasks";
 
-type SortKey = "title" | "priority" | "status" | "inserted_at";
+type SortKey = "title" | "priority" | "status" | "created_at";
 
 const STATUS_COLORS: Record<Task["status"], string> = {
   proposed: "#a78bfa",
@@ -50,8 +50,8 @@ export function TaskList({ onSelectTask }: TaskListProps) {
         return (a.priority - b.priority) * dir;
       case "status":
         return a.status.localeCompare(b.status) * dir;
-      case "inserted_at":
-        return a.inserted_at.localeCompare(b.inserted_at) * dir;
+      case "created_at":
+        return a.created_at.localeCompare(b.created_at) * dir;
       default:
         return 0;
     }
@@ -77,7 +77,7 @@ export function TaskList({ onSelectTask }: TaskListProps) {
         <SortHeader label="P" width="30px" sortKey="priority" current={sortKey} asc={sortAsc} onClick={handleSort} />
         <SortHeader label="Title" width="flex" sortKey="title" current={sortKey} asc={sortAsc} onClick={handleSort} />
         <SortHeader label="Status" width="80px" sortKey="status" current={sortKey} asc={sortAsc} onClick={handleSort} />
-        <SortHeader label="Date" width="70px" sortKey="inserted_at" current={sortKey} asc={sortAsc} onClick={handleSort} />
+        <SortHeader label="Date" width="70px" sortKey="created_at" current={sortKey} asc={sortAsc} onClick={handleSort} />
       </div>
 
       {/* Rows */}
@@ -118,7 +118,7 @@ export function TaskList({ onSelectTask }: TaskListProps) {
             className="text-[0.55rem]"
             style={{ width: "70px", color: "var(--pn-text-muted)" }}
           >
-            {new Date(task.inserted_at).toLocaleDateString()}
+            {new Date(task.created_at).toLocaleDateString()}
           </span>
         </button>
       ))}

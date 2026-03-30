@@ -3,11 +3,10 @@ import { useVaultStore } from "@/stores/vault-store";
 
 export function VaultGraph() {
   const graph = useVaultStore((s) => s.graph);
-  const loadGraph = useVaultStore((s) => s.loadGraph);
 
   useEffect(() => {
-    loadGraph();
-  }, [loadGraph]);
+    useVaultStore.getState().loadGraph();
+  }, []);
 
   const nodeCount = graph?.nodes.length ?? 0;
   const edgeCount = graph?.edges.length ?? 0;

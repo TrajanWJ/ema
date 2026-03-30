@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTasksStore } from "@/stores/tasks-store";
+import { api } from "@/lib/api";
 import type { Task, TaskComment } from "@/types/tasks";
 
 interface TaskDetailProps {
@@ -33,6 +34,15 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
   const [commentBody, setCommentBody] = useState("");
   const [comments, setComments] = useState<TaskComment[]>([]);
   const { transitionTask, addComment } = useTasksStore();
+
+  useEffect(() => {
+    api
+      .get<{ task: Task; comments: TaskComment[] }>(`/tasks/${task.id}`)
+      .then((data) => setComments(data.comments))
+      .catch(() => {
+        // Comments will remain empty if fetch fails
+      });
+  }, [task.id]);
 
   const allowedTransitions = STATUS_TRANSITIONS[task.status];
 
@@ -159,7 +169,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
                   {c.source}
                 </span>
                 <span className="text-[0.5rem]" style={{ color: "var(--pn-text-muted)" }}>
-                  {new Date(c.inserted_at).toLocaleString()}
+                  {new Date(c.created_at).toLocaleString()}
                 </span>
               </div>
               <p className="text-[0.65rem]" style={{ color: "var(--pn-text-secondary)" }}>

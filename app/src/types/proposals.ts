@@ -15,7 +15,7 @@ export interface Proposal {
   readonly project_id: string | null;
   readonly parent_proposal_id: string | null;
   readonly children_count: number;
-  readonly inserted_at: string;
+  readonly created_at: string;
 }
 
 export interface ProposalTag {

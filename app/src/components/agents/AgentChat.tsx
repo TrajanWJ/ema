@@ -9,6 +9,7 @@ interface AgentChatProps {
 export function AgentChat({ agent }: AgentChatProps) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messages = useAgentsStore((s) => s.messages);
   const sendMessage = useAgentsStore((s) => s.sendMessage);
   const listRef = useRef<HTMLDivElement>(null);
@@ -25,10 +26,11 @@ export function AgentChat({ agent }: AgentChatProps) {
     if (!trimmed || sending) return;
     setInput("");
     setSending(true);
+    setSendError(null);
     try {
       await sendMessage(agent.slug, trimmed);
     } catch {
-      // Error handling could show a toast
+      setSendError("Failed to send message. Please try again.");
     } finally {
       setSending(false);
     }
@@ -83,6 +85,14 @@ export function AgentChat({ agent }: AgentChatProps) {
             )}
           </div>
         ))}
+        {sendError && (
+          <div
+            className="text-[0.7rem] px-3 py-2 rounded-lg"
+            style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }}
+          >
+            {sendError}
+          </div>
+        )}
         {sending && (
           <div className="text-[0.7rem] px-3 py-2" style={{ color: "var(--pn-text-tertiary)" }}>
             {agent.name} is thinking...

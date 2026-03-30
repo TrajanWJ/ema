@@ -3,11 +3,10 @@ import { usePipesStore } from "@/stores/pipes-store";
 
 export function PipeCatalog() {
   const catalog = usePipesStore((s) => s.catalog);
-  const loadCatalog = usePipesStore((s) => s.loadCatalog);
 
   useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
+    usePipesStore.getState().loadCatalog();
+  }, []);
 
   if (!catalog) {
     return (

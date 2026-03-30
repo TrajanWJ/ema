@@ -4,11 +4,10 @@ import { PipeList } from "./PipeList";
 
 export function SystemPipes() {
   const systemPipes = usePipesStore((s) => s.systemPipes);
-  const loadSystemPipes = usePipesStore((s) => s.loadSystemPipes);
 
   useEffect(() => {
-    loadSystemPipes();
-  }, [loadSystemPipes]);
+    usePipesStore.getState().loadSystemPipes();
+  }, []);
 
   return (
     <div>

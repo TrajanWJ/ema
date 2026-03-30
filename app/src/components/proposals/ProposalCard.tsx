@@ -22,13 +22,19 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [redirectNote, setRedirectNote] = useState("");
   const [showRedirectInput, setShowRedirectInput] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { approve, redirect, kill } = useProposalsStore();
 
   const level = confidenceLevel(proposal.confidence);
   const dotColor = CONFIDENCE_COLORS[level];
 
   async function handleApprove() {
-    await approve(proposal.id);
+    try {
+      setError(null);
+      await approve(proposal.id);
+    } catch {
+      setError("Failed to approve proposal");
+    }
   }
 
   async function handleRedirect() {
@@ -37,14 +43,24 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
       return;
     }
     if (redirectNote.trim()) {
-      await redirect(proposal.id, redirectNote.trim());
-      setShowRedirectInput(false);
-      setRedirectNote("");
+      try {
+        setError(null);
+        await redirect(proposal.id, redirectNote.trim());
+        setShowRedirectInput(false);
+        setRedirectNote("");
+      } catch {
+        setError("Failed to redirect proposal");
+      }
     }
   }
 
   async function handleKill() {
-    await kill(proposal.id);
+    try {
+      setError(null);
+      await kill(proposal.id);
+    } catch {
+      setError("Failed to kill proposal");
+    }
   }
 
   return (
@@ -127,7 +143,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
               className="text-[0.55rem] ml-auto"
               style={{ color: "var(--pn-text-muted)" }}
             >
-              {new Date(proposal.inserted_at).toLocaleDateString()}
+              {new Date(proposal.created_at).toLocaleDateString()}
             </span>
           </div>
         </div>
@@ -218,6 +234,15 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
                 }}
                 autoFocus
               />
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="mb-2 text-[0.65rem] px-2 py-1 rounded"
+              style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }}
+            >
+              {error}
             </div>
           )}
 

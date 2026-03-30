@@ -6,6 +6,17 @@ interface SeedFormProps {
   readonly onClose: () => void;
 }
 
+const SEED_TYPES = [
+  "cron",
+  "git",
+  "session",
+  "vault",
+  "usage",
+  "brain_dump",
+  "cross",
+  "dependency",
+] as const;
+
 const SCHEDULE_OPTIONS = [
   { value: "", label: "Manual only" },
   { value: "hourly", label: "Hourly" },
@@ -16,6 +27,7 @@ const SCHEDULE_OPTIONS = [
 export function SeedForm({ onClose }: SeedFormProps) {
   const [name, setName] = useState("");
   const [promptTemplate, setPromptTemplate] = useState("");
+  const [seedType, setSeedType] = useState<(typeof SEED_TYPES)[number]>("cron");
   const [schedule, setSchedule] = useState("");
   const [projectId, setProjectId] = useState("");
   const createSeed = useProposalsStore((s) => s.createSeed);
@@ -28,7 +40,7 @@ export function SeedForm({ onClose }: SeedFormProps) {
     await createSeed({
       name: name.trim(),
       prompt_template: promptTemplate.trim(),
-      seed_type: "custom",
+      seed_type: seedType,
       schedule: schedule || null,
       project_id: projectId || null,
     });
@@ -80,6 +92,32 @@ export function SeedForm({ onClose }: SeedFormProps) {
           }}
           placeholder="What should this seed explore?"
         />
+      </div>
+
+      <div>
+        <label
+          className="text-[0.6rem] font-medium uppercase tracking-wider block mb-1"
+          style={{ color: "var(--pn-text-muted)" }}
+        >
+          Seed Type
+        </label>
+        <select
+          value={seedType}
+          onChange={(e) => setSeedType(e.target.value as (typeof SEED_TYPES)[number])}
+          className="w-full rounded px-2 py-1.5 text-[0.7rem]"
+          style={{
+            background: "rgba(255, 255, 255, 0.04)",
+            border: "1px solid var(--pn-border-default)",
+            color: "var(--pn-text-primary)",
+            outline: "none",
+          }}
+        >
+          {SEED_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t.replace("_", " ")}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex gap-3">
