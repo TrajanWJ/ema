@@ -12,6 +12,7 @@ import { AgentsApp } from "@/components/agents/AgentsApp";
 import { VaultApp } from "@/components/vault/VaultApp";
 import { CanvasApp } from "@/components/canvas/CanvasApp";
 import { PipesApp } from "@/components/pipes/PipesApp";
+import { ChannelsApp } from "@/components/channels/ChannelsApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -43,6 +44,8 @@ export default function App() {
       return <VaultApp />;
     case "canvas":
       return <CanvasApp />;
+    case "channels":
+      return <ChannelsApp />;
     case "pipes":
       return <PipesApp />;
     default:

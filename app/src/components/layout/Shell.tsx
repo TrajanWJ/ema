@@ -15,6 +15,7 @@ import { useAgentsStore } from "@/stores/agents-store";
 import { useVaultStore } from "@/stores/vault-store";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { usePipesStore } from "@/stores/pipes-store";
+import { useChannelsStore } from "@/stores/channels-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 
 interface ShellProps {
@@ -44,6 +45,7 @@ export function Shell({ children }: ShellProps) {
           useVaultStore.getState().loadViaRest().catch(() => {}),
           useCanvasStore.getState().loadViaRest().catch(() => {}),
           usePipesStore.getState().loadViaRest().catch(() => {}),
+          useChannelsStore.getState().loadViaRest().catch(() => {}),
         ]);
         if (!cancelled) setReady(true);
 
@@ -62,6 +64,7 @@ export function Shell({ children }: ShellProps) {
           useVaultStore.getState().connect().catch(() => {}),
           useCanvasStore.getState().connect().catch(() => {}),
           usePipesStore.getState().connect().catch(() => {}),
+          useChannelsStore.getState().connect().catch(() => {}),
         ]).catch(() => {
           console.warn("WebSocket connection failed, using REST fallback");
         });

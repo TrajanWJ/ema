@@ -127,4 +127,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "rgba(255,255,255,0.50)",
     icon: "\u2699",
   },
+  "channels": {
+    title: "Channels",
+    defaultWidth: 1100,
+    defaultHeight: 750,
+    minWidth: 900,
+    minHeight: 600,
+    accent: "#5865F2",
+    icon: "💬",
+  },
 } as const;
+
