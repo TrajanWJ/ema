@@ -35,7 +35,7 @@ defmodule Ema.Responsibilities do
 
   def list_at_risk do
     Responsibility
-    |> where([r], r.health in ["at_risk", "failing"] and r.active == true)
+    |> where([r], r.health < 0.7 and r.active == true)
     |> order_by(asc: :title)
     |> Repo.all()
   end
@@ -85,11 +85,11 @@ defmodule Ema.Responsibilities do
     Repo.transaction(fn ->
       case %CheckIn{} |> CheckIn.changeset(check_in_attrs) |> Repo.insert() do
         {:ok, check_in} ->
-          health_status = check_in.status
+          health_score = check_in_status_to_health(check_in.status)
 
           case resp
                |> Responsibility.changeset(%{
-                 health: health_status,
+                 health: health_score,
                  last_checked_at: DateTime.utc_now() |> DateTime.truncate(:second)
                })
                |> Repo.update() do
@@ -157,7 +157,7 @@ defmodule Ema.Responsibilities do
     where(query, [r], r.active == ^active)
   end
 
-  defp calculate_health_from_tasks([]), do: "healthy"
+  defp calculate_health_from_tasks([]), do: 1.0
 
   defp calculate_health_from_tasks(tasks) do
     total = length(tasks)
@@ -165,13 +165,18 @@ defmodule Ema.Responsibilities do
     overdue = Enum.count(tasks, &task_overdue?/1)
 
     completion_rate = done / total
+    overdue_penalty = min(overdue * 0.15, 0.5)
 
-    cond do
-      completion_rate >= 0.7 and overdue == 0 -> "healthy"
-      completion_rate >= 0.4 or overdue <= 1 -> "at_risk"
-      true -> "failing"
-    end
+    (completion_rate - overdue_penalty)
+    |> max(0.0)
+    |> min(1.0)
+    |> Float.round(2)
   end
+
+  defp check_in_status_to_health("healthy"), do: 1.0
+  defp check_in_status_to_health("at_risk"), do: 0.5
+  defp check_in_status_to_health("failing"), do: 0.2
+  defp check_in_status_to_health(_), do: 0.5
 
   defp task_overdue?(%{due_date: nil}), do: false
 

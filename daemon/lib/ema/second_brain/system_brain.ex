@@ -20,9 +20,11 @@ defmodule Ema.SecondBrain.SystemBrain do
   @impl true
   def init(_opts) do
     Phoenix.PubSub.subscribe(Ema.PubSub, "vault:changes")
-    Phoenix.PubSub.subscribe(Ema.PubSub, "projects:changes")
-    Phoenix.PubSub.subscribe(Ema.PubSub, "tasks:changes")
-    Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:changes")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:tasks:created")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:tasks:completed")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:projects:created")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:proposals:approved")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:proposals:killed")
 
     # Do initial sync
     send(self(), :sync_all)

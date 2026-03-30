@@ -19,7 +19,7 @@ defmodule Ema.ResponsibilitiesTest do
     test "creates with valid attrs" do
       assert {:ok, resp} = Responsibilities.create_responsibility(%{title: "Deploy checks"})
       assert resp.title == "Deploy checks"
-      assert resp.health == "healthy"
+      assert resp.health == 1.0
       assert resp.active == true
       assert String.starts_with?(resp.id, "resp_")
     end
@@ -175,7 +175,7 @@ defmodule Ema.ResponsibilitiesTest do
       assert {:ok, {updated_resp, check_in}} =
                Responsibilities.check_in(resp, %{status: "at_risk", note: "Falling behind"})
 
-      assert updated_resp.health == "at_risk"
+      assert updated_resp.health == 0.5
       assert updated_resp.last_checked_at != nil
       assert check_in.status == "at_risk"
       assert check_in.note == "Falling behind"
@@ -210,7 +210,7 @@ defmodule Ema.ResponsibilitiesTest do
     test "returns healthy when no tasks" do
       resp = create_responsibility()
       assert {:ok, updated} = Responsibilities.recalculate_health(resp)
-      assert updated.health == "healthy"
+      assert updated.health == 1.0
     end
 
     test "returns healthy when most tasks are done" do
@@ -255,7 +255,7 @@ defmodule Ema.ResponsibilitiesTest do
       # Reload responsibility to get fresh state
       resp = Responsibilities.get_responsibility!(resp.id)
       assert {:ok, updated} = Responsibilities.recalculate_health(resp)
-      assert updated.health == "healthy"
+      assert updated.health == 1.0
     end
   end
 
@@ -265,8 +265,8 @@ defmodule Ema.ResponsibilitiesTest do
       resp2 = create_responsibility(%{title: "At risk"})
       resp3 = create_responsibility(%{title: "Failing"})
 
-      {:ok, _} = Responsibilities.update_responsibility(resp2, %{health: "at_risk"})
-      {:ok, _} = Responsibilities.update_responsibility(resp3, %{health: "failing"})
+      {:ok, _} = Responsibilities.update_responsibility(resp2, %{health: 0.5})
+      {:ok, _} = Responsibilities.update_responsibility(resp3, %{health: 0.2})
 
       at_risk = Responsibilities.list_at_risk()
       assert length(at_risk) == 2
@@ -276,7 +276,7 @@ defmodule Ema.ResponsibilitiesTest do
 
     test "excludes inactive responsibilities" do
       resp = create_responsibility(%{title: "Inactive risk"})
-      {:ok, resp} = Responsibilities.update_responsibility(resp, %{health: "at_risk"})
+      {:ok, resp} = Responsibilities.update_responsibility(resp, %{health: 0.5})
       {:ok, _} = Responsibilities.toggle_responsibility(resp)
 
       at_risk = Responsibilities.list_at_risk()

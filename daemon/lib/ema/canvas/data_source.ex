@@ -134,7 +134,7 @@ defmodule Ema.Canvas.DataSource do
     try do
       result =
         Repo.query!(
-          "SELECT space, COUNT(*) as count FROM vault_index GROUP BY space"
+          "SELECT space, COUNT(*) as count FROM vault_notes GROUP BY space"
         )
 
       data =

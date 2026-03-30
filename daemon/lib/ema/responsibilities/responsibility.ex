@@ -9,7 +9,7 @@ defmodule Ema.Responsibilities.Responsibility do
     field :description, :string
     field :role, :string
     field :cadence, :string
-    field :health, :string, default: "healthy"
+    field :health, :float, default: 1.0
     field :active, :boolean, default: true
     field :last_checked_at, :utc_datetime
     field :recurrence_rule, :string
@@ -25,7 +25,6 @@ defmodule Ema.Responsibilities.Responsibility do
 
   @valid_roles ~w(developer self maintainer learner custom)
   @valid_cadences ~w(daily weekly biweekly monthly quarterly ongoing)
-  @valid_health_statuses ~w(healthy at_risk failing)
 
   def changeset(responsibility, attrs) do
     responsibility
@@ -36,7 +35,7 @@ defmodule Ema.Responsibilities.Responsibility do
     |> validate_required([:id, :title])
     |> maybe_validate_inclusion(:role, @valid_roles)
     |> maybe_validate_inclusion(:cadence, @valid_cadences)
-    |> validate_inclusion(:health, @valid_health_statuses)
+    |> validate_number(:health, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)
   end
 
   defp maybe_validate_inclusion(changeset, field, values) do

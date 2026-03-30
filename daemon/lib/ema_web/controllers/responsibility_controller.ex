@@ -52,15 +52,18 @@ defmodule EmaWeb.ResponsibilityController do
         {:error, :not_found}
 
       resp ->
-        attrs = %{
-          title: params["title"],
-          description: params["description"],
-          role: params["role"],
-          cadence: params["cadence"],
-          recurrence_rule: params["recurrence_rule"],
-          metadata: params["metadata"],
-          project_id: params["project_id"]
-        }
+        attrs =
+          %{
+            title: params["title"],
+            description: params["description"],
+            role: params["role"],
+            cadence: params["cadence"],
+            recurrence_rule: params["recurrence_rule"],
+            metadata: params["metadata"],
+            project_id: params["project_id"]
+          }
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+          |> Map.new()
 
         with {:ok, updated} <- Responsibilities.update_responsibility(resp, attrs) do
           broadcast("responsibility_updated", serialize(updated))

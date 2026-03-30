@@ -186,7 +186,7 @@ defmodule Ema.Pipes.Registry do
         end
       },
 
-      # Proposals (stubs — contexts not yet implemented)
+      # Proposals
       %Action{
         id: "proposals:create_seed",
         context: "proposals",
@@ -194,7 +194,12 @@ defmodule Ema.Pipes.Registry do
         label: "Create Proposal Seed",
         description: "Create a new seed prompt",
         schema: %{prompt: :string, project_id: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          safe_apply(Ema.Proposals, :create_seed, [%{
+            prompt: payload["prompt"] || payload[:prompt],
+            project_id: payload["project_id"] || payload[:project_id]
+          }])
+        end
       },
       %Action{
         id: "proposals:approve",
@@ -203,7 +208,10 @@ defmodule Ema.Pipes.Registry do
         label: "Approve Proposal",
         description: "Green-light a proposal",
         schema: %{proposal_id: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          proposal_id = payload["proposal_id"] || payload[:proposal_id]
+          safe_apply(Ema.Proposals, :approve_proposal, [proposal_id])
+        end
       },
       %Action{
         id: "proposals:redirect",
@@ -212,7 +220,11 @@ defmodule Ema.Pipes.Registry do
         label: "Redirect Proposal",
         description: "Yellow-light a proposal",
         schema: %{proposal_id: :string, note: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          proposal_id = payload["proposal_id"] || payload[:proposal_id]
+          note = payload["note"] || payload[:note] || ""
+          safe_apply(Ema.Proposals, :redirect_proposal, [proposal_id, note])
+        end
       },
       %Action{
         id: "proposals:kill",
@@ -221,7 +233,10 @@ defmodule Ema.Pipes.Registry do
         label: "Kill Proposal",
         description: "Red-light a proposal",
         schema: %{proposal_id: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          proposal_id = payload["proposal_id"] || payload[:proposal_id]
+          safe_apply(Ema.Proposals, :kill_proposal, [proposal_id])
+        end
       },
 
       # Projects — use dynamic dispatch since the full Projects context may not exist yet
@@ -268,7 +283,7 @@ defmodule Ema.Pipes.Registry do
         execute: &noop_action/1
       },
 
-      # Responsibilities (stub — context not yet implemented)
+      # Responsibilities
       %Action{
         id: "responsibilities:generate_due_tasks",
         context: "responsibilities",
@@ -276,10 +291,12 @@ defmodule Ema.Pipes.Registry do
         label: "Generate Due Tasks",
         description: "Generate tasks from due responsibilities",
         schema: %{},
-        execute: &noop_action/1
+        execute: fn _payload ->
+          safe_apply(Ema.Responsibilities, :generate_due_tasks, [])
+        end
       },
 
-      # Vault (stub — context not yet implemented)
+      # Vault
       %Action{
         id: "vault:create_project_space",
         context: "vault",
@@ -296,7 +313,13 @@ defmodule Ema.Pipes.Registry do
         label: "Create Vault Note",
         description: "Create a note in the vault",
         schema: %{title: :string, content: :string, space: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          safe_apply(Ema.SecondBrain, :create_note, [%{
+            title: payload["title"] || payload[:title],
+            content: payload["content"] || payload[:content],
+            space: payload["space"] || payload[:space]
+          }])
+        end
       },
 
       # Notifications
