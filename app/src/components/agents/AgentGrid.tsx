@@ -66,9 +66,9 @@ export function AgentGrid({ agents, onSelect }: AgentGridProps) {
             >
               {agent.model}
             </span>
-            {agent.tools.length > 0 && (
+            {(agent.tools ?? []).length > 0 && (
               <span className="text-[0.6rem]" style={{ color: "var(--pn-text-tertiary)" }}>
-                {agent.tools.length} tools
+                {(agent.tools ?? []).length} tools
               </span>
             )}
           </div>

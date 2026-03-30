@@ -19,15 +19,20 @@ const TAB_OPTIONS = [
 
 export function ProposalsApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("queue");
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await Promise.all([
-        useProposalsStore.getState().loadViaRest(),
-        useProposalsStore.getState().loadSeeds(),
-      ]);
+      try {
+        await Promise.all([
+          useProposalsStore.getState().loadViaRest(),
+          useProposalsStore.getState().loadSeeds(),
+        ]);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load proposals");
+      }
       if (!cancelled) setReady(true);
       useProposalsStore.getState().connect().catch(() => {
         console.warn("Proposals WebSocket failed, using REST");
@@ -59,6 +64,11 @@ export function ProposalsApp() {
           </h2>
           <SegmentedControl options={TAB_OPTIONS} value={tab} onChange={setTab} />
         </div>
+        {error && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+            {error}
+          </div>
+        )}
         <div className="flex-1 min-h-0 overflow-auto">
           {tab === "queue" && <ProposalQueue />}
           {tab === "seeds" && <SeedList />}

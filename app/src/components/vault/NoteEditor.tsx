@@ -54,9 +54,9 @@ export function NoteEditor() {
       </div>
 
       {/* Tags */}
-      {selectedNote.tags.length > 0 && (
+      {(selectedNote.tags ?? []).length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {selectedNote.tags.map((tag) => (
+          {(selectedNote.tags ?? []).map((tag) => (
             <span
               key={tag}
               className="text-[0.6rem] px-1.5 py-0.5 rounded-md"

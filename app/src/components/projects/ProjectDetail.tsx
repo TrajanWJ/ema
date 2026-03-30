@@ -114,7 +114,6 @@ function StatMini({ label, value }: { label: string; value: string | number }) {
   return (
     <div
       className="glass-surface rounded-lg p-2.5"
-      style={{ border: "1px solid var(--pn-border-subtle)" }}
     >
       <span
         className="text-[0.55rem] font-medium uppercase tracking-wider block mb-0.5"
@@ -142,7 +141,6 @@ function TaskListTab({ tasks }: { tasks: readonly { id: string; title: string; s
         <div
           key={task.id}
           className="glass-surface rounded-md px-3 py-2 flex items-center gap-2"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <PriorityDot priority={task.priority} />
           <span className="text-[0.7rem] flex-1" style={{ color: "var(--pn-text-primary)" }}>
@@ -173,7 +171,6 @@ function ProposalListTab({ proposals }: { proposals: readonly { id: string; titl
         <div
           key={p.id}
           className="glass-surface rounded-md px-3 py-2 flex items-center gap-2"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <span
             className="shrink-0 rounded-full"
@@ -211,7 +208,6 @@ function SeedListTab({ seeds }: { seeds: readonly { id: string; name: string; ac
         <div
           key={seed.id}
           className="glass-surface rounded-md px-3 py-2 flex items-center gap-2"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <span className="text-[0.7rem] flex-1" style={{ color: "var(--pn-text-primary)" }}>
             {seed.name}

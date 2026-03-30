@@ -29,7 +29,6 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     <button
       onClick={onClick}
       className="glass-surface rounded-md p-2.5 text-left w-full transition-colors hover:bg-white/[0.02]"
-      style={{ border: "1px solid var(--pn-border-subtle)" }}
     >
       <div className="flex items-start gap-2">
         <span

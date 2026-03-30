@@ -21,6 +21,7 @@ const VIEW_OPTIONS = [
 
 export function TasksApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -28,10 +29,14 @@ export function TasksApp() {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await Promise.all([
-        useTasksStore.getState().loadViaRest(),
-        useProjectsStore.getState().loadViaRest(),
-      ]);
+      try {
+        await Promise.all([
+          useTasksStore.getState().loadViaRest(),
+          useProjectsStore.getState().loadViaRest(),
+        ]);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load tasks");
+      }
       if (!cancelled) setReady(true);
       useTasksStore.getState().connect().catch(() => {
         console.warn("Tasks WebSocket failed, using REST");
@@ -84,10 +89,15 @@ export function TasksApp() {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+            {error}
+          </div>
+        )}
+
         {showForm && (
           <div
             className="glass-surface rounded-lg p-3 mb-4"
-            style={{ border: "1px solid var(--pn-border-subtle)" }}
           >
             <TaskForm onClose={() => setShowForm(false)} />
           </div>

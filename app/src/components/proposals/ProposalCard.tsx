@@ -66,7 +66,6 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   return (
     <div
       className="glass-surface rounded-lg p-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
-      style={{ border: "1px solid var(--pn-border-subtle)" }}
     >
       {/* Collapsed header */}
       <div
@@ -116,7 +115,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
             </p>
           )}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {proposal.tags.map((tag) => (
+            {(proposal.tags ?? []).map((tag) => (
               <span
                 key={tag.id}
                 className="text-[0.55rem] px-1.5 py-0.5 rounded-full"
@@ -169,7 +168,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
             <Section label="Synthesis" content={proposal.synthesis} />
           )}
 
-          {proposal.risks.length > 0 && (
+          {(proposal.risks ?? []).length > 0 && (
             <div className="mb-2">
               <span
                 className="text-[0.6rem] font-medium uppercase tracking-wider"
@@ -178,7 +177,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
                 Risks
               </span>
               <ul className="mt-1">
-                {proposal.risks.map((risk, i) => (
+                {(proposal.risks ?? []).map((risk, i) => (
                   <li
                     key={`risk-${proposal.id}-${i}`}
                     className="text-[0.65rem] leading-relaxed"
@@ -191,7 +190,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
             </div>
           )}
 
-          {proposal.benefits.length > 0 && (
+          {(proposal.benefits ?? []).length > 0 && (
             <div className="mb-3">
               <span
                 className="text-[0.6rem] font-medium uppercase tracking-wider"
@@ -200,7 +199,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
                 Benefits
               </span>
               <ul className="mt-1">
-                {proposal.benefits.map((benefit, i) => (
+                {(proposal.benefits ?? []).map((benefit, i) => (
                   <li
                     key={`benefit-${proposal.id}-${i}`}
                     className="text-[0.65rem] leading-relaxed"

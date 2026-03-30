@@ -20,6 +20,7 @@ type Tab = typeof TABS[number]["value"];
 
 export function VaultApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("files");
   const notes = useVaultStore((s) => s.notes);
   const loadNote = useVaultStore((s) => s.loadNote);
@@ -27,7 +28,11 @@ export function VaultApp() {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await useVaultStore.getState().loadViaRest();
+      try {
+        await useVaultStore.getState().loadViaRest();
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load vault");
+      }
       if (!cancelled) setReady(true);
       useVaultStore.getState().connect().catch(() => {
         console.warn("Vault WebSocket failed, using REST");
@@ -54,6 +59,12 @@ export function VaultApp() {
 
   return (
     <AppWindowChrome appId="vault" title={config.title} icon={config.icon} accent={config.accent} breadcrumb={tab}>
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          {error}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-3">
         <SegmentedControl options={TABS} value={tab} onChange={setTab} />
       </div>

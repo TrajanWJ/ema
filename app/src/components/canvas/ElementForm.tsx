@@ -17,11 +17,10 @@ const DATA_SOURCES = [
 ] as const;
 
 interface ElementFormProps {
-  readonly canvasId: string;
   readonly onClose: () => void;
 }
 
-export function ElementForm({ canvasId, onClose }: ElementFormProps) {
+export function ElementForm({ onClose }: ElementFormProps) {
   const [elementType, setElementType] = useState<string>("rectangle");
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
@@ -36,7 +35,7 @@ export function ElementForm({ canvasId, onClose }: ElementFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await addElement(canvasId, {
+    await addElement({
       element_type: elementType,
       x, y, width, height,
       rotation: 0,

@@ -19,13 +19,18 @@ type Tab = typeof TABS[number]["value"];
 
 export function PipesApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("active");
   const pipes = usePipesStore((s) => s.pipes);
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await usePipesStore.getState().loadViaRest();
+      try {
+        await usePipesStore.getState().loadViaRest();
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load pipes");
+      }
       if (!cancelled) setReady(true);
       usePipesStore.getState().connect().catch(() => {
         console.warn("Pipes WebSocket failed, using REST");
@@ -49,6 +54,12 @@ export function PipesApp() {
 
   return (
     <AppWindowChrome appId="pipes" title={config.title} icon={config.icon} accent={config.accent} breadcrumb={tab}>
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          {error}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-3">
         <SegmentedControl options={TABS} value={tab} onChange={setTab} />
       </div>

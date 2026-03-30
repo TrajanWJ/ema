@@ -41,7 +41,7 @@ export function CanvasEditor({ canvas, onBack }: CanvasEditorProps) {
       </div>
 
       {showForm && (
-        <ElementForm canvasId={canvas.id} onClose={() => setShowForm(false)} />
+        <ElementForm onClose={() => setShowForm(false)} />
       )}
 
       {elements.length === 0 ? (
@@ -91,7 +91,7 @@ export function CanvasEditor({ canvas, onBack }: CanvasEditorProps) {
                   </td>
                   <td className="text-[0.7rem] px-3 py-2 text-right">
                     <button
-                      onClick={() => removeElement(canvas.id, el.id)}
+                      onClick={() => removeElement(el.id)}
                       className="text-[0.6rem] opacity-40 hover:opacity-80 transition-opacity"
                       style={{ color: "#ef4444" }}
                     >

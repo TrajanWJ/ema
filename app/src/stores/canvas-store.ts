@@ -20,6 +20,7 @@ interface CanvasState {
   deleteCanvas: (id: string) => Promise<void>;
   selectCanvas: (id: string) => Promise<void>;
   leaveCanvas: () => void;
+  connect: () => Promise<void>;
   addElement: (data: Partial<CanvasElement>) => Promise<void>;
   updateElement: (elementId: string, data: Partial<CanvasElement>) => Promise<void>;
   removeElement: (elementId: string) => Promise<void>;
@@ -101,6 +102,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const ch = get().channel;
     if (ch) ch.leave();
     set({ selectedCanvasId: null, elements: [], channel: null, connected: false });
+  },
+
+  async connect() {
+    // Canvas uses per-canvas channels via selectCanvas(), no global channel needed
   },
 
   async addElement(data) {

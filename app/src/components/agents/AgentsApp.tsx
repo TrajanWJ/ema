@@ -10,6 +10,7 @@ const config = APP_CONFIGS["agents"];
 
 export function AgentsApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const agents = useAgentsStore((s) => s.agents);
   const selectedAgentId = useAgentsStore((s) => s.selectedAgentId);
@@ -18,7 +19,11 @@ export function AgentsApp() {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await useAgentsStore.getState().loadViaRest();
+      try {
+        await useAgentsStore.getState().loadViaRest();
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load agents");
+      }
       if (!cancelled) setReady(true);
       useAgentsStore.getState().connect().catch(() => {
         console.warn("Agents WebSocket failed, using REST");
@@ -64,6 +69,11 @@ export function AgentsApp() {
               + New
             </button>
           </div>
+          {error && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+              {error}
+            </div>
+          )}
           {showForm && <AgentForm onClose={() => setShowForm(false)} />}
           <AgentGrid agents={agents} onSelect={selectAgent} />
         </>

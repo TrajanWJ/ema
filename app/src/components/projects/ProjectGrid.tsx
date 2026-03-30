@@ -36,7 +36,6 @@ export function ProjectGrid({ onSelectProject }: ProjectGridProps) {
           key={project.id}
           onClick={() => onSelectProject(project)}
           className="glass-surface rounded-lg p-3 text-left transition-colors hover:bg-white/[0.02]"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <div className="flex items-center gap-2 mb-2">
             <span style={{ fontSize: "1rem", color: project.color ?? "#2dd4a8" }}>

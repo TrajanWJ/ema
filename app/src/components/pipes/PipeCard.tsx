@@ -56,7 +56,7 @@ export function PipeCard({ pipe }: PipeCardProps) {
           &rarr;
         </span>
         <span className="text-[0.6rem]" style={{ color: "var(--pn-text-tertiary)" }}>
-          {pipe.actions.length} action{pipe.actions.length !== 1 ? "s" : ""}
+          {(pipe.actions ?? []).length} action{(pipe.actions ?? []).length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -66,9 +66,9 @@ export function PipeCard({ pipe }: PipeCardProps) {
         </div>
       )}
 
-      {pipe.actions.length > 0 && (
+      {(pipe.actions ?? []).length > 0 && (
         <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--pn-border-subtle)" }}>
-          {pipe.actions.map((action) => (
+          {(pipe.actions ?? []).map((action) => (
             <div
               key={action.id}
               className="text-[0.6rem] font-mono py-0.5"

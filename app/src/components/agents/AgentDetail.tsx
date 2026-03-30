@@ -90,7 +90,7 @@ export function AgentDetail({ agent, onBack }: AgentDetailProps) {
                   Tools
                 </span>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {agent.tools.length > 0 ? agent.tools.map((tool) => (
+                  {(agent.tools ?? []).length > 0 ? (agent.tools ?? []).map((tool) => (
                     <span
                       key={tool}
                       className="text-[0.6rem] px-1.5 py-0.5 rounded-md font-mono"

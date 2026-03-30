@@ -9,13 +9,18 @@ const config = APP_CONFIGS["responsibilities"];
 
 export function ResponsibilitiesApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const responsibilities = useResponsibilitiesStore((s) => s.responsibilities);
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await useResponsibilitiesStore.getState().loadViaRest();
+      try {
+        await useResponsibilitiesStore.getState().loadViaRest();
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load responsibilities");
+      }
       if (!cancelled) setReady(true);
       useResponsibilitiesStore.getState().connect().catch(() => {
         console.warn("Responsibilities WebSocket failed, using REST");
@@ -59,6 +64,12 @@ export function ResponsibilitiesApp() {
           + New
         </button>
       </div>
+
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          {error}
+        </div>
+      )}
 
       {showForm && <ResponsibilityForm onClose={() => setShowForm(false)} />}
 

@@ -99,7 +99,6 @@ function StatCard({
   return (
     <div
       className="glass-surface rounded-lg p-3"
-      style={{ border: "1px solid var(--pn-border-subtle)" }}
     >
       <span
         className="text-[0.6rem] font-medium uppercase tracking-wider block mb-1"

@@ -13,17 +13,22 @@ const config = APP_CONFIGS.projects;
 
 export function ProjectsApp() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      await Promise.all([
-        useProjectsStore.getState().loadViaRest(),
-        useTasksStore.getState().loadViaRest(),
-        useProposalsStore.getState().loadViaRest(),
-      ]);
+      try {
+        await Promise.all([
+          useProjectsStore.getState().loadViaRest(),
+          useTasksStore.getState().loadViaRest(),
+          useProposalsStore.getState().loadViaRest(),
+        ]);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects");
+      }
       if (!cancelled) setReady(true);
       Promise.all([
         useProjectsStore.getState().connect(),
@@ -78,10 +83,15 @@ export function ProjectsApp() {
               </button>
             </div>
 
+            {error && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                {error}
+              </div>
+            )}
+
             {showForm && (
               <div
                 className="glass-surface rounded-lg p-3 mb-4"
-                style={{ border: "1px solid var(--pn-border-subtle)" }}
               >
                 <ProjectForm onClose={() => setShowForm(false)} />
               </div>

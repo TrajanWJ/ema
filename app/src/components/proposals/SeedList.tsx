@@ -32,7 +32,6 @@ export function SeedList() {
       {showForm && (
         <div
           className="glass-surface rounded-lg p-3"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <SeedForm onClose={() => setShowForm(false)} />
         </div>
@@ -53,7 +52,6 @@ export function SeedList() {
         <div
           key={seed.id}
           className="glass-surface rounded-lg p-3 flex items-center gap-3"
-          style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">

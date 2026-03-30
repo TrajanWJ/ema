@@ -67,9 +67,9 @@ export function VaultSearch({ onSelectNote }: VaultSearchProps) {
                 {note.word_count} words
               </span>
             </div>
-            {note.tags.length > 0 && (
+            {(note.tags ?? []).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {note.tags.map((tag) => (
+                {(note.tags ?? []).map((tag) => (
                   <span
                     key={tag}
                     className="text-[0.55rem] px-1 py-0.5 rounded"
