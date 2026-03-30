@@ -10,6 +10,9 @@ defmodule Ema.BrainDump.Item do
     field :processed, :boolean, default: false
     field :action, :string
     field :processed_at, :utc_datetime
+
+    belongs_to :project, Ema.Projects.Project, type: :string
+
     timestamps(type: :utc_datetime)
   end
 

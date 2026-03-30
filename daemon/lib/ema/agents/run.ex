@@ -11,7 +11,7 @@ defmodule Ema.Agents.Run do
     field :output_path, :string
     field :exit_code, :integer
 
-    belongs_to :template, Ema.Agents.Template, type: :string
+    belongs_to :agent, Ema.Agents.Agent, type: :string
 
     timestamps(type: :utc_datetime)
   end
@@ -20,7 +20,7 @@ defmodule Ema.Agents.Run do
 
   def changeset(run, attrs) do
     run
-    |> cast(attrs, [:id, :project_path, :status, :started_at, :output_path, :exit_code, :template_id])
+    |> cast(attrs, [:id, :project_path, :status, :started_at, :output_path, :exit_code, :agent_id])
     |> validate_required([:id])
     |> validate_inclusion(:status, @valid_statuses)
   end

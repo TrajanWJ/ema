@@ -1,6 +1,5 @@
 defmodule Ema.AppShortcuts do
   @moduledoc """
-  AppShortcuts — quick-launch application shortcuts with categories and ordering.
-  Scaffolded — implementation pending.
+  Deprecated: app_shortcuts table has been dropped from the new system.
   """
 end

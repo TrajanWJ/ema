@@ -1,20 +1,6 @@
 defmodule Ema.VaultIndex.VaultEntry do
-  use Ecto.Schema
-  import Ecto.Changeset
-
-  @primary_key {:path, :string, autogenerate: false}
-
-  schema "vault_index" do
-    field :title, :string
-    field :tags, :string
-    field :modified_at, :utc_datetime
-
-    timestamps(type: :utc_datetime)
-  end
-
-  def changeset(entry, attrs) do
-    entry
-    |> cast(attrs, [:path, :title, :tags, :modified_at])
-    |> validate_required([:path])
-  end
+  @moduledoc """
+  Deprecated: vault_index table has been replaced by vault_notes + vault_links.
+  See Ema.VaultNotes context (to be implemented in a later plan).
+  """
 end

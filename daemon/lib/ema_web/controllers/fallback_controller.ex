@@ -19,6 +19,12 @@ defmodule EmaWeb.FallbackController do
     |> json(%{error: "limit_reached", message: "Maximum of 7 active habits"})
   end
 
+  def call(conn, {:error, :cannot_delete_system_pipe}) do
+    conn
+    |> put_status(:forbidden)
+    |> json(%{error: "cannot_delete_system_pipe", message: "System pipes cannot be deleted"})
+  end
+
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     errors =
       Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->

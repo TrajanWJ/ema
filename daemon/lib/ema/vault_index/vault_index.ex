@@ -1,6 +1,6 @@
 defmodule Ema.VaultIndex do
   @moduledoc """
-  VaultIndex — indexed mirror of Obsidian vault file metadata for fast lookup.
-  Scaffolded — implementation pending.
+  Deprecated: replaced by vault_notes + vault_links tables.
+  See VaultNotes context (to be implemented in a later plan).
   """
 end

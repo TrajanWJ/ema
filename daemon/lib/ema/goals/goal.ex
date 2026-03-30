@@ -11,6 +11,7 @@ defmodule Ema.Goals.Goal do
     field :status, :string, default: "active"
 
     belongs_to :parent, __MODULE__, type: :string
+    belongs_to :project, Ema.Projects.Project, type: :string
     has_many :children, __MODULE__, foreign_key: :parent_id
 
     timestamps(type: :utc_datetime)
@@ -21,7 +22,7 @@ defmodule Ema.Goals.Goal do
 
   def changeset(goal, attrs) do
     goal
-    |> cast(attrs, [:id, :title, :description, :timeframe, :status, :parent_id])
+    |> cast(attrs, [:id, :title, :description, :timeframe, :status, :parent_id, :project_id])
     |> validate_required([:id, :title, :timeframe])
     |> validate_inclusion(:timeframe, @valid_timeframes)
     |> validate_inclusion(:status, @valid_statuses)

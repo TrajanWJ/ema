@@ -1,0 +1,238 @@
+defmodule Ema.Agents.AgentWorker do
+  @moduledoc """
+  Per-agent GenServer that handles message routing, prompt building,
+  Claude CLI invocation, and tool execution.
+  """
+
+  use GenServer
+  require Logger
+
+  alias Ema.Agents
+  alias Ema.Claude.Runner
+
+  # --- Public API ---
+
+  def start_link(agent_id) do
+    GenServer.start_link(__MODULE__, agent_id, name: via(agent_id))
+  end
+
+  def send_message(agent_id, conversation_id, content, metadata \\ %{}) do
+    GenServer.call(via(agent_id), {:message, conversation_id, content, metadata}, 180_000)
+  end
+
+  def get_state(agent_id) do
+    GenServer.call(via(agent_id), :get_state)
+  end
+
+  defp via(agent_id) do
+    {:via, Registry, {Ema.Agents.Registry, {:worker, agent_id}}}
+  end
+
+  # --- Callbacks ---
+
+  @impl true
+  def init(agent_id) do
+    case Agents.get_agent(agent_id) do
+      nil ->
+        {:stop, {:agent_not_found, agent_id}}
+
+      agent ->
+        Logger.info("AgentWorker started for #{agent.slug} (#{agent_id})")
+
+        {:ok,
+         %{
+           agent_id: agent_id,
+           agent: agent,
+           script: load_script(agent.script_path)
+         }}
+    end
+  end
+
+  @impl true
+  def handle_call({:message, conversation_id, content, metadata}, _from, state) do
+    case handle_message(conversation_id, content, metadata, state) do
+      {:ok, response} -> {:reply, {:ok, response}, state}
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
+  end
+
+  @impl true
+  def handle_info(:reload, state) do
+    case Agents.get_agent(state.agent_id) do
+      nil ->
+        {:stop, :agent_deleted, state}
+
+      agent ->
+        {:noreply,
+         %{state | agent: agent, script: load_script(agent.script_path)}}
+    end
+  end
+
+  # --- Internal ---
+
+  defp handle_message(conversation_id, content, metadata, state) do
+    agent = state.agent
+
+    # Store the user message
+    {:ok, _user_msg} =
+      Agents.add_message(%{
+        conversation_id: conversation_id,
+        role: "user",
+        content: content,
+        metadata: metadata
+      })
+
+    # Build prompt from script + conversation history
+    prompt = build_prompt(state, conversation_id, content)
+
+    # Call Claude CLI
+    case Runner.run(prompt,
+           model: agent.model,
+           max_tokens: agent.max_tokens,
+           project_path: project_path(agent)
+         ) do
+      {:ok, response_text} ->
+        {reply, tool_calls} = parse_response(response_text)
+
+        # Execute tool calls if present
+        tool_results = execute_tool_calls(tool_calls, agent)
+
+        # If there were tool calls, build a follow-up with results
+        final_reply =
+          if tool_results != [] do
+            build_tool_followup(reply, tool_results)
+          else
+            reply
+          end
+
+        # Store assistant message
+        {:ok, _assistant_msg} =
+          Agents.add_message(%{
+            conversation_id: conversation_id,
+            role: "assistant",
+            content: final_reply,
+            tool_calls: tool_calls,
+            metadata: %{}
+          })
+
+        # Notify memory GenServer about the new messages
+        notify_memory(state.agent_id, conversation_id)
+
+        {:ok, %{reply: final_reply, tool_calls: tool_calls, tool_results: tool_results}}
+
+      {:error, reason} ->
+        Logger.error("Claude CLI failed for agent #{agent.slug}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp build_prompt(state, conversation_id, _current_content) do
+    parts = []
+
+    # System prompt from script
+    parts =
+      if state.script do
+        parts ++ ["[System]\n#{state.script}\n"]
+      else
+        parts ++ ["[System]\nYou are #{state.agent.name}. #{state.agent.description || ""}\n"]
+      end
+
+    # Conversation history
+    messages = Agents.list_messages_by_conversation(conversation_id)
+
+    history =
+      Enum.map(messages, fn msg ->
+        role_label = String.capitalize(msg.role)
+        "[#{role_label}]\n#{msg.content}"
+      end)
+
+    parts = parts ++ history
+
+    Enum.join(parts, "\n\n")
+  end
+
+  defp load_script(nil), do: nil
+
+  defp load_script(path) do
+    case File.read(path) do
+      {:ok, content} -> content
+      {:error, _} -> nil
+    end
+  end
+
+  defp project_path(%{project_id: nil}), do: nil
+  defp project_path(_agent), do: nil
+
+  defp parse_response(response) when is_binary(response) do
+    {response, []}
+  end
+
+  defp parse_response(%{"content" => content, "tool_calls" => tool_calls})
+       when is_list(tool_calls) do
+    {content, tool_calls}
+  end
+
+  defp parse_response(%{"content" => content}) do
+    {content, []}
+  end
+
+  defp parse_response(response) when is_map(response) do
+    {inspect(response), []}
+  end
+
+  defp execute_tool_calls([], _agent), do: []
+
+  defp execute_tool_calls(tool_calls, agent) do
+    allowed_tools = MapSet.new(agent.tools || [])
+
+    Enum.map(tool_calls, fn call ->
+      tool_name = Map.get(call, "name", Map.get(call, :name, "unknown"))
+      input = Map.get(call, "input", Map.get(call, :input, %{}))
+
+      if MapSet.member?(allowed_tools, tool_name) do
+        execute_tool(tool_name, input)
+      else
+        %{tool: tool_name, error: "Tool not allowed for this agent"}
+      end
+    end)
+  end
+
+  defp execute_tool(tool_name, input) do
+    case tool_name do
+      "brain_dump:create_item" ->
+        case Ema.BrainDump.create_item(input) do
+          {:ok, item} -> %{tool: tool_name, result: %{id: item.id}}
+          {:error, reason} -> %{tool: tool_name, error: inspect(reason)}
+        end
+
+      _ ->
+        %{tool: tool_name, error: "Tool not implemented: #{tool_name}"}
+    end
+  end
+
+  defp build_tool_followup(reply, tool_results) do
+    results_text =
+      Enum.map_join(tool_results, "\n", fn result ->
+        case result do
+          %{tool: tool, result: res} -> "[Tool #{tool}]: #{inspect(res)}"
+          %{tool: tool, error: err} -> "[Tool #{tool} error]: #{err}"
+        end
+      end)
+
+    "#{reply}\n\n---\nTool results:\n#{results_text}"
+  end
+
+  defp notify_memory(agent_id, conversation_id) do
+    case Registry.lookup(Ema.Agents.Registry, {:memory, agent_id}) do
+      [{pid, _}] ->
+        send(pid, {:check_conversation, conversation_id})
+
+      [] ->
+        :ok
+    end
+  end
+end

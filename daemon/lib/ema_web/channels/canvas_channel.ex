@@ -1,0 +1,153 @@
+defmodule EmaWeb.CanvasChannel do
+  use Phoenix.Channel
+
+  alias Ema.Canvases
+
+  @impl true
+  def join("canvas:" <> canvas_id, _payload, socket) do
+    case Canvases.get_canvas_with_elements(canvas_id) do
+      {:ok, canvas} ->
+        socket = assign(socket, :canvas_id, canvas_id)
+        send(self(), {:send_canvas, canvas})
+        {:ok, socket}
+
+      {:error, :not_found} ->
+        {:error, %{reason: "canvas not found"}}
+    end
+  end
+
+  @impl true
+  def handle_in("element:create", params, socket) do
+    canvas_id = socket.assigns.canvas_id
+
+    attrs = %{
+      element_type: params["element_type"],
+      x: params["x"],
+      y: params["y"],
+      width: params["width"],
+      height: params["height"],
+      rotation: params["rotation"],
+      z_index: params["z_index"],
+      style: params["style"],
+      text: params["text"],
+      data_source: params["data_source"],
+      data_config: params["data_config"],
+      chart_config: params["chart_config"],
+      refresh_interval: params["refresh_interval"],
+      group_id: params["group_id"]
+    }
+
+    case Canvases.create_element(canvas_id, attrs) do
+      {:ok, element} ->
+        broadcast!(socket, "element:created", serialize_element(element))
+        maybe_track_refresh(element)
+        {:reply, {:ok, serialize_element(element)}, socket}
+
+      {:error, changeset} ->
+        {:reply, {:error, %{errors: changeset_errors(changeset)}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_in("element:update", %{"id" => id} = params, socket) do
+    with {:ok, element} <- Canvases.get_element(id),
+         {:ok, updated} <- Canvases.update_element(element, Map.drop(params, ["id"])) do
+      broadcast!(socket, "element:updated", serialize_element(updated))
+      maybe_track_refresh(updated)
+      {:reply, {:ok, serialize_element(updated)}, socket}
+    else
+      {:error, :not_found} ->
+        {:reply, {:error, %{reason: "element not found"}}, socket}
+
+      {:error, changeset} ->
+        {:reply, {:error, %{errors: changeset_errors(changeset)}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_in("element:delete", %{"id" => id}, socket) do
+    with {:ok, element} <- Canvases.get_element(id),
+         {:ok, _} <- Canvases.delete_element(element) do
+      Ema.Canvas.DataRefresher.untrack_element(id)
+      broadcast!(socket, "element:deleted", %{id: id})
+      {:reply, :ok, socket}
+    else
+      {:error, :not_found} ->
+        {:reply, {:error, %{reason: "element not found"}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_in("elements:reorder", %{"element_ids" => ids}, socket) do
+    canvas_id = socket.assigns.canvas_id
+
+    case Canvases.reorder_elements(canvas_id, ids) do
+      {:ok, _} ->
+        broadcast!(socket, "elements:reordered", %{element_ids: ids})
+        {:reply, :ok, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: reason}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:send_canvas, canvas}, socket) do
+    elements = Enum.map(canvas.elements, &serialize_element/1)
+
+    push(socket, "snapshot", %{
+      id: canvas.id,
+      name: canvas.name,
+      canvas_type: canvas.canvas_type,
+      viewport: canvas.viewport,
+      settings: canvas.settings,
+      elements: elements
+    })
+
+    {:noreply, socket}
+  end
+
+  defp maybe_track_refresh(%{data_source: ds, refresh_interval: ri} = element)
+       when is_binary(ds) and ds != "" and is_integer(ri) and ri > 0 do
+    Ema.Canvas.DataRefresher.track_element(
+      element.id,
+      element.data_source,
+      element.data_config,
+      element.refresh_interval
+    )
+  end
+
+  defp maybe_track_refresh(_element), do: :ok
+
+  defp serialize_element(element) do
+    %{
+      id: element.id,
+      element_type: element.element_type,
+      x: element.x,
+      y: element.y,
+      width: element.width,
+      height: element.height,
+      rotation: element.rotation,
+      z_index: element.z_index,
+      locked: element.locked,
+      style: element.style,
+      text: element.text,
+      points: element.points,
+      image_path: element.image_path,
+      data_source: element.data_source,
+      data_config: element.data_config,
+      chart_config: element.chart_config,
+      refresh_interval: element.refresh_interval,
+      group_id: element.group_id,
+      canvas_id: element.canvas_id
+    }
+  end
+
+  defp changeset_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
+  end
+end

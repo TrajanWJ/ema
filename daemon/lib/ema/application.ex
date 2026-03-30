@@ -7,18 +7,31 @@ defmodule Ema.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      EmaWeb.Telemetry,
-      Ema.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Ema.PubSub},
-      # Start a worker by calling: Ema.Worker.start_link(arg)
-      # {Ema.Worker, arg},
-      # Start to serve requests, typically the last entry
-      EmaWeb.Endpoint
-    ]
+    children =
+      [
+        EmaWeb.Telemetry,
+        Ema.Repo,
+        {Ecto.Migrator,
+         repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
+        {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Ema.PubSub},
+        # Claude session tracking (file watcher + process monitor)
+        Ema.ClaudeSessions.Supervisor,
+        # Agent process registry and supervisor
+        {Registry, keys: :unique, name: Ema.Agents.Registry},
+        Ema.Agents.Supervisor,
+        # Pipes — workflow automation (Registry -> Loader -> Executor)
+        Ema.Pipes.Supervisor,
+        # Canvas — data source refresh scheduler
+        Ema.Canvas.Supervisor
+      ] ++
+        maybe_start_second_brain() ++
+        maybe_start_responsibilities() ++
+        maybe_start_proposal_engine() ++
+        [
+          # Start to serve requests, typically the last entry
+          EmaWeb.Endpoint
+        ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -37,5 +50,29 @@ defmodule Ema.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp maybe_start_second_brain do
+    if Application.get_env(:ema, :start_second_brain, true) do
+      [Ema.SecondBrain.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_responsibilities do
+    if Application.get_env(:ema, :start_otp_workers, true) do
+      [Ema.Responsibilities.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_proposal_engine do
+    if Application.get_env(:ema, :proposal_engine)[:enabled] do
+      [Ema.ProposalEngine.Supervisor]
+    else
+      []
+    end
   end
 end

@@ -26,3 +26,18 @@ config :phoenix, :plug_init_mode, :runtime
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Disable Second Brain OTP processes in tests (started manually when needed)
+config :ema, start_second_brain: false
+
+# Use a temp directory for vault in tests
+config :ema, vault_root: Path.expand("../tmp/test_vault", __DIR__)
+
+# Disable Pipes workers (Loader/Executor) — they need DB outside sandbox
+config :ema, pipes_workers: false
+
+# Disable OTP background workers in test (Responsibilities scheduler)
+config :ema, start_otp_workers: false
+
+# Disable Proposal Engine in test
+config :ema, proposal_engine: [enabled: false]
