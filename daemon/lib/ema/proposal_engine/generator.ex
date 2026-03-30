@@ -22,25 +22,16 @@ defmodule Ema.ProposalEngine.Generator do
 
   @impl true
   def init(_opts) do
-    {:ok, %{generating: 0, total_generated: 0}}
+    {:ok, %{total_generated: 0}}
   end
 
   @impl true
   def handle_cast({:generate, seed}, state) do
-    state = %{state | generating: state.generating + 1}
-
-    # Run in a Task to avoid blocking the GenServer
-    Task.start(fn ->
+    Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
       do_generate(seed)
     end)
 
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_info({:generation_complete, _result}, state) do
-    {:noreply,
-     %{state | generating: state.generating - 1, total_generated: state.total_generated + 1}}
+    {:noreply, %{state | total_generated: state.total_generated + 1}}
   end
 
   @impl true

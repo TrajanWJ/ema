@@ -14,6 +14,7 @@ defmodule Ema.ProposalEngine.Supervisor do
   @impl true
   def init(_opts) do
     children = [
+      {Task.Supervisor, name: Ema.ProposalEngine.TaskSupervisor},
       Ema.ProposalEngine.KillMemory,
       Ema.ProposalEngine.Tagger,
       Ema.ProposalEngine.Debater,

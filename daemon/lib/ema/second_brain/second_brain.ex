@@ -143,7 +143,13 @@ defmodule Ema.SecondBrain do
   end
 
   def search_notes(query, opts \\ []) do
-    pattern = "%#{query}%"
+    escaped =
+      query
+      |> String.replace("\\", "\\\\")
+      |> String.replace("%", "\\%")
+      |> String.replace("_", "\\_")
+
+    pattern = "%#{escaped}%"
 
     Note
     |> where([n], like(n.title, ^pattern) or like(n.file_path, ^pattern))
@@ -260,6 +266,8 @@ defmodule Ema.SecondBrain do
       |> maybe_filter_space(opts[:space])
       |> Repo.all()
 
+    note_ids = MapSet.new(notes, & &1.id)
+
     links = Repo.all(Link)
 
     nodes =
@@ -273,8 +281,14 @@ defmodule Ema.SecondBrain do
         }
       end)
 
+    # Only include edges where both source and target are in the filtered note set
     edges =
-      Enum.map(links, fn l ->
+      links
+      |> Enum.filter(fn l ->
+        MapSet.member?(note_ids, l.source_note_id) and
+          MapSet.member?(note_ids, l.target_note_id)
+      end)
+      |> Enum.map(fn l ->
         %{
           id: l.id,
           source: l.source_note_id,

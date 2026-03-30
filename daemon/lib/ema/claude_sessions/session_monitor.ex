@@ -67,10 +67,19 @@ defmodule Ema.ClaudeSessions.SessionMonitor do
   end
 
   defp detect_active_sessions do
-    case System.cmd("pgrep", ["-af", "claude"], stderr_to_stdout: true) do
+    beam_pid = System.pid() |> String.to_integer()
+
+    case System.cmd("pgrep", ["-af", "claude\\b.*--"], stderr_to_stdout: true) do
       {output, 0} ->
         output
         |> String.split("\n", trim: true)
+        |> Enum.reject(fn line ->
+          # Filter out the BEAM process itself
+          case Integer.parse(String.trim(line)) do
+            {pid, _} -> pid == beam_pid
+            :error -> false
+          end
+        end)
         |> Enum.flat_map(&extract_project_dir/1)
         |> MapSet.new()
 

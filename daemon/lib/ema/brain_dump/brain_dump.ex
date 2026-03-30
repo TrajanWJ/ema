@@ -25,9 +25,24 @@ defmodule Ema.BrainDump do
   def create_item(attrs) do
     id = generate_id()
 
-    %Item{}
-    |> Item.create_changeset(Map.put(attrs, :id, id))
-    |> Repo.insert()
+    result =
+      %Item{}
+      |> Item.create_changeset(Map.put(attrs, :id, id))
+      |> Repo.insert()
+
+    case result do
+      {:ok, item} ->
+        Ema.Pipes.EventBus.broadcast_event("brain_dump:item_created", %{
+          item_id: item.id,
+          content: item.content,
+          source: item.source
+        })
+
+        {:ok, item}
+
+      error ->
+        error
+    end
   end
 
   def process_item(id, action) when action in ~w(task journal archive note) do
@@ -36,9 +51,23 @@ defmodule Ema.BrainDump do
         {:error, :not_found}
 
       item ->
-        item
-        |> Item.process_changeset(%{processed: true, action: action, processed_at: DateTime.utc_now()})
-        |> Repo.update()
+        result =
+          item
+          |> Item.process_changeset(%{processed: true, action: action, processed_at: DateTime.utc_now()})
+          |> Repo.update()
+
+        case result do
+          {:ok, processed} ->
+            Ema.Pipes.EventBus.broadcast_event("brain_dump:item_processed", %{
+              item_id: processed.id,
+              action: action
+            })
+
+            {:ok, processed}
+
+          error ->
+            error
+        end
     end
   end
 

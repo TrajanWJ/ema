@@ -49,10 +49,24 @@ defmodule EmaWeb.AgentController do
         {:error, :not_found}
 
       agent ->
+        allowed_keys = %{
+          "name" => :name,
+          "description" => :description,
+          "avatar" => :avatar,
+          "status" => :status,
+          "model" => :model,
+          "temperature" => :temperature,
+          "max_tokens" => :max_tokens,
+          "script_path" => :script_path,
+          "tools" => :tools,
+          "settings" => :settings,
+          "project_id" => :project_id
+        }
+
         attrs =
           params
-          |> Map.take(~w(name description avatar status model temperature max_tokens script_path tools settings project_id))
-          |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+          |> Map.take(Map.keys(allowed_keys))
+          |> Map.new(fn {k, v} -> {Map.fetch!(allowed_keys, k), v} end)
 
         with {:ok, updated} <- Agents.update_agent(agent, attrs) do
           EmaWeb.Endpoint.broadcast("agents:lobby", "agent_updated", serialize_agent(updated))

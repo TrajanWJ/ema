@@ -23,15 +23,18 @@ defmodule Ema.Agents.WebchatChannelBridge do
         else
           external_user_id = Map.get(metadata, "user_id", "webchat_user")
 
-          {:ok, conversation} =
-            Agents.get_or_create_conversation(
-              agent.id,
-              "webchat",
-              "webchat:#{agent_slug}",
-              external_user_id
-            )
+          case Agents.get_or_create_conversation(
+                 agent.id,
+                 "webchat",
+                 "webchat:#{agent_slug}",
+                 external_user_id
+               ) do
+            {:ok, conversation} ->
+              AgentWorker.send_message(agent.id, conversation.id, content, metadata)
 
-          AgentWorker.send_message(agent.id, conversation.id, content, metadata)
+            {:error, reason} ->
+              {:error, reason}
+          end
         end
     end
   end

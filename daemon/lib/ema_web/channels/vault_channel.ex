@@ -14,9 +14,26 @@ defmodule EmaWeb.VaultChannel do
 
   @impl true
   def join("vault:graph", _payload, socket) do
+    Phoenix.PubSub.subscribe(Ema.PubSub, "vault:changes")
     graph = SecondBrain.get_full_graph()
     {:ok, graph, socket}
   end
+
+  @impl true
+  def handle_info({event, data}, socket) when event in [:note_created, :note_updated, :note_deleted, :note_moved] do
+    push(socket, Atom.to_string(event), %{data: serialize_change(data)})
+    {:noreply, socket}
+  end
+
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
+  end
+
+  defp serialize_change(%{id: _} = note) do
+    serialize_note(note)
+  end
+
+  defp serialize_change(other), do: other
 
   defp serialize_note(note) do
     %{

@@ -53,7 +53,9 @@ defmodule Ema.Pipes.Executor do
       end)
 
     for pipe <- matching_pipes do
-      Task.start(fn -> execute_pipe(pipe, trigger_pattern, payload) end)
+      Task.Supervisor.start_child(Ema.Pipes.TaskSupervisor, fn ->
+        execute_pipe(pipe, trigger_pattern, payload)
+      end)
     end
 
     {:noreply, state}

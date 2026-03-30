@@ -22,13 +22,16 @@ defmodule Ema.ProposalEngine.Debater do
 
   @impl true
   def init(_opts) do
-    {:ok, %{debating: 0}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_cast({:debate, proposal}, state) do
-    Task.start(fn -> do_debate(proposal) end)
-    {:noreply, %{state | debating: state.debating + 1}}
+    Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
+      do_debate(proposal)
+    end)
+
+    {:noreply, state}
   end
 
   @impl true

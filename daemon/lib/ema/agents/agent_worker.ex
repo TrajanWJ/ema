@@ -78,13 +78,15 @@ defmodule Ema.Agents.AgentWorker do
     agent = state.agent
 
     # Store the user message
-    {:ok, _user_msg} =
-      Agents.add_message(%{
-        conversation_id: conversation_id,
-        role: "user",
-        content: content,
-        metadata: metadata
-      })
+    case Agents.add_message(%{
+           conversation_id: conversation_id,
+           role: "user",
+           content: content,
+           metadata: metadata
+         }) do
+      {:ok, _user_msg} -> :ok
+      {:error, reason} -> Logger.warning("Failed to store user message: #{inspect(reason)}")
+    end
 
     # Build prompt from script + conversation history
     prompt = build_prompt(state, conversation_id, content)
@@ -110,14 +112,16 @@ defmodule Ema.Agents.AgentWorker do
           end
 
         # Store assistant message
-        {:ok, _assistant_msg} =
-          Agents.add_message(%{
-            conversation_id: conversation_id,
-            role: "assistant",
-            content: final_reply,
-            tool_calls: tool_calls,
-            metadata: %{}
-          })
+        case Agents.add_message(%{
+               conversation_id: conversation_id,
+               role: "assistant",
+               content: final_reply,
+               tool_calls: tool_calls,
+               metadata: %{}
+             }) do
+          {:ok, _assistant_msg} -> :ok
+          {:error, reason} -> Logger.warning("Failed to store assistant message: #{inspect(reason)}")
+        end
 
         # Notify memory GenServer about the new messages
         notify_memory(state.agent_id, conversation_id)
@@ -165,7 +169,13 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   defp project_path(%{project_id: nil}), do: nil
-  defp project_path(_agent), do: nil
+
+  defp project_path(%{project_id: project_id}) do
+    case Ema.Projects.get_project(project_id) do
+      %{linked_path: path} when is_binary(path) and path != "" -> path
+      _ -> nil
+    end
+  end
 
   defp parse_response(response) when is_binary(response) do
     {response, []}

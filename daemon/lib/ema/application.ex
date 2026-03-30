@@ -15,16 +15,14 @@ defmodule Ema.Application do
          repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
         {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Ema.PubSub},
-        # Claude session tracking (file watcher + process monitor)
-        Ema.ClaudeSessions.Supervisor,
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         Ema.Agents.Supervisor,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
-        Ema.Pipes.Supervisor,
-        # Canvas — data source refresh scheduler
-        Ema.Canvas.Supervisor
+        Ema.Pipes.Supervisor
       ] ++
+        maybe_start_claude_sessions() ++
+        maybe_start_canvas() ++
         maybe_start_second_brain() ++
         maybe_start_responsibilities() ++
         maybe_start_proposal_engine() ++
@@ -50,6 +48,22 @@ defmodule Ema.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp maybe_start_claude_sessions do
+    if Application.get_env(:ema, :start_claude_sessions, true) do
+      [Ema.ClaudeSessions.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_canvas do
+    if Application.get_env(:ema, :start_canvas, true) do
+      [Ema.Canvas.Supervisor]
+    else
+      []
+    end
   end
 
   defp maybe_start_second_brain do

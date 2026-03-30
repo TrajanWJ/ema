@@ -2,6 +2,11 @@ defmodule Ema.Canvas.DataRefresherTest do
   use Ema.DataCase, async: false
   alias Ema.Canvas.DataRefresher
 
+  setup do
+    start_supervised!(DataRefresher)
+    :ok
+  end
+
   describe "track_element/4 and untrack_element/1" do
     test "tracks an element" do
       DataRefresher.track_element("elm_1", "tasks:by_status", %{}, 30)

@@ -16,7 +16,8 @@ defmodule Ema.Agents.Agent do
     field :script_path, :string
     field :tools, {:array, :string}, default: []
     field :settings, :map, default: %{}
-    field :project_id, :string
+
+    belongs_to :project, Ema.Projects.Project, type: :string
 
     has_many :channels, Ema.Agents.Channel
     has_many :conversations, Ema.Agents.Conversation

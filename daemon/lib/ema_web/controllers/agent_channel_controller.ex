@@ -28,10 +28,16 @@ defmodule EmaWeb.AgentChannelController do
 
   def update(conn, %{"slug" => slug, "id" => id} = params) do
     with {:ok, _agent, channel} <- find_agent_channel(slug, id) do
+      allowed_keys = %{
+        "active" => :active,
+        "config" => :config,
+        "status" => :status
+      }
+
       attrs =
         params
-        |> Map.take(~w(active config status))
-        |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+        |> Map.take(Map.keys(allowed_keys))
+        |> Map.new(fn {k, v} -> {Map.fetch!(allowed_keys, k), v} end)
 
       with {:ok, updated} <- Agents.update_channel(channel, attrs) do
         json(conn, %{channel: serialize_channel(updated)})

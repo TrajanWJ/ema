@@ -215,7 +215,7 @@ defmodule EmaWeb.PipeController do
   # --- Helpers ---
 
   defp broadcast_change(event, data) do
-    EmaWeb.Endpoint.broadcast("pipes:lobby", event, data)
+    EmaWeb.Endpoint.broadcast("pipes:editor", event, data)
   end
 
   defp maybe_put(opts, _key, nil), do: opts

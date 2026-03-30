@@ -33,7 +33,7 @@ defmodule Ema.Agents.ApiChannel do
               nil
             end
 
-          {:ok, conv} =
+          conv_result =
             if conversation do
               {:ok, conversation}
             else
@@ -45,12 +45,18 @@ defmodule Ema.Agents.ApiChannel do
               )
             end
 
-          case AgentWorker.send_message(agent.id, conv.id, message) do
-            {:ok, result} ->
-              {:ok, Map.put(result, :conversation_id, conv.id)}
+          case conv_result do
+            {:ok, conv} ->
+              case AgentWorker.send_message(agent.id, conv.id, message) do
+                {:ok, result} ->
+                  {:ok, Map.put(result, :conversation_id, conv.id)}
 
-            error ->
-              error
+                error ->
+                  error
+              end
+
+            {:error, reason} ->
+              {:error, reason}
           end
         end
     end

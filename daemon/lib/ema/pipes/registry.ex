@@ -318,9 +318,22 @@ defmodule Ema.Pipes.Registry do
         schema: %{message: :string, level: :string},
         execute: fn payload ->
           message = payload["message"] || payload[:message] || "pipe event"
-          level = payload["level"] || payload[:level] || "info"
+          level_str = payload["level"] || payload[:level] || "info"
           require Logger
-          Logger.log(String.to_existing_atom(level), "Pipe: #{message}")
+
+          valid_levels = %{
+            "emergency" => :emergency,
+            "alert" => :alert,
+            "critical" => :critical,
+            "error" => :error,
+            "warning" => :warning,
+            "notice" => :notice,
+            "info" => :info,
+            "debug" => :debug
+          }
+
+          level = Map.get(valid_levels, level_str, :info)
+          Logger.log(level, "Pipe: #{message}")
           {:ok, :logged}
         end
       }

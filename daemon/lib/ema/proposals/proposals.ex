@@ -61,15 +61,17 @@ defmodule Ema.Proposals do
 
       proposal ->
         Repo.transaction(fn ->
-          {:ok, updated} =
-            proposal
-            |> Proposal.changeset(%{status: "redirected"})
-            |> Repo.update()
+          case proposal
+               |> Proposal.changeset(%{status: "redirected"})
+               |> Repo.update() do
+            {:ok, updated} ->
+              seeds_created = create_redirect_seeds(updated, redirect_note)
+              broadcast_proposal_event("proposal_redirected", updated)
+              {updated, seeds_created}
 
-          seeds_created = create_redirect_seeds(updated, redirect_note)
-
-          broadcast_proposal_event("proposal_redirected", updated)
-          {updated, seeds_created}
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
         end)
         |> case do
           {:ok, {proposal, seeds}} -> {:ok, proposal, seeds}
@@ -178,7 +180,7 @@ defmodule Ema.Proposals do
   defp create_redirect_seeds(proposal, redirect_note) do
     angles = ["alternative approach", "expanded scope", "minimal viable version"]
 
-    Enum.map(angles, fn angle ->
+    Enum.flat_map(angles, fn angle ->
       attrs = %{
         name: "Redirect: #{String.slice(proposal.title, 0..40)} (#{angle})",
         prompt_template: build_redirect_prompt(proposal, redirect_note, angle),
@@ -186,8 +188,10 @@ defmodule Ema.Proposals do
         project_id: proposal.project_id
       }
 
-      {:ok, seed} = create_seed(attrs)
-      seed
+      case create_seed(attrs) do
+        {:ok, seed} -> [seed]
+        {:error, _reason} -> []
+      end
     end)
   end
 
@@ -242,6 +246,25 @@ defmodule Ema.Proposals do
     )
 
     EmaWeb.Endpoint.broadcast("proposals:queue", event, serialize_proposal(proposal))
+
+    # Broadcast to Pipes EventBus for workflow automation
+    pipe_event =
+      case event do
+        "proposal_approved" -> "proposals:approved"
+        "proposal_redirected" -> "proposals:redirected"
+        "proposal_killed" -> "proposals:killed"
+        "proposal_created" -> "proposals:generated"
+        _ -> nil
+      end
+
+    if pipe_event do
+      Ema.Pipes.EventBus.broadcast_event(pipe_event, %{
+        proposal_id: proposal.id,
+        title: proposal.title,
+        status: proposal.status,
+        project_id: proposal.project_id
+      })
+    end
   end
 
   defp serialize_proposal(proposal) do

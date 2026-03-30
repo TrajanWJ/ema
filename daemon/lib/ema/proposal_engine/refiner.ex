@@ -22,13 +22,16 @@ defmodule Ema.ProposalEngine.Refiner do
 
   @impl true
   def init(_opts) do
-    {:ok, %{refining: 0}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_cast({:refine, proposal}, state) do
-    Task.start(fn -> do_refine(proposal) end)
-    {:noreply, %{state | refining: state.refining + 1}}
+    Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
+      do_refine(proposal)
+    end)
+
+    {:noreply, state}
   end
 
   @impl true

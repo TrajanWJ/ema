@@ -22,13 +22,16 @@ defmodule Ema.ProposalEngine.Tagger do
 
   @impl true
   def init(_opts) do
-    {:ok, %{tagging: 0}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_cast({:tag, proposal}, state) do
-    Task.start(fn -> do_tag(proposal) end)
-    {:noreply, %{state | tagging: state.tagging + 1}}
+    Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
+      do_tag(proposal)
+    end)
+
+    {:noreply, state}
   end
 
   @impl true

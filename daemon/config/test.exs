@@ -41,3 +41,7 @@ config :ema, start_otp_workers: false
 
 # Disable Proposal Engine in test
 config :ema, proposal_engine: [enabled: false]
+
+# Disable Claude Sessions and Canvas supervisors in test
+config :ema, start_claude_sessions: false
+config :ema, start_canvas: false

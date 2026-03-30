@@ -12,7 +12,8 @@ defmodule Ema.Canvas.Canvas do
     field :canvas_type, :string, default: "freeform"
     field :viewport, :map, default: %{"x" => 0, "y" => 0, "zoom" => 1}
     field :settings, :map, default: %{"grid" => true, "snap" => true}
-    field :project_id, :string
+
+    belongs_to :project, Ema.Projects.Project, type: :string
 
     has_many :elements, Ema.Canvas.Element
 

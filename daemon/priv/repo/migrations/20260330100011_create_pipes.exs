@@ -45,7 +45,7 @@ defmodule Ema.Repo.Migrations.CreatePipes do
     create table(:pipe_runs, primary_key: false) do
       add :id, :string, primary_key: true
       add :trigger_event, :text, default: "{}"
-      add :status, :string, default: "pending"
+      add :status, :string
       add :started_at, :utc_datetime
       add :completed_at, :utc_datetime
       add :error, :text

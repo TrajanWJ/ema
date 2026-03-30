@@ -87,15 +87,18 @@ defmodule Ema.Responsibilities do
         {:ok, check_in} ->
           health_status = check_in.status
 
-          {:ok, updated_resp} =
-            resp
-            |> Responsibility.changeset(%{
-              health: health_status,
-              last_checked_at: DateTime.utc_now() |> DateTime.truncate(:second)
-            })
-            |> Repo.update()
+          case resp
+               |> Responsibility.changeset(%{
+                 health: health_status,
+                 last_checked_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               })
+               |> Repo.update() do
+            {:ok, updated_resp} ->
+              {updated_resp, check_in}
 
-          {updated_resp, check_in}
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
 
         {:error, changeset} ->
           Repo.rollback(changeset)

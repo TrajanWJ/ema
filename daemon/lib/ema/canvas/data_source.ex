@@ -42,7 +42,7 @@ defmodule Ema.Canvas.DataSource do
     try do
       result =
         Repo.query!(
-          "SELECT COALESCE(goal_id, 'unassigned') as project, COUNT(*) as count FROM tasks GROUP BY goal_id"
+          "SELECT COALESCE(project_id, 'unassigned') as project, COUNT(*) as count FROM tasks GROUP BY project_id"
         )
 
       data =
@@ -154,16 +154,22 @@ defmodule Ema.Canvas.DataSource do
     case validate_query(query) do
       :ok ->
         try do
-          result = Repo.query!(query)
+          # Wrap in a read-only transaction to prevent any writes
+          Repo.transaction(fn ->
+            Repo.query!("PRAGMA query_only = ON")
 
-          data =
-            Enum.map(result.rows, fn row ->
-              result.columns
-              |> Enum.zip(row)
-              |> Map.new()
-            end)
+            try do
+              result = Repo.query!(query)
 
-          {:ok, data}
+              Enum.map(result.rows, fn row ->
+                result.columns
+                |> Enum.zip(row)
+                |> Map.new()
+              end)
+            after
+              Repo.query!("PRAGMA query_only = OFF")
+            end
+          end)
         rescue
           e -> {:error, "Query failed: #{Exception.message(e)}"}
         end
@@ -187,10 +193,16 @@ defmodule Ema.Canvas.DataSource do
       normalized == "" ->
         {:error, "Query cannot be empty"}
 
+      String.contains?(query, ";") ->
+        {:error, "Query must not contain semicolons"}
+
       not String.starts_with?(normalized, "SELECT") ->
         {:error, "Only SELECT statements are allowed"}
 
-      Regex.match?(~r/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE)\b/, normalized) ->
+      Regex.match?(
+        ~r/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|UNION|ATTACH|PRAGMA|LOAD|REPLACE|VACUUM|REINDEX)\b/,
+        normalized
+      ) ->
         {:error, "Query contains forbidden statements"}
 
       true ->

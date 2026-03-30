@@ -50,9 +50,25 @@ defmodule Ema.Tasks do
   def create_task(attrs) do
     id = generate_id()
 
-    %Task{}
-    |> Task.changeset(Map.put(attrs, :id, id))
-    |> Repo.insert()
+    result =
+      %Task{}
+      |> Task.changeset(Map.put(attrs, :id, id))
+      |> Repo.insert()
+
+    case result do
+      {:ok, task} ->
+        Ema.Pipes.EventBus.broadcast_event("tasks:created", %{
+          task_id: task.id,
+          title: task.title,
+          status: task.status,
+          project_id: task.project_id
+        })
+
+        {:ok, task}
+
+      error ->
+        error
+    end
   end
 
   def update_task(%Task{} = task, attrs) do
@@ -63,9 +79,33 @@ defmodule Ema.Tasks do
 
   def transition_status(%Task{} = task, new_status) do
     if Task.valid_transition?(task.status, new_status) do
-      task
-      |> Task.changeset(%{status: new_status})
-      |> Repo.update()
+      result =
+        task
+        |> Task.changeset(%{status: new_status})
+        |> Repo.update()
+
+      case result do
+        {:ok, updated} ->
+          Ema.Pipes.EventBus.broadcast_event("tasks:status_changed", %{
+            task_id: updated.id,
+            old_status: task.status,
+            new_status: new_status,
+            project_id: updated.project_id
+          })
+
+          if new_status == "done" do
+            Ema.Pipes.EventBus.broadcast_event("tasks:completed", %{
+              task_id: updated.id,
+              title: updated.title,
+              project_id: updated.project_id
+            })
+          end
+
+          {:ok, updated}
+
+        error ->
+          error
+      end
     else
       {:error, :invalid_transition}
     end

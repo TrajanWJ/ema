@@ -16,20 +16,28 @@ defmodule Ema.Claude.Runner do
   """
   def run(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, "sonnet")
-    _timeout = Keyword.get(opts, :timeout, 120_000)
+    timeout = Keyword.get(opts, :timeout, 120_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
 
     args = ["--print", "--output-format", "json", "--model", model, "-p", prompt]
 
-    try do
-      case cmd_fn.("claude", args, stderr_to_stdout: true) do
-        {output, 0} -> {:ok, parse_output(output)}
-        {error, code} -> {:error, %{code: code, message: error}}
-      end
-    rescue
-      e in ErlangError ->
-        Logger.warning("Claude CLI not available: #{inspect(e)}")
-        {:error, %{code: :not_found, message: "Claude CLI not available"}}
+    task =
+      Task.async(fn ->
+        try do
+          case cmd_fn.("claude", args, stderr_to_stdout: true) do
+            {output, 0} -> {:ok, parse_output(output)}
+            {error, code} -> {:error, %{code: code, message: error}}
+          end
+        rescue
+          e in ErlangError ->
+            Logger.warning("Claude CLI not available: #{inspect(e)}")
+            {:error, %{code: :not_found, message: "Claude CLI not available"}}
+        end
+      end)
+
+    case Task.yield(task, timeout) || Task.shutdown(task) do
+      {:ok, result} -> result
+      nil -> {:error, %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}}
     end
   end
 

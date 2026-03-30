@@ -19,6 +19,7 @@ defmodule Ema.Pipes.Supervisor do
     children =
       if Application.get_env(:ema, :pipes_workers, true) do
         [
+          {Task.Supervisor, name: Ema.Pipes.TaskSupervisor},
           Ema.Pipes.Registry,
           Ema.Pipes.Loader,
           Ema.Pipes.Executor

@@ -7,7 +7,7 @@ defmodule Ema.Repo.Migrations.CreateProposals do
       add :title, :string, null: false
       add :summary, :text
       add :body, :text
-      add :status, :string, default: "draft"
+      add :status, :string, default: "queued"
       add :confidence, :float
       add :risks, :text, default: "[]"
       add :benefits, :text, default: "[]"
