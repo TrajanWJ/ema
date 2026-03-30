@@ -52,7 +52,7 @@ defmodule Ema.ProposalEngine.Scheduler do
 
   @impl true
   def handle_call(:pause, _from, state) do
-    Logger.info("ProposalEngine scheduler paused")
+    Logger.info("ProposalEngine.Scheduler: paused")
     {:reply, :ok, %{state | paused: true}}
   end
 
@@ -62,7 +62,7 @@ defmodule Ema.ProposalEngine.Scheduler do
       schedule_tick()
     end
 
-    Logger.info("ProposalEngine scheduler resumed")
+    Logger.info("ProposalEngine.Scheduler: resumed")
     {:reply, :ok, %{state | paused: false}}
   end
 
@@ -80,7 +80,7 @@ defmodule Ema.ProposalEngine.Scheduler do
   def handle_cast({:run_seed, seed_id}, state) do
     case Ema.Proposals.get_seed(seed_id) do
       nil ->
-        Logger.warning("Scheduler: seed #{seed_id} not found")
+        Logger.warning("ProposalEngine.Scheduler: seed #{seed_id} not found")
         {:noreply, state}
 
       seed ->
@@ -91,6 +91,7 @@ defmodule Ema.ProposalEngine.Scheduler do
 
   @impl true
   def handle_info(:tick, %{paused: true} = state) do
+    schedule_tick()
     {:noreply, state}
   end
 
@@ -108,6 +109,10 @@ defmodule Ema.ProposalEngine.Scheduler do
         true
       end)
 
+    if dispatched > 0 do
+      Logger.info("ProposalEngine.Scheduler: dispatched #{dispatched} seed(s) at #{now}")
+    end
+
     schedule_tick()
 
     {:noreply,
@@ -117,6 +122,11 @@ defmodule Ema.ProposalEngine.Scheduler do
          seeds_dispatched: state.seeds_dispatched + dispatched
      }}
   end
+
+  @impl true
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  # --- Private ---
 
   defp schedule_tick do
     Process.send_after(self(), :tick, @tick_interval)
@@ -144,7 +154,7 @@ defmodule Ema.ProposalEngine.Scheduler do
   defp parse_schedule(_), do: 3600
 
   defp dispatch_seed(seed) do
-    Logger.info("Scheduler: dispatching seed #{seed.id} (#{seed.name})")
+    Logger.info("ProposalEngine.Scheduler: dispatching seed #{seed.id} (#{seed.name})")
     Ema.ProposalEngine.Generator.generate(seed)
     Ema.Proposals.increment_seed_run_count(seed)
   end

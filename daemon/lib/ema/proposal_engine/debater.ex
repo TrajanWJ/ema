@@ -1,7 +1,8 @@
 defmodule Ema.ProposalEngine.Debater do
   @moduledoc """
+  Subscribes to {:proposals, :refined} via PubSub.
   Runs steelman/red-team/synthesis debate on proposals.
-  Sets the confidence score and passes to Tagger.
+  Sets the confidence score and publishes {:proposals, :debated}.
   """
 
   use GenServer
@@ -14,19 +15,16 @@ defmodule Ema.ProposalEngine.Debater do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  def debate(proposal) do
-    GenServer.cast(__MODULE__, {:debate, proposal})
-  end
-
   # --- Server ---
 
   @impl true
   def init(_opts) do
+    Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
     {:ok, %{}}
   end
 
   @impl true
-  def handle_cast({:debate, proposal}, state) do
+  def handle_info({:proposals, :refined, proposal}, state) do
     Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
       do_debate(proposal)
     end)
@@ -73,7 +71,12 @@ defmodule Ema.ProposalEngine.Debater do
         case Ema.Proposals.update_proposal(proposal, attrs) do
           {:ok, updated} ->
             Logger.info("Debater: debated proposal #{updated.id}, confidence: #{updated.confidence}")
-            Ema.ProposalEngine.Tagger.tag(updated)
+
+            Phoenix.PubSub.broadcast(
+              Ema.PubSub,
+              "proposals:pipeline",
+              {:proposals, :debated, updated}
+            )
 
           {:error, reason} ->
             Logger.error("Debater: failed to update proposal: #{inspect(reason)}")
@@ -81,8 +84,13 @@ defmodule Ema.ProposalEngine.Debater do
 
       {:error, reason} ->
         Logger.warning("Debater: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}")
+
         # Pass through to tagger without debate data
-        Ema.ProposalEngine.Tagger.tag(proposal)
+        Phoenix.PubSub.broadcast(
+          Ema.PubSub,
+          "proposals:pipeline",
+          {:proposals, :debated, proposal}
+        )
     end
   end
 

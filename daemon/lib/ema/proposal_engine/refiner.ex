@@ -1,7 +1,8 @@
 defmodule Ema.ProposalEngine.Refiner do
   @moduledoc """
+  Subscribes to {:proposals, :generated} via PubSub.
   Takes raw proposals from the Generator and runs a critique pass via Claude.
-  Updates the proposal body with refined content, then passes to Debater.
+  Updates the proposal body with refined content, then publishes {:proposals, :refined}.
   """
 
   use GenServer
@@ -14,19 +15,16 @@ defmodule Ema.ProposalEngine.Refiner do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  def refine(proposal) do
-    GenServer.cast(__MODULE__, {:refine, proposal})
-  end
-
   # --- Server ---
 
   @impl true
   def init(_opts) do
+    Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
     {:ok, %{}}
   end
 
   @impl true
-  def handle_cast({:refine, proposal}, state) do
+  def handle_info({:proposals, :generated, proposal}, state) do
     Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
       do_refine(proposal)
     end)
@@ -65,7 +63,12 @@ defmodule Ema.ProposalEngine.Refiner do
         case Ema.Proposals.update_proposal(proposal, attrs) do
           {:ok, updated} ->
             Logger.info("Refiner: refined proposal #{updated.id}")
-            Ema.ProposalEngine.Debater.debate(updated)
+
+            Phoenix.PubSub.broadcast(
+              Ema.PubSub,
+              "proposals:pipeline",
+              {:proposals, :refined, updated}
+            )
 
           {:error, reason} ->
             Logger.error("Refiner: failed to update proposal: #{inspect(reason)}")
@@ -73,8 +76,13 @@ defmodule Ema.ProposalEngine.Refiner do
 
       {:error, reason} ->
         Logger.warning("Refiner: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}")
-        # Pass through to debater even without refinement
-        Ema.ProposalEngine.Debater.debate(proposal)
+
+        # Pass through to next stage without refinement
+        Phoenix.PubSub.broadcast(
+          Ema.PubSub,
+          "proposals:pipeline",
+          {:proposals, :refined, proposal}
+        )
     end
   end
 end

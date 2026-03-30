@@ -1,7 +1,8 @@
 defmodule Ema.ProposalEngine.Generator do
   @moduledoc """
   Receives seeds, builds prompts via ContextManager, calls Claude Runner,
-  and creates raw proposals. Passes results to Refiner.
+  and creates raw proposals. Publishes {:proposals, :generated} via PubSub
+  to kick off the pipeline.
   """
 
   use GenServer
@@ -75,7 +76,13 @@ defmodule Ema.ProposalEngine.Generator do
     case Ema.Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
         Logger.info("Generator: created proposal #{proposal.id} from seed #{seed.id}")
-        Ema.ProposalEngine.Refiner.refine(proposal)
+
+        Phoenix.PubSub.broadcast(
+          Ema.PubSub,
+          "proposals:pipeline",
+          {:proposals, :generated, proposal}
+        )
+
         {:ok, proposal}
 
       {:error, reason} ->
