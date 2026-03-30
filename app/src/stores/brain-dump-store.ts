@@ -10,7 +10,7 @@ interface BrainDumpState {
   channel: Channel | null;
   loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
-  add: (content: string, source?: InboxItem["source"]) => Promise<void>;
+  add: (content: string, source?: InboxItem["source"], projectId?: string | null) => Promise<void>;
   process: (id: string, action: InboxItem["action"]) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
@@ -47,8 +47,8 @@ export const useBrainDumpStore = create<BrainDumpState>((set) => ({
     });
   },
 
-  async add(content, source = "text") {
-    await api.post("/brain-dump/items", { content, source });
+  async add(content, source = "text", projectId = null) {
+    await api.post("/brain-dump/items", { content, source, project_id: projectId });
   },
 
   async process(id, action) {

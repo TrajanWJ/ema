@@ -35,11 +35,20 @@ function formatRelativeTime(isoString: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+const NEW_APPS = [
+  { id: "proposals", name: "Proposals", status: "proposal engine" },
+  { id: "projects", name: "Projects", status: "project management" },
+  { id: "tasks", name: "Tasks", status: "task tracking" },
+  { id: "responsibilities", name: "Responsibilities", status: "active responsibilities" },
+  { id: "agents", name: "Agents", status: "manage agents" },
+  { id: "vault", name: "Second Brain", status: "knowledge vault" },
+  { id: "canvas", name: "Canvas", status: "visual workspace" },
+  { id: "pipes", name: "Pipes", status: "automation" },
+] as const;
+
 const SCAFFOLDED_APPS = [
-  { id: "tasks", name: "Tasks", icon: "☐" },
-  { id: "goals", name: "Goals", icon: "◎" },
-  { id: "focus", name: "Focus", icon: "⏱" },
-  { id: "notes", name: "Notes", icon: "N" },
+  { id: "goals", name: "Goals", icon: "\u25CE" },
+  { id: "focus", name: "Focus", icon: "\u23F1" },
 ] as const;
 
 export function Launchpad() {
@@ -119,6 +128,22 @@ export function Launchpad() {
           status="workspace · apps · data"
           onClick={() => handleOpenApp("settings")}
         />
+
+        {/* New Apps */}
+        {NEW_APPS.map((app) => {
+          const appConfig = APP_CONFIGS[app.id];
+          return (
+            <AppTile
+              key={app.id}
+              appId={app.id}
+              name={app.name}
+              icon={appConfig?.icon ?? "\u25A1"}
+              accent={appConfig?.accent ?? "var(--pn-text-tertiary)"}
+              status={app.status}
+              onClick={() => handleOpenApp(app.id)}
+            />
+          );
+        })}
 
         {/* Scaffolded Apps */}
         {SCAFFOLDED_APPS.map((app) => (

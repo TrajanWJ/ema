@@ -6,4 +6,5 @@ export interface InboxItem {
   readonly action: "task" | "journal" | "archive" | "note" | "processing" | null;
   readonly processed_at: string | null;
   readonly created_at: string;
+  readonly project_id: string | null;
 }

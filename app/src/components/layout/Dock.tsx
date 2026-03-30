@@ -4,9 +4,17 @@ import { APP_CONFIGS } from "@/types/workspace";
 import { openApp } from "@/lib/window-manager";
 
 const DOCK_APPS = [
-  { id: "brain-dump", icon: "◎", label: "Brain Dump" },
-  { id: "habits", icon: "↻", label: "Habits" },
-  { id: "journal", icon: "✎", label: "Journal" },
+  { id: "brain-dump", icon: "\u25CE", label: "Brain Dump" },
+  { id: "habits", icon: "\u21BB", label: "Habits" },
+  { id: "journal", icon: "\u270E", label: "Journal" },
+  { id: "proposals", icon: "\u25C6", label: "Proposals" },
+  { id: "projects", icon: "\u25A3", label: "Projects" },
+  { id: "tasks", icon: "\u2610", label: "Tasks" },
+  { id: "responsibilities", icon: "\u26E8", label: "Responsibilities" },
+  { id: "agents", icon: "\u2B21", label: "Agents" },
+  { id: "vault", icon: "\u25C8", label: "Second Brain" },
+  { id: "canvas", icon: "\u25E7", label: "Canvas" },
+  { id: "pipes", icon: "\u27BF", label: "Pipes" },
 ] as const;
 
 export function Dock() {

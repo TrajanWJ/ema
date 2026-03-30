@@ -5,8 +5,16 @@ import { CommandBar } from "./CommandBar";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useHabitsStore } from "@/stores/habits-store";
+import { useProposalsStore } from "@/stores/proposals-store";
+import { useProjectsStore } from "@/stores/projects-store";
+import { useTasksStore } from "@/stores/tasks-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useResponsibilitiesStore } from "@/stores/responsibilities-store";
+import { useAgentsStore } from "@/stores/agents-store";
+import { useVaultStore } from "@/stores/vault-store";
+import { useCanvasStore } from "@/stores/canvas-store";
+import { usePipesStore } from "@/stores/pipes-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 
 interface ShellProps {
@@ -26,8 +34,16 @@ export function Shell({ children }: ShellProps) {
           useDashboardStore.getState().loadViaRest(),
           useBrainDumpStore.getState().loadViaRest(),
           useHabitsStore.getState().loadViaRest(),
+          useProposalsStore.getState().loadViaRest().catch(() => {}),
+          useProjectsStore.getState().loadViaRest().catch(() => {}),
+          useTasksStore.getState().loadViaRest().catch(() => {}),
           useSettingsStore.getState().load(),
           useWorkspaceStore.getState().load(),
+          useResponsibilitiesStore.getState().loadViaRest().catch(() => {}),
+          useAgentsStore.getState().loadViaRest().catch(() => {}),
+          useVaultStore.getState().loadViaRest().catch(() => {}),
+          useCanvasStore.getState().loadViaRest().catch(() => {}),
+          usePipesStore.getState().loadViaRest().catch(() => {}),
         ]);
         if (!cancelled) setReady(true);
 
@@ -36,8 +52,16 @@ export function Shell({ children }: ShellProps) {
           useDashboardStore.getState().connect(),
           useBrainDumpStore.getState().connect(),
           useHabitsStore.getState().connect(),
+          useProposalsStore.getState().connect().catch(() => {}),
+          useProjectsStore.getState().connect().catch(() => {}),
+          useTasksStore.getState().connect().catch(() => {}),
           useSettingsStore.getState().connect(),
           useWorkspaceStore.getState().connect(),
+          useResponsibilitiesStore.getState().connect().catch(() => {}),
+          useAgentsStore.getState().connect().catch(() => {}),
+          useVaultStore.getState().connect().catch(() => {}),
+          useCanvasStore.getState().connect().catch(() => {}),
+          usePipesStore.getState().connect().catch(() => {}),
         ]).catch(() => {
           console.warn("WebSocket connection failed, using REST fallback");
         });

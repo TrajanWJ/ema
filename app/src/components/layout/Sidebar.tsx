@@ -1,6 +1,6 @@
 import { Tooltip } from "@/components/ui/Tooltip";
 
-type Page = "dashboard" | "brain-dump" | "habits" | "journal" | "settings";
+type Page = "dashboard" | "brain-dump" | "habits" | "journal" | "proposals" | "projects" | "tasks" | "responsibilities" | "agents" | "vault" | "canvas" | "pipes" | "settings";
 
 interface SidebarProps {
   readonly activePage: Page;
@@ -12,6 +12,14 @@ const NAV_ITEMS: readonly { page: Page; icon: string; label: string }[] = [
   { page: "brain-dump", icon: "\u25CE", label: "Brain Dump" },
   { page: "habits", icon: "\u21BB", label: "Habits" },
   { page: "journal", icon: "\u270E", label: "Journal" },
+  { page: "proposals", icon: "\u25C6", label: "Proposals" },
+  { page: "projects", icon: "\u25A3", label: "Projects" },
+  { page: "tasks", icon: "\u2610", label: "Tasks" },
+  { page: "responsibilities", icon: "\u26E8", label: "Responsibilities" },
+  { page: "agents", icon: "\u2B21", label: "Agents" },
+  { page: "vault", icon: "\u25C8", label: "Second Brain" },
+  { page: "canvas", icon: "\u25E7", label: "Canvas" },
+  { page: "pipes", icon: "\u27BF", label: "Pipes" },
 ];
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
