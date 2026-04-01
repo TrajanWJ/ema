@@ -17,6 +17,7 @@ defmodule EmaWeb.UserSocket do
   channel "agents:lobby", EmaWeb.AgentLobbyChannel
   channel "agents:chat:*", EmaWeb.AgentChatChannel
   channel "canvas:*", EmaWeb.CanvasChannel
+  channel "channels:*", EmaWeb.ChannelsChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

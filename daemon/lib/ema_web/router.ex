@@ -110,5 +110,12 @@ defmodule EmaWeb.Router do
     # Data Sources
     get "/data-sources", DataSourceController, :index
     get "/data-sources/:id/preview", DataSourceController, :preview
+
+    # Channels
+    get "/channels", ChannelsController, :index
+    get "/channels/health", ChannelsController, :health
+    get "/channels/inbox", ChannelsController, :inbox
+    get "/channels/:channel_id/messages", ChannelsController, :messages
+    post "/channels/:channel_id/messages", ChannelsController, :send_message
   end
 end
