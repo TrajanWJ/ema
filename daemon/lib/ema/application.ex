@@ -30,6 +30,7 @@ defmodule Ema.Application do
         maybe_start_proposal_engine() ++
         maybe_start_metamind() ++
         maybe_start_evolution() ++
+        maybe_start_voice() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -101,6 +102,15 @@ defmodule Ema.Application do
       []
     end
   end
+
+  defp maybe_start_voice do
+    if Application.get_env(:ema, :start_voice, true) do
+      [Ema.Voice.Supervisor]
+    else
+      []
+    end
+  end
+
 
   defp maybe_start_proposal_engine do
     if Application.get_env(:ema, :proposal_engine)[:enabled] do
