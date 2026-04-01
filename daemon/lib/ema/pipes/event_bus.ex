@@ -10,7 +10,8 @@ defmodule Ema.Pipes.EventBus do
   `trigger_pattern` should match a registered trigger id, e.g. "tasks:created".
   `payload` is a map of event data passed to transforms and actions.
   """
-  def broadcast_event(trigger_pattern, payload) when is_binary(trigger_pattern) and is_map(payload) do
+  def broadcast_event(trigger_pattern, payload)
+      when is_binary(trigger_pattern) and is_map(payload) do
     Phoenix.PubSub.broadcast(
       Ema.PubSub,
       "pipe_trigger:#{trigger_pattern}",

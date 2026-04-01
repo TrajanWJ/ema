@@ -51,7 +51,9 @@ defmodule Ema.ClaudeSessions.SessionParser do
 
   defp parse_line(line) do
     case Jason.decode(line) do
-      {:ok, data} -> data
+      {:ok, data} ->
+        data
+
       {:error, _} ->
         Logger.debug("Skipping malformed JSONL line: #{String.slice(line, 0..80)}")
         nil
@@ -93,9 +95,10 @@ defmodule Ema.ClaudeSessions.SessionParser do
     Enum.count(messages, fn msg ->
       msg["type"] == "tool_use" or msg["type"] == "tool_call" or
         (is_map(msg["content"]) and msg["content"]["type"] == "tool_use") or
-        is_list(msg["content"]) and Enum.any?(List.wrap(msg["content"]), fn c ->
-          is_map(c) and c["type"] == "tool_use"
-        end)
+        (is_list(msg["content"]) and
+           Enum.any?(List.wrap(msg["content"]), fn c ->
+             is_map(c) and c["type"] == "tool_use"
+           end))
     end)
   end
 

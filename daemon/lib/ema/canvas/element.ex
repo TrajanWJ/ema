@@ -29,9 +29,25 @@ defmodule Ema.Canvas.Element do
   end
 
   @cast_fields [
-    :id, :element_type, :x, :y, :width, :height, :rotation, :z_index,
-    :locked, :style, :text, :points, :image_path, :data_source,
-    :data_config, :chart_config, :refresh_interval, :group_id, :canvas_id
+    :id,
+    :element_type,
+    :x,
+    :y,
+    :width,
+    :height,
+    :rotation,
+    :z_index,
+    :locked,
+    :style,
+    :text,
+    :points,
+    :image_path,
+    :data_source,
+    :data_config,
+    :chart_config,
+    :refresh_interval,
+    :group_id,
+    :canvas_id
   ]
 
   def changeset(element, attrs) do

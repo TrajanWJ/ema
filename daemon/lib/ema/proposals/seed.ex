@@ -27,9 +27,17 @@ defmodule Ema.Proposals.Seed do
   def changeset(seed, attrs) do
     seed
     |> cast(attrs, [
-      :id, :name, :prompt_template, :seed_type, :schedule,
-      :active, :last_run_at, :run_count, :context_injection,
-      :metadata, :project_id
+      :id,
+      :name,
+      :prompt_template,
+      :seed_type,
+      :schedule,
+      :active,
+      :last_run_at,
+      :run_count,
+      :context_injection,
+      :metadata,
+      :project_id
     ])
     |> validate_required([:id, :name, :prompt_template, :seed_type])
     |> validate_inclusion(:seed_type, @valid_seed_types)

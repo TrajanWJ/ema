@@ -20,7 +20,8 @@ defmodule EmaWeb.VaultChannel do
   end
 
   @impl true
-  def handle_info({event, data}, socket) when event in [:note_created, :note_updated, :note_deleted, :note_moved] do
+  def handle_info({event, data}, socket)
+      when event in [:note_created, :note_updated, :note_deleted, :note_moved] do
     push(socket, Atom.to_string(event), %{data: serialize_change(data)})
     {:noreply, socket}
   end

@@ -53,7 +53,11 @@ defmodule Ema.BrainDump do
       item ->
         result =
           item
-          |> Item.process_changeset(%{processed: true, action: action, processed_at: DateTime.utc_now()})
+          |> Item.process_changeset(%{
+            processed: true,
+            action: action,
+            processed_at: DateTime.utc_now()
+          })
           |> Repo.update()
 
         case result do
@@ -80,8 +84,13 @@ defmodule Ema.BrainDump do
 
   def unprocess_item(id) do
     case get_item(id) do
-      nil -> {:error, :not_found}
-      item -> item |> Ecto.Changeset.change(processed: false, action: nil, processed_at: nil) |> Repo.update()
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        item
+        |> Ecto.Changeset.change(processed: false, action: nil, processed_at: nil)
+        |> Repo.update()
     end
   end
 

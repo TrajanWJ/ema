@@ -101,7 +101,9 @@ defmodule Ema.ClaudeSessions.SessionParserTest do
   describe "parse_file/1" do
     test "returns error for missing file" do
       assert {:error, {:file_read_failed, :enoent}} =
-               SessionParser.parse_file("/tmp/nonexistent_session_#{System.unique_integer()}.jsonl")
+               SessionParser.parse_file(
+                 "/tmp/nonexistent_session_#{System.unique_integer()}.jsonl"
+               )
     end
 
     test "parses a real file" do

@@ -180,8 +180,9 @@ defmodule Ema.Responsibilities do
 
   defp task_overdue?(%{due_date: nil}), do: false
 
-  defp task_overdue?(%{due_date: _due_date, status: status}) when status in ["done", "archived", "cancelled"],
-    do: false
+  defp task_overdue?(%{due_date: _due_date, status: status})
+       when status in ["done", "archived", "cancelled"],
+       do: false
 
   defp task_overdue?(%{due_date: due_date}) do
     Date.compare(due_date, Date.utc_today()) == :lt

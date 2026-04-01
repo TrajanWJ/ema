@@ -123,13 +123,26 @@ defmodule EmaWeb.PipeController do
     triggers =
       Registry.list_triggers()
       |> Enum.map(fn t ->
-        %{id: t.id, context: t.context, event_type: t.event_type, label: t.label, description: t.description}
+        %{
+          id: t.id,
+          context: t.context,
+          event_type: t.event_type,
+          label: t.label,
+          description: t.description
+        }
       end)
 
     actions =
       Registry.list_actions()
       |> Enum.map(fn a ->
-        %{id: a.id, context: a.context, action_id: a.action_id, label: a.label, description: a.description, schema: a.schema}
+        %{
+          id: a.id,
+          context: a.context,
+          action_id: a.action_id,
+          label: a.label,
+          description: a.description,
+          schema: a.schema
+        }
       end)
 
     transforms =
@@ -226,11 +239,13 @@ defmodule EmaWeb.PipeController do
   defp parse_bool(_), do: nil
 
   defp parse_int(nil, default), do: default
+
   defp parse_int(val, default) when is_binary(val) do
     case Integer.parse(val) do
       {n, ""} -> n
       _ -> default
     end
   end
+
   defp parse_int(val, _default) when is_integer(val), do: val
 end

@@ -127,9 +127,7 @@ defmodule Ema.SecondBrain.SystemBrain do
 
     ## By Space
 
-    #{notes |> Enum.group_by(& &1.space) |> Enum.map_join("\n\n", fn {space, space_notes} ->
-      "### #{space || "unorganized"}\n\n#{Enum.map_join(space_notes, "\n", fn n -> "- [[#{n.file_path}]] — #{n.title || "untitled"}" end)}"
-    end)}
+    #{notes |> Enum.group_by(& &1.space) |> Enum.map_join("\n\n", fn {space, space_notes} -> "### #{space || "unorganized"}\n\n#{Enum.map_join(space_notes, "\n", fn n -> "- [[#{n.file_path}]] — #{n.title || "untitled"}" end)}" end)}
 
     ---
     *Last synced: #{DateTime.utc_now() |> DateTime.to_iso8601()}*

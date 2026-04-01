@@ -5,7 +5,9 @@ defmodule Ema.WorkspaceTest do
 
   describe "upsert/2" do
     test "creates a new window state" do
-      assert {:ok, ws} = Workspace.upsert("brain-dump", %{x: 100, y: 200, width: 600, height: 700})
+      assert {:ok, ws} =
+               Workspace.upsert("brain-dump", %{x: 100, y: 200, width: 600, height: 700})
+
       assert ws.app_id == "brain-dump"
       assert ws.x == 100
       assert ws.is_open == false

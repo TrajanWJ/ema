@@ -61,7 +61,12 @@ defmodule EmaWeb.ProjectController do
         }
 
         with {:ok, updated} <- Projects.update_project(project, attrs) do
-          EmaWeb.Endpoint.broadcast("projects:#{id}", "project_updated", serialize_project(updated))
+          EmaWeb.Endpoint.broadcast(
+            "projects:#{id}",
+            "project_updated",
+            serialize_project(updated)
+          )
+
           json(conn, serialize_project(updated))
         end
     end
@@ -87,12 +92,13 @@ defmodule EmaWeb.ProjectController do
 
       project ->
         # Context document path based on slug
-        context_path = Path.join([
-          System.get_env("HOME", "~"),
-          ".local/share/ema/projects",
-          project.slug,
-          "context.md"
-        ])
+        context_path =
+          Path.join([
+            System.get_env("HOME", "~"),
+            ".local/share/ema/projects",
+            project.slug,
+            "context.md"
+          ])
 
         context_content =
           case File.read(context_path) do

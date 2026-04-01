@@ -27,7 +27,8 @@ defmodule Ema.Responsibilities.HealthCalculator do
   end
 
   @impl true
-  def handle_info({:task_completed, %{responsibility_id: resp_id}}, state) when is_binary(resp_id) do
+  def handle_info({:task_completed, %{responsibility_id: resp_id}}, state)
+      when is_binary(resp_id) do
     recalculate_single(resp_id)
     {:noreply, state}
   end

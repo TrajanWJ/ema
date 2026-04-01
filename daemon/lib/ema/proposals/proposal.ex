@@ -34,10 +34,22 @@ defmodule Ema.Proposals.Proposal do
   def changeset(proposal, attrs) do
     proposal
     |> cast(attrs, [
-      :id, :title, :summary, :body, :status, :confidence,
-      :risks, :benefits, :estimated_scope, :generation_log,
-      :steelman, :red_team, :synthesis,
-      :project_id, :seed_id, :parent_proposal_id
+      :id,
+      :title,
+      :summary,
+      :body,
+      :status,
+      :confidence,
+      :risks,
+      :benefits,
+      :estimated_scope,
+      :generation_log,
+      :steelman,
+      :red_team,
+      :synthesis,
+      :project_id,
+      :seed_id,
+      :parent_proposal_id
     ])
     |> validate_required([:id, :title])
     |> validate_inclusion(:status, @valid_statuses)

@@ -30,7 +30,9 @@ defmodule Ema.Canvases do
   end
 
   def get_canvas_with_elements(id) do
-    case Canvas |> Repo.get(id) |> Repo.preload(elements: from(e in Element, order_by: e.z_index)) do
+    case Canvas
+         |> Repo.get(id)
+         |> Repo.preload(elements: from(e in Element, order_by: e.z_index)) do
       nil -> {:error, :not_found}
       canvas -> {:ok, canvas}
     end

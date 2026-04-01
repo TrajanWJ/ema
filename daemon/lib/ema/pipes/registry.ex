@@ -96,36 +96,156 @@ defmodule Ema.Pipes.Registry do
   defp stock_triggers do
     [
       # Brain Dump
-      %Trigger{id: "brain_dump:item_created", context: "brain_dump", event_type: "item_created", label: "Brain Dump Item Created", description: "New capture added"},
-      %Trigger{id: "brain_dump:item_processed", context: "brain_dump", event_type: "item_processed", label: "Brain Dump Item Processed", description: "Item routed to task/journal/note/archive"},
+      %Trigger{
+        id: "brain_dump:item_created",
+        context: "brain_dump",
+        event_type: "item_created",
+        label: "Brain Dump Item Created",
+        description: "New capture added"
+      },
+      %Trigger{
+        id: "brain_dump:item_processed",
+        context: "brain_dump",
+        event_type: "item_processed",
+        label: "Brain Dump Item Processed",
+        description: "Item routed to task/journal/note/archive"
+      },
 
       # Tasks
-      %Trigger{id: "tasks:created", context: "tasks", event_type: "created", label: "Task Created", description: "New task from any source"},
-      %Trigger{id: "tasks:status_changed", context: "tasks", event_type: "status_changed", label: "Task Status Changed", description: "Task status transition"},
-      %Trigger{id: "tasks:completed", context: "tasks", event_type: "completed", label: "Task Completed", description: "Task marked done"},
+      %Trigger{
+        id: "tasks:created",
+        context: "tasks",
+        event_type: "created",
+        label: "Task Created",
+        description: "New task from any source"
+      },
+      %Trigger{
+        id: "tasks:status_changed",
+        context: "tasks",
+        event_type: "status_changed",
+        label: "Task Status Changed",
+        description: "Task status transition"
+      },
+      %Trigger{
+        id: "tasks:completed",
+        context: "tasks",
+        event_type: "completed",
+        label: "Task Completed",
+        description: "Task marked done"
+      },
 
       # Proposals
-      %Trigger{id: "proposals:seed_fired", context: "proposals", event_type: "seed_fired", label: "Seed Fired", description: "A seed was triggered"},
-      %Trigger{id: "proposals:generated", context: "proposals", event_type: "generated", label: "Proposal Generated", description: "Raw proposal created by generator"},
-      %Trigger{id: "proposals:refined", context: "proposals", event_type: "refined", label: "Proposal Refined", description: "Proposal passed through refiner"},
-      %Trigger{id: "proposals:debated", context: "proposals", event_type: "debated", label: "Proposal Debated", description: "Proposal passed through debater"},
-      %Trigger{id: "proposals:queued", context: "proposals", event_type: "queued", label: "Proposal Queued", description: "Proposal arrived in queue"},
-      %Trigger{id: "proposals:approved", context: "proposals", event_type: "approved", label: "Proposal Approved", description: "User green-lit a proposal"},
-      %Trigger{id: "proposals:redirected", context: "proposals", event_type: "redirected", label: "Proposal Redirected", description: "User yellow-lit a proposal"},
-      %Trigger{id: "proposals:killed", context: "proposals", event_type: "killed", label: "Proposal Killed", description: "User red-lit a proposal"},
+      %Trigger{
+        id: "proposals:seed_fired",
+        context: "proposals",
+        event_type: "seed_fired",
+        label: "Seed Fired",
+        description: "A seed was triggered"
+      },
+      %Trigger{
+        id: "proposals:generated",
+        context: "proposals",
+        event_type: "generated",
+        label: "Proposal Generated",
+        description: "Raw proposal created by generator"
+      },
+      %Trigger{
+        id: "proposals:refined",
+        context: "proposals",
+        event_type: "refined",
+        label: "Proposal Refined",
+        description: "Proposal passed through refiner"
+      },
+      %Trigger{
+        id: "proposals:debated",
+        context: "proposals",
+        event_type: "debated",
+        label: "Proposal Debated",
+        description: "Proposal passed through debater"
+      },
+      %Trigger{
+        id: "proposals:queued",
+        context: "proposals",
+        event_type: "queued",
+        label: "Proposal Queued",
+        description: "Proposal arrived in queue"
+      },
+      %Trigger{
+        id: "proposals:approved",
+        context: "proposals",
+        event_type: "approved",
+        label: "Proposal Approved",
+        description: "User green-lit a proposal"
+      },
+      %Trigger{
+        id: "proposals:redirected",
+        context: "proposals",
+        event_type: "redirected",
+        label: "Proposal Redirected",
+        description: "User yellow-lit a proposal"
+      },
+      %Trigger{
+        id: "proposals:killed",
+        context: "proposals",
+        event_type: "killed",
+        label: "Proposal Killed",
+        description: "User red-lit a proposal"
+      },
 
       # Projects
-      %Trigger{id: "projects:created", context: "projects", event_type: "created", label: "Project Created", description: "New project"},
-      %Trigger{id: "projects:status_changed", context: "projects", event_type: "status_changed", label: "Project Status Changed", description: "Project lifecycle transition"},
+      %Trigger{
+        id: "projects:created",
+        context: "projects",
+        event_type: "created",
+        label: "Project Created",
+        description: "New project"
+      },
+      %Trigger{
+        id: "projects:status_changed",
+        context: "projects",
+        event_type: "status_changed",
+        label: "Project Status Changed",
+        description: "Project lifecycle transition"
+      },
 
       # Habits
-      %Trigger{id: "habits:completed", context: "habits", event_type: "completed", label: "Habit Completed", description: "Habit checked off"},
-      %Trigger{id: "habits:streak_milestone", context: "habits", event_type: "streak_milestone", label: "Habit Streak Milestone", description: "Streak hit 7/30/100"},
+      %Trigger{
+        id: "habits:completed",
+        context: "habits",
+        event_type: "completed",
+        label: "Habit Completed",
+        description: "Habit checked off"
+      },
+      %Trigger{
+        id: "habits:streak_milestone",
+        context: "habits",
+        event_type: "streak_milestone",
+        label: "Habit Streak Milestone",
+        description: "Streak hit 7/30/100"
+      },
 
       # System
-      %Trigger{id: "system:daemon_started", context: "system", event_type: "daemon_started", label: "Daemon Started", description: "Daemon boot"},
-      %Trigger{id: "system:daily", context: "system", event_type: "daily", label: "Daily Tick", description: "Fires once per day"},
-      %Trigger{id: "system:weekly", context: "system", event_type: "weekly", label: "Weekly Tick", description: "Fires once per week"}
+      %Trigger{
+        id: "system:daemon_started",
+        context: "system",
+        event_type: "daemon_started",
+        label: "Daemon Started",
+        description: "Daemon boot"
+      },
+      %Trigger{
+        id: "system:daily",
+        context: "system",
+        event_type: "daily",
+        label: "Daily Tick",
+        description: "Fires once per day"
+      },
+      %Trigger{
+        id: "system:weekly",
+        context: "system",
+        event_type: "weekly",
+        label: "Weekly Tick",
+        description: "Fires once per week"
+      }
     ]
   end
 
@@ -158,13 +278,15 @@ defmodule Ema.Pipes.Registry do
         description: "Create a new task",
         schema: %{title: :string, project_id: :string, priority: :integer},
         execute: fn payload ->
-          safe_apply(Ema.Tasks, :create_task, [%{
-            title: payload["title"] || payload[:title],
-            project_id: payload["project_id"] || payload[:project_id],
-            priority: payload["priority"] || payload[:priority],
-            source_type: payload["source_type"] || payload[:source_type] || "pipe",
-            source_id: payload["source_id"] || payload[:source_id]
-          }])
+          safe_apply(Ema.Tasks, :create_task, [
+            %{
+              title: payload["title"] || payload[:title],
+              project_id: payload["project_id"] || payload[:project_id],
+              priority: payload["priority"] || payload[:priority],
+              source_type: payload["source_type"] || payload[:source_type] || "pipe",
+              source_id: payload["source_id"] || payload[:source_id]
+            }
+          ])
         end
       },
       %Action{
@@ -195,10 +317,12 @@ defmodule Ema.Pipes.Registry do
         description: "Create a new seed prompt",
         schema: %{prompt: :string, project_id: :string},
         execute: fn payload ->
-          safe_apply(Ema.Proposals, :create_seed, [%{
-            prompt: payload["prompt"] || payload[:prompt],
-            project_id: payload["project_id"] || payload[:project_id]
-          }])
+          safe_apply(Ema.Proposals, :create_seed, [
+            %{
+              prompt: payload["prompt"] || payload[:prompt],
+              project_id: payload["project_id"] || payload[:project_id]
+            }
+          ])
         end
       },
       %Action{
@@ -248,11 +372,13 @@ defmodule Ema.Pipes.Registry do
         description: "Create a new project",
         schema: %{name: :string, slug: :string},
         execute: fn payload ->
-          safe_apply(Ema.Projects, :create_project, [%{
-            name: payload["name"] || payload[:name],
-            slug: payload["slug"] || payload[:slug],
-            description: payload["description"] || payload[:description]
-          }])
+          safe_apply(Ema.Projects, :create_project, [
+            %{
+              name: payload["name"] || payload[:name],
+              slug: payload["slug"] || payload[:slug],
+              description: payload["description"] || payload[:description]
+            }
+          ])
         end
       },
       %Action{
@@ -314,11 +440,13 @@ defmodule Ema.Pipes.Registry do
         description: "Create a note in the vault",
         schema: %{title: :string, content: :string, space: :string},
         execute: fn payload ->
-          safe_apply(Ema.SecondBrain, :create_note, [%{
-            title: payload["title"] || payload[:title],
-            content: payload["content"] || payload[:content],
-            space: payload["space"] || payload[:space]
-          }])
+          safe_apply(Ema.SecondBrain, :create_note, [
+            %{
+              title: payload["title"] || payload[:title],
+              content: payload["content"] || payload[:content],
+              space: payload["space"] || payload[:space]
+            }
+          ])
         end
       },
 
@@ -367,11 +495,36 @@ defmodule Ema.Pipes.Registry do
 
   defp stock_transforms do
     [
-      %Transform{id: "filter", label: "Filter", type: :filter, description: "Pass/drop events based on conditions"},
-      %Transform{id: "map", label: "Map", type: :map, description: "Reshape payload before passing to actions"},
-      %Transform{id: "delay", label: "Delay", type: :delay, description: "Debounce — accumulate events, fire after quiet period"},
-      %Transform{id: "claude", label: "Claude", type: :claude, description: "Run Claude CLI as a transform"},
-      %Transform{id: "conditional", label: "Conditional", type: :conditional, description: "Branch logic — if/then/else"}
+      %Transform{
+        id: "filter",
+        label: "Filter",
+        type: :filter,
+        description: "Pass/drop events based on conditions"
+      },
+      %Transform{
+        id: "map",
+        label: "Map",
+        type: :map,
+        description: "Reshape payload before passing to actions"
+      },
+      %Transform{
+        id: "delay",
+        label: "Delay",
+        type: :delay,
+        description: "Debounce — accumulate events, fire after quiet period"
+      },
+      %Transform{
+        id: "claude",
+        label: "Claude",
+        type: :claude,
+        description: "Run Claude CLI as a transform"
+      },
+      %Transform{
+        id: "conditional",
+        label: "Conditional",
+        type: :conditional,
+        description: "Branch logic — if/then/else"
+      }
     ]
   end
 

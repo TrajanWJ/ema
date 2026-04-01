@@ -67,7 +67,10 @@ defmodule Seeds.Helpers do
             r
 
           {:error, cs} ->
-            Logger.warning("Failed to create responsibility #{attrs.title}: #{inspect(cs.errors)}")
+            Logger.warning(
+              "Failed to create responsibility #{attrs.title}: #{inspect(cs.errors)}"
+            )
+
             nil
         end
 

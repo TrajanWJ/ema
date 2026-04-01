@@ -153,7 +153,10 @@ defmodule Ema.ProposalsTest do
   describe "redirect_proposal/2" do
     test "sets status to redirected and creates 3 seeds" do
       proposal = create_proposal()
-      assert {:ok, redirected, seeds} = Proposals.redirect_proposal(proposal.id, "try a different angle")
+
+      assert {:ok, redirected, seeds} =
+               Proposals.redirect_proposal(proposal.id, "try a different angle")
+
       assert redirected.status == "redirected"
       assert length(seeds) == 3
       assert Enum.all?(seeds, &(&1.seed_type == "dependency"))

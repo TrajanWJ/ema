@@ -156,7 +156,9 @@ defmodule EmaWeb.TaskController do
 
   defp broadcast_task_event_by_id(task_id, event, payload) do
     case Tasks.get_task(task_id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       task ->
         if task.project_id do
           EmaWeb.Endpoint.broadcast("tasks:#{task.project_id}", event, payload)

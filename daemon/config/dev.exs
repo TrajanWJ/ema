@@ -18,7 +18,8 @@ config :ema, EmaWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "dev-only-secret-key-base-that-is-at-least-64-bytes-long-for-development-use-only-not-production",
+  secret_key_base:
+    "dev-only-secret-key-base-that-is-at-least-64-bytes-long-for-development-use-only-not-production",
   watchers: []
 
 # ## SSL Support

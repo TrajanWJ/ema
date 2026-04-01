@@ -29,8 +29,17 @@ defmodule Ema.Responsibilities.Responsibility do
   def changeset(responsibility, attrs) do
     responsibility
     |> cast(attrs, [
-      :id, :title, :description, :role, :cadence, :health, :active,
-      :last_checked_at, :recurrence_rule, :metadata, :project_id
+      :id,
+      :title,
+      :description,
+      :role,
+      :cadence,
+      :health,
+      :active,
+      :last_checked_at,
+      :recurrence_rule,
+      :metadata,
+      :project_id
     ])
     |> validate_required([:id, :title])
     |> maybe_validate_inclusion(:role, @valid_roles)

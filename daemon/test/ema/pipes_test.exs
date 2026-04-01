@@ -62,8 +62,11 @@ defmodule Ema.PipesTest do
     end
 
     test "filters by active" do
-      {:ok, _} = Pipes.create_pipe(%{name: "Active", trigger_pattern: "system:daily", active: true})
-      {:ok, _} = Pipes.create_pipe(%{name: "Inactive", trigger_pattern: "tasks:created", active: false})
+      {:ok, _} =
+        Pipes.create_pipe(%{name: "Active", trigger_pattern: "system:daily", active: true})
+
+      {:ok, _} =
+        Pipes.create_pipe(%{name: "Inactive", trigger_pattern: "tasks:created", active: false})
 
       active = Pipes.list_pipes(active: true)
       inactive = Pipes.list_pipes(active: false)
@@ -73,8 +76,11 @@ defmodule Ema.PipesTest do
     end
 
     test "filters by system" do
-      {:ok, _} = Pipes.create_pipe(%{name: "System", trigger_pattern: "system:daily", system: true})
-      {:ok, _} = Pipes.create_pipe(%{name: "User", trigger_pattern: "tasks:created", system: false})
+      {:ok, _} =
+        Pipes.create_pipe(%{name: "System", trigger_pattern: "system:daily", system: true})
+
+      {:ok, _} =
+        Pipes.create_pipe(%{name: "User", trigger_pattern: "tasks:created", system: false})
 
       system = Pipes.list_pipes(system: true)
       assert Enum.all?(system, & &1.system)
@@ -102,7 +108,9 @@ defmodule Ema.PipesTest do
     end
 
     test "refuses to delete a system pipe" do
-      {:ok, pipe} = Pipes.create_pipe(%{name: "System", trigger_pattern: "system:daily", system: true})
+      {:ok, pipe} =
+        Pipes.create_pipe(%{name: "System", trigger_pattern: "system:daily", system: true})
+
       assert {:error, :cannot_delete_system_pipe} = Pipes.delete_pipe(pipe)
       assert Pipes.get_pipe(pipe.id) != nil
     end
@@ -110,9 +118,14 @@ defmodule Ema.PipesTest do
 
   describe "fork_pipe/1" do
     test "creates an editable copy of a system pipe" do
-      {:ok, pipe} = Pipes.create_pipe(%{name: "Original", trigger_pattern: "system:daily", system: true})
-      {:ok, _} = Pipes.add_action(pipe, %{action_id: "tasks:create", config: %{"from_proposal" => true}})
-      {:ok, _} = Pipes.add_transform(pipe, %{transform_type: "filter", config: %{"field" => "priority"}})
+      {:ok, pipe} =
+        Pipes.create_pipe(%{name: "Original", trigger_pattern: "system:daily", system: true})
+
+      {:ok, _} =
+        Pipes.add_action(pipe, %{action_id: "tasks:create", config: %{"from_proposal" => true}})
+
+      {:ok, _} =
+        Pipes.add_transform(pipe, %{transform_type: "filter", config: %{"field" => "priority"}})
 
       # Re-fetch with preloads
       pipe = Pipes.get_pipe(pipe.id)
@@ -150,7 +163,10 @@ defmodule Ema.PipesTest do
 
     test "add and remove transforms" do
       {:ok, pipe} = Pipes.create_pipe(%{name: "Transforms Test", trigger_pattern: "system:daily"})
-      {:ok, transform} = Pipes.add_transform(pipe, %{transform_type: "filter", config: %{"field" => "x"}})
+
+      {:ok, transform} =
+        Pipes.add_transform(pipe, %{transform_type: "filter", config: %{"field" => "x"}})
+
       assert transform.transform_type == "filter"
 
       assert {:ok, _} = Pipes.remove_transform(pipe, transform.id)

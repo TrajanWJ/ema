@@ -28,9 +28,20 @@ defmodule Ema.ClaudeSessions.ClaudeSession do
   def changeset(session, attrs) do
     session
     |> cast(attrs, [
-      :id, :session_id, :project_path, :started_at, :ended_at,
-      :last_active, :summary, :token_count, :tool_calls,
-      :files_touched, :raw_path, :metadata, :status, :project_id
+      :id,
+      :session_id,
+      :project_path,
+      :started_at,
+      :ended_at,
+      :last_active,
+      :summary,
+      :token_count,
+      :tool_calls,
+      :files_touched,
+      :raw_path,
+      :metadata,
+      :status,
+      :project_id
     ])
     |> validate_required([:id])
     |> validate_inclusion(:status, @valid_statuses)

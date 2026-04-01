@@ -9,9 +9,7 @@ defmodule Ema.Agents.AgentSupervisor do
   use Supervisor
 
   def start_link(agent_id) do
-    Supervisor.start_link(__MODULE__, agent_id,
-      name: via(agent_id)
-    )
+    Supervisor.start_link(__MODULE__, agent_id, name: via(agent_id))
   end
 
   defp via(agent_id) do

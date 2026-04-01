@@ -41,7 +41,18 @@ defmodule Ema.Journal.Entry do
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:id, :date, :content, :one_thing, :mood, :energy_p, :energy_m, :energy_e, :gratitude, :tags])
+    |> cast(attrs, [
+      :id,
+      :date,
+      :content,
+      :one_thing,
+      :mood,
+      :energy_p,
+      :energy_m,
+      :energy_e,
+      :gratitude,
+      :tags
+    ])
     |> validate_required([:id, :date])
     |> validate_inclusion(:mood, 1..5)
     |> validate_inclusion(:energy_p, 1..10)

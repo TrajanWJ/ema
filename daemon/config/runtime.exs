@@ -20,8 +20,7 @@ if System.get_env("PHX_SERVER") do
   config :ema, EmaWeb.Endpoint, server: true
 end
 
-config :ema, EmaWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4488"))]
+config :ema, EmaWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4488"))]
 
 if config_env() == :prod do
   config :ema, Ema.Repo,

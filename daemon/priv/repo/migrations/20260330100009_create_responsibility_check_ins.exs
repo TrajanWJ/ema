@@ -6,7 +6,10 @@ defmodule Ema.Repo.Migrations.CreateResponsibilityCheckIns do
       add :id, :string, primary_key: true
       add :status, :string, null: false
       add :note, :text
-      add :responsibility_id, references(:responsibilities, type: :string, on_delete: :delete_all), null: false
+
+      add :responsibility_id,
+          references(:responsibilities, type: :string, on_delete: :delete_all),
+          null: false
 
       timestamps(type: :utc_datetime)
     end

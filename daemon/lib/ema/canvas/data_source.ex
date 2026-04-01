@@ -133,9 +133,7 @@ defmodule Ema.Canvas.DataSource do
   def fetch("vault:notes_by_space", _config) do
     try do
       result =
-        Repo.query!(
-          "SELECT space, COUNT(*) as count FROM vault_notes GROUP BY space"
-        )
+        Repo.query!("SELECT space, COUNT(*) as count FROM vault_notes GROUP BY space")
 
       data =
         Enum.map(result.rows, fn [space, count] ->

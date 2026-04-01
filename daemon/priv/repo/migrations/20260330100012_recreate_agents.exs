@@ -84,7 +84,10 @@ defmodule Ema.Repo.Migrations.RecreateAgents do
       add :tool_calls, :text, default: "[]"
       add :token_count, :integer
       add :metadata, :text, default: "{}"
-      add :conversation_id, references(:agent_conversations, type: :string, on_delete: :delete_all), null: false
+
+      add :conversation_id,
+          references(:agent_conversations, type: :string, on_delete: :delete_all),
+          null: false
 
       timestamps(type: :utc_datetime)
     end

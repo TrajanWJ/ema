@@ -128,6 +128,7 @@ defmodule Ema.ClaudeSessions.SessionWatcher do
     case ClaudeSessions.get_session(parsed.session_id) do
       nil ->
         attrs = Map.put(attrs, :id, parsed.session_id)
+
         case ClaudeSessions.create_session(attrs) do
           {:ok, session} ->
             broadcast(:session_detected, session)

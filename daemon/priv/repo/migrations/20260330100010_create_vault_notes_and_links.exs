@@ -27,7 +27,10 @@ defmodule Ema.Repo.Migrations.CreateVaultNotesAndLinks do
       add :link_text, :string, null: false
       add :link_type, :string
       add :context, :text
-      add :source_note_id, references(:vault_notes, type: :string, on_delete: :delete_all), null: false
+
+      add :source_note_id, references(:vault_notes, type: :string, on_delete: :delete_all),
+        null: false
+
       add :target_note_id, references(:vault_notes, type: :string, on_delete: :delete_all)
 
       timestamps(type: :utc_datetime)

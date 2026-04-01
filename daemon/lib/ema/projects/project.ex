@@ -39,12 +39,24 @@ defmodule Ema.Projects.Project do
   def changeset(project, attrs) do
     project
     |> cast(attrs, [
-      :id, :slug, :name, :description, :status, :icon, :color,
-      :linked_path, :context_hash, :settings, :parent_id, :source_proposal_id
+      :id,
+      :slug,
+      :name,
+      :description,
+      :status,
+      :icon,
+      :color,
+      :linked_path,
+      :context_hash,
+      :settings,
+      :parent_id,
+      :source_proposal_id
     ])
     |> validate_required([:id, :slug, :name])
     |> validate_inclusion(:status, @valid_statuses)
-    |> validate_format(:slug, ~r/^[a-z0-9][a-z0-9-]*$/, message: "must be lowercase alphanumeric with hyphens")
+    |> validate_format(:slug, ~r/^[a-z0-9][a-z0-9-]*$/,
+      message: "must be lowercase alphanumeric with hyphens"
+    )
     |> unique_constraint(:slug)
   end
 

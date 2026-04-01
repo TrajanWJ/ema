@@ -25,11 +25,13 @@ defmodule Ema.ClaudeSessions do
   end
 
   defp maybe_filter_project(query, nil), do: query
+
   defp maybe_filter_project(query, project_id) do
     where(query, [s], s.project_id == ^project_id)
   end
 
   defp maybe_filter_status(query, nil), do: query
+
   defp maybe_filter_status(query, status) do
     where(query, [s], s.status == ^status)
   end

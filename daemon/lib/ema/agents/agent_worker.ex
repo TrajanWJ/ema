@@ -67,8 +67,7 @@ defmodule Ema.Agents.AgentWorker do
         {:stop, :agent_deleted, state}
 
       agent ->
-        {:noreply,
-         %{state | agent: agent, script: load_script(agent.script_path)}}
+        {:noreply, %{state | agent: agent, script: load_script(agent.script_path)}}
     end
   end
 
@@ -119,8 +118,11 @@ defmodule Ema.Agents.AgentWorker do
                tool_calls: tool_calls,
                metadata: %{}
              }) do
-          {:ok, _assistant_msg} -> :ok
-          {:error, reason} -> Logger.warning("Failed to store assistant message: #{inspect(reason)}")
+          {:ok, _assistant_msg} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning("Failed to store assistant message: #{inspect(reason)}")
         end
 
         # Notify memory GenServer about the new messages

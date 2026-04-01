@@ -128,7 +128,9 @@ defmodule Ema.SecondBrainTest do
       old_path = SecondBrain.vault_file_path(note.file_path)
       assert File.exists?(old_path)
 
-      assert {:ok, moved} = SecondBrain.move_note("projects/test-note.md", "research-ingestion/moved.md")
+      assert {:ok, moved} =
+               SecondBrain.move_note("projects/test-note.md", "research-ingestion/moved.md")
+
       assert moved.file_path == "research-ingestion/moved.md"
       assert moved.space == "research-ingestion"
 
@@ -145,7 +147,13 @@ defmodule Ema.SecondBrainTest do
   describe "list_notes/1" do
     test "lists all notes" do
       {:ok, _} = create_test_note(%{file_path: "projects/a.md", title: "A"})
-      {:ok, _} = create_test_note(%{file_path: "research-ingestion/b.md", title: "B", space: "research-ingestion"})
+
+      {:ok, _} =
+        create_test_note(%{
+          file_path: "research-ingestion/b.md",
+          title: "B",
+          space: "research-ingestion"
+        })
 
       notes = SecondBrain.list_notes()
       assert length(notes) == 2
@@ -153,7 +161,13 @@ defmodule Ema.SecondBrainTest do
 
     test "filters by space" do
       {:ok, _} = create_test_note(%{file_path: "projects/a.md", title: "A"})
-      {:ok, _} = create_test_note(%{file_path: "research-ingestion/b.md", title: "B", space: "research-ingestion"})
+
+      {:ok, _} =
+        create_test_note(%{
+          file_path: "research-ingestion/b.md",
+          title: "B",
+          space: "research-ingestion"
+        })
 
       notes = SecondBrain.list_notes(space: "projects")
       assert length(notes) == 1
@@ -161,7 +175,9 @@ defmodule Ema.SecondBrainTest do
     end
 
     test "filters by tags" do
-      {:ok, _} = create_test_note(%{file_path: "projects/a.md", title: "A", tags: ["elixir", "otp"]})
+      {:ok, _} =
+        create_test_note(%{file_path: "projects/a.md", title: "A", tags: ["elixir", "otp"]})
+
       {:ok, _} = create_test_note(%{file_path: "projects/b.md", title: "B", tags: ["react"]})
 
       notes = SecondBrain.list_notes(tags: ["elixir"])
@@ -238,8 +254,11 @@ defmodule Ema.SecondBrainTest do
       {:ok, c} = create_test_note(%{file_path: "projects/c.md", title: "C"})
 
       # a -> b, c -> a
-      {:ok, _} = SecondBrain.create_link(%{link_text: "B", source_note_id: a.id, target_note_id: b.id})
-      {:ok, _} = SecondBrain.create_link(%{link_text: "A", source_note_id: c.id, target_note_id: a.id})
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "B", source_note_id: a.id, target_note_id: b.id})
+
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "A", source_note_id: c.id, target_note_id: a.id})
 
       neighbors = SecondBrain.get_neighbors(a.id)
       neighbor_ids = Enum.map(neighbors, & &1.id) |> Enum.sort()
@@ -253,8 +272,19 @@ defmodule Ema.SecondBrainTest do
       {:ok, linker} = create_test_note(%{file_path: "projects/linker.md", title: "Linker"})
       {:ok, other} = create_test_note(%{file_path: "projects/other.md", title: "Other"})
 
-      {:ok, _} = SecondBrain.create_link(%{link_text: "Target", source_note_id: linker.id, target_note_id: target.id})
-      {:ok, _} = SecondBrain.create_link(%{link_text: "Other", source_note_id: other.id, target_note_id: linker.id})
+      {:ok, _} =
+        SecondBrain.create_link(%{
+          link_text: "Target",
+          source_note_id: linker.id,
+          target_note_id: target.id
+        })
+
+      {:ok, _} =
+        SecondBrain.create_link(%{
+          link_text: "Other",
+          source_note_id: other.id,
+          target_note_id: linker.id
+        })
 
       backlinks = SecondBrain.get_backlinks(target.id)
       assert length(backlinks) == 1
@@ -267,7 +297,12 @@ defmodule Ema.SecondBrainTest do
       {:ok, linked} = create_test_note(%{file_path: "projects/linked.md", title: "Linked"})
       {:ok, orphan} = create_test_note(%{file_path: "projects/orphan.md", title: "Orphan"})
 
-      {:ok, _} = SecondBrain.create_link(%{link_text: "Linked", source_note_id: linked.id, target_note_id: linked.id})
+      {:ok, _} =
+        SecondBrain.create_link(%{
+          link_text: "Linked",
+          source_note_id: linked.id,
+          target_note_id: linked.id
+        })
 
       orphans = SecondBrain.get_orphans()
       orphan_ids = Enum.map(orphans, & &1.id)
@@ -283,9 +318,14 @@ defmodule Ema.SecondBrainTest do
       {:ok, b} = create_test_note(%{file_path: "projects/b.md", title: "B"})
       {:ok, c} = create_test_note(%{file_path: "projects/c.md", title: "C"})
 
-      {:ok, _} = SecondBrain.create_link(%{link_text: "A", source_note_id: hub.id, target_note_id: a.id})
-      {:ok, _} = SecondBrain.create_link(%{link_text: "B", source_note_id: hub.id, target_note_id: b.id})
-      {:ok, _} = SecondBrain.create_link(%{link_text: "C", source_note_id: hub.id, target_note_id: c.id})
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "A", source_note_id: hub.id, target_note_id: a.id})
+
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "B", source_note_id: hub.id, target_note_id: b.id})
+
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "C", source_note_id: hub.id, target_note_id: c.id})
 
       hubs = SecondBrain.get_hubs(1)
       assert length(hubs) == 1
@@ -298,7 +338,9 @@ defmodule Ema.SecondBrainTest do
     test "returns nodes and edges" do
       {:ok, a} = create_test_note(%{file_path: "projects/a.md", title: "A"})
       {:ok, b} = create_test_note(%{file_path: "projects/b.md", title: "B"})
-      {:ok, _} = SecondBrain.create_link(%{link_text: "B", source_note_id: a.id, target_note_id: b.id})
+
+      {:ok, _} =
+        SecondBrain.create_link(%{link_text: "B", source_note_id: a.id, target_note_id: b.id})
 
       graph = SecondBrain.get_full_graph()
       assert length(graph.nodes) == 2

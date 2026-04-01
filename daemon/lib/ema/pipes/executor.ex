@@ -88,7 +88,9 @@ defmodule Ema.Pipes.Executor do
       Phoenix.PubSub.subscribe(Ema.PubSub, "pipe_trigger:#{pattern}")
     end
 
-    Logger.info("Pipes Executor loaded #{length(pipes)} active pipes, subscribed to #{MapSet.size(needed)} triggers")
+    Logger.info(
+      "Pipes Executor loaded #{length(pipes)} active pipes, subscribed to #{MapSet.size(needed)} triggers"
+    )
 
     %{pipes: pipes, subscriptions: needed}
   end
@@ -207,9 +209,13 @@ defmodule Ema.Pipes.Executor do
       actual = get_in_payload(payload, field)
 
       if compare(actual, op, value) do
-        if then_action == "continue", do: {:ok, payload}, else: {:skip, "conditional: else branch"}
+        if then_action == "continue",
+          do: {:ok, payload},
+          else: {:skip, "conditional: else branch"}
       else
-        if then_action == "continue", do: {:skip, "conditional: condition not met"}, else: {:ok, payload}
+        if then_action == "continue",
+          do: {:skip, "conditional: condition not met"},
+          else: {:ok, payload}
       end
     else
       {:ok, payload}
@@ -267,13 +273,19 @@ defmodule Ema.Pipes.Executor do
   defp compare(actual, "gte", value), do: to_number(actual) >= to_number(value)
   defp compare(actual, "lt", value), do: to_number(actual) < to_number(value)
   defp compare(actual, "lte", value), do: to_number(actual) <= to_number(value)
-  defp compare(actual, "in", value) when is_list(value), do: to_string(actual) in Enum.map(value, &to_string/1)
+
+  defp compare(actual, "in", value) when is_list(value),
+    do: to_string(actual) in Enum.map(value, &to_string/1)
+
   defp compare(_actual, _op, _value), do: false
 
   defp to_number(val) when is_number(val), do: val
+
   defp to_number(val) when is_binary(val) do
     case Integer.parse(val) do
-      {n, ""} -> n
+      {n, ""} ->
+        n
+
       _ ->
         case Float.parse(val) do
           {f, ""} -> f
@@ -281,6 +293,7 @@ defmodule Ema.Pipes.Executor do
         end
     end
   end
+
   defp to_number(_), do: 0
 
   defp rename_keys(map, renames) do

@@ -59,10 +59,23 @@ defmodule Ema.Tasks.Task do
   def changeset(task, attrs) do
     task
     |> cast(attrs, [
-      :id, :title, :description, :status, :priority, :source_type,
-      :source_id, :effort, :due_date, :recurrence, :sort_order,
-      :completed_at, :metadata, :project_id, :goal_id,
-      :responsibility_id, :parent_id
+      :id,
+      :title,
+      :description,
+      :status,
+      :priority,
+      :source_type,
+      :source_id,
+      :effort,
+      :due_date,
+      :recurrence,
+      :sort_order,
+      :completed_at,
+      :metadata,
+      :project_id,
+      :goal_id,
+      :responsibility_id,
+      :parent_id
     ])
     |> validate_required([:id, :title])
     |> validate_inclusion(:status, @valid_statuses)
@@ -85,8 +98,11 @@ defmodule Ema.Tasks.Task do
 
   defp maybe_set_completed_at(changeset) do
     case get_change(changeset, :status) do
-      "done" -> put_change(changeset, :completed_at, DateTime.utc_now() |> DateTime.truncate(:second))
-      _ -> changeset
+      "done" ->
+        put_change(changeset, :completed_at, DateTime.utc_now() |> DateTime.truncate(:second))
+
+      _ ->
+        changeset
     end
   end
 end

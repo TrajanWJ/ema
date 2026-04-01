@@ -24,8 +24,19 @@ defmodule Ema.Pipes.Pipe do
 
   def changeset(pipe, attrs) do
     pipe
-    |> cast(attrs, [:id, :name, :system, :active, :trigger_pattern, :description, :metadata, :project_id])
+    |> cast(attrs, [
+      :id,
+      :name,
+      :system,
+      :active,
+      :trigger_pattern,
+      :description,
+      :metadata,
+      :project_id
+    ])
     |> validate_required([:id, :name, :trigger_pattern])
-    |> validate_format(:trigger_pattern, ~r/^[a-z_]+:[a-z_]+$/, message: "must be context:event format")
+    |> validate_format(:trigger_pattern, ~r/^[a-z_]+:[a-z_]+$/,
+      message: "must be context:event format"
+    )
   end
 end

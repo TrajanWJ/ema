@@ -21,7 +21,16 @@ defmodule Ema.Agents.Run do
 
   def changeset(run, attrs) do
     run
-    |> cast(attrs, [:id, :project_path, :status, :started_at, :output_path, :exit_code, :agent_id, :task_id])
+    |> cast(attrs, [
+      :id,
+      :project_path,
+      :status,
+      :started_at,
+      :output_path,
+      :exit_code,
+      :agent_id,
+      :task_id
+    ])
     |> validate_required([:id])
     |> validate_inclusion(:status, @valid_statuses)
   end

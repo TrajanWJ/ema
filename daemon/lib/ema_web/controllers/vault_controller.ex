@@ -28,6 +28,7 @@ defmodule EmaWeb.VaultController do
 
   def upsert(conn, params) do
     path = params["path"]
+
     attrs = %{
       file_path: path,
       title: params["title"],

@@ -27,9 +27,17 @@ defmodule Ema.SecondBrain.Note do
   def changeset(note, attrs) do
     note
     |> cast(attrs, [
-      :id, :file_path, :title, :space, :content_hash,
-      :source_type, :source_id, :tags, :word_count,
-      :metadata, :project_id
+      :id,
+      :file_path,
+      :title,
+      :space,
+      :content_hash,
+      :source_type,
+      :source_id,
+      :tags,
+      :word_count,
+      :metadata,
+      :project_id
     ])
     |> validate_required([:id, :file_path])
     |> validate_inclusion(:source_type, @valid_source_types)
