@@ -26,6 +26,7 @@ defmodule Ema.Application do
         maybe_start_second_brain() ++
         maybe_start_responsibilities() ++
         maybe_start_proposal_engine() ++
+        maybe_start_evolution() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -85,6 +86,14 @@ defmodule Ema.Application do
   defp maybe_start_proposal_engine do
     if Application.get_env(:ema, :proposal_engine)[:enabled] do
       [Ema.ProposalEngine.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_evolution do
+    if Application.get_env(:ema, :evolution_engine, true) do
+      [Ema.Evolution.Supervisor]
     else
       []
     end

@@ -45,3 +45,6 @@ config :ema, proposal_engine: [enabled: false]
 # Disable Claude Sessions and Canvas supervisors in test
 config :ema, start_claude_sessions: false
 config :ema, start_canvas: false
+
+# Disable Evolution Engine in test
+config :ema, evolution_engine: false

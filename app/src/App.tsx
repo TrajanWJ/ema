@@ -13,6 +13,7 @@ import { VaultApp } from "@/components/vault/VaultApp";
 import { CanvasApp } from "@/components/canvas/CanvasApp";
 import { PipesApp } from "@/components/pipes/PipesApp";
 import { ChannelsApp } from "@/components/channels/ChannelsApp";
+import { EvolutionDashboard } from "@/components/evolution/EvolutionDashboard";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -46,6 +47,8 @@ export default function App() {
       return <CanvasApp />;
     case "channels":
       return <ChannelsApp />;
+    case "evolution":
+      return <EvolutionDashboard />;
     case "pipes":
       return <PipesApp />;
     default:
