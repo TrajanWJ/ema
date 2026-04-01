@@ -26,6 +26,7 @@ defmodule Ema.Application do
         maybe_start_canvas() ++
         maybe_start_second_brain() ++
         maybe_start_responsibilities() ++
+        maybe_start_vectors() ++
         maybe_start_proposal_engine() ++
         [
           # Start to serve requests, typically the last entry
@@ -86,6 +87,14 @@ defmodule Ema.Application do
   defp maybe_start_responsibilities do
     if Application.get_env(:ema, :start_otp_workers, true) do
       [Ema.Responsibilities.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_vectors do
+    if Application.get_env(:ema, :proposal_engine)[:enabled] do
+      [Ema.Vectors.Supervisor]
     else
       []
     end

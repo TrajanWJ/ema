@@ -11,12 +11,26 @@ export interface Proposal {
   readonly steelman: string | null;
   readonly red_team: string | null;
   readonly synthesis: string | null;
+  readonly idea_score: number | null;
+  readonly prompt_quality_score: number | null;
+  readonly score_breakdown: ScoreBreakdown | null;
   readonly tags: readonly ProposalTag[];
   readonly project_id: string | null;
   readonly parent_proposal_id: string | null;
   readonly children_count: number;
   readonly created_at: string;
 }
+
+export interface ScoreBreakdown {
+  readonly codebase_coverage: number;
+  readonly architectural_coherence: number;
+  readonly impact: number;
+  readonly prompt_specificity: number;
+  readonly [key: string]: unknown;
+}
+
+export type ProposalSortKey = "created_at" | "idea_score" | "prompt_quality_score" | "combined_rank" | "confidence";
+export type ProposalSortDir = "asc" | "desc";
 
 export interface ProposalTag {
   readonly id: string;

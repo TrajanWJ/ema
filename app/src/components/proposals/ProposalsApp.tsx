@@ -4,16 +4,18 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ProposalQueue } from "./ProposalQueue";
 import { SeedList } from "./SeedList";
 import { EngineStatus } from "./EngineStatus";
+import { ScoreDashboard } from "./ScoreDashboard";
 import { useProposalsStore } from "@/stores/proposals-store";
 import { APP_CONFIGS } from "@/types/workspace";
 
 const config = APP_CONFIGS.proposals;
 
-type Tab = "queue" | "seeds" | "engine";
+type Tab = "queue" | "seeds" | "scores" | "engine";
 
 const TAB_OPTIONS = [
   { value: "queue" as const, label: "Queue" },
   { value: "seeds" as const, label: "Seeds" },
+  { value: "scores" as const, label: "Scores" },
   { value: "engine" as const, label: "Engine" },
 ] as const;
 
@@ -72,6 +74,7 @@ export function ProposalsApp() {
         <div className="flex-1 min-h-0 overflow-auto">
           {tab === "queue" && <ProposalQueue />}
           {tab === "seeds" && <SeedList />}
+          {tab === "scores" && <ScoreDashboard />}
           {tab === "engine" && <EngineStatus />}
         </div>
       </div>
