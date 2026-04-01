@@ -26,6 +26,7 @@ defmodule Ema.Application do
         maybe_start_second_brain() ++
         maybe_start_responsibilities() ++
         maybe_start_proposal_engine() ++
+        maybe_start_voice() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -77,6 +78,14 @@ defmodule Ema.Application do
   defp maybe_start_responsibilities do
     if Application.get_env(:ema, :start_otp_workers, true) do
       [Ema.Responsibilities.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_voice do
+    if Application.get_env(:ema, :start_voice, true) do
+      [Ema.Voice.Supervisor]
     else
       []
     end

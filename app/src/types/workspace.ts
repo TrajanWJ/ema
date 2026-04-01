@@ -136,5 +136,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#5865F2",
     icon: "💬",
   },
+  voice: {
+    title: "Jarvis",
+    defaultWidth: 900,
+    defaultHeight: 700,
+    minWidth: 700,
+    minHeight: 500,
+    accent: "#00D2FF",
+    icon: "\u25CE",
+  },
 } as const;
 
