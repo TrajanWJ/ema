@@ -17,6 +17,7 @@ defmodule Ema.Application do
         {Phoenix.PubSub, name: Ema.PubSub},
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
+        {Task.Supervisor, name: Ema.TaskSupervisor},
         Ema.Agents.Supervisor,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
         Ema.Pipes.Supervisor

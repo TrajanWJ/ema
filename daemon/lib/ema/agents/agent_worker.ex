@@ -20,8 +20,59 @@ defmodule Ema.Agents.AgentWorker do
     GenServer.call(via(agent_id), {:message, conversation_id, content, metadata}, 180_000)
   end
 
+  @doc "Send a message and route the response to the originating channel type."
+  def send_and_route(agent_id, conversation_id, content, metadata \\ %{}) do
+    case send_message(agent_id, conversation_id, content, metadata) do
+      {:ok, result} ->
+        channel_type = Map.get(metadata, :channel_type, Map.get(metadata, "channel_type"))
+        channel_id = Map.get(metadata, :channel_id, Map.get(metadata, "channel_id"))
+
+        # Broadcast the response so channels and unified inbox pick it up
+        Phoenix.PubSub.broadcast(Ema.PubSub, "channels:messages", %{
+          event: :agent_response,
+          agent_id: agent_id,
+          conversation_id: conversation_id,
+          channel_type: channel_type,
+          channel_id: channel_id,
+          reply: result.reply,
+          tool_calls: result.tool_calls,
+          timestamp: DateTime.utc_now()
+        })
+
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
   def get_state(agent_id) do
     GenServer.call(via(agent_id), :get_state)
+  end
+
+  @doc "Check if this agent should autonomously respond to a message based on personality/config."
+  def should_respond?(agent_id, message_content, channel_type) do
+    case Registry.lookup(Ema.Agents.Registry, {:worker, agent_id}) do
+      [{_pid, _}] ->
+        state = get_state(agent_id)
+        agent = state.agent
+        settings = agent.settings || %{}
+
+        # Agent responds if: active, channel is in auto_respond list, and content matches triggers
+        agent.status == "active" &&
+          channel_type in Map.get(settings, "auto_respond_channels", ["webchat"]) &&
+          matches_triggers?(message_content, Map.get(settings, "triggers", []))
+
+      [] ->
+        false
+    end
+  end
+
+  defp matches_triggers?(_content, []), do: true
+
+  defp matches_triggers?(content, triggers) when is_list(triggers) do
+    lowered = String.downcase(content)
+    Enum.any?(triggers, fn trigger -> String.contains?(lowered, String.downcase(trigger)) end)
   end
 
   defp via(agent_id) do

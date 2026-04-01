@@ -124,5 +124,12 @@ defmodule EmaWeb.Router do
     get "/evolution/stats", EvolutionController, :stats
     post "/evolution/scan", EvolutionController, :scan_now
     post "/evolution/propose", EvolutionController, :propose
+
+    # Channels
+    get "/channels", ChannelsController, :index
+    get "/channels/health", ChannelsController, :health
+    get "/channels/inbox", ChannelsController, :inbox
+    get "/channels/:channel_id/messages", ChannelsController, :messages
+    post "/channels/:channel_id/messages", ChannelsController, :send_message
   end
 end
