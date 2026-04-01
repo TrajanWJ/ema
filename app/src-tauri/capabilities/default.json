@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window and spawned app windows",
-  "windows": ["launchpad", "brain-dump", "habits", "journal", "settings", "proposals", "projects", "tasks", "responsibilities", "agents", "vault", "canvas", "pipes", "channels"],
+  "windows": ["launchpad", "brain-dump", "habits", "journal", "settings", "proposals", "projects", "tasks", "responsibilities", "agents", "vault", "canvas", "pipes", "channels", "metamind"],
   "permissions": [
     "core:default",
     "core:window:default",

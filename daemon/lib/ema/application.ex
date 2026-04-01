@@ -28,6 +28,7 @@ defmodule Ema.Application do
         maybe_start_responsibilities() ++
         maybe_start_vectors() ++
         maybe_start_proposal_engine() ++
+        maybe_start_metamind() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -103,6 +104,14 @@ defmodule Ema.Application do
   defp maybe_start_proposal_engine do
     if Application.get_env(:ema, :proposal_engine)[:enabled] do
       [Ema.ProposalEngine.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_metamind do
+    if Application.get_env(:ema, :metamind)[:enabled] do
+      [Ema.MetaMind.Supervisor]
     else
       []
     end
