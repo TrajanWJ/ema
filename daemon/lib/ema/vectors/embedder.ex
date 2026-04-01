@@ -133,7 +133,7 @@ defmodule Ema.Vectors.Embedder do
     # Split on headings
     chunks =
       content
-      |> String.split(~r/\n(?=#{1,3}\s)/, trim: true)
+      |> String.split(~r/\n(?=\#{1,3}\s)/, trim: true)
       |> Enum.with_index()
       |> Enum.map(fn {text, idx} ->
         %{text: text, path: path, chunk_index: idx, kind: :markdown}
@@ -246,7 +246,6 @@ defmodule Ema.Vectors.Embedder do
     # Produces a 384-dim vector from content hashing. Not semantically
     # meaningful but preserves exact-match similarity.
     hash = :crypto.hash(:sha256, text)
-    bytes = :binary.bin_to_list(hash)
 
     # Expand 32 bytes to 384 dims via repeated hashing
     vector =

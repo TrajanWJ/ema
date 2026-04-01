@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useHabitsStore } from "@/stores/habits-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import type { Habit } from "@/types/habits";
 
 const FREQUENCY_OPTIONS: readonly Habit["frequency"][] = ["daily", "weekly"];
@@ -66,22 +67,15 @@ export function AddHabitForm() {
       />
 
       <div className="flex items-center gap-2">
-        <select
+        <GlassSelect
           value={frequency}
-          onChange={(e) => setFrequency(e.target.value as Habit["frequency"])}
-          className="glass-ambient rounded-lg px-2 py-1 text-[0.75rem] outline-none"
-          style={{
-            color: "var(--pn-text-primary)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            background: "rgba(255,255,255,0.03)",
-          }}
-        >
-          {FREQUENCY_OPTIONS.map((f) => (
-            <option key={f} value={f}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => setFrequency(val as Habit["frequency"])}
+          options={FREQUENCY_OPTIONS.map((f) => ({
+            value: f,
+            label: f.charAt(0).toUpperCase() + f.slice(1),
+          }))}
+          size="sm"
+        />
 
         <input
           type="text"

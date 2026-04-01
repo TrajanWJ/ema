@@ -1,6 +1,9 @@
 defmodule Ema.VaultIndex.VaultEntry do
   @moduledoc """
-  Deprecated: vault_index table has been replaced by vault_notes + vault_links.
-  See Ema.VaultNotes context (to be implemented in a later plan).
+  Stub — the `vault_entries` table has been superseded by `vault_notes` +
+  `vault_links` (see Ema.SecondBrain.Note and Ema.SecondBrain.Link).
+
+  This module is retained only because the migration that created the table
+  still exists. Do not add new functionality here; use Ema.SecondBrain instead.
   """
 end

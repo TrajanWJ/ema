@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useVoiceStore } from "@/stores/voice-store";
-import type { ListenMode } from "@/stores/voice-store";
 import {
   startRecording,
   stopRecording,
@@ -18,7 +17,6 @@ export function VoiceControls() {
   const setVoiceState = useVoiceStore((s) => s.setVoiceState);
 
   const [textInput, setTextInput] = useState("");
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePushToTalkDown = useCallback(() => {
     if (settings.muted || voiceState === "processing") return;

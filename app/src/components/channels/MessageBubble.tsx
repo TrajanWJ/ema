@@ -116,7 +116,7 @@ function HoverActions({ messageId, content }: { messageId: string; content: stri
   );
 }
 
-export function MessageBubble({ message, grouped = false }: { message: ChannelMessage; grouped?: boolean }) {
+export function MessageBubble({ message, grouped = false, onReply: _onReply }: { message: ChannelMessage; grouped?: boolean; onReply?: (messageId: string) => void }) {
   const [hovered, setHovered] = useState(false);
   const accent = message.authorAccent ?? "#6b95f0";
 

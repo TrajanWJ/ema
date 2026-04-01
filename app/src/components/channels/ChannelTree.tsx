@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useChannelsStore } from "@/stores/channels-store";
+import type { ChannelDef } from "@/stores/channels-store";
 
 const CHANNEL_TYPE_ICONS: Record<string, string> = {
   text: "#",
@@ -15,7 +16,7 @@ export function ChannelTree() {
   const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
 
   const categorized = useMemo(() => {
-    if (!activeServer) return new Map<string, typeof activeServer.channels>();
+    if (!activeServer) return new Map<string, ChannelDef[]>();
     const map = new Map<string, typeof activeServer.channels>();
     for (const ch of activeServer.channels) {
       const cat = ch.category ?? "General";
@@ -75,7 +76,7 @@ export function ChannelTree() {
               </button>
 
               {/* Channels */}
-              {!collapsed && channels.map((channel) => {
+              {!collapsed && channels.map((channel: (typeof activeServer)["channels"][number]) => {
                 const active = channel.id === activeChannelId;
                 const isHovered = hoveredChannel === channel.id;
                 return (

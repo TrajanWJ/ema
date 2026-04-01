@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCanvasStore } from "@/stores/canvas-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 const ELEMENT_TYPES = [
   "rectangle", "ellipse", "text", "sticky",
@@ -65,16 +66,13 @@ export function ElementForm({ onClose }: ElementFormProps) {
         Add Element
       </h3>
 
-      <select
+      <GlassSelect
         value={elementType}
-        onChange={(e) => setElementType(e.target.value)}
-        className="w-full text-[0.75rem] px-2 py-1.5 rounded-md outline-none mb-2"
-        style={inputStyle}
-      >
-        {ELEMENT_TYPES.map((t) => (
-          <option key={t} value={t}>{t}</option>
-        ))}
-      </select>
+        onChange={(val) => setElementType(val)}
+        options={ELEMENT_TYPES.map((t) => ({ value: t, label: t }))}
+        className="w-full mb-2"
+        size="sm"
+      />
 
       <div className="grid grid-cols-4 gap-2 mb-2">
         {[
@@ -97,17 +95,17 @@ export function ElementForm({ onClose }: ElementFormProps) {
       </div>
 
       {isChart && (
-        <select
+        <GlassSelect
           value={dataSource}
-          onChange={(e) => setDataSource(e.target.value)}
-          className="w-full text-[0.75rem] px-2 py-1.5 rounded-md outline-none mb-2"
-          style={inputStyle}
-        >
-          <option value="">Select data source...</option>
-          {DATA_SOURCES.map((ds) => (
-            <option key={ds} value={ds}>{ds}</option>
-          ))}
-        </select>
+          onChange={(val) => setDataSource(val)}
+          options={[
+            { value: "", label: "Select data source..." },
+            ...DATA_SOURCES.map((ds) => ({ value: ds, label: ds })),
+          ]}
+          placeholder="Select data source..."
+          className="w-full mb-2"
+          size="sm"
+        />
       )}
 
       <div className="flex justify-end gap-2">

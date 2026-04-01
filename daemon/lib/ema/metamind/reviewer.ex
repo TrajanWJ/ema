@@ -178,7 +178,7 @@ defmodule Ema.MetaMind.Reviewer do
 
   defp parse_float(val, _default) when is_float(val), do: val
   defp parse_float(val, _default) when is_integer(val), do: val / 1.0
-  defp parse_float(val, _default) when is_binary(val) do
+  defp parse_float(val, default) when is_binary(val) do
     case Float.parse(val) do
       {f, _} -> f
       :error -> default

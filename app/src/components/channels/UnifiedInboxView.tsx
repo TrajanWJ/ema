@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useChannelsStore } from "@/stores/channels-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import type { ChannelMessage } from "@/stores/channels-store";
 
 function relativeTime(timestamp: number): string {
@@ -127,12 +128,6 @@ export function UnifiedInboxView() {
   const allChannels = servers.flatMap((s) => s.channels.map((c) => ({ id: c.id, name: c.name, serverId: s.id })));
   const agents = members.filter((m) => m.role === "Agent");
 
-  const selectStyle: React.CSSProperties = {
-    fontSize: "0.7rem", padding: "4px 8px", borderRadius: "4px",
-    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
-    color: "rgba(255,255,255,0.7)", outline: "none",
-  };
-
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "rgba(14,16,23,0.35)" }}>
       {/* Header */}
@@ -167,22 +162,37 @@ export function UnifiedInboxView() {
           }}
         />
 
-        <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={selectStyle}>
-          <option value="all">All Channels</option>
-          {allChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
-        </select>
+        <GlassSelect
+          value={channelFilter}
+          onChange={(val) => setChannelFilter(val)}
+          options={[
+            { value: "all", label: "All Channels" },
+            ...allChannels.map((c) => ({ value: c.id, label: `#${c.name}` })),
+          ]}
+          size="sm"
+        />
 
-        <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={selectStyle}>
-          <option value="all">All Agents</option>
-          {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
+        <GlassSelect
+          value={agentFilter}
+          onChange={(val) => setAgentFilter(val)}
+          options={[
+            { value: "all", label: "All Agents" },
+            ...agents.map((a) => ({ value: a.id, label: a.name })),
+          ]}
+          size="sm"
+        />
 
-        <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as TimeRange)} style={selectStyle}>
-          <option value="all">All Time</option>
-          <option value="1h">Last Hour</option>
-          <option value="24h">Last 24h</option>
-          <option value="7d">Last 7 Days</option>
-        </select>
+        <GlassSelect
+          value={timeRange}
+          onChange={(val) => setTimeRange(val as TimeRange)}
+          options={[
+            { value: "all", label: "All Time" },
+            { value: "1h", label: "Last Hour" },
+            { value: "24h", label: "Last 24h" },
+            { value: "7d", label: "Last 7 Days" },
+          ]}
+          size="sm"
+        />
       </div>
 
       {/* Messages */}

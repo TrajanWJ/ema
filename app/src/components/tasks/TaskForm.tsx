@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTasksStore } from "@/stores/tasks-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 interface TaskFormProps {
   readonly onClose: () => void;
@@ -93,24 +94,16 @@ export function TaskForm({ onClose }: TaskFormProps) {
           >
             Project
           </label>
-          <select
+          <GlassSelect
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            <option value="">None</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setProjectId(val)}
+            options={[
+              { value: "", label: "None" },
+              ...projects.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            className="w-full"
+            size="sm"
+          />
         </div>
 
         <div style={{ width: "80px" }}>
@@ -120,21 +113,16 @@ export function TaskForm({ onClose }: TaskFormProps) {
           >
             Priority
           </label>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(Number(e.target.value))}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            {[1, 2, 3, 4, 5].map((p) => (
-              <option key={p} value={p}>P{p}</option>
-            ))}
-          </select>
+          <GlassSelect
+            value={priority.toString()}
+            onChange={(val) => setPriority(Number(val))}
+            options={[1, 2, 3, 4, 5].map((p) => ({
+              value: p.toString(),
+              label: `P${p}`,
+            }))}
+            className="w-full"
+            size="sm"
+          />
         </div>
 
         <div style={{ width: "80px" }}>
@@ -144,21 +132,16 @@ export function TaskForm({ onClose }: TaskFormProps) {
           >
             Effort
           </label>
-          <select
+          <GlassSelect
             value={effort}
-            onChange={(e) => setEffort(e.target.value)}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            {EFFORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={(val) => setEffort(val)}
+            options={EFFORT_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
+            className="w-full"
+            size="sm"
+          />
         </div>
       </div>
 

@@ -130,7 +130,7 @@ defmodule EmaWeb.VoiceChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:utterance_complete, result}, socket) do
+  def handle_info({:utterance_complete, _result}, socket) do
     # Already pushed via VoiceCore notify_channel — nothing extra needed
     {:noreply, socket}
   end

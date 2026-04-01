@@ -248,21 +248,23 @@ function ScrollToBottomFab({ onClick }: { onClick: () => void }) {
 // Empty state
 // ---------------------------------------------------------------------------
 
-function EmptyChannel({ channelName }: { channelName: string }) {
+function EmptyChannel({ channelName, isAgent }: { channelName: string; isAgent?: boolean }) {
   return (
     <div
       className="flex flex-col items-center justify-center h-full gap-2"
       style={{ color: "var(--pn-text-muted)" }}
     >
-      <div className="text-[2.5rem] opacity-30">#</div>
+      <div className="text-[2.5rem] opacity-30">{isAgent ? "🤖" : "#"}</div>
       <p
         className="text-[0.9rem] font-semibold"
         style={{ color: "var(--pn-text-secondary)" }}
       >
-        Welcome to #{channelName}
+        {isAgent ? `Chat with ${channelName}` : `Welcome to #${channelName}`}
       </p>
       <p className="text-[0.75rem]">
-        This is the start of the channel. Send a message to begin.
+        {isAgent
+          ? "Send a message to start a conversation with this agent."
+          : "This is the start of the channel. Send a message to begin."}
       </p>
     </div>
   );
@@ -295,6 +297,8 @@ export function ChatView() {
   const activeChannelId = useChannelsStore((s) => s.activeChannelId);
   const activeChannel = useChannelsStore((s) => s.activeChannel());
   const sendMessage = useChannelsStore((s) => s.sendMessage);
+  const agentStreaming = useChannelsStore((s) => s.agentStreaming);
+  const isAgent = useChannelsStore((s) => s.isAgentChannel());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -330,7 +334,10 @@ export function ChatView() {
 
   const grouped = useMemo(() => groupMessages(filteredMessages), [filteredMessages]);
 
-  // Auto-scroll on new messages
+  // Get the last message content length to trigger scroll during streaming
+  const lastMsgLen = messages.length > 0 ? messages[messages.length - 1].content.length : 0;
+
+  // Auto-scroll on new messages and during streaming
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -338,7 +345,7 @@ export function ChatView() {
         behavior: "smooth",
       });
     }
-  }, [messages.length, autoScroll]);
+  }, [messages.length, lastMsgLen, autoScroll]);
 
   // Detect user scroll position
   const handleScroll = useCallback(() => {
@@ -430,7 +437,7 @@ export function ChatView() {
         style={{ scrollBehavior: "smooth", paddingTop: 8 }}
       >
         {grouped.length === 0 && !searchFilter.trim() ? (
-          <EmptyChannel channelName={channelName} />
+          <EmptyChannel channelName={channelName} isAgent={isAgent} />
         ) : grouped.length === 0 && searchFilter.trim() ? (
           <div
             className="flex items-center justify-center h-full text-[0.8rem]"
@@ -454,8 +461,21 @@ export function ChatView() {
         )}
       </div>
 
-      {/* Typing indicator */}
-      <TypingIndicator />
+      {/* Typing / streaming indicator */}
+      {agentStreaming && (
+        <div
+          className="px-4 py-1 text-[0.7rem] flex items-center gap-1.5 shrink-0"
+          style={{ color: "var(--pn-accent-teal, #2dd4a8)" }}
+        >
+          <span className="inline-flex gap-0.5">
+            <span className="animate-bounce" style={{ animationDelay: "0s" }}>&bull;</span>
+            <span className="animate-bounce" style={{ animationDelay: "0.15s" }}>&bull;</span>
+            <span className="animate-bounce" style={{ animationDelay: "0.3s" }}>&bull;</span>
+          </span>
+          <span>Agent is responding...</span>
+        </div>
+      )}
+      {!agentStreaming && <TypingIndicator />}
 
       {/* Scroll to bottom FAB */}
       {!autoScroll && <ScrollToBottomFab onClick={scrollToBottom} />}
@@ -468,7 +488,10 @@ export function ChatView() {
         />
       )}
 
-      <InputBar onSend={handleSend} placeholder={`Message #${channelName}`} />
+      <InputBar
+        onSend={handleSend}
+        placeholder={isAgent ? `Message ${channelName}...` : `Message #${channelName}`}
+      />
     </div>
   );
 }

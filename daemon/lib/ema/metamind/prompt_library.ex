@@ -61,7 +61,7 @@ defmodule Ema.MetaMind.PromptLibrary do
     pattern = "%#{query_string}%"
 
     from(p in __MODULE__,
-      where: ilike(p.name, ^pattern) or ilike(p.body, ^pattern),
+      where: like(fragment("lower(?)", p.name), ^String.downcase(pattern)) or like(fragment("lower(?)", p.body), ^String.downcase(pattern)),
       order_by: [desc: p.effectiveness_score, desc: p.usage_count]
     )
     |> Repo.all()

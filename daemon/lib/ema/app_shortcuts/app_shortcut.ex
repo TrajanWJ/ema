@@ -1,6 +1,9 @@
 defmodule Ema.AppShortcuts.AppShortcut do
   @moduledoc """
-  Deprecated: app_shortcuts table has been dropped.
-  This module is kept as a stub to avoid compile errors.
+  Stub — the `app_shortcuts` table has been dropped. Global shortcuts
+  (Super+Shift+C, Super+Shift+Space) are planned but not yet wired.
+
+  This module and Ema.AppShortcuts are retained only to prevent compile
+  errors from existing migration references. Not referenced by any live code.
   """
 end

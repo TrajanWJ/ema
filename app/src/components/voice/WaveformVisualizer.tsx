@@ -134,7 +134,7 @@ export function WaveformVisualizer({ active }: WaveformVisualizerProps) {
 function drawStaticWave(
   ctx: CanvasRenderingContext2D,
   w: number,
-  h: number,
+  _h: number,
   midY: number,
 ) {
   const t = performance.now() / 1000;

@@ -45,11 +45,8 @@ const NEW_APPS = [
   { id: "canvas", name: "Canvas", status: "visual workspace" },
   { id: "pipes", name: "Pipes", status: "automation" },
   { id: "claude-bridge", name: "Claude Bridge", status: "interactive sessions" },
-] as const;
-
-const SCAFFOLDED_APPS = [
-  { id: "goals", name: "Goals", icon: "\u25CE" },
-  { id: "focus", name: "Focus", icon: "\u23F1" },
+  { id: "goals", name: "Goals", status: "goal tracking" },
+  { id: "focus", name: "Focus", status: "deep work timer" },
 ] as const;
 
 export function Launchpad() {
@@ -146,19 +143,7 @@ export function Launchpad() {
           );
         })}
 
-        {/* Scaffolded Apps */}
-        {SCAFFOLDED_APPS.map((app) => (
-          <AppTile
-            key={app.id}
-            appId={app.id}
-            name={app.name}
-            icon={app.icon}
-            accent="var(--pn-text-tertiary)"
-            status="coming soon"
-            scaffolded
-            onClick={() => {}}
-          />
-        ))}
+        {/* Placeholder for future scaffolded apps */}
       </div>
     </div>
   );

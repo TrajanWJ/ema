@@ -9,6 +9,7 @@ defmodule Ema.Agents.AgentWorker do
 
   alias Ema.Agents
   alias Ema.Claude.Runner
+  alias Ema.Claude.Adapters.OpenClaw, as: OpenClawAdapter
 
   # --- Public API ---
 
@@ -138,6 +139,41 @@ defmodule Ema.Agents.AgentWorker do
       {:error, reason} -> Logger.warning("Failed to store user message: #{inspect(reason)}")
     end
 
+    # Route to appropriate backend
+    settings = agent.settings || %{}
+
+    case Map.get(settings, "backend") do
+      "openclaw" ->
+        handle_openclaw_message(agent, conversation_id, content, settings)
+
+      _ ->
+        handle_runner_message(state, agent, conversation_id, content)
+    end
+  end
+
+  defp handle_openclaw_message(agent, conversation_id, content, settings) do
+    openclaw_agent_id = Map.get(settings, "openclaw_agent_id", "main")
+
+    case OpenClawAdapter.run(content, openclaw_agent_id) do
+      {:ok, %{text: text}} ->
+        # Store assistant message
+        Agents.add_message(%{
+          conversation_id: conversation_id,
+          role: "assistant",
+          content: text,
+          metadata: %{"backend" => "openclaw", "agent" => openclaw_agent_id}
+        })
+
+        notify_memory(agent.id, conversation_id)
+        {:ok, %{reply: text, tool_calls: [], tool_results: []}}
+
+      {:error, reason} ->
+        Logger.error("OpenClaw failed for agent #{agent.slug}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp handle_runner_message(state, agent, conversation_id, content) do
     # Build prompt from script + conversation history
     prompt = build_prompt(state, conversation_id, content)
 

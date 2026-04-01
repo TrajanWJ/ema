@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 export function CaptureInput() {
   const [text, setText] = useState("");
@@ -40,22 +41,15 @@ export function CaptureInput() {
           border: "1px solid var(--pn-border-default)",
         }}
       />
-      <select
+      <GlassSelect
         value={projectId ?? ""}
-        onChange={(e) => setProjectId(e.target.value || null)}
-        className="text-[0.7rem] px-2 py-2 rounded-lg outline-none"
-        style={{
-          background: "var(--pn-surface-3)",
-          color: "var(--pn-text-secondary)",
-          border: "1px solid var(--pn-border-default)",
-          maxWidth: "140px",
-        }}
-      >
-        <option value="">Inbox</option>
-        {activeProjects.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
+        onChange={(val) => setProjectId(val || null)}
+        options={[
+          { value: "", label: "Inbox" },
+          ...activeProjects.map((p) => ({ value: p.id, label: p.name })),
+        ]}
+        size="sm"
+      />
       <button
         type="submit"
         disabled={!text.trim()}

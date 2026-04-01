@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useResponsibilitiesStore } from "@/stores/responsibilities-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 const ROLES = ["developer", "self", "maintainer", "learner", "custom"] as const;
 const CADENCES = ["daily", "weekly", "biweekly", "monthly", "quarterly", "ongoing"] as const;
@@ -61,27 +62,21 @@ export function ResponsibilityForm({ onClose }: ResponsibilityFormProps) {
       />
 
       <div className="flex gap-2 mb-3">
-        <select
+        <GlassSelect
           value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="flex-1 text-[0.75rem] px-2 py-1.5 rounded-md outline-none"
-          style={selectStyle}
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
+          onChange={(val) => setRole(val)}
+          options={ROLES.map((r) => ({ value: r, label: r }))}
+          className="flex-1"
+          size="sm"
+        />
 
-        <select
+        <GlassSelect
           value={cadence}
-          onChange={(e) => setCadence(e.target.value)}
-          className="flex-1 text-[0.75rem] px-2 py-1.5 rounded-md outline-none"
-          style={selectStyle}
-        >
-          {CADENCES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+          onChange={(val) => setCadence(val)}
+          options={CADENCES.map((c) => ({ value: c, label: c }))}
+          className="flex-1"
+          size="sm"
+        />
       </div>
 
       <div className="flex justify-end gap-2">

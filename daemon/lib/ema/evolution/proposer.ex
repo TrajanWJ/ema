@@ -66,23 +66,16 @@ defmodule Ema.Evolution.Proposer do
   # --- Private ---
 
   defp do_propose(source, metadata) do
-    case InstructionParser.parse_signal(source, metadata) do
-      {:ok, parsed} ->
-        create_evolution_proposal(parsed, source, metadata)
-
-      {:error, reason} ->
-        Logger.warning("Proposer: failed to parse signal: #{inspect(reason)}")
-    end
+    # InstructionParser.parse_signal/2 always returns {:ok, _} (falls back
+    # to a basic parse when Claude is unavailable), so no error clause needed.
+    {:ok, parsed} = InstructionParser.parse_signal(source, metadata)
+    create_evolution_proposal(parsed, source, metadata)
   end
 
   defp do_propose_manual(instruction) do
-    case InstructionParser.parse(instruction) do
-      {:ok, parsed} ->
-        create_evolution_proposal(parsed, :manual, %{instruction: instruction})
-
-      {:error, reason} ->
-        Logger.warning("Proposer: failed to parse instruction: #{inspect(reason)}")
-    end
+    # InstructionParser.parse/1 always returns {:ok, _} via fallback_parse.
+    {:ok, parsed} = InstructionParser.parse(instruction)
+    create_evolution_proposal(parsed, :manual, %{instruction: instruction})
   end
 
   defp create_evolution_proposal(parsed, source, metadata) do

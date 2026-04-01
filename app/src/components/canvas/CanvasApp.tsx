@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { useCanvasStore } from "@/stores/canvas-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import { APP_CONFIGS } from "@/types/workspace";
 import { CanvasList } from "./CanvasList";
 import { CanvasEditor } from "./CanvasEditor";
@@ -108,16 +109,12 @@ export function CanvasApp() {
                   className="flex-1 text-[0.8rem] px-3 py-2 rounded-lg outline-none"
                   style={inputStyle}
                 />
-                <select
+                <GlassSelect
                   value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  className="text-[0.75rem] px-2 py-1.5 rounded-md outline-none"
-                  style={inputStyle}
-                >
-                  {CANVAS_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setNewType(val)}
+                  options={CANVAS_TYPES.map((t) => ({ value: t, label: t }))}
+                  size="sm"
+                />
                 <button
                   type="submit"
                   disabled={!newName.trim()}

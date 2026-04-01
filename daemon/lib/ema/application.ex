@@ -40,7 +40,15 @@ defmodule Ema.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ema.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Seed and start OpenClaw agents after supervision tree is up
+    Task.start(fn ->
+      Process.sleep(2_000)
+      Ema.Agents.OpenClawSync.sync()
+    end)
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration

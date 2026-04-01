@@ -27,7 +27,7 @@ defmodule Ema.Voice.VoiceCore do
 
   def start_link(opts) do
     session_id = Keyword.fetch!(opts, :session_id)
-    channel_pid = Keyword.fetch!(opts, :channel_pid)
+    _channel_pid = Keyword.fetch!(opts, :channel_pid)
 
     GenServer.start_link(__MODULE__, opts,
       name: via(session_id)
@@ -190,7 +190,7 @@ defmodule Ema.Voice.VoiceCore do
     "Showing #{target}."
   end
 
-  defp execute_command(:unknown, raw, _state) do
+  defp execute_command(_unrecognized, raw, _state) do
     "I'm not sure how to handle: #{raw}"
   end
 

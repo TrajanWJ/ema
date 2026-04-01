@@ -18,6 +18,8 @@ const DOCK_APPS = [
   { id: "channels", icon: "\u{1F4AC}", label: "Channels" },
   { id: "claude-bridge", icon: "\u2B23", label: "Claude Bridge" },
   { id: "voice", icon: "\u25CE", label: "Jarvis" },
+  { id: "goals", icon: "\u25CE", label: "Goals" },
+  { id: "focus", icon: "\u23F1", label: "Focus" },
 ] as const;
 
 export function Dock() {

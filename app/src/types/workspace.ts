@@ -172,5 +172,23 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#00D2FF",
     icon: "\u25CE",
   },
+  goals: {
+    title: "Goals",
+    defaultWidth: 800,
+    defaultHeight: 700,
+    minWidth: 600,
+    minHeight: 500,
+    accent: "#f59e0b",
+    icon: "\u25CE",
+  },
+  focus: {
+    title: "Focus",
+    defaultWidth: 700,
+    defaultHeight: 650,
+    minWidth: 500,
+    minHeight: 450,
+    accent: "#f43f5e",
+    icon: "\u23F1",
+  },
 } as const;
 

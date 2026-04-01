@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background gradient -->
+    <radialGradient id="bg" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#0E1017"/>
+      <stop offset="100%" stop-color="#060610"/>
+    </radialGradient>
+
+    <!-- Glass surface -->
+    <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08"/>
+    </linearGradient>
+
+    <!-- Teal accent gradient -->
+    <linearGradient id="teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4aa"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+
+    <!-- Amber highlight -->
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Subtle outer glow -->
+    <filter id="outerGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0  0 0 0 0 0.83  0 0 0 0 0.67  0 0 0 0.4 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Rounded square clip -->
+    <clipPath id="roundedSquare">
+      <rect x="16" y="16" width="480" height="480" rx="96" ry="96"/>
+    </clipPath>
+  </defs>
+
+  <!-- Base rounded square -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#bg)"/>
+
+  <!-- Subtle border -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96"
+        fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5"/>
+
+  <!-- Glass overlay -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96"
+        fill="url(#glass)" clip-path="url(#roundedSquare)"/>
+
+  <!-- Neural network background nodes (subtle) -->
+  <g opacity="0.15" clip-path="url(#roundedSquare)">
+    <!-- Connection lines -->
+    <line x1="120" y1="140" x2="200" y2="220" stroke="#0ea5e9" stroke-width="1"/>
+    <line x1="200" y1="220" x2="160" y2="340" stroke="#0ea5e9" stroke-width="1"/>
+    <line x1="390" y1="150" x2="340" y2="240" stroke="#0ea5e9" stroke-width="1"/>
+    <line x1="340" y1="240" x2="380" y2="360" stroke="#0ea5e9" stroke-width="1"/>
+    <line x1="200" y1="220" x2="340" y2="240" stroke="#00d4aa" stroke-width="1"/>
+    <line x1="160" y1="340" x2="380" y2="360" stroke="#00d4aa" stroke-width="1"/>
+    <line x1="120" y1="140" x2="390" y2="150" stroke="#0ea5e9" stroke-width="0.5"/>
+    <line x1="160" y1="340" x2="256" y2="420" stroke="#0ea5e9" stroke-width="0.5"/>
+    <line x1="380" y1="360" x2="256" y2="420" stroke="#0ea5e9" stroke-width="0.5"/>
+    <!-- Nodes -->
+    <circle cx="120" cy="140" r="4" fill="#0ea5e9"/>
+    <circle cx="200" cy="220" r="3" fill="#00d4aa"/>
+    <circle cx="160" cy="340" r="3.5" fill="#0ea5e9"/>
+    <circle cx="390" cy="150" r="4" fill="#0ea5e9"/>
+    <circle cx="340" cy="240" r="3" fill="#00d4aa"/>
+    <circle cx="380" cy="360" r="3.5" fill="#0ea5e9"/>
+    <circle cx="256" cy="420" r="3" fill="#00d4aa"/>
+  </g>
+
+  <!-- The E letterform — constructed from geometric segments with teal gradient -->
+  <g filter="url(#outerGlow)">
+    <!-- Vertical spine -->
+    <rect x="148" y="128" width="36" height="256" rx="6" fill="url(#teal)"/>
+
+    <!-- Top horizontal bar -->
+    <rect x="148" y="128" width="216" height="32" rx="6" fill="url(#teal)"/>
+
+    <!-- Middle horizontal bar (shorter, with amber accent dot) -->
+    <rect x="148" y="240" width="180" height="32" rx="6" fill="url(#teal)"/>
+
+    <!-- Bottom horizontal bar -->
+    <rect x="148" y="352" width="216" height="32" rx="6" fill="url(#teal)"/>
+  </g>
+
+  <!-- Amber accent — a small glowing dot at the end of the middle bar -->
+  <circle cx="340" cy="256" r="12" fill="url(#amber)" filter="url(#glow)"/>
+
+  <!-- Small highlight dot top-right of E for depth -->
+  <circle cx="370" cy="140" r="5" fill="#0ea5e9" opacity="0.3"/>
+  <circle cx="370" cy="370" r="5" fill="#0ea5e9" opacity="0.3"/>
+</svg>

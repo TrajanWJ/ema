@@ -6,6 +6,7 @@ import { APP_CONFIGS } from "@/types/workspace";
 import { SessionList } from "./SessionList";
 import { SessionView } from "./SessionView";
 import { ProjectPicker } from "./ProjectPicker";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import type { Project } from "@/types/projects";
 
 const config = APP_CONFIGS["claude-bridge"];
@@ -104,20 +105,17 @@ export function ClaudeBridgeApp() {
                 onSelect={setSelectedProject}
               />
 
-              <select
+              <GlassSelect
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-md px-2 py-1.5 text-[0.75rem] font-mono outline-none"
-                style={{
-                  background: "var(--color-pn-surface-2)",
-                  color: "var(--pn-text-primary)",
-                  border: "1px solid var(--pn-border-default)",
-                }}
-              >
-                <option value="sonnet">Sonnet</option>
-                <option value="opus">Opus</option>
-                <option value="haiku">Haiku</option>
-              </select>
+                onChange={(val) => setModel(val)}
+                options={[
+                  { value: "sonnet", label: "Sonnet" },
+                  { value: "opus", label: "Opus" },
+                  { value: "haiku", label: "Haiku" },
+                ]}
+                className="w-full"
+                size="sm"
+              />
 
               <input
                 type="text"

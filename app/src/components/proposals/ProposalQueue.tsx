@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useProposalsStore } from "@/stores/proposals-store";
 import { ProposalCard } from "./ProposalCard";
-import type { Proposal, ProposalSortKey, ProposalSortDir } from "@/types/proposals";
+import { GlassSelect } from "@/components/ui/GlassSelect";
+import type { Proposal, ProposalSortKey } from "@/types/proposals";
 
 function combinedRank(p: Proposal): number {
   const idea = p.idea_score ?? 0;
@@ -72,23 +73,12 @@ export function ProposalQueue() {
           >
             Sort
           </span>
-          <select
+          <GlassSelect
             value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as ProposalSortKey)}
-            className="text-[0.65rem] rounded px-1.5 py-1"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setSortKey(val as ProposalSortKey)}
+            options={SORT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            size="sm"
+          />
           <button
             onClick={() => setSortDir(sortDir === "desc" ? "asc" : "desc")}
             className="text-[0.7rem] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80"

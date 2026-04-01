@@ -17,6 +17,8 @@ import { MetaMindApp } from "@/components/metamind/MetaMindApp";
 import { EvolutionDashboard } from "@/components/evolution/EvolutionDashboard";
 import { ClaudeBridgeApp } from "@/components/claude-bridge/ClaudeBridgeApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
+import { GoalsApp } from "@/components/goals/GoalsApp";
+import { FocusApp } from "@/components/focus/FocusApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -60,6 +62,10 @@ export default function App() {
       return <ClaudeBridgeApp />;
     case "voice":
       return <VoiceApp />;
+    case "goals":
+      return <GoalsApp />;
+    case "focus":
+      return <FocusApp />;
     default:
       return (
         <Shell>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useProposalsStore } from "@/stores/proposals-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 interface SeedFormProps {
   readonly onClose: () => void;
@@ -101,23 +102,13 @@ export function SeedForm({ onClose }: SeedFormProps) {
         >
           Seed Type
         </label>
-        <select
+        <GlassSelect
           value={seedType}
-          onChange={(e) => setSeedType(e.target.value as (typeof SEED_TYPES)[number])}
-          className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-          style={{
-            background: "rgba(255, 255, 255, 0.04)",
-            border: "1px solid var(--pn-border-default)",
-            color: "var(--pn-text-primary)",
-            outline: "none",
-          }}
-        >
-          {SEED_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t.replace("_", " ")}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => setSeedType(val as (typeof SEED_TYPES)[number])}
+          options={SEED_TYPES.map((t) => ({ value: t, label: t.replace("_", " ") }))}
+          className="w-full"
+          size="sm"
+        />
       </div>
 
       <div className="flex gap-3">
@@ -128,23 +119,13 @@ export function SeedForm({ onClose }: SeedFormProps) {
           >
             Schedule
           </label>
-          <select
+          <GlassSelect
             value={schedule}
-            onChange={(e) => setSchedule(e.target.value)}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            {SCHEDULE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setSchedule(val)}
+            options={SCHEDULE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            className="w-full"
+            size="sm"
+          />
         </div>
 
         <div className="flex-1">
@@ -154,24 +135,16 @@ export function SeedForm({ onClose }: SeedFormProps) {
           >
             Project
           </label>
-          <select
+          <GlassSelect
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            <option value="">None</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setProjectId(val)}
+            options={[
+              { value: "", label: "None" },
+              ...projects.map((p) => ({ value: String(p.id), label: p.name })),
+            ]}
+            className="w-full"
+            size="sm"
+          />
         </div>
       </div>
 

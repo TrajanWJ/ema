@@ -20,6 +20,10 @@ defmodule EmaWeb.UserSocket do
   channel "claude_sessions:*", EmaWeb.ClaudeSessionChannel
   channel "voice:*", EmaWeb.VoiceChannel
   channel "channels:*", EmaWeb.ChannelsChannel
+  channel "evolution:*", EmaWeb.EvolutionChannel
+  channel "metamind:*", EmaWeb.MetaMindChannel
+  channel "goals:*", EmaWeb.GoalChannel
+  channel "focus:*", EmaWeb.FocusChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

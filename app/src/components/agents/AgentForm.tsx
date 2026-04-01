@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAgentsStore } from "@/stores/agents-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 
 const MODELS = ["opus", "sonnet", "haiku"] as const;
 
@@ -60,16 +61,13 @@ export function AgentForm({ onClose }: AgentFormProps) {
       />
 
       <div className="flex gap-2 mb-3">
-        <select
+        <GlassSelect
           value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="flex-1 text-[0.75rem] px-2 py-1.5 rounded-md outline-none"
-          style={inputStyle}
-        >
-          {MODELS.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+          onChange={(val) => setModel(val)}
+          options={MODELS.map((m) => ({ value: m, label: m }))}
+          className="flex-1"
+          size="sm"
+        />
 
         <div className="flex items-center gap-2 flex-1">
           <label className="text-[0.65rem]" style={{ color: "var(--pn-text-tertiary)" }}>

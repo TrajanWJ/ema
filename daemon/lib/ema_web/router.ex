@@ -51,6 +51,7 @@ defmodule EmaWeb.Router do
 
     # Proposals — specific routes before general
     get "/proposals", ProposalController, :index
+    get "/proposals/surfaced", ProposalController, :surfaced
     get "/proposals/:id", ProposalController, :show
     post "/proposals/:id/approve", ProposalController, :approve
     post "/proposals/:id/redirect", ProposalController, :redirect
@@ -160,7 +161,19 @@ defmodule EmaWeb.Router do
     post "/ralph/run", RalphController, :run_cycle
     post "/ralph/configure", RalphController, :configure
     post "/ralph/surface/:id", RalphController, :surface
-    get "/proposals/surfaced", ProposalController, :surfaced
+
+    # Goals
+    resources "/goals", GoalController, except: [:new, :edit]
+
+    # Focus
+    get "/focus/sessions", FocusController, :index
+    get "/focus/current", FocusController, :current
+    get "/focus/today", FocusController, :today
+    get "/focus/sessions/:id", FocusController, :show
+    post "/focus/sessions", FocusController, :start
+    post "/focus/sessions/:id/stop", FocusController, :stop
+    post "/focus/sessions/:id/blocks", FocusController, :add_block
+    post "/focus/blocks/:block_id/end", FocusController, :end_block
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook

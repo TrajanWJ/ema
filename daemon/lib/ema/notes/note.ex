@@ -1,4 +1,13 @@
 defmodule Ema.Notes.Note do
+  @moduledoc """
+  Stub schema for the `notes` table. This duplicates Ema.SecondBrain.Note
+  (which backs `vault_notes`) and should be consolidated into SecondBrain
+  in a future migration. Kept for now because the migration that created the
+  `notes` table still exists.
+
+  Prefer Ema.SecondBrain.Note for all new code.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

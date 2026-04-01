@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useProjectsStore } from "@/stores/projects-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import type { Project } from "@/types/projects";
 
 interface ProjectFormProps {
@@ -122,23 +123,13 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
           >
             Status
           </label>
-          <select
+          <GlassSelect
             value={status}
-            onChange={(e) => setStatus(e.target.value as Project["status"])}
-            className="w-full rounded px-2 py-1.5 text-[0.7rem]"
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-primary)",
-              outline: "none",
-            }}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setStatus(val as Project["status"])}
+            options={STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            className="w-full"
+            size="sm"
+          />
         </div>
 
         <div style={{ width: "80px" }}>

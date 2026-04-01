@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMetaMindStore } from "@/stores/metamind-store";
+import { GlassSelect } from "@/components/ui/GlassSelect";
 import type { SavedPrompt, PromptCategory } from "@/types/metamind";
 
 const CATEGORIES: PromptCategory[] = [
@@ -142,22 +143,12 @@ export function PromptEditor({ prompt, onClose }: PromptEditorProps) {
 
       {/* Category & Tags Row */}
       <div className="flex gap-2 mb-3">
-        <select
+        <GlassSelect
           value={category}
-          onChange={(e) => setCategory(e.target.value as PromptCategory)}
-          className="px-2 py-1.5 rounded-lg text-[0.75rem] outline-none"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            color: "var(--pn-text-primary)",
-          }}
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c} style={{ background: "#141620" }}>
-              {c}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => setCategory(val as PromptCategory)}
+          options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+          size="sm"
+        />
         <input
           type="text"
           value={tagsInput}
