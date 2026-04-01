@@ -145,5 +145,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#e879f9",
     icon: "\u29BF",
   },
+  evolution: {
+    title: "Evolution",
+    defaultWidth: 900,
+    defaultHeight: 700,
+    minWidth: 700,
+    minHeight: 500,
+    accent: "#c084fc",
+    icon: "\u29D6",
+  },
 } as const;
 

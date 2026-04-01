@@ -110,5 +110,19 @@ defmodule EmaWeb.Router do
     # Data Sources
     get "/data-sources", DataSourceController, :index
     get "/data-sources/:id/preview", DataSourceController, :preview
+
+    # Evolution
+    get "/evolution/rules", EvolutionController, :index
+    get "/evolution/rules/:id", EvolutionController, :show
+    post "/evolution/rules", EvolutionController, :create
+    put "/evolution/rules/:id", EvolutionController, :update
+    post "/evolution/rules/:id/activate", EvolutionController, :activate
+    post "/evolution/rules/:id/rollback", EvolutionController, :rollback
+    post "/evolution/rules/:id/version", EvolutionController, :apply_version
+    get "/evolution/rules/:id/history", EvolutionController, :version_history
+    get "/evolution/signals", EvolutionController, :signals
+    get "/evolution/stats", EvolutionController, :stats
+    post "/evolution/scan", EvolutionController, :scan_now
+    post "/evolution/propose", EvolutionController, :propose
   end
 end
