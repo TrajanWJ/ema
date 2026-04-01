@@ -44,6 +44,7 @@ const NEW_APPS = [
   { id: "vault", name: "Second Brain", status: "knowledge vault" },
   { id: "canvas", name: "Canvas", status: "visual workspace" },
   { id: "pipes", name: "Pipes", status: "automation" },
+  { id: "claude-bridge", name: "Claude Bridge", status: "interactive sessions" },
 ] as const;
 
 const SCAFFOLDED_APPS = [

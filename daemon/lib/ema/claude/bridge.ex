@@ -1,0 +1,276 @@
+defmodule Ema.Claude.Bridge do
+  @moduledoc """
+  GenServer managing a Claude CLI subprocess as a Port with bidirectional streaming.
+
+  Starts Claude CLI with `--output-format stream-json --input-format stream-json`
+  and provides APIs for one-shot runs, streaming with callbacks, and multi-turn send.
+
+  Broadcasts parsed events via PubSub to `ema:claude:events`.
+  """
+
+  use GenServer
+  require Logger
+
+  alias Ema.Claude.StreamParser
+
+  @pubsub_topic "ema:claude:events"
+  @default_model "sonnet"
+
+  # --- Public API ---
+
+  @doc """
+  Start a Bridge process linked to a Claude CLI subprocess.
+
+  Options:
+    - :project_path - working directory for the CLI (required)
+    - :model - Claude model to use (default: "sonnet")
+    - :session_id - session identifier for PubSub routing
+    - :name - GenServer name registration
+  """
+  def start_link(opts) do
+    name = Keyword.get(opts, :name)
+    gen_opts = if name, do: [name: name], else: []
+    GenServer.start_link(__MODULE__, opts, gen_opts)
+  end
+
+  @doc """
+  Send a one-shot prompt and collect the full result.
+  Blocks until the CLI returns a result or times out.
+  """
+  def run(pid, prompt, timeout \\ 120_000) do
+    GenServer.call(pid, {:run, prompt}, timeout)
+  end
+
+  @doc """
+  Send a prompt and stream events to a callback function.
+  The callback receives tagged tuples from StreamParser.
+  Returns immediately; events arrive asynchronously.
+  """
+  def stream(pid, prompt, callback) when is_function(callback, 1) do
+    GenServer.cast(pid, {:stream, prompt, callback})
+  end
+
+  @doc """
+  Send a follow-up message in multi-turn mode.
+  """
+  def send(pid, message) do
+    GenServer.cast(pid, {:send, message})
+  end
+
+  @doc "Stop the bridge and its CLI subprocess."
+  def stop(pid) do
+    GenServer.stop(pid, :normal)
+  end
+
+  @doc "Get the PubSub topic for claude bridge events."
+  def pubsub_topic, do: @pubsub_topic
+
+  # --- Callbacks ---
+
+  @impl true
+  def init(opts) do
+    project_path = Keyword.fetch!(opts, :project_path)
+    model = Keyword.get(opts, :model, @default_model)
+    session_id = Keyword.get(opts, :session_id, generate_session_id())
+
+    state = %{
+      project_path: project_path,
+      model: model,
+      session_id: session_id,
+      port: nil,
+      buffer: "",
+      callback: nil,
+      collect: nil
+    }
+
+    {:ok, state}
+  end
+
+  @impl true
+  def handle_call({:run, prompt}, from, state) do
+    port = open_port(state)
+
+    send_to_port(port, prompt)
+
+    {:noreply, %{state | port: port, collect: %{from: from, events: []}, callback: nil}}
+  end
+
+  @impl true
+  def handle_cast({:stream, prompt, callback}, state) do
+    port = open_port(state)
+
+    send_to_port(port, prompt)
+
+    {:noreply, %{state | port: port, callback: callback, collect: nil}}
+  end
+
+  @impl true
+  def handle_cast({:send, message}, %{port: port} = state) when port != nil do
+    send_to_port(port, message)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:send, _message}, state) do
+    Logger.warning("[Bridge] Cannot send message — no active port")
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({port, {:data, data}}, %{port: port} = state) do
+    # Port data arrives as charlist or binary depending on options
+    chunk = IO.iodata_to_binary(data)
+    buffer = state.buffer <> chunk
+
+    # Split on newlines; keep last incomplete line in buffer
+    {complete_lines, remainder} = split_buffer(buffer)
+
+    events = StreamParser.parse_chunk(Enum.join(complete_lines, "\n"))
+
+    state = %{state | buffer: remainder}
+
+    # Dispatch events
+    Enum.each(events, fn event ->
+      broadcast(state.session_id, event)
+
+      if state.callback, do: state.callback.(event)
+    end)
+
+    # Collect events for synchronous run/2
+    state =
+      case state.collect do
+        %{events: acc} = collect ->
+          %{state | collect: %{collect | events: acc ++ events}}
+
+        nil ->
+          state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
+    Logger.info("[Bridge] CLI exited with status #{status} (session: #{state.session_id})")
+
+    broadcast(state.session_id, {:exit, %{status: status}})
+
+    if state.callback, do: state.callback.({:exit, %{status: status}})
+
+    # Reply to synchronous caller if collecting
+    state =
+      case state.collect do
+        %{from: from, events: events} ->
+          result = extract_result(events, status)
+          GenServer.reply(from, result)
+          %{state | collect: nil}
+
+        nil ->
+          state
+      end
+
+    {:noreply, %{state | port: nil, buffer: "", callback: nil}}
+  end
+
+  @impl true
+  def handle_info({:EXIT, port, reason}, %{port: port} = state) do
+    Logger.info("[Bridge] Port terminated: #{inspect(reason)} (session: #{state.session_id})")
+    broadcast(state.session_id, {:exit, %{reason: reason}})
+
+    case state.collect do
+      %{from: from} ->
+        GenServer.reply(from, {:error, %{reason: :port_exit, detail: reason}})
+
+      nil ->
+        :ok
+    end
+
+    {:noreply, %{state | port: nil, buffer: "", callback: nil, collect: nil}}
+  end
+
+  @impl true
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
+  @impl true
+  def terminate(_reason, %{port: port}) when port != nil do
+    Port.close(port)
+    :ok
+  end
+
+  def terminate(_reason, _state), do: :ok
+
+  # --- Internal ---
+
+  defp open_port(%{project_path: project_path, model: model}) do
+    claude_path = System.find_executable("claude") || "claude"
+
+    args = [
+      "--print",
+      "--output-format", "stream-json",
+      "--input-format", "stream-json",
+      "--model", model,
+      "--permission-mode", "bypassPermissions"
+    ]
+
+    Port.open(
+      {:spawn_executable, claude_path},
+      [
+        :binary,
+        :exit_status,
+        :use_stdio,
+        :stderr_to_stdout,
+        args: args,
+        cd: project_path
+      ]
+    )
+  end
+
+  defp send_to_port(port, message) when is_binary(message) do
+    payload = Jason.encode!(%{"type" => "user", "content" => message})
+    Port.command(port, payload <> "\n")
+  end
+
+  defp split_buffer(buffer) do
+    lines = String.split(buffer, "\n")
+
+    case List.last(lines) do
+      "" ->
+        # Buffer ended with newline — all lines complete
+        {Enum.slice(lines, 0..-2//1), ""}
+
+      incomplete ->
+        {Enum.slice(lines, 0..-2//1), incomplete}
+    end
+  end
+
+  defp extract_result(events, exit_status) do
+    result_event = Enum.find(events, fn
+      {:result, _} -> true
+      {:error, _} -> true
+      _ -> false
+    end)
+
+    case result_event do
+      {:result, data} -> {:ok, data}
+      {:error, data} -> {:error, data}
+      nil when exit_status == 0 -> {:ok, %{events: events}}
+      nil -> {:error, %{exit_status: exit_status, events: events}}
+    end
+  end
+
+  defp broadcast(session_id, event) do
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      @pubsub_topic,
+      {:claude_event, session_id, event}
+    )
+  end
+
+  defp generate_session_id do
+    ts = System.system_time(:second)
+    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+    "bridge_#{ts}_#{rand}"
+  end
+end

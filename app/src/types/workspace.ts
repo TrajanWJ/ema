@@ -136,5 +136,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#5865F2",
     icon: "💬",
   },
+  "claude-bridge": {
+    title: "Claude Bridge",
+    defaultWidth: 1000,
+    defaultHeight: 700,
+    minWidth: 800,
+    minHeight: 550,
+    accent: "#a78bfa",
+    icon: "\u2B23",
+  },
 } as const;
 
