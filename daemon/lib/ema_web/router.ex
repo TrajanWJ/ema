@@ -131,5 +131,39 @@ defmodule EmaWeb.Router do
     get "/channels/inbox", ChannelsController, :inbox
     get "/channels/:channel_id/messages", ChannelsController, :messages
     post "/channels/:channel_id/messages", ChannelsController, :send_message
+
+    # Claude Sessions (Bridge)
+    get "/claude-sessions", ClaudeSessionController, :index
+    post "/claude-sessions", ClaudeSessionController, :create
+    get "/claude-sessions/:id", ClaudeSessionController, :show
+    post "/claude-sessions/:id/continue", ClaudeSessionController, :continue
+    delete "/claude-sessions/:id", ClaudeSessionController, :kill
+
+    # Voice
+    get "/voice/sessions", VoiceController, :sessions
+    post "/voice/sessions", VoiceController, :create_session
+    delete "/voice/sessions/:id", VoiceController, :end_session
+
+    # Vectors / Scoring
+    get "/vectors/status", VectorController, :status
+    post "/vectors/reindex", VectorController, :reindex
+    get "/vectors/query", VectorController, :query
+
+    # MetaMind
+    get "/metamind/pipeline", MetaMindController, :pipeline_status
+    get "/metamind/library", MetaMindController, :library
+    post "/metamind/library", MetaMindController, :save_prompt
+    delete "/metamind/library/:id", MetaMindController, :delete_prompt
+
+    # Ralph Loop
+    get "/ralph/status", RalphController, :status
+    post "/ralph/run", RalphController, :run_cycle
+    post "/ralph/configure", RalphController, :configure
+    post "/ralph/surface/:id", RalphController, :surface
+    get "/proposals/surfaced", ProposalController, :surfaced
+
+    # Webhooks
+    post "/webhooks/telegram", TelegramController, :webhook
+    post "/webhooks/discord", DiscordWebhookController, :webhook
   end
 end
