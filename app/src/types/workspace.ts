@@ -134,7 +134,16 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     minWidth: 900,
     minHeight: 600,
     accent: "#5865F2",
-    icon: "💬",
+    icon: "\uD83D\uDCAC",
+  },
+  "metamind": {
+    title: "MetaMind",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#e879f9",
+    icon: "\u29BF",
   },
 } as const;
 
