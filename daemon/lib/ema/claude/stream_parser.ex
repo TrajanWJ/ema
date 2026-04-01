@@ -1,142 +1,108 @@
 defmodule Ema.Claude.StreamParser do
   @moduledoc """
-  Parses JSONL stream-json events from Claude Code CLI.
+  Parses Claude CLI stream-json (JSONL) events into tagged tuples.
 
-  Claude Code with `--output-format stream-json` emits one JSON object per line:
-  - system/init: session initialization with tool list
-  - assistant: text content from Claude
-  - content_block_start: start of tool use
-  - content_block_delta: partial tool input
-  - content_block_stop: end of tool use block
-  - tool_result: result of tool execution
-  - result: session complete with cost/tokens
-  - system/api_retry: rate limit retry notification
+  The Claude CLI with `--output-format stream-json` emits one JSON object per line.
+  Each object has a "type" field indicating the event kind.
   """
-
-  require Logger
 
   @doc """
-  Parse a chunk of data that may contain multiple JSONL lines.
-  Returns {parsed_events, remaining_buffer} where remaining_buffer
-  is any incomplete line at the end.
+  Parse a single JSON line from the stream.
+
+  Returns a tagged tuple like:
+    {:init, map}
+    {:text, binary}
+    {:content_block_start, map}
+    {:content_block_delta, map}
+    {:content_block_stop, map}
+    {:result, map}
+    {:error, map}
+    {:unknown, map}
   """
-  def parse_chunk(data) when is_binary(data) do
-    lines = String.split(data, "\n")
-
-    # Last element might be incomplete (no trailing newline)
-    {complete_lines, [remainder]} = Enum.split(lines, -1)
-
-    events =
-      complete_lines
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.flat_map(fn line ->
-        case parse_line(line) do
-          {:ok, event} -> [event]
-          {:error, _reason} -> []
-        end
-      end)
-
-    {events, remainder}
-  end
-
-  @doc """
-  Parse a single JSONL line into a structured event.
-  """
+  @spec parse_line(binary()) :: {:ok, tuple()} | {:error, term()}
   def parse_line(line) when is_binary(line) do
-    case Jason.decode(line) do
-      {:ok, json} -> {:ok, normalize_event(json)}
-      {:error, reason} -> {:error, {:json_parse_error, reason, line}}
-    end
-  end
+    line = String.trim(line)
 
-  # ── Event Normalization ──────────────────────────────────────────────────
+    if line == "" do
+      :skip
+    else
+      case Jason.decode(line) do
+        {:ok, %{"type" => type} = event} ->
+          {:ok, classify(type, event)}
 
-  defp normalize_event(%{"type" => "system", "subtype" => "init"} = json) do
-    %{
-      type: "system_init",
-      session_id: json["session_id"],
-      tools: json["tools"] || []
-    }
-  end
+        {:ok, event} ->
+          {:ok, {:unknown, event}}
 
-  defp normalize_event(%{"type" => "system", "subtype" => "api_retry"} = json) do
-    %{
-      type: "api_retry",
-      delay_seconds: json["delay_seconds"],
-      error: json["error"]
-    }
-  end
-
-  defp normalize_event(%{"type" => "assistant", "message" => message}) do
-    text =
-      case message do
-        %{"content" => content} when is_list(content) ->
-          content
-          |> Enum.filter(&(&1["type"] == "text"))
-          |> Enum.map_join("", & &1["text"])
-
-        _ ->
-          nil
+        {:error, reason} ->
+          {:error, {:json_decode, reason}}
       end
-
-    %{
-      type: "assistant",
-      text: text,
-      raw_message: message
-    }
-  end
-
-  defp normalize_event(%{"type" => "content_block_start", "content_block" => block}) do
-    case block do
-      %{"type" => "tool_use", "name" => name, "id" => id} ->
-        %{type: "tool_use_start", name: name, tool_use_id: id}
-
-      %{"type" => "text"} ->
-        %{type: "text_block_start"}
-
-      _ ->
-        %{type: "content_block_start", block: block}
     end
   end
 
-  defp normalize_event(%{"type" => "content_block_delta", "delta" => delta}) do
-    case delta do
-      %{"type" => "input_json_delta", "partial_json" => partial} ->
-        %{type: "tool_input_delta", partial_json: partial}
-
-      %{"type" => "text_delta", "text" => text} ->
-        %{type: "text_delta", text: text}
-
-      _ ->
-        %{type: "content_block_delta", delta: delta}
-    end
+  @doc """
+  Parse multiple lines (a chunk of JSONL data) into a list of events.
+  Skips blank lines and collects parse errors.
+  """
+  @spec parse_chunk(binary()) :: [tuple()]
+  def parse_chunk(data) when is_binary(data) do
+    data
+    |> String.split("\n", trim: true)
+    |> Enum.flat_map(fn line ->
+      case parse_line(line) do
+        {:ok, event} -> [event]
+        :skip -> []
+        {:error, _} -> []
+      end
+    end)
   end
 
-  defp normalize_event(%{"type" => "content_block_stop"}) do
-    %{type: "content_block_stop"}
+  # --- Event classification ---
+
+  defp classify("system", %{"subtype" => "init"} = event) do
+    {:init, event}
   end
 
-  defp normalize_event(%{"type" => "tool_result"} = json) do
-    %{
-      type: "tool_result",
-      tool_use_id: json["tool_use_id"],
-      content: json["content"]
-    }
+  defp classify("system", event) do
+    {:system, event}
   end
 
-  defp normalize_event(%{"type" => "result"} = json) do
-    %{
-      type: "result",
-      subtype: json["subtype"],
-      session_id: json["session_id"],
-      cost: json["total_cost_usd"],
-      input_tokens: json["total_input_tokens"],
-      output_tokens: json["total_output_tokens"]
-    }
+  defp classify("assistant", %{"message" => %{"content" => content}}) when is_binary(content) do
+    {:text, content}
   end
 
-  # Catch-all for unknown events
-  defp normalize_event(json) do
-    %{type: "unknown", raw: json}
+  defp classify("assistant", event) do
+    {:assistant, event}
+  end
+
+  defp classify("content_block_start", event) do
+    {:content_block_start, event}
+  end
+
+  defp classify("content_block_delta", %{"delta" => %{"text" => text}}) do
+    {:text_delta, text}
+  end
+
+  defp classify("content_block_delta", event) do
+    {:content_block_delta, event}
+  end
+
+  defp classify("content_block_stop", event) do
+    {:content_block_stop, event}
+  end
+
+  defp classify("result", %{"subtype" => "success"} = event) do
+    {:result, event}
+  end
+
+  defp classify("result", %{"subtype" => "error"} = event) do
+    {:error, event}
+  end
+
+  defp classify("result", event) do
+    {:result, event}
+  end
+
+  defp classify(_type, event) do
+    {:unknown, event}
   end
 end

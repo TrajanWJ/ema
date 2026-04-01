@@ -15,6 +15,7 @@ import { PipesApp } from "@/components/pipes/PipesApp";
 import { ChannelsApp } from "@/components/channels/ChannelsApp";
 import { MetaMindApp } from "@/components/metamind/MetaMindApp";
 import { EvolutionDashboard } from "@/components/evolution/EvolutionDashboard";
+import { ClaudeBridgeApp } from "@/components/claude-bridge/ClaudeBridgeApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -54,6 +55,8 @@ export default function App() {
       return <PipesApp />;
     case "metamind":
       return <MetaMindApp />;
+    case "claude-bridge":
+      return <ClaudeBridgeApp />;
     default:
       return (
         <Shell>
