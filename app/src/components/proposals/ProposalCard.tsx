@@ -99,6 +99,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
                 {proposal.estimated_scope}
               </span>
             )}
+            <ScoreBadges proposal={proposal} />
           </div>
           {!expanded && (
             <p
@@ -157,6 +158,8 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
           >
             {proposal.body}
           </p>
+
+          <ScoreDetail proposal={proposal} />
 
           {proposal.steelman && (
             <Section label="Steelman" content={proposal.steelman} />
@@ -284,6 +287,114 @@ function Section({ label, content }: { label: string; content: string }) {
       >
         {content}
       </p>
+    </div>
+  );
+}
+
+function ScoreBadges({ proposal }: { proposal: Proposal }) {
+  if (proposal.idea_score == null && proposal.prompt_quality_score == null) {
+    return null;
+  }
+
+  const combined =
+    proposal.idea_score != null && proposal.prompt_quality_score != null
+      ? (proposal.idea_score + proposal.prompt_quality_score) / 2
+      : proposal.idea_score ?? proposal.prompt_quality_score ?? 0;
+
+  return (
+    <span className="flex items-center gap-1 shrink-0 ml-auto">
+      {proposal.idea_score != null && (
+        <ScorePill label="idea" value={proposal.idea_score} />
+      )}
+      {proposal.prompt_quality_score != null && (
+        <ScorePill label="prompt" value={proposal.prompt_quality_score} />
+      )}
+      <ScorePill label="rank" value={combined} accent />
+    </span>
+  );
+}
+
+function ScorePill({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  const color = accent
+    ? "#a78bfa"
+    : value >= 7
+      ? "#22c55e"
+      : value >= 4
+        ? "#f59e0b"
+        : "#ef4444";
+
+  return (
+    <span
+      className="text-[0.55rem] px-1.5 py-0.5 rounded font-medium"
+      style={{
+        background: `${color}18`,
+        color,
+        border: `1px solid ${color}30`,
+      }}
+    >
+      {label} {value.toFixed(1)}
+    </span>
+  );
+}
+
+function ScoreDetail({ proposal }: { proposal: Proposal }) {
+  const bd = proposal.score_breakdown;
+  if (!bd) return null;
+
+  const dimensions = [
+    { label: "Coverage", value: bd.codebase_coverage, color: "#6b95f0" },
+    { label: "Coherence", value: bd.architectural_coherence, color: "#a78bfa" },
+    { label: "Impact", value: bd.impact, color: "#22c55e" },
+    { label: "Specificity", value: bd.prompt_specificity, color: "#f59e0b" },
+  ] as const;
+
+  return (
+    <div className="mb-3">
+      <span
+        className="text-[0.6rem] font-medium uppercase tracking-wider"
+        style={{ color: "var(--pn-text-muted)" }}
+      >
+        Score Breakdown
+      </span>
+      <div className="flex flex-col gap-1.5 mt-1.5">
+        {dimensions.map(({ label, value, color }) => (
+          <div key={label} className="flex items-center gap-2">
+            <span
+              className="text-[0.6rem] w-16 shrink-0"
+              style={{ color: "var(--pn-text-secondary)" }}
+            >
+              {label}
+            </span>
+            <div
+              className="flex-1 h-1.5 rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.06)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${(value / 10) * 100}%`,
+                  background: color,
+                  opacity: 0.8,
+                }}
+              />
+            </div>
+            <span
+              className="text-[0.6rem] w-6 text-right font-medium"
+              style={{ color }}
+            >
+              {typeof value === "number" ? value.toFixed(1) : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -17,6 +17,10 @@ defmodule Ema.Proposals.Proposal do
     field :steelman, :string
     field :red_team, :string
     field :synthesis, :string
+    field :embedding, :binary
+    field :idea_score, :float
+    field :prompt_quality_score, :float
+    field :score_breakdown, :map, default: %{}
 
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :seed, Ema.Proposals.Seed, type: :string
@@ -37,6 +41,7 @@ defmodule Ema.Proposals.Proposal do
       :id, :title, :summary, :body, :status, :confidence,
       :risks, :benefits, :estimated_scope, :generation_log,
       :steelman, :red_team, :synthesis,
+      :embedding, :idea_score, :prompt_quality_score, :score_breakdown,
       :project_id, :seed_id, :parent_proposal_id
     ])
     |> validate_required([:id, :title])

@@ -2,13 +2,19 @@ import { create } from "zustand";
 import { joinChannel } from "@/lib/ws";
 import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
-import type { Proposal, Seed } from "@/types/proposals";
+import type { Proposal, Seed, ProposalSortKey, ProposalSortDir } from "@/types/proposals";
 
 interface ProposalsState {
   proposals: readonly Proposal[];
   seeds: readonly Seed[];
   connected: boolean;
   channel: Channel | null;
+  sortKey: ProposalSortKey;
+  sortDir: ProposalSortDir;
+  filterMinScore: number;
+  setSortKey: (key: ProposalSortKey) => void;
+  setSortDir: (dir: ProposalSortDir) => void;
+  setFilterMinScore: (min: number) => void;
   loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
   approve: (id: string) => Promise<void>;
@@ -25,6 +31,21 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
   seeds: [],
   connected: false,
   channel: null,
+  sortKey: "created_at",
+  sortDir: "desc",
+  filterMinScore: 0,
+
+  setSortKey(key) {
+    set({ sortKey: key });
+  },
+
+  setSortDir(dir) {
+    set({ sortDir: dir });
+  },
+
+  setFilterMinScore(min) {
+    set({ filterMinScore: min });
+  },
 
   async loadViaRest() {
     const data = await api.get<{ proposals: Proposal[] }>("/proposals");

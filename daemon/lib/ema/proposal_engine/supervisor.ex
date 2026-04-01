@@ -16,6 +16,7 @@ defmodule Ema.ProposalEngine.Supervisor do
     children = [
       {Task.Supervisor, name: Ema.ProposalEngine.TaskSupervisor},
       Ema.ProposalEngine.KillMemory,
+      Ema.ProposalEngine.Scorer,
       Ema.ProposalEngine.Tagger,
       Ema.ProposalEngine.Debater,
       Ema.ProposalEngine.Refiner,
