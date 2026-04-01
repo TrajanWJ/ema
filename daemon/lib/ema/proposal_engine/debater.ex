@@ -53,7 +53,7 @@ defmodule Ema.ProposalEngine.Debater do
     confidence_score (float 0-1), key_risks (array of strings), key_benefits (array of strings).
     """
 
-    case Ema.Claude.Runner.run(prompt) do
+    case Ema.Claude.AI.run(prompt) do
       {:ok, result} ->
         gen_log = proposal.generation_log || %{}
         updated_log = Map.put(gen_log, "debater", result)
@@ -70,7 +70,9 @@ defmodule Ema.ProposalEngine.Debater do
 
         case Ema.Proposals.update_proposal(proposal, attrs) do
           {:ok, updated} ->
-            Logger.info("Debater: debated proposal #{updated.id}, confidence: #{updated.confidence}")
+            Logger.info(
+              "Debater: debated proposal #{updated.id}, confidence: #{updated.confidence}"
+            )
 
             Phoenix.PubSub.broadcast(
               Ema.PubSub,
@@ -83,7 +85,9 @@ defmodule Ema.ProposalEngine.Debater do
         end
 
       {:error, reason} ->
-        Logger.warning("Debater: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}")
+        Logger.warning(
+          "Debater: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}"
+        )
 
         # Pass through to tagger without debate data
         Phoenix.PubSub.broadcast(

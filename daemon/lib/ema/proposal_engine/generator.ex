@@ -47,7 +47,7 @@ defmodule Ema.ProposalEngine.Generator do
     prompt =
       Ema.Claude.ContextManager.build_prompt(seed, project: project, stage: :generator)
 
-    case Ema.Claude.Runner.run(prompt) do
+    case Ema.Claude.AI.run(prompt) do
       {:ok, result} ->
         create_proposal_from_result(seed, result)
 

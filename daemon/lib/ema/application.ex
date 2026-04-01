@@ -21,6 +21,7 @@ defmodule Ema.Application do
         # Pipes — workflow automation (Registry -> Loader -> Executor)
         Ema.Pipes.Supervisor
       ] ++
+        maybe_start_bridge() ++
         maybe_start_claude_sessions() ++
         maybe_start_canvas() ++
         maybe_start_second_brain() ++
@@ -48,6 +49,14 @@ defmodule Ema.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp maybe_start_bridge do
+    if Application.get_env(:ema, :ai_backend) == :bridge do
+      [Ema.Claude.BridgeSupervisor]
+    else
+      []
+    end
   end
 
   defp maybe_start_claude_sessions do

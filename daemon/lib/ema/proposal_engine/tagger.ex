@@ -50,7 +50,7 @@ defmodule Ema.ProposalEngine.Tagger do
     """
 
     tags_result =
-      case Ema.Claude.Runner.run(prompt, model: "haiku") do
+      case Ema.Claude.AI.run(prompt, model: "haiku") do
         {:ok, %{"tags" => tags}} when is_list(tags) ->
           Enum.each(tags, fn tag_data ->
             attrs = %{
@@ -72,7 +72,10 @@ defmodule Ema.ProposalEngine.Tagger do
           {:ok, 0}
 
         {:error, reason} ->
-          Logger.warning("Tagger: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}")
+          Logger.warning(
+            "Tagger: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}"
+          )
+
           {:ok, 0}
       end
 
@@ -88,7 +91,9 @@ defmodule Ema.ProposalEngine.Tagger do
         )
 
       {:error, reason} ->
-        Logger.error("Tagger: failed to set proposal #{proposal.id} to queued: #{inspect(reason)}")
+        Logger.error(
+          "Tagger: failed to set proposal #{proposal.id} to queued: #{inspect(reason)}"
+        )
     end
 
     tags_result

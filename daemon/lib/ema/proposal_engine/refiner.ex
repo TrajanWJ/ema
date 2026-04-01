@@ -47,7 +47,7 @@ defmodule Ema.ProposalEngine.Refiner do
     Output valid JSON with: title, summary, body, estimated_scope, risks (array), benefits (array).
     """
 
-    case Ema.Claude.Runner.run(prompt) do
+    case Ema.Claude.AI.run(prompt) do
       {:ok, result} ->
         gen_log = proposal.generation_log || %{}
         updated_log = Map.put(gen_log, "refiner", result)
@@ -75,7 +75,9 @@ defmodule Ema.ProposalEngine.Refiner do
         end
 
       {:error, reason} ->
-        Logger.warning("Refiner: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}")
+        Logger.warning(
+          "Refiner: Claude CLI failed for proposal #{proposal.id}: #{inspect(reason)}"
+        )
 
         # Pass through to next stage without refinement
         Phoenix.PubSub.broadcast(

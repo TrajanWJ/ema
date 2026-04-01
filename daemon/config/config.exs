@@ -9,7 +9,9 @@ import Config
 
 config :ema,
   ecto_repos: [Ema.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  # AI backend: :runner (legacy Claude CLI) or :bridge (multi-backend router)
+  ai_backend: :runner
 
 # Configure the endpoint
 config :ema, EmaWeb.Endpoint,
