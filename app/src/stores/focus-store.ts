@@ -22,6 +22,8 @@ interface FocusState {
   weeklyStats: FocusWeeklyStats;
   connected: boolean;
   channel: Channel | null;
+  linkedExecutionId: string | null;
+  setLinkedExecutionId: (id: string | null) => void;
   loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
   startSession: (targetMs?: number, taskId?: string) => Promise<void>;
@@ -56,6 +58,11 @@ export const useFocusStore = create<FocusState>((set) => ({
   weeklyStats: DEFAULT_WEEKLY,
   connected: false,
   channel: null,
+  linkedExecutionId: null,
+
+  setLinkedExecutionId(id) {
+    set({ linkedExecutionId: id });
+  },
 
   async loadViaRest() {
     const [currentData, historyData, todayData, weeklyData] = await Promise.all([

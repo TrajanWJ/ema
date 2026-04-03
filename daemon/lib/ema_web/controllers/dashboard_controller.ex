@@ -1,7 +1,7 @@
 defmodule EmaWeb.DashboardController do
   use EmaWeb, :controller
 
-  alias Ema.{BrainDump, Habits, Journal}
+  alias Ema.{BrainDump, Habits, Journal, Executions}
 
   def today(conn, _params) do
     today = Date.utc_today() |> Date.to_iso8601()
@@ -32,6 +32,24 @@ defmodule EmaWeb.DashboardController do
 
     {:ok, journal_entry} = Journal.get_or_create_entry(today)
 
+    # Execution stats
+    all_executions = Executions.list_executions()
+
+    active_count =
+      Enum.count(all_executions, fn e -> e.status in ~w(running approved delegated) end)
+
+    completed_today_count =
+      Enum.count(all_executions, fn e ->
+        e.status == "completed" and
+          e.completed_at != nil and
+          String.starts_with?(to_string(e.completed_at), today)
+      end)
+
+    needs_approval_count =
+      Enum.count(all_executions, fn e ->
+        e.requires_approval and e.status == "created"
+      end)
+
     json(conn, %{
       date: today,
       inbox_count: inbox_count,
@@ -46,6 +64,12 @@ defmodule EmaWeb.DashboardController do
         energy_m: journal_entry.energy_m,
         energy_e: journal_entry.energy_e,
         content: journal_entry.content
+      },
+      executions: %{
+        active: active_count,
+        completed_today: completed_today_count,
+        needs_approval: needs_approval_count,
+        total: length(all_executions)
       }
     })
   end

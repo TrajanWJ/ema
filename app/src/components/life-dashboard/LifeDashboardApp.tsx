@@ -2,8 +2,31 @@ import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { useLifeDashboardStore } from "@/stores/life-dashboard-store";
 import { APP_CONFIGS } from "@/types/workspace";
+import type { Execution } from "@/types/executions";
 
 const config = APP_CONFIGS["life-dashboard"];
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function formatDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+const GLASS = {
+  background: "rgba(14, 16, 23, 0.55)",
+  backdropFilter: "blur(20px)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 12,
+};
 
 export function LifeDashboardApp() {
   const store = useLifeDashboardStore();
@@ -14,11 +37,8 @@ export function LifeDashboardApp() {
     let cancelled = false;
     async function init() {
       try {
-        await Promise.all([
-          store.loadBriefing(),
-          store.loadStreaks(),
-          store.loadMoodHistory(),
-        ]);
+        await store.loadBriefing();
+        await store.loadMoodHistory();
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load dashboard");
       }
@@ -38,13 +58,38 @@ export function LifeDashboardApp() {
     );
   }
 
-  const b = store.briefing;
+  const today = new Date().toISOString().slice(0, 10);
+  const journalPreview = store.dashboardJournal?.content
+    ? store.dashboardJournal.content.slice(0, 100) + (store.dashboardJournal.content.length > 100 ? "..." : "")
+    : null;
+
+  const runningExecs = store.executions.filter((e) => e.status === "running" || e.status === "approved" || e.status === "delegated");
+  const needsApproval = store.executions.filter((e) => e.requires_approval && e.status === "created");
+  const completedToday = store.executions.filter((e) => e.status === "completed" && e.completed_at?.startsWith(today));
+
+  // One Thing: pick the most important execution
+  const oneThingExec = pickOneThing(store.executions);
 
   return (
     <AppWindowChrome appId="life-dashboard" title={config.title} icon={config.icon} accent={config.accent}>
       <div style={{ padding: 24, color: "var(--pn-text-primary)", height: "100%", overflow: "auto" }}>
+        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Life Dashboard</h2>
+          <button
+            onClick={() => store.loadViaRest()}
+            style={{
+              fontSize: 11,
+              color: "var(--pn-text-tertiary)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid var(--pn-border-subtle)",
+              borderRadius: 6,
+              padding: "4px 10px",
+              cursor: "pointer",
+            }}
+          >
+            Refresh
+          </button>
         </div>
 
         {error && (
@@ -53,166 +98,180 @@ export function LifeDashboardApp() {
           </div>
         )}
 
-        {!b && !store.loading && (
-          <div style={{
-            background: "rgba(14, 16, 23, 0.55)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 12,
-            padding: 32,
-            textAlign: "center",
-          }}>
-            <span style={{ fontSize: 13, color: "var(--pn-text-muted)" }}>No briefing data available.</span>
+        {/* Section 1 — Today */}
+        <div style={{ ...GLASS, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 2 }}>
+            {getGreeting()}, Trajan
           </div>
-        )}
+          <div style={{ fontSize: 12, color: "var(--pn-text-tertiary)", marginBottom: 12 }}>
+            {formatDate()}
+          </div>
 
-        {b && (
-          <>
-            {/* Greeting */}
-            <div style={{
-              background: "rgba(14, 16, 23, 0.55)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 12,
-              padding: 20,
-              marginBottom: 16,
-            }}>
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
-                Hello, {b.greeting_name}
-              </div>
-              {b.quote && (
-                <div style={{ fontSize: 12, color: "var(--pn-text-tertiary)", fontStyle: "italic" }}>
-                  "{b.quote}"
-                </div>
-              )}
+          {/* Journal preview */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "var(--pn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+              Journal
             </div>
+            <div style={{ fontSize: 12, color: journalPreview ? "var(--pn-text-secondary)" : "var(--pn-text-muted)", fontStyle: journalPreview ? "normal" : "italic" }}>
+              {journalPreview ?? "No entry yet"}
+            </div>
+          </div>
 
-            {/* One thing */}
-            {b.one_thing && (
-              <div style={{
-                background: "rgba(245,158,11,0.08)",
-                border: "1px solid rgba(245,158,11,0.15)",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 16,
-              }}>
-                <div style={{ fontSize: 10, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                  The One Thing
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{b.one_thing}</div>
+          {/* Habits with toggles */}
+          {store.dashboardHabits.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, color: "var(--pn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                Habits ({store.dashboardHabits.filter((h) => h.completed).length}/{store.dashboardHabits.length})
               </div>
-            )}
-
-            {/* Summary cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#2dd4a8" }}>{b.habits_done}/{b.habits_total}</div>
-                <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Habits Done</div>
-              </div>
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#6b95f0" }}>{b.tasks_due}</div>
-                <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Tasks Due</div>
-              </div>
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>{b.inbox_count}</div>
-                <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Inbox Items</div>
-              </div>
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#a78bfa" }}>{b.upcoming.length}</div>
-                <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Upcoming</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {store.dashboardHabits.map((habit) => (
+                  <button
+                    key={habit.id}
+                    onClick={() => store.toggleHabit(habit.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: habit.completed ? "rgba(45,212,168,0.06)" : "rgba(255,255,255,0.02)",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      border: habit.completed ? "none" : "1px solid rgba(255,255,255,0.15)",
+                      background: habit.completed ? (habit.color ?? "#2dd4a8") : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      color: "#fff",
+                      flexShrink: 0,
+                    }}>
+                      {habit.completed ? "\u2713" : ""}
+                    </span>
+                    <span style={{
+                      fontSize: 12,
+                      color: habit.completed ? "var(--pn-text-secondary)" : "var(--pn-text-primary)",
+                      textDecoration: habit.completed ? "line-through" : "none",
+                      opacity: habit.completed ? 0.6 : 1,
+                    }}>
+                      {habit.name}
+                    </span>
+                    {habit.streak > 0 && (
+                      <span style={{ fontSize: 10, color: "var(--pn-text-muted)", fontFamily: "'JetBrains Mono', monospace", marginLeft: "auto" }}>
+                        {habit.streak}d
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Habits progress bar */}
-            {b.habits_total > 0 && (
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 16,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--pn-text-secondary)" }}>Today's Habits</span>
-                  <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: "var(--pn-text-tertiary)" }}>
-                    {((b.habits_done / b.habits_total) * 100).toFixed(0)}%
-                  </span>
+        {/* Section 2 — Active Work */}
+        <div style={{ ...GLASS, padding: 16, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 12, fontWeight: 500, marginBottom: 10, color: "var(--pn-text-secondary)" }}>Active Work</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: needsApproval.length > 0 ? 12 : 0 }}>
+            <StatCard label="In Progress" value={runningExecs.length} color="#6b95f0" />
+            <StatCard label="Needs Approval" value={needsApproval.length} color="#f59e0b" />
+            <StatCard label="Completed Today" value={completedToday.length} color="#2dd4a8" />
+          </div>
+          {needsApproval.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {needsApproval.map((ex) => (
+                <div key={ex.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderRadius: 6, background: "rgba(245,158,11,0.04)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "1px 5px", borderRadius: 3 }}>
+                      {ex.mode}
+                    </span>
+                    <span style={{ fontSize: 12, color: "var(--pn-text-primary)" }}>
+                      {ex.title || ex.intent_slug || "Untitled"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => store.approveExecution(ex.id)}
+                    style={{
+                      fontSize: 10,
+                      color: "#2dd4a8",
+                      background: "rgba(45,212,168,0.08)",
+                      border: "1px solid rgba(45,212,168,0.2)",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Approve
+                  </button>
                 </div>
-                <div style={{ width: "100%", height: 6, borderRadius: 999, background: "rgba(255,255,255,0.06)" }}>
-                  <div style={{
-                    height: "100%",
-                    borderRadius: 999,
-                    width: `${(b.habits_done / b.habits_total) * 100}%`,
-                    background: "#2dd4a8",
-                    transition: "width 0.5s",
-                  }} />
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
+          )}
+        </div>
 
-            {/* Upcoming */}
-            {b.upcoming.length > 0 && (
-              <div style={{
-                background: "rgba(14, 16, 23, 0.55)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 16,
-              }}>
-                <h3 style={{ fontSize: 12, fontWeight: 500, marginBottom: 8, color: "var(--pn-text-secondary)" }}>Upcoming</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {b.upcoming.map((item) => (
-                    <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12 }}>
-                      <span style={{ color: "var(--pn-text-primary)" }}>{item.title}</span>
-                      <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: "var(--pn-text-muted)" }}>{item.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Streaks */}
-        {store.streaks.length > 0 && (
+        {/* Section 3 — One Thing */}
+        {oneThingExec && (
           <div style={{
-            background: "rgba(14, 16, 23, 0.55)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(245,158,11,0.08)",
+            border: "1px solid rgba(245,158,11,0.15)",
             borderRadius: 12,
             padding: 16,
             marginBottom: 16,
           }}>
+            <div style={{ fontSize: 10, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+              The One Thing
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: "var(--pn-text-primary)" }}>
+                {oneThingExec.title || oneThingExec.intent_slug || "Untitled execution"}
+              </span>
+              <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: "#6b95f0", background: "rgba(107,149,240,0.12)", padding: "1px 5px", borderRadius: 3 }}>
+                {oneThingExec.mode}
+              </span>
+              <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: "var(--pn-text-tertiary)" }}>
+                {oneThingExec.status}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Section 4 — Quick Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <div style={{ ...GLASS, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#2dd4a8" }}>
+              {store.briefing?.habits_done ?? 0}/{store.briefing?.habits_total ?? 0}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Habits</div>
+          </div>
+          <div style={{ ...GLASS, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#6b95f0" }}>
+              {store.briefing?.tasks_due ?? 0}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Tasks Due</div>
+          </div>
+          <div style={{ ...GLASS, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>
+              {store.briefing?.inbox_count ?? 0}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Inbox</div>
+          </div>
+          <div style={{ ...GLASS, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#a78bfa" }}>
+              {store.executions.length}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--pn-text-tertiary)", marginTop: 4 }}>Executions</div>
+          </div>
+        </div>
+
+        {/* Streaks */}
+        {store.streaks.length > 0 && (
+          <div style={{ ...GLASS, padding: 16, marginBottom: 16 }}>
             <h3 style={{ fontSize: 12, fontWeight: 500, marginBottom: 8, color: "var(--pn-text-secondary)" }}>Streaks</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {store.streaks.map((streak) => (
@@ -228,32 +287,22 @@ export function LifeDashboardApp() {
                   }}
                 >
                   <span style={{ fontSize: 12, color: "var(--pn-text-secondary)" }}>{streak.name}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: streak.color || "#2dd4a8" }}>
-                      {streak.current}
-                    </span>
-                    <span style={{ fontSize: 10, color: "var(--pn-text-muted)" }}>best: {streak.best}</span>
-                  </div>
+                  <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: streak.color ?? "#2dd4a8" }}>
+                    {streak.current}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Mood history mini chart */}
+        {/* Mood history */}
         {store.moodHistory.length > 0 && (
-          <div style={{
-            background: "rgba(14, 16, 23, 0.55)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 12,
-            padding: 16,
-          }}>
+          <div style={{ ...GLASS, padding: 16 }}>
             <h3 style={{ fontSize: 12, fontWeight: 500, marginBottom: 12, color: "var(--pn-text-secondary)" }}>Mood & Energy (7 days)</h3>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 48 }}>
               {store.moodHistory.slice(-7).map((point, i) => (
                 <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, gap: 2 }}>
-                  {/* Mood bar */}
                   <div style={{
                     width: "100%",
                     height: Math.max(2, (point.mood / 10) * 40),
@@ -271,4 +320,23 @@ export function LifeDashboardApp() {
       </div>
     </AppWindowChrome>
   );
+}
+
+function StatCard({ label, value, color }: { readonly label: string; readonly value: number; readonly color: string }) {
+  return (
+    <div style={{ textAlign: "center", padding: "8px 4px", borderRadius: 8, background: `${color}08` }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
+      <div style={{ fontSize: 10, color: "var(--pn-text-tertiary)", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function pickOneThing(executions: readonly Execution[]): Execution | null {
+  const running = executions.filter((e) => e.status === "running" || e.status === "delegated");
+  if (running.length > 0) return running[0];
+  const approval = executions.filter((e) => e.requires_approval && e.status === "created");
+  if (approval.length > 0) return approval[0];
+  const approved = executions.filter((e) => e.status === "approved");
+  if (approved.length > 0) return approved[0];
+  return null;
 }
