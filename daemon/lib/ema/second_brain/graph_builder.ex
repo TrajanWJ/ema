@@ -14,8 +14,9 @@ defmodule Ema.SecondBrain.GraphBuilder do
 
   import Ecto.Query
 
-  # Matches [[wikilink]] and [[wikilink|display text]]
+  # Matches [[wikilink]], [[wikilink|display text]], and [[type::wikilink]]
   @wikilink_regex ~r/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/
+  @valid_edge_types ~w(depends-on implements contradicts blocks enables supersedes part-of related-to)
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -29,11 +30,33 @@ defmodule Ema.SecondBrain.GraphBuilder do
     GenServer.cast(__MODULE__, {:rebuild_note, note_id})
   end
 
-  @doc "Parse wikilinks from markdown content. Returns list of link_text strings."
+  @doc """
+  Parse wikilinks from markdown content.
+  Returns list of {edge_type, link_text} tuples.
+  Supports typed syntax: [[depends-on::note]] extracts "depends-on" as edge_type.
+  Untyped [[note]] links default to "references".
+  """
   def parse_wikilinks(content) when is_binary(content) do
     @wikilink_regex
     |> Regex.scan(content)
-    |> Enum.map(fn [_full, link_text] -> String.trim(link_text) end)
+    |> Enum.map(fn [_full, raw] ->
+      raw = String.trim(raw)
+
+      case String.split(raw, "::", parts: 2) do
+        [prefix, link_text] when prefix != "" and link_text != "" ->
+          edge_type = String.trim(prefix)
+          link_text = String.trim(link_text)
+
+          if edge_type in @valid_edge_types do
+            {edge_type, link_text}
+          else
+            {"references", raw}
+          end
+
+        _ ->
+          {"references", raw}
+      end
+    end)
     |> Enum.uniq()
   end
 
@@ -132,17 +155,17 @@ defmodule Ema.SecondBrain.GraphBuilder do
   defp build_links_for_note(note, all_notes) do
     case SecondBrain.read_note_content(note.file_path) do
       {:ok, content} ->
-        # Strip frontmatter before parsing
         body = strip_frontmatter(content)
         wikilinks = parse_wikilinks(body)
 
-        Enum.each(wikilinks, fn link_text ->
+        Enum.each(wikilinks, fn {edge_type, link_text} ->
           target = resolve_link(link_text, all_notes)
           context = extract_context(body, link_text)
 
           SecondBrain.create_link(%{
             link_text: link_text,
             link_type: "wikilink",
+            edge_type: edge_type,
             context: context,
             source_note_id: note.id,
             target_note_id: target && target.id
@@ -164,10 +187,9 @@ defmodule Ema.SecondBrain.GraphBuilder do
   end
 
   defp extract_context(content, link_text) do
-    # Find the sentence/line containing the link
     content
     |> String.split(~r/\n/, trim: true)
-    |> Enum.find(fn line -> String.contains?(line, "[[#{link_text}") end)
+    |> Enum.find(fn line -> String.contains?(line, link_text) and String.contains?(line, "[[") end)
     |> case do
       nil -> nil
       line -> String.slice(line, 0, 200)
