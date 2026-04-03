@@ -14,7 +14,7 @@ defmodule EmaCli.Health do
     check_and_print("Daemon API", fn -> api_get("/settings") end)
     check_and_print("Tasks", fn -> api_get("/tasks?limit=1") end)
     check_and_print("Proposals", fn -> api_get("/proposals?limit=1") end)
-    check_and_print("Intent Graph", fn -> api_get("/intelligence/intent_nodes?limit=1") end)
+    check_and_print("Intent Graph", fn -> api_get("/intent/nodes?limit=1") end)
     check_and_print("Quality (F4)", fn -> api_get("/quality/friction") end)
     check_and_print("Orchestration (F5)", fn -> api_get("/orchestration/stats") end)
     check_and_print("Session Store (F3)", fn -> api_get("/context") end)
@@ -28,11 +28,11 @@ defmodule EmaCli.Health do
       {"Daemon API", fn -> api_get("/settings") end},
       {"Tasks API", fn -> api_get("/tasks?limit=1") end},
       {"Proposals API", fn -> api_get("/proposals?limit=1") end},
-      {"Intent nodes API", fn -> api_get("/intelligence/intent_nodes?limit=1") end},
+      {"Intent nodes API", fn -> api_get("/intent/nodes?limit=1") end},
       {"Quality API (F4)", fn -> api_get("/quality/friction") end},
       {"Orchestration (F5)", fn -> api_get("/orchestration/stats") end},
       {"Session Store (F3)", fn -> api_get("/context") end},
-      {"Superman", fn -> api_get("/intelligence/superman/status") end}
+      {"Superman", fn -> api_get("/superman/status") end}
     ]
 
     results =
