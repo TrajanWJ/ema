@@ -29,6 +29,8 @@ defmodule Ema.Harvesters.SessionHarvester do
       seeds_created: seeds_created,
       metadata: %{patterns_found: map_size(patterns)}
     }}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   defp scan_recent_sessions(since) do

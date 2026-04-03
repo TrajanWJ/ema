@@ -20,9 +20,10 @@ defmodule Ema.Proposals.CostAggregator do
   use GenServer
   require Logger
 
-  alias Ema.Claude.CostTracker
-  alias Ema.Repo
-  import Ecto.Query
+  # aliases/imports will be needed when UsageRecord is implemented
+  # alias Ema.Claude.CostTracker
+  # alias Ema.Repo
+  # import Ecto.Query
 
   @daily_budget_default 5.00  # USD
   @alert_threshold 0.80       # 80% triggers warning
@@ -120,7 +121,7 @@ defmodule Ema.Proposals.CostAggregator do
 
   # Handle Bridge session_ended events to update per-proposal cost tracking
   @impl true
-  def handle_info({:claude_session_ended, %{session_id: session_id} = payload}, state) do
+  def handle_info({:claude_session_ended, %{session_id: session_id} = _payload}, state) do
     # Check if this session belongs to a proposal
     case extract_proposal_id_from_session(session_id) do
       nil -> {:noreply, state}

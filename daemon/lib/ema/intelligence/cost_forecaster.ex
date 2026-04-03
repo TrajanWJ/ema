@@ -42,7 +42,7 @@ defmodule Ema.Intelligence.CostForecaster do
     history = TokenTracker.history(7)
 
     total_week = summary.week_cost
-    daily_costs = Enum.map(history, & &1.total_cost)
+    _daily_costs = Enum.map(history, & &1.total_cost)
     peak_day = if Enum.empty?(history), do: nil, else: Enum.max_by(history, & &1.total_cost)
 
     %{

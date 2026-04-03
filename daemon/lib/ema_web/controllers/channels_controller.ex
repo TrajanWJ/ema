@@ -211,30 +211,23 @@ defmodule EmaWeb.ChannelsController do
   end
 
   # POST /api/channels/send
-  def send_cross_platform(conn, %{"platform" => platform, "channel" => channel_ref, "content" => content}) do
-    # Proxy to OpenClaw for cross-platform messaging
-    bridge = Ema.OpenClaw.AgentBridge
+  def send_cross_platform(conn, %{"platform" => _platform, "channel" => channel_ref, "content" => content}) do
+    # Proxy to OpenClaw gateway via HTTP client
+    # channel_ref is used as the OpenClaw session ID
+    case Ema.OpenClaw.Client.send_message(channel_ref, content) do
+      {:ok, result} ->
+        json(conn, %{ok: true, result: result})
 
-    if Code.ensure_loaded?(bridge) and function_exported?(bridge, :send_message, 3) do
-      case bridge.send_message(platform, channel_ref, content) do
-        {:ok, result} ->
-          json(conn, %{ok: true, result: result})
-
-        {:error, reason} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "send_failed", message: inspect(reason)})
-      end
-    else
-      conn
-      |> put_status(:service_unavailable)
-      |> json(%{error: "openclaw_unavailable", message: "OpenClaw bridge does not support send_message"})
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "send_failed", message: inspect(reason)})
     end
   rescue
     _ ->
       conn
       |> put_status(:service_unavailable)
-      |> json(%{error: "openclaw_unavailable", message: "OpenClaw bridge not running"})
+      |> json(%{error: "openclaw_unavailable", message: "OpenClaw gateway not running"})
   end
 
   # --- Private helpers ---

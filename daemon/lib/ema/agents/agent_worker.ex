@@ -253,14 +253,14 @@ defmodule Ema.Agents.AgentWorker do
     end
   end
 
-  defp project_path(%{project_id: nil}), do: nil
-
-  defp project_path(%{project_id: project_id}) do
-    case Ema.Projects.get_project(project_id) do
-      %{linked_path: path} when is_binary(path) and path != "" -> path
-      _ -> nil
-    end
-  end
+  # TODO: wire up when agent execution needs project working directory
+  # defp project_path(%{project_id: nil}), do: nil
+  # defp project_path(%{project_id: project_id}) do
+  #   case Ema.Projects.get_project(project_id) do
+  #     %{linked_path: path} when is_binary(path) and path != "" -> path
+  #     _ -> nil
+  #   end
+  # end
 
   defp parse_response(response) when is_binary(response) do
     {response, []}

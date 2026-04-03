@@ -135,8 +135,8 @@ defmodule Ema.Intelligence.ProjectGraph do
       health_score: proposal_health(proposal),
       metrics: %{
         project_id: proposal.project_id,
-        generation: proposal.generation || 0,
-        score: proposal.score
+        generation: Map.get(proposal.generation_log || %{}, "iteration", 0),
+        score: Map.get(proposal.score_breakdown || %{}, "total", 0)
       },
       color: "#f7b94f",
       inserted_at: proposal.inserted_at

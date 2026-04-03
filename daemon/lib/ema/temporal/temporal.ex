@@ -57,7 +57,7 @@ defmodule Ema.Temporal do
     |> Repo.update()
   end
 
-  defp weighted_average(current, new_val, sample_count) when sample_count == 0, do: new_val
+  defp weighted_average(_current, new_val, sample_count) when sample_count == 0, do: new_val
 
   defp weighted_average(current, new_val, sample_count) do
     weight = min(sample_count, 20)
@@ -172,7 +172,7 @@ defmodule Ema.Temporal do
 
   # --- Helpers ---
 
-  defp infer_mode(energy, focus, hour) when energy >= 7.0 and focus >= 7.0, do: :deep_work
+  defp infer_mode(energy, focus, _hour) when energy >= 7.0 and focus >= 7.0, do: :deep_work
   defp infer_mode(energy, focus, _hour) when energy >= 6.0 and focus < 6.0, do: :creative
   defp infer_mode(energy, _focus, _hour) when energy >= 5.0, do: :shallow_work
   defp infer_mode(energy, _focus, hour) when energy < 4.0 and hour >= 12, do: :rest

@@ -1,5 +1,7 @@
 import Config
 
+claude_runtime = Ema.Claude.RuntimeBootstrap.build()
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -28,6 +30,13 @@ config :ema, :openclaw,
   ssh_host: System.get_env("OPENCLAW_SSH_HOST", "192.168.122.10"),
   default_agent: System.get_env("OPENCLAW_DEFAULT_AGENT", "main"),
   timeout: String.to_integer(System.get_env("OPENCLAW_TIMEOUT", "120"))
+
+config :ema, Ema.Claude,
+  default_strategy: :balanced,
+  providers: claude_runtime.providers,
+  distribution: claude_runtime.distribution
+
+config :ema, :accounts, claude_runtime.accounts
 
 # Git repositories to watch for wiki sync
 config :ema, :git_watch_paths,

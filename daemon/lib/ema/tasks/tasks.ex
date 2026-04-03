@@ -12,6 +12,18 @@ defmodule Ema.Tasks do
     Task |> order_by(asc: :sort_order, asc: :inserted_at) |> Repo.all()
   end
 
+  def list_tasks(opts) when is_list(opts) do
+    Task
+    |> maybe_filter_by(:project_id, Keyword.get(opts, :project_id))
+    |> maybe_filter_by(:status, Keyword.get(opts, :status))
+    |> order_by(asc: :sort_order, asc: :inserted_at)
+    |> Repo.all()
+  end
+
+  defp maybe_filter_by(query, _field, nil), do: query
+  defp maybe_filter_by(query, :project_id, val), do: where(query, [t], t.project_id == ^val)
+  defp maybe_filter_by(query, :status, val), do: where(query, [t], t.status == ^val)
+
   def list_by_project(project_id) do
     Task
     |> where([t], t.project_id == ^project_id)

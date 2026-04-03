@@ -119,6 +119,21 @@ defmodule EmaWeb.CanvasChannel do
   def handle_info({:proposals, _stage, _proposal}, socket), do: push_domain_event(socket, "proposals")
   def handle_info({:session_started, _session}, socket), do: push_domain_event(socket, "focus")
   def handle_info({:session_ended, _session}, socket), do: push_domain_event(socket, "focus")
+  def handle_info({:send_canvas, canvas}, socket) do
+    elements = Enum.map(canvas.elements, &serialize_element/1)
+
+    push(socket, "snapshot", %{
+      id: canvas.id,
+      name: canvas.name,
+      canvas_type: canvas.canvas_type,
+      viewport: canvas.viewport,
+      settings: canvas.settings,
+      elements: elements
+    })
+
+    {:noreply, socket}
+  end
+
   # Catch-all for unhandled PubSub messages
   def handle_info(_msg, socket), do: {:noreply, socket}
 
@@ -143,22 +158,6 @@ defmodule EmaWeb.CanvasChannel do
       _ ->
         :ok
     end
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:send_canvas, canvas}, socket) do
-    elements = Enum.map(canvas.elements, &serialize_element/1)
-
-    push(socket, "snapshot", %{
-      id: canvas.id,
-      name: canvas.name,
-      canvas_type: canvas.canvas_type,
-      viewport: canvas.viewport,
-      settings: canvas.settings,
-      elements: elements
-    })
 
     {:noreply, socket}
   end

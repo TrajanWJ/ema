@@ -91,7 +91,39 @@ defmodule EmaWeb.ProjectController do
         {:error, :not_found}
 
       project ->
-        # Context document path based on slug
+        # Assemble full context: project + executions + proposals + tasks + intent
+        executions =
+          Ema.Executions.list_executions(project_slug: project.slug)
+          |> Enum.take(10)
+          |> Enum.map(fn e ->
+            %{id: e.id, title: e.title, mode: e.mode, status: e.status,
+              completed_at: e.completed_at, inserted_at: e.inserted_at}
+          end)
+
+        proposals =
+          Ema.Proposals.list_proposals(project_id: project.id)
+          |> Enum.take(10)
+          |> Enum.map(fn p ->
+            %{id: p.id, title: p.title, status: p.status,
+              confidence: p.confidence, inserted_at: p.inserted_at}
+          end)
+
+        tasks =
+          Ema.Tasks.list_tasks()
+          |> Enum.filter(fn t -> t.project_id == project.id end)
+          |> Enum.take(20)
+          |> Enum.map(fn t ->
+            %{id: t.id, title: t.title, status: t.status,
+              priority: t.priority, inserted_at: t.inserted_at}
+          end)
+
+        intent_nodes =
+          Ema.Intelligence.IntentMap.list_nodes(project_id: project.id)
+          |> Enum.map(fn n ->
+            %{id: n.id, title: n.title, status: n.status, level: n.level}
+          end)
+
+        # Context document (if exists)
         context_path =
           Path.join([
             System.get_env("HOME", "~"),
@@ -109,7 +141,17 @@ defmodule EmaWeb.ProjectController do
         json(conn, %{
           project: serialize_project(project),
           context: context_content,
-          context_hash: project.context_hash
+          executions: executions,
+          proposals: proposals,
+          tasks: tasks,
+          intent_threads: intent_nodes,
+          stats: %{
+            total_executions: length(executions),
+            completed_executions: Enum.count(executions, &(&1.status == "completed")),
+            open_proposals: Enum.count(proposals, &(&1.status in ["queued", "reviewing"])),
+            active_tasks: Enum.count(tasks, &(&1.status in ["todo", "in_progress"])),
+            intent_nodes: length(intent_nodes)
+          }
         })
     end
   end

@@ -31,6 +31,8 @@ defmodule Ema.Harvesters.GitHarvester do
     seeds_created = Enum.sum(Enum.map(results, & &1.seeds_created))
 
     {:ok, %{items_found: items_found, seeds_created: seeds_created, metadata: %{projects_scanned: length(results)}}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   defp has_git_path?(%{path: path}) when is_binary(path), do: File.dir?(Path.join(path, ".git"))

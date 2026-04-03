@@ -5,8 +5,10 @@ defmodule Ema.Claude.RunnerTest do
 
   describe "run/2" do
     test "returns parsed JSON on success" do
-      mock_cmd = fn bin, _args, _opts ->
-        assert String.ends_with?(bin, "claude")
+      mock_cmd = fn "bash", ["-c", shell_cmd], _opts ->
+        assert shell_cmd =~ "claude"
+        assert shell_cmd =~ "--print"
+        assert shell_cmd =~ "--output-format json"
         {~s({"title": "Test", "summary": "A test"}), 0}
       end
 
@@ -16,8 +18,7 @@ defmodule Ema.Claude.RunnerTest do
     end
 
     test "returns raw output when JSON parsing fails" do
-      mock_cmd = fn bin, _args, _opts ->
-        assert String.ends_with?(bin, "claude")
+      mock_cmd = fn "bash", ["-c", _shell_cmd], _opts ->
         {"Just some plain text response", 0}
       end
 
@@ -26,8 +27,7 @@ defmodule Ema.Claude.RunnerTest do
     end
 
     test "returns error on non-zero exit code" do
-      mock_cmd = fn bin, _args, _opts ->
-        assert String.ends_with?(bin, "claude")
+      mock_cmd = fn "bash", ["-c", _shell_cmd], _opts ->
         {"Command failed", 1}
       end
 
@@ -36,11 +36,8 @@ defmodule Ema.Claude.RunnerTest do
     end
 
     test "passes model option to CLI args" do
-      mock_cmd = fn bin, args, _opts ->
-        assert String.ends_with?(bin, "claude")
-        assert "--model" in args
-        model_idx = Enum.find_index(args, &(&1 == "--model"))
-        assert Enum.at(args, model_idx + 1) == "haiku"
+      mock_cmd = fn "bash", ["-c", shell_cmd], _opts ->
+        assert shell_cmd =~ "--model haiku"
         {~s({"ok": true}), 0}
       end
 
@@ -48,11 +45,9 @@ defmodule Ema.Claude.RunnerTest do
     end
 
     test "includes --print and --output-format json flags" do
-      mock_cmd = fn bin, args, _opts ->
-        assert String.ends_with?(bin, "claude")
-        assert "--print" in args
-        assert "--output-format" in args
-        assert "json" in args
+      mock_cmd = fn "bash", ["-c", shell_cmd], _opts ->
+        assert shell_cmd =~ "--print"
+        assert shell_cmd =~ "--output-format json"
         {~s({}), 0}
       end
 

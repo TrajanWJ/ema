@@ -245,7 +245,7 @@ defmodule Ema.Proposals.Orchestrator do
   defp run_stage(proposal_id, session_id, stage, seed, project, context, prior_outputs) do
     stage_num = @stage_nums[stage]
     stage_label = @stage_labels[stage]
-    model = @stage_models[stage]
+    _model = @stage_models[stage]
 
     Logger.info("[Orchestrator] #{proposal_id}: Stage #{stage_num}/4 #{stage_label}")
     broadcast(proposal_id, {:stage_started, stage, stage_num})
@@ -261,17 +261,8 @@ defmodule Ema.Proposals.Orchestrator do
       prior_outputs: prior_outputs
     })
 
-    # Run via Bridge (multi-turn — same session)
-    on_event = fn event ->
-      case event do
-        %{type: "text", content: text} when is_binary(text) ->
-          broadcast(proposal_id, {:stage_update, stage, text})
-        _ ->
-          :ok
-      end
-    end
-
-    case Bridge.send_message(session_id, prompt, model: model, on_event: on_event) do
+    # Run via Bridge (multi-turn — same session, synchronous call)
+    case Bridge.call(session_id, prompt) do
       {:ok, %{text: text}} when is_binary(text) and byte_size(text) > 0 ->
         broadcast(proposal_id, {:stage_complete, stage, text})
         {:ok, text}
@@ -322,7 +313,7 @@ defmodule Ema.Proposals.Orchestrator do
     # Send feedback as a follow-up turn in the SAME session (multi-turn)
     feedback_message = "Feedback on your previous response:\n\n#{feedback}\n\nPlease revise your proposal addressing all the issues above."
 
-    case Bridge.send_message(session_id, feedback_message) do
+    case Bridge.call(session_id, feedback_message) do
       {:ok, _} ->
         # Loop back to stage 2 (Refiner) with incremented iteration
         next_iter = iter + 1
@@ -403,18 +394,17 @@ defmodule Ema.Proposals.Orchestrator do
   # ── Session Management ─────────────────────────────────────────────────────
 
   defp start_session(proposal_id, session_name, project) do
+    project_path = (project && Map.get(project, :path)) || File.cwd!()
+
     opts = [
       session_id: session_name,
-      name: session_name,
-      task_type: :creative,
-      project_dir: project && Map.get(project, :path)
+      project_path: project_path
     ]
-    |> Enum.reject(fn {_, v} -> is_nil(v) end)
 
-    case Bridge.start_session(opts) do
-      {:ok, session_id} ->
-        Logger.info("[Orchestrator] Started session #{session_id} for proposal #{proposal_id}")
-        {:ok, session_id}
+    case Bridge.start_link(opts) do
+      {:ok, pid} ->
+        Logger.info("[Orchestrator] Started Bridge session for proposal #{proposal_id}")
+        {:ok, pid}
 
       {:error, reason} ->
         Logger.error("[Orchestrator] Failed to start session for #{proposal_id}: #{inspect(reason)}")
@@ -422,9 +412,9 @@ defmodule Ema.Proposals.Orchestrator do
     end
   end
 
-  defp end_session(proposal_id, session_id) do
-    Bridge.end_session(session_id)
-    Logger.info("[Orchestrator] Ended session #{session_id} for proposal #{proposal_id}")
+  defp end_session(proposal_id, session_pid) do
+    Bridge.stop(session_pid)
+    Logger.info("[Orchestrator] Ended Bridge session for proposal #{proposal_id}")
   end
 
   # ── Output Parsing ─────────────────────────────────────────────────────────

@@ -22,6 +22,14 @@ import { useOrgStore } from "@/stores/org-store";
 import { useMemoryStore } from "@/stores/memory-store";
 import { useGapStore } from "@/stores/gap-store";
 import { useIntentStore } from "@/stores/intent-store";
+import { useExecutionStore } from "@/stores/execution-store";
+import { useTokenMonitorStore } from "@/stores/token-monitor-store";
+import { useVmHealthStore } from "@/stores/vm-health-store";
+import { usePipelineStore } from "@/stores/pipeline-store";
+import { useDecisionLogStore } from "@/stores/decision-log-store";
+import { usePromptWorkshopStore } from "@/stores/prompt-workshop-store";
+import { useProjectGraphStore } from "@/stores/project-graph-store";
+import { useCodeHealthStore } from "@/stores/code-health-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 import { doFetch } from "@/lib/api";
 import { invoke } from "@tauri-apps/api/core";
@@ -84,6 +92,14 @@ export function Shell({ children }: ShellProps) {
       useMemoryStore.getState().loadViaRest().catch(() => {}),
       useGapStore.getState().loadViaRest().catch(() => {}),
       useIntentStore.getState().loadViaRest().catch(() => {}),
+      useExecutionStore.getState().loadViaRest().catch(() => {}),
+      useTokenMonitorStore.getState().loadViaRest().catch(() => {}),
+      useVmHealthStore.getState().loadViaRest().catch(() => {}),
+      usePipelineStore.getState().loadViaRest().catch(() => {}),
+      useDecisionLogStore.getState().loadViaRest().catch(() => {}),
+      usePromptWorkshopStore.getState().loadViaRest().catch(() => {}),
+      useProjectGraphStore.getState().loadViaRest().catch(() => {}),
+      useCodeHealthStore.getState().loadViaRest().catch(() => {}),
     ]);
   }, []);
 
@@ -109,6 +125,13 @@ export function Shell({ children }: ShellProps) {
       useMemoryStore.getState().connect().catch(() => {}),
       useGapStore.getState().connect().catch(() => {}),
       useIntentStore.getState().connect().catch(() => {}),
+      useExecutionStore.getState().connect().catch(() => {}),
+      useTokenMonitorStore.getState().connect().catch(() => {}),
+      usePipelineStore.getState().connect().catch(() => {}),
+      useDecisionLogStore.getState().connect().catch(() => {}),
+      usePromptWorkshopStore.getState().connect().catch(() => {}),
+      useProjectGraphStore.getState().connect().catch(() => {}),
+      useCodeHealthStore.getState().connect().catch(() => {}),
     ]);
   }, []);
 

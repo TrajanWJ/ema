@@ -5,10 +5,8 @@ defmodule EmaCli.CLI do
     # Only start HTTP client deps — do NOT start the full :ema app
     {:ok, _} = Application.ensure_all_started(:req)
 
-    case parse(args) do
-      {:ok, feature, subcommand, opts} -> dispatch(feature, subcommand, opts)
-      {:error, msg} -> error(msg)
-    end
+    {:ok, feature, subcommand, opts} = parse(args)
+    dispatch(feature, subcommand, opts)
   end
 
   defp parse([feature | [subcommand | rest]]) do
@@ -20,7 +18,9 @@ defmodule EmaCli.CLI do
     {:ok, feature, "help", %{}}
   end
 
-  defp parse(_), do: {:ok, "help", "all", %{}}
+  defp parse(["--help"]), do: {:ok, "help", "all", %{}}
+  defp parse(["-h"]), do: {:ok, "help", "all", %{}}
+  defp parse([]), do: {:ok, "help", "all", %{}}
 
   defp dispatch("intent", sub, opts), do: EmaCli.Intent.run(sub, opts)
   defp dispatch("proposal", sub, opts), do: EmaCli.Proposal.run(sub, opts)

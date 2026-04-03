@@ -56,7 +56,9 @@ defmodule Ema.BrainDump do
             intent_path: intent_path,
             requires_approval: false
           }) do
-            {:ok, _} -> :ok
+            {:ok, ex} ->
+              # Auto-approve so dispatch_if_ready fires for requires_approval: false
+              Ema.Executions.approve_execution(ex.id)
             {:error, reason} ->
               require Logger
               Logger.warning("[BrainDump] Failed to create execution for item #{item.id}: #{inspect(reason)}")

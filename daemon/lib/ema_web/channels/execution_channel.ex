@@ -15,8 +15,17 @@ defmodule EmaWeb.ExecutionChannel do
     {:ok, %{executions: executions}, socket}
   end
 
+  def join("executions:" <> id, _payload, socket) do
+    case Executions.get_execution(id) do
+      nil -> {:error, %{reason: "not_found"}}
+      execution ->
+        events = Executions.list_events(id) |> Enum.map(&serialize_event/1)
+        sessions = Executions.list_agent_sessions(id) |> Enum.map(&serialize_session/1)
+        {:ok, %{execution: serialize(execution), events: events, sessions: sessions}, socket}
+    end
+  end
+
   # Relay internal PubSub events to the WS client
-  # Broadcasts use STRING keys ("execution:created"), not atoms
   @impl true
   def handle_info({"execution:completed", %{execution: execution, signal: signal}}, socket) do
     push(socket, "execution_completed", %{execution: serialize(execution), signal: signal})
@@ -39,17 +48,6 @@ defmodule EmaWeb.ExecutionChannel do
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
-
-  @impl true
-  def join("executions:" <> id, _payload, socket) do
-    case Executions.get_execution(id) do
-      nil -> {:error, %{reason: "not_found"}}
-      execution ->
-        events = Executions.list_events(id) |> Enum.map(&serialize_event/1)
-        sessions = Executions.list_agent_sessions(id) |> Enum.map(&serialize_session/1)
-        {:ok, %{execution: serialize(execution), events: events, sessions: sessions}, socket}
-    end
-  end
 
   @impl true
   def handle_in("approve", %{"id" => id}, socket) do
