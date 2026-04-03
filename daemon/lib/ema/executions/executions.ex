@@ -276,28 +276,70 @@ defmodule Ema.Executions do
   end
   defp dispatch_if_ready(_), do: :ok
 
-  def compute_intent_status(project_slug, intent_slug) do
-    latest_execution =
-      Execution
+    def compute_intent_status(project_slug, intent_slug) do
+    # Get all executions, group by mode (latest per mode)
+    all_execs = Execution
       |> where([e], e.project_slug == ^project_slug and e.intent_slug == ^intent_slug)
-      |> order_by([e], desc: e.inserted_at)
-      |> limit(1)
-      |> Repo.one()
+      |> order_by([e], [e.mode, desc: e.inserted_at])
+      |> Repo.all()
 
-    if is_nil(latest_execution) do
+    if Enum.empty?(all_execs) do
       %{
         status: "idle",
-        latest_execution_id: nil,
+        modes_executed: %{},
         completion_pct: 0,
         last_updated: DateTime.utc_now() |> DateTime.to_iso8601()
       }
     else
+      # Group by mode, keep latest of each
+      execs_by_mode =
+        all_execs
+        |> Enum.uniq_by(& &1.mode)
+        |> Map.new(fn exec -> {exec.mode, exec.status} end)
+
+      # Latest execution for ID and timestamp
+      latest = List.first(all_execs)
+
+      # Compute status using 3 signals
+      status = compute_phase_status(execs_by_mode)
+
       %{
-        status: execution_to_status(latest_execution.status),
-        latest_execution_id: latest_execution.id,
-        completion_pct: estimate_completion(latest_execution.status),
-        last_updated: latest_execution.updated_at |> DateTime.to_iso8601()
+        status: status,
+        modes_executed: execs_by_mode,
+        latest_execution_id: latest.id,
+        completion_pct: estimate_phase_completion(execs_by_mode),
+        last_updated: latest.updated_at |> DateTime.to_iso8601()
       }
+    end
+  end
+
+  defp compute_phase_status(execs_by_mode) do
+    cond do
+      Enum.any?(execs_by_mode, fn {_mode, status} -> status == "running" end) ->
+        "in_progress"
+
+      execs_by_mode["implement"] == "completed" ->
+        "completed"
+
+      true ->
+        cond do
+          execs_by_mode["review"] == "failed" -> "review_blocked"
+          execs_by_mode["outline"] == "completed" -> "outlined"
+          execs_by_mode["research"] == "completed" -> "researched"
+          execs_by_mode["implement"] == "failed" -> "implementation_blocked"
+          true -> "idle"
+        end
+    end
+  end
+
+  defp estimate_phase_completion(execs_by_mode) do
+    case execs_by_mode do
+      %{"implement" => "completed"} -> 100
+      %{"research" => "completed"} -> 50
+      %{"outline" => "completed"} -> 25
+      %{"review" => "running"} -> 75
+      %{"implement" => "running"} -> 60
+      _ -> 0
     end
   end
 
