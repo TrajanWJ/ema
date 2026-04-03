@@ -31,55 +31,75 @@ export function Shell({ children }: ShellProps) {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadAllStores() {
+      await Promise.all([
+        useDashboardStore.getState().loadViaRest(),
+        useBrainDumpStore.getState().loadViaRest(),
+        useHabitsStore.getState().loadViaRest(),
+        useProposalsStore.getState().loadViaRest().catch(() => {}),
+        useProjectsStore.getState().loadViaRest().catch(() => {}),
+        useTasksStore.getState().loadViaRest().catch(() => {}),
+        useSettingsStore.getState().load(),
+        useWorkspaceStore.getState().load(),
+        useResponsibilitiesStore.getState().loadViaRest().catch(() => {}),
+        useAgentsStore.getState().loadViaRest().catch(() => {}),
+        useVaultStore.getState().loadViaRest().catch(() => {}),
+        useCanvasStore.getState().loadViaRest().catch(() => {}),
+        usePipesStore.getState().loadViaRest().catch(() => {}),
+        useChannelsStore.getState().loadViaRest().catch(() => {}),
+        useGoalsStore.getState().loadViaRest().catch(() => {}),
+        useFocusStore.getState().loadViaRest().catch(() => {}),
+      ]);
+    }
+
+    async function connectAllChannels() {
+      await Promise.all([
+        useDashboardStore.getState().connect(),
+        useBrainDumpStore.getState().connect(),
+        useHabitsStore.getState().connect(),
+        useProposalsStore.getState().connect().catch(() => {}),
+        useProjectsStore.getState().connect().catch(() => {}),
+        useTasksStore.getState().connect().catch(() => {}),
+        useSettingsStore.getState().connect(),
+        useWorkspaceStore.getState().connect(),
+        useResponsibilitiesStore.getState().connect().catch(() => {}),
+        useAgentsStore.getState().connect().catch(() => {}),
+        useVaultStore.getState().connect().catch(() => {}),
+        useCanvasStore.getState().connect().catch(() => {}),
+        usePipesStore.getState().connect().catch(() => {}),
+        useChannelsStore.getState().connect().catch(() => {}),
+        useGoalsStore.getState().connect().catch(() => {}),
+        useFocusStore.getState().connect().catch(() => {}),
+      ]);
+    }
+
     async function init() {
-      try {
-        await Promise.all([
-          useDashboardStore.getState().loadViaRest(),
-          useBrainDumpStore.getState().loadViaRest(),
-          useHabitsStore.getState().loadViaRest(),
-          useProposalsStore.getState().loadViaRest().catch(() => {}),
-          useProjectsStore.getState().loadViaRest().catch(() => {}),
-          useTasksStore.getState().loadViaRest().catch(() => {}),
-          useSettingsStore.getState().load(),
-          useWorkspaceStore.getState().load(),
-          useResponsibilitiesStore.getState().loadViaRest().catch(() => {}),
-          useAgentsStore.getState().loadViaRest().catch(() => {}),
-          useVaultStore.getState().loadViaRest().catch(() => {}),
-          useCanvasStore.getState().loadViaRest().catch(() => {}),
-          usePipesStore.getState().loadViaRest().catch(() => {}),
-          useChannelsStore.getState().loadViaRest().catch(() => {}),
-          useGoalsStore.getState().loadViaRest().catch(() => {}),
-          useFocusStore.getState().loadViaRest().catch(() => {}),
-        ]);
-        if (!cancelled) setReady(true);
+      const maxRetries = 20;
+      const retryDelay = 1000;
 
-        // Connect WebSockets in background
-        Promise.all([
-          useDashboardStore.getState().connect(),
-          useBrainDumpStore.getState().connect(),
-          useHabitsStore.getState().connect(),
-          useProposalsStore.getState().connect().catch(() => {}),
-          useProjectsStore.getState().connect().catch(() => {}),
-          useTasksStore.getState().connect().catch(() => {}),
-          useSettingsStore.getState().connect(),
-          useWorkspaceStore.getState().connect(),
-          useResponsibilitiesStore.getState().connect().catch(() => {}),
-          useAgentsStore.getState().connect().catch(() => {}),
-          useVaultStore.getState().connect().catch(() => {}),
-          useCanvasStore.getState().connect().catch(() => {}),
-          usePipesStore.getState().connect().catch(() => {}),
-          useChannelsStore.getState().connect().catch(() => {}),
-          useGoalsStore.getState().connect().catch(() => {}),
-          useFocusStore.getState().connect().catch(() => {}),
-        ]).catch(() => {
-          console.warn("WebSocket connection failed, using REST fallback");
-        });
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        if (cancelled) return;
+        try {
+          await loadAllStores();
+          if (!cancelled) setReady(true);
 
-        // Restore previously open windows
-        await restoreWorkspace();
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Connection failed");
+          // Connect WebSockets in background
+          connectAllChannels().catch(() => {
+            console.warn("WebSocket connection failed, using REST fallback");
+          });
+
+          // Restore previously open windows
+          await restoreWorkspace();
+          return;
+        } catch {
+          if (cancelled) return;
+          const remaining = maxRetries - attempt - 1;
+          if (remaining > 0) {
+            setError(`Waiting for daemon... (${remaining}s)`);
+            await new Promise((r) => setTimeout(r, retryDelay));
+          } else {
+            setError("Could not connect to daemon on :4488");
+          }
         }
       }
     }
