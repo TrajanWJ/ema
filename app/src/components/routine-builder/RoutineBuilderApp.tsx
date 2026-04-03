@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useRoutineStore } from "@/stores/routine-store";
+
+const config = APP_CONFIGS["routine-builder"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -116,22 +120,25 @@ export function RoutineBuilderApp() {
 
   if (loading && routines.length === 0) {
     return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
-          Loading...
-        </span>
-      </div>
+      <AppWindowChrome appId="routine-builder" title={config.title} icon={config.icon} accent={config.accent}>
+        <div
+          style={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
+            Loading...
+          </span>
+        </div>
+      </AppWindowChrome>
     );
   }
 
   return (
+    <AppWindowChrome appId="routine-builder" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -483,5 +490,6 @@ export function RoutineBuilderApp() {
         ))}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { useSecurityStore } from "@/stores/security-store";
-import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
+import { APP_CONFIGS } from "@/types/workspace";
 
 function ScoreRing({ score, max }: { score: number; max: number }) {
   const percent = max > 0 ? Math.round((score / max) * 100) : 0;

@@ -24,10 +24,9 @@ end
 
 config :ema, EmaWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4488"))]
 
-# OpenClaw agent gateway (runs on agent VM, accessible via SSH)
+# OpenClaw agent gateway (local-first, no VM dependency)
 config :ema, :openclaw,
-  gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://192.168.122.10:18789"),
-  ssh_host: System.get_env("OPENCLAW_SSH_HOST", "192.168.122.10"),
+  gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://localhost:18789"),
   default_agent: System.get_env("OPENCLAW_DEFAULT_AGENT", "main"),
   timeout: String.to_integer(System.get_env("OPENCLAW_TIMEOUT", "120"))
 

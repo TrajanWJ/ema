@@ -1,7 +1,8 @@
 defmodule Ema.Agents.NetworkMonitor do
   @moduledoc """
-  Periodically checks OpenClaw agent network status via SSH
-  and broadcasts updates over PubSub.
+  Periodically checks local agent network status by querying
+  Ema.Agents.Supervisor for running workers, and broadcasts
+  updates over PubSub.
   """
 
   use GenServer
@@ -60,44 +61,28 @@ defmodule Ema.Agents.NetworkMonitor do
   end
 
   defp do_check do
-    host = ssh_host()
-
     try do
-      case System.cmd(
-             "ssh",
-             [
-               "-o",
-               "ConnectTimeout=5",
-               "-o",
-               "StrictHostKeyChecking=no",
-               host,
-               "openclaw sessions list 2>/dev/null || echo '[]'"
-             ],
-             stderr_to_stdout: true,
-             timeout: 10_000
-           ) do
-        {output, 0} ->
-          agents = parse_agents(output)
-          %{agents: agents, gateway_reachable: true, last_check: DateTime.utc_now()}
+      # Query the local DynamicSupervisor for running agent workers
+      children = DynamicSupervisor.which_children(Ema.Agents.Supervisor)
 
-        {_output, _code} ->
-          %{agents: [], gateway_reachable: false, last_check: DateTime.utc_now()}
-      end
+      agents =
+        children
+        |> Enum.map(fn {_id, pid, _type, _modules} ->
+          if is_pid(pid) and Process.alive?(pid) do
+            %{"pid" => inspect(pid), "status" => "running"}
+          else
+            nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      gateway_reachable = length(agents) >= 0 and is_pid(Process.whereis(Ema.Agents.Supervisor))
+
+      %{agents: agents, gateway_reachable: gateway_reachable, last_check: DateTime.utc_now()}
     rescue
       _ -> %{agents: [], gateway_reachable: false, last_check: DateTime.utc_now()}
     catch
       :exit, _ -> %{agents: [], gateway_reachable: false, last_check: DateTime.utc_now()}
-    end
-  end
-
-  defp ssh_host do
-    Application.get_env(:ema, :openclaw, [])[:ssh_host] || "trajan@192.168.122.10"
-  end
-
-  defp parse_agents(output) do
-    case Jason.decode(String.trim(output)) do
-      {:ok, agents} when is_list(agents) -> agents
-      _ -> []
     end
   end
 end

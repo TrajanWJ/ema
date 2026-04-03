@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { useTokenStore } from "@/stores/token-store";
-import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
+import { APP_CONFIGS } from "@/types/workspace";
 
 function DeltaArrow({ value }: { value: number }) {
   if (value === 0) return null;
@@ -78,21 +79,30 @@ function BreakdownTable({
   );
 }
 
+const tokenConfig = APP_CONFIGS["token-monitor"];
+
 export function TokenMonitor() {
   const { summary, history, forecast, alerts, loading, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
+  const [ready, setReady] = useState(false);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
 
   useEffect(() => {
-    loadViaRest();
-    connect();
+    async function init() {
+      await loadViaRest().catch(() => {});
+      setReady(true);
+      connect().catch(() => {});
+    }
+    init();
   }, [loadViaRest, connect]);
 
-  if (loading && !summary) {
+  if (!ready) {
     return (
-      <div className="flex flex-col gap-4 p-6 h-full">
-        <div className="text-sm" style={{ color: "var(--pn-text-tertiary)" }}>Loading token data...</div>
-      </div>
+      <AppWindowChrome appId="token-monitor" title={tokenConfig.title} icon={tokenConfig.icon} accent={tokenConfig.accent}>
+        <div className="flex items-center justify-center h-full">
+          <span className="text-sm" style={{ color: "var(--pn-text-secondary)" }}>Loading token data...</span>
+        </div>
+      </AppWindowChrome>
     );
   }
 
@@ -109,7 +119,8 @@ export function TokenMonitor() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6 h-full overflow-y-auto">
+    <AppWindowChrome appId="token-monitor" title={tokenConfig.title} icon={tokenConfig.icon} accent={tokenConfig.accent}>
+    <div className="flex flex-col gap-4 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold" style={{ color: "rgba(255,255,255,0.87)" }}>
@@ -306,13 +317,10 @@ export function TokenMonitor() {
       {s && <BreakdownTable data={s.by_model} label="Model" />}
       {s && <BreakdownTable data={s.by_agent} label="Agent" />}
     </div>
+    </AppWindowChrome>
   );
 }
 
 export function TokenMonitorApp() {
-  return (
-    <StandaloneAppShell title="Token Monitor">
-      <TokenMonitor />
-    </StandaloneAppShell>
-  );
+  return <TokenMonitor />;
 }

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import type { Invoice } from "@/stores/invoice-store";
+
+const config = APP_CONFIGS["invoice-billing"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -136,22 +140,25 @@ export function InvoiceBillingApp() {
 
   if (loading && invoices.length === 0) {
     return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
-          Loading...
-        </span>
-      </div>
+      <AppWindowChrome appId="invoice-billing" title={config.title} icon={config.icon} accent={config.accent}>
+        <div
+          style={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
+            Loading...
+          </span>
+        </div>
+      </AppWindowChrome>
     );
   }
 
   return (
+    <AppWindowChrome appId="invoice-billing" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -459,5 +466,6 @@ export function InvoiceBillingApp() {
         ))}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }

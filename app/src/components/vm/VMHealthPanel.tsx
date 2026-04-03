@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { useVmHealthStore } from "@/stores/vm-health-store";
-import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
+import { APP_CONFIGS } from "@/types/workspace";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   online: { color: "#22C55E", bg: "rgba(34,197,94,0.15)", label: "Online" },
@@ -84,17 +85,28 @@ function ContainerCard({ container }: { container: Container }) {
   );
 }
 
-function VMHealthContent() {
+const vmConfig = APP_CONFIGS["vm-health"];
+
+export function VMHealthApp() {
   const { health, loading, loadViaRest, connect, triggerCheck } = useVmHealthStore();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    loadViaRest();
-    connect();
+    async function init() {
+      await loadViaRest().catch(() => {});
+      setReady(true);
+      connect().catch(() => {});
+    }
+    init();
   }, [loadViaRest, connect]);
 
-  if (loading && !health) {
+  if (!ready) {
     return (
-      <div className="text-sm" style={{ color: "var(--pn-text-tertiary)" }}>Checking VM health...</div>
+      <AppWindowChrome appId="vm-health" title={vmConfig.title} icon={vmConfig.icon} accent={vmConfig.accent}>
+        <div className="flex items-center justify-center h-full">
+          <span className="text-sm" style={{ color: "var(--pn-text-secondary)" }}>Checking VM health...</span>
+        </div>
+      </AppWindowChrome>
     );
   }
 
@@ -102,95 +114,83 @@ function VMHealthContent() {
   const status = h?.status ?? "unknown";
   const containers = (h?.containers ?? []) as Container[];
 
-  function handleCopySSH() {
-    navigator.clipboard.writeText("ssh trajan@192.168.122.10");
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <StatusIndicator status={status} />
-        <div className="flex items-center gap-2">
-          <button
-            onClick={triggerCheck}
-            className="text-xs px-3 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: "rgba(45,212,168,0.15)", color: "#2dd4a8" }}
-          >
-            Check Now
-          </button>
-          <span className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
-            {h?.checked_at ? new Date(h.checked_at).toLocaleTimeString() : "never"}
-          </span>
-        </div>
-      </div>
-
-      {/* Service checks */}
-      <div className="grid grid-cols-3 gap-3">
-        <CheckBadge label="Ping (192.168.122.10)" ok={status !== "offline"} />
-        <CheckBadge label="OpenClaw Gateway" ok={h?.openclaw_up ?? false} />
-        <CheckBadge label="SSH (port 22)" ok={h?.ssh_up ?? false} />
-      </div>
-
-      {/* Network info */}
-      <div className="glass-surface rounded-lg p-4">
-        <h3 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
-          Network
-        </h3>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <span style={{ color: "var(--pn-text-tertiary)" }}>VM IP: </span>
-            <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>192.168.122.10</span>
-          </div>
-          <div>
-            <span style={{ color: "var(--pn-text-tertiary)" }}>Gateway: </span>
-            <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>:18789/gateway</span>
-          </div>
-          <div>
-            <span style={{ color: "var(--pn-text-tertiary)" }}>Latency: </span>
-            <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>
-              {h?.latency_ms != null ? `${h.latency_ms}ms` : "—"}
+    <AppWindowChrome appId="vm-health" title={vmConfig.title} icon={vmConfig.icon} accent={vmConfig.accent}>
+      <div className="flex flex-col gap-4 h-full overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <StatusIndicator status={status} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={triggerCheck}
+              className="text-xs px-3 py-1.5 rounded transition-colors hover:opacity-80"
+              style={{ background: "rgba(45,212,168,0.15)", color: "#2dd4a8" }}
+            >
+              Check Now
+            </button>
+            <span className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
+              {h?.checked_at ? new Date(h.checked_at).toLocaleTimeString() : "never"}
             </span>
           </div>
-          <div>
-            <button
-              onClick={handleCopySSH}
-              className="text-xs px-2 py-1 rounded transition-colors hover:opacity-80"
-              style={{ background: "rgba(107,149,240,0.15)", color: "#6b95f0" }}
-            >
-              Copy SSH command
-            </button>
+        </div>
+
+        {/* Service checks */}
+        <div className="grid grid-cols-3 gap-3">
+          <CheckBadge label="Ping (192.168.122.10)" ok={status !== "offline"} />
+          <CheckBadge label="OpenClaw Gateway" ok={h?.openclaw_up ?? false} />
+          <CheckBadge label="SSH (port 22)" ok={h?.ssh_up ?? false} />
+        </div>
+
+        {/* Network info */}
+        <div className="glass-surface rounded-lg p-4">
+          <h3 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
+            Network
+          </h3>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span style={{ color: "var(--pn-text-tertiary)" }}>VM IP: </span>
+              <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>192.168.122.10</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--pn-text-tertiary)" }}>Gateway: </span>
+              <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>:18789/gateway</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--pn-text-tertiary)" }}>Latency: </span>
+              <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>
+                {h?.latency_ms != null ? `${h.latency_ms}ms` : "\u2014"}
+              </span>
+            </div>
+            <div>
+              <button
+                onClick={() => navigator.clipboard.writeText("ssh trajan@192.168.122.10")}
+                className="text-xs px-2 py-1 rounded transition-colors hover:opacity-80"
+                style={{ background: "rgba(107,149,240,0.15)", color: "#6b95f0" }}
+              >
+                Copy SSH command
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Containers */}
-      <div>
-        <h3 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
-          Containers ({containers.length})
-        </h3>
-        {containers.length === 0 ? (
-          <div className="text-xs text-center py-6" style={{ color: "var(--pn-text-muted)" }}>
-            {status === "offline" ? "VM unreachable — cannot fetch containers" : "No containers running"}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {containers.map((c, i) => (
-              <ContainerCard key={c.ID ?? i} container={c} />
-            ))}
-          </div>
-        )}
+        {/* Containers */}
+        <div>
+          <h3 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
+            Containers ({containers.length})
+          </h3>
+          {containers.length === 0 ? (
+            <div className="text-xs text-center py-6" style={{ color: "var(--pn-text-muted)" }}>
+              {status === "offline" ? "VM unreachable \u2014 cannot fetch containers" : "No containers running"}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {containers.map((c, i) => (
+                <ContainerCard key={c.ID ?? i} container={c} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
-
-export function VMHealthApp() {
-  return (
-    <StandaloneAppShell title="VM Health">
-      <div className="flex flex-col gap-4 h-full overflow-y-auto">
-        <VMHealthContent />
-      </div>
-    </StandaloneAppShell>
+    </AppWindowChrome>
   );
 }

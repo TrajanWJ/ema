@@ -1,7 +1,8 @@
 defmodule Ema.Intelligence.VmMonitor do
   @moduledoc """
-  GenServer that polls agent-vm (192.168.122.10) every 30s.
-  Checks VM reachability, OpenClaw gateway health, SSH, and Docker containers.
+  GenServer that polls local tool availability every 30s.
+  Checks that the `claude` CLI is reachable and the daemon itself is healthy.
+  Broadcasts health status via PubSub (same topics/formats as before).
   """
 
   use GenServer
@@ -12,8 +13,6 @@ defmodule Ema.Intelligence.VmMonitor do
   alias Ema.Repo
   alias Ema.Intelligence.VmHealthEvent
 
-  @vm_ip "192.168.122.10"
-  @openclaw_url "http://192.168.122.10:18789/gateway"
   @poll_interval :timer.seconds(30)
 
   # --- Public API ---
@@ -80,27 +79,29 @@ defmodule Ema.Intelligence.VmMonitor do
   defp do_check(state) do
     start = System.monotonic_time(:millisecond)
 
-    ping_ok = check_ping()
-    ssh_ok = check_ssh()
-    {openclaw_ok, openclaw_latency} = check_openclaw()
-    containers_json = fetch_containers()
+    claude_available = check_claude_cli()
+    daemon_healthy = check_daemon_health()
+    openclaw_available = check_local_openclaw()
 
     total_latency = System.monotonic_time(:millisecond) - start
 
     status =
       cond do
-        ping_ok and openclaw_ok -> "online"
-        ping_ok -> "degraded"
+        claude_available and daemon_healthy -> "online"
+        daemon_healthy -> "degraded"
         true -> "offline"
       end
+
+    # openclaw_up reflects whether we have any agent backend available
+    openclaw_up = openclaw_available or claude_available
 
     attrs = %{
       id: Ecto.UUID.generate(),
       status: status,
-      openclaw_up: openclaw_ok,
-      ssh_up: ssh_ok,
-      containers_json: containers_json,
-      latency_ms: openclaw_latency || round(total_latency),
+      openclaw_up: openclaw_up,
+      ssh_up: true,
+      containers_json: "[]",
+      latency_ms: round(total_latency),
       checked_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
@@ -112,8 +113,8 @@ defmodule Ema.Intelligence.VmMonitor do
 
         broadcast(:vm_health_checked, %{
           status: status,
-          openclaw_up: openclaw_ok,
-          ssh_up: ssh_ok,
+          openclaw_up: openclaw_up,
+          ssh_up: true,
           latency_ms: event.latency_ms
         })
 
@@ -124,61 +125,17 @@ defmodule Ema.Intelligence.VmMonitor do
     %{state | last_status: status}
   end
 
-  defp check_ping do
-    case System.cmd("ping", ["-c", "1", "-W", "2", @vm_ip], stderr_to_stdout: true) do
-      {_, 0} -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
+  defp check_claude_cli do
+    System.find_executable("claude") != nil
   end
 
-  defp check_ssh do
-    case System.cmd("nc", ["-z", "-w", "2", @vm_ip, "22"], stderr_to_stdout: true) do
-      {_, 0} -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
+  defp check_daemon_health do
+    # Self-check: verify the Ecto repo and PubSub are alive
+    is_pid(Process.whereis(Ema.Repo)) and is_pid(Process.whereis(Ema.PubSub))
   end
 
-  defp check_openclaw do
-    start = System.monotonic_time(:millisecond)
-
-    result =
-      case System.cmd("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", "--connect-timeout", "3", "--max-time", "5", @openclaw_url], stderr_to_stdout: true) do
-        {code, 0} ->
-          String.trim(code) |> String.starts_with?("2")
-
-        _ ->
-          false
-      end
-
-    latency = System.monotonic_time(:millisecond) - start
-    {result, round(latency)}
-  rescue
-    _ -> {false, nil}
-  end
-
-  defp fetch_containers do
-    case System.cmd("ssh", ["-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no", "trajan@#{@vm_ip}", "docker ps --format '{{json .}}'"], stderr_to_stdout: true) do
-      {output, 0} ->
-        output
-        |> String.split("\n", trim: true)
-        |> Enum.map(fn line ->
-          case Jason.decode(line) do
-            {:ok, parsed} -> parsed
-            _ -> nil
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
-        |> Jason.encode!()
-
-      _ ->
-        "[]"
-    end
-  rescue
-    _ -> "[]"
+  defp check_local_openclaw do
+    System.find_executable("openclaw") != nil
   end
 
   defp parse_containers(json_str) do

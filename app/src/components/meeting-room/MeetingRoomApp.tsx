@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useMeetingStore } from "@/stores/meeting-store";
 import type { Meeting } from "@/stores/meeting-store";
+
+const config = APP_CONFIGS["meeting-room"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -210,22 +214,25 @@ export function MeetingRoomApp() {
 
   if (loading && meetings.length === 0) {
     return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
-          Loading...
-        </span>
-      </div>
+      <AppWindowChrome appId="meeting-room" title={config.title} icon={config.icon} accent={config.accent}>
+        <div
+          style={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span style={{ color: "var(--pn-text-secondary)", fontSize: 13 }}>
+            Loading...
+          </span>
+        </div>
+      </AppWindowChrome>
     );
   }
 
   return (
+    <AppWindowChrome appId="meeting-room" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -399,5 +406,6 @@ export function MeetingRoomApp() {
         )}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }

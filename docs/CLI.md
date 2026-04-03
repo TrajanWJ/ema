@@ -16,81 +16,82 @@ ema <feature> <subcommand> [options]
 
 ## Features & Commands
 
+> Legend: ✅ implemented | ⚠️ stub (returns data but limited) | ❌ not implemented
+
 ### intent
 Search and navigate the intent graph.
 
 ```bash
-ema intent search "rate limiting"
-ema intent search "auth" --project=execudeck --format=json
-ema intent graph --project=execudeck
-ema intent list --level=1 --limit=10
-ema intent trace <node-id>
+ema intent search "rate limiting"                        # ✅
+ema intent search "auth" --project=ema --format=json     # ✅
+ema intent graph --project=ema                           # ✅
+ema intent list --level=1 --limit=10                     # ✅
+ema intent trace <node-id>                               # ⚠️ basic output only
 ```
 
 ### proposal
 Manage proposals through their lifecycle.
 
 ```bash
-ema proposal list
-ema proposal list --status=pending --format=json
-ema proposal show <id>
-ema proposal validate <id>
-ema proposal approve <id>
-ema proposal reject <id> --reason="Not feasible"
-ema proposal generate --seed="add observability to pipes"
-ema proposal generate --seed="improve vault search" --count=3 --measure-latency
-ema proposal genealogy <id>
+ema proposal list                                        # ✅
+ema proposal list --status=pending --format=json         # ✅
+ema proposal show <id>                                   # ✅
+ema proposal validate <id>                               # ⚠️ basic validation only
+ema proposal approve <id>                                # ✅
+ema proposal reject <id> --reason="Not feasible"         # ✅
+ema proposal generate --seed="add observability"         # ✅ (requires proposal engine running)
+ema proposal genealogy <id>                              # ✅
 ```
 
 ### session
-View and manage session continuity (DCC).
+View and manage session continuity.
 
 ```bash
-ema session state
-ema session list --limit=5
-ema session crystallize
-ema session export --output=/tmp/session.json
+ema session state                                        # ⚠️ basic state only
+ema session list --limit=5                               # ✅
+ema session crystallize                                  # ❌ not implemented
+ema session export --output=/tmp/session.json            # ❌ not implemented
 ```
 
 ### quality
 Quality metrics, friction detection, budget tracking.
 
 ```bash
-ema quality report
-ema quality report --days=14
-ema quality friction
-ema quality gradient --days=7
-ema quality budget
-ema quality threats
-ema quality improve
+ema quality report                                       # ✅
+ema quality report --days=14                             # ✅
+ema quality friction                                     # ✅
+ema quality gradient --days=7                            # ✅
+ema quality budget                                       # ✅
+ema quality threats                                      # ✅
+ema quality improve                                      # ❌ not implemented
 ```
 
 ### routing
 Agent fitness and routing engine.
 
 ```bash
-ema routing status
-ema routing fitness
-ema routing dispatch coding --strategy=specialized
+ema routing status                                       # ✅
+ema routing fitness                                      # ✅
+ema routing dispatch coding --strategy=specialized       # ⚠️ dispatches but strategy ignored
 ```
 
 ### health
 System health checks.
 
 ```bash
-ema health dashboard
-ema health check
+ema health dashboard                                     # ⚠️ basic stats
+ema health check                                         # ⚠️ basic stats
 ```
 
 ### test
 Run test suites.
 
 ```bash
-ema test run
-ema test run --suite=unit
-ema test run --suite=integration
-ema test run --suite=ai
-ema test run --suite=all --output=/tmp/ema-test-report.json
+ema test run                                             # ✅
+ema test run --suite=unit                                # ✅
+ema test run --suite=integration                         # ⚠️ limited coverage
+ema test run --suite=ai                                  # ⚠️ limited coverage
+ema test run --suite=all                                 # ✅
 ```
 
 ## Output Formats
@@ -110,34 +111,16 @@ ema quality report --format=json > quality-snapshot.json
 
 The CLI is a standalone escript that communicates with the running EMA daemon via HTTP REST API. It does NOT boot the full Phoenix application — only the HTTP client (Req + Jason).
 
-This means:
-- The EMA daemon must be running (`mix phx.server` or Tauri dev)
-- Features show as "not deployed" until their GenServers are started (daemon restart required after new module deployments)
+Requirements:
+- EMA daemon must be running (`mix phx.server` or Tauri dev)
+- Features show as "not deployed" until their GenServers are started
 
 ## Test Suites
 
 | Suite | What it tests |
 |-------|--------------|
 | `unit` | Individual API endpoints respond correctly |
-| `integration` | Cross-feature workflows (proposal→intent, quality→routing) |
+| `integration` | Cross-feature workflows (proposal->intent, quality->routing) |
 | `ai` | AI-powered features (proposal generation, Claude runner) |
 | `stress` | High volume + concurrent request handling |
 | `all` | Runs unit + integration + ai |
-
-## Scripting Examples
-
-```bash
-# Quality watchdog
-if [ "$(ema quality gradient --format=json | jq -r '.trend')" = "degrading" ]; then
-  echo "Quality degrading — triggering improvement cycle"
-  ema quality improve
-fi
-
-# Batch validate proposals
-ema proposal list --format=json | jq -r '.[].id' | while read id; do
-  ema proposal validate "$id"
-done
-
-# Test before shipping
-ema test run --suite=all --output="/tmp/ema-test-$(date +%Y%m%d).json"
-```

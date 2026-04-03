@@ -1,3 +1,0 @@
-# Intent
-
-Buy milk

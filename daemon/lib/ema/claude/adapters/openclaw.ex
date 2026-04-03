@@ -1,12 +1,14 @@
 defmodule Ema.Claude.Adapters.OpenClaw do
   @moduledoc """
-  Adapter for the OpenClaw gateway running on the agent VM.
+  Adapter for the OpenClaw gateway.
 
-  Since `openclaw` CLI lives on the VM (not the host), we SSH into the VM
-  to run `openclaw agent` commands. Supports two modes:
+  Tries to use a local `openclaw` binary. If it is not found, delegates to
+  `Ema.Claude.Adapters.ClaudeCli` as a fallback so agent requests still work.
+
+  Supports two modes:
 
   - `run/3` — one-shot JSON mode for AgentWorker integration
-  - `start_session/4` — streaming via Port (SSH + openclaw stream-json)
+  - `start_session/4` — streaming via Port (openclaw stream-json)
   """
 
   @behaviour Ema.Claude.Adapter
@@ -16,23 +18,18 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   # -- One-shot run (for AgentWorker) -----------------------------------------
 
   @doc """
-  Run a one-shot agent message via SSH → `openclaw agent --json`.
+  Run a one-shot agent message via local `openclaw agent --json`.
+  Falls back to ClaudeCli adapter if openclaw is not installed locally.
   Returns `{:ok, result_map}` or `{:error, reason}`.
   """
   def run(message, agent_id, opts \\ []) do
-    config = openclaw_config()
-    ssh_host = Keyword.get(opts, :ssh_host, config[:ssh_host])
-    timeout = Keyword.get(opts, :timeout, config[:timeout]) * 1_000
+    case find_openclaw() do
+      {:ok, openclaw_path} ->
+        run_local(openclaw_path, message, agent_id, opts)
 
-    args = build_ssh_args(ssh_host, message, agent_id, opts)
-
-    case System.cmd("ssh", args, stderr_to_stdout: true, timeout: timeout) do
-      {output, 0} ->
-        parse_json_output(output)
-
-      {output, code} ->
-        Logger.error("openclaw agent failed (exit #{code}): #{String.slice(output, 0, 500)}")
-        {:error, {:exit_code, code, String.trim(output)}}
+      :not_found ->
+        Logger.info("openclaw not found locally, falling back to ClaudeCli adapter")
+        Ema.Claude.Adapters.ClaudeCli.run(message, agent_id, opts)
     end
   rescue
     e -> {:error, {:exception, Exception.message(e)}}
@@ -44,49 +41,50 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   Runs in the calling process (blocking).
   """
   def stream(message, agent_id, callback, opts \\ []) do
-    config = openclaw_config()
-    ssh_host = Keyword.get(opts, :ssh_host, config[:ssh_host])
+    case find_openclaw() do
+      {:ok, openclaw_path} ->
+        args = openclaw_cmd_args(message, agent_id, opts, :stream)
 
-    ssh_path = System.find_executable("ssh") || "/usr/bin/ssh"
+        port =
+          Port.open({:spawn_executable, openclaw_path}, [
+            :binary,
+            :exit_status,
+            :stderr_to_stdout,
+            {:args, args},
+            {:line, 65_536}
+          ])
 
-    args =
-      ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", ssh_host] ++
-        openclaw_cmd_args(message, agent_id, opts, :stream)
+        stream_loop(port, callback, "")
 
-    port =
-      Port.open({:spawn_executable, ssh_path}, [
-        :binary,
-        :exit_status,
-        :stderr_to_stdout,
-        {:args, args},
-        {:line, 65_536}
-      ])
-
-    stream_loop(port, callback, "")
+      :not_found ->
+        Logger.info("openclaw not found locally, falling back to ClaudeCli adapter for stream")
+        Ema.Claude.Adapters.ClaudeCli.stream(message, agent_id, callback, opts)
+    end
   end
 
   # -- Adapter behaviour callbacks --------------------------------------------
 
   @impl true
   def start_session(prompt, _session_id, agent_id, opts \\ []) do
-    config = openclaw_config()
-    ssh_host = Keyword.get(opts, :ssh_host, config[:ssh_host])
-    ssh_path = System.find_executable("ssh") || "/usr/bin/ssh"
+    case find_openclaw() do
+      {:ok, openclaw_path} ->
+        args = openclaw_cmd_args(prompt, agent_id, opts, :stream)
 
-    args =
-      ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", ssh_host] ++
-        openclaw_cmd_args(prompt, agent_id, opts, :stream)
+        port =
+          Port.open({:spawn_executable, openclaw_path}, [
+            :binary,
+            :exit_status,
+            :stderr_to_stdout,
+            {:args, args},
+            {:line, 65_536}
+          ])
 
-    port =
-      Port.open({:spawn_executable, ssh_path}, [
-        :binary,
-        :exit_status,
-        :stderr_to_stdout,
-        {:args, args},
-        {:line, 65_536}
-      ])
+        {:ok, port}
 
-    {:ok, port}
+      :not_found ->
+        Logger.info("openclaw not found locally, delegating session to ClaudeCli adapter")
+        Ema.Claude.Adapters.ClaudeCli.start_session(prompt, nil, agent_id, opts)
+    end
   end
 
   @impl true
@@ -97,6 +95,8 @@ defmodule Ema.Claude.Adapters.OpenClaw do
     if Port.info(port) != nil, do: Port.close(port)
     :ok
   end
+
+  def stop_session(_other), do: :ok
 
   @impl true
   def capabilities do
@@ -113,16 +113,16 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   @impl true
   def health_check do
-    config = openclaw_config()
+    case find_openclaw() do
+      {:ok, openclaw_path} ->
+        case System.cmd(openclaw_path, ["status"], stderr_to_stdout: true, timeout: 10_000) do
+          {_output, 0} -> :ok
+          {output, code} -> {:error, {code, String.trim(output)}}
+        end
 
-    case System.cmd("ssh", [
-           "-o", "StrictHostKeyChecking=no",
-           "-o", "ConnectTimeout=5",
-           config[:ssh_host],
-           "openclaw", "status"
-         ], stderr_to_stdout: true, timeout: 10_000) do
-      {_output, 0} -> :ok
-      {output, code} -> {:error, {code, String.trim(output)}}
+      :not_found ->
+        # Fall back — if ClaudeCli is healthy, we can still serve requests
+        Ema.Claude.Adapters.ClaudeCli.health_check()
     end
   rescue
     e -> {:error, {:exception, Exception.message(e)}}
@@ -136,24 +136,40 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   # -- Private ----------------------------------------------------------------
 
+  defp find_openclaw do
+    case System.find_executable("openclaw") do
+      nil -> :not_found
+      path -> {:ok, path}
+    end
+  end
+
   defp openclaw_config do
     Application.get_env(:ema, :openclaw, [])
-    |> Keyword.put_new(:ssh_host, "192.168.122.10")
-    |> Keyword.put_new(:gateway_url, "http://192.168.122.10:18789")
+    |> Keyword.put_new(:gateway_url, "http://localhost:18789")
     |> Keyword.put_new(:default_agent, "main")
     |> Keyword.put_new(:timeout, 120)
   end
 
-  defp build_ssh_args(ssh_host, message, agent_id, opts) do
-    ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", ssh_host] ++
-      openclaw_cmd_args(message, agent_id, opts, :json)
+  defp run_local(openclaw_path, message, agent_id, opts) do
+    config = openclaw_config()
+    timeout = Keyword.get(opts, :timeout, config[:timeout]) * 1_000
+    args = openclaw_cmd_args(message, agent_id, opts, :json)
+
+    case System.cmd(openclaw_path, args, stderr_to_stdout: true, timeout: timeout) do
+      {output, 0} ->
+        parse_json_output(output)
+
+      {output, code} ->
+        Logger.error("openclaw agent failed (exit #{code}): #{String.slice(output, 0, 500)}")
+        {:error, {:exit_code, code, String.trim(output)}}
+    end
   end
 
   defp openclaw_cmd_args(message, agent_id, opts, mode) do
     agent = agent_id || Keyword.get(opts, :default_agent) || openclaw_config()[:default_agent]
     thinking = Keyword.get(opts, :thinking, "medium")
 
-    base = ["openclaw", "agent", "--agent", agent, "--thinking", thinking]
+    base = ["agent", "--agent", agent, "--thinking", thinking]
 
     base =
       case mode do

@@ -410,6 +410,15 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#ef4444",
     icon: "\u{1F50D}",
   },
+  executions: {
+    title: "Executions",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#818cf8",
+    icon: "\u26A1",
+  },
   // Monitoring & Intelligence
   "token-monitor": {
     title: "Token Monitor",

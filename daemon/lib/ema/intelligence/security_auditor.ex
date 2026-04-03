@@ -9,7 +9,7 @@ defmodule Ema.Intelligence.SecurityAuditor do
 
   alias Ema.Intelligence.VmMonitor
 
-  @vm_ip "192.168.122.10"
+  @vm_ip "localhost"
 
   @doc "Run all security checks and return posture report."
   def audit do
@@ -45,33 +45,45 @@ defmodule Ema.Intelligence.SecurityAuditor do
     passed = vm_health != nil and vm_health.status in ["online", "degraded"]
 
     %{
-      id: "openclaw_in_vm",
-      name: "OpenClaw running in VM (not host)",
+      id: "local_health",
+      name: "Local daemon and tools healthy",
       passed: passed,
       points: if(passed, do: 20, else: 0),
       max_points: 20,
-      fix_guide: "OpenClaw should run inside the KVM VM at #{@vm_ip}, not on the host machine. Use `virsh start agent-vm` to ensure the VM is running."
+      fix_guide: "Ensure the daemon is running and `claude` CLI is on PATH."
     }
   end
 
   defp check_nat_only do
-    # Check if VM uses NAT networking (default libvirt behavior)
+    # With local-first architecture, network isolation is handled by
+    # binding services to localhost only. Check that the daemon port
+    # is not exposed on a public interface.
     passed =
-      case System.cmd("virsh", ["domiflist", "agent-vm"], stderr_to_stdout: true) do
-        {output, 0} -> String.contains?(output, "network") or String.contains?(output, "nat")
-        _ -> false
+      case System.cmd("ss", ["-tlnp"], stderr_to_stdout: true) do
+        {output, 0} ->
+          # Check that port 4488 is only on 127.0.0.1 / ::1, not 0.0.0.0
+          output
+          |> String.split("\n")
+          |> Enum.filter(&String.contains?(&1, ":4488"))
+          |> Enum.all?(fn line ->
+            String.contains?(line, "127.0.0.1") or String.contains?(line, "::1") or
+              String.contains?(line, "[::1]")
+          end)
+
+        _ ->
+          false
       end
 
     %{
-      id: "nat_only",
-      name: "VM gateway using NAT only",
+      id: "localhost_only",
+      name: "Services bound to localhost only",
       passed: passed,
       points: if(passed, do: 15, else: 0),
       max_points: 15,
-      fix_guide: "VM should use NAT networking, not bridged. Check `virsh domiflist agent-vm` — network type should be 'network' (default NAT)."
+      fix_guide: "Daemon should bind to 127.0.0.1, not 0.0.0.0. Check endpoint config."
     }
   rescue
-    _ -> %{id: "nat_only", name: "VM gateway using NAT only", passed: false, points: 0, max_points: 15, fix_guide: "Could not check VM networking. Ensure libvirt is installed and agent-vm exists."}
+    _ -> %{id: "localhost_only", name: "Services bound to localhost only", passed: false, points: 0, max_points: 15, fix_guide: "Could not check port bindings."}
   end
 
   defp check_no_published_ports(containers) do

@@ -194,7 +194,7 @@ defmodule Ema.Claude.RuntimeBootstrap do
   end
 
   defp build_openclaw_node do
-    host = System.get_env("OPENCLAW_SSH_HOST", "192.168.122.10")
+    host = System.get_env("OPENCLAW_SSH_HOST", "localhost")
 
     if host == "" do
       nil

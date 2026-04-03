@@ -25,35 +25,42 @@ EMA is a Phoenix + React desktop OS that connects thinking to doing. Three layer
 Brain Dump ──→ Tasks ──→ Executions ──→ Agent Sessions
     │              │          │               │
     ▼              ▼          ▼               ▼
-Proposals ◄── IntentMap   Pipes/DCC    Claude Sessions
+Proposals ◄── IntentMap   Pipes         Claude Sessions
     │              │          │               │
     ▼              ▼          ▼               ▼
-Seeds ────→ Combiner    EventBus ──→ Workflow Events
-    │                                        │
-    ▼                                        ▼
-Pattern Crystallizer ◄──── Workflow Observatory
-                                     │
-                                     ▼
-                              Project Graph
-                           (aggregates everything)
+Seeds ────→ Combiner    EventBus        Project Graph
+                                     (aggregates everything)
 ```
 
-### Dependency Graph (build order)
+### Feature Status
+
+| # | Feature | Status | Key Modules |
+|---|---------|--------|-------------|
+| 1 | Execution Fabric | **Working** | `Executions.Dispatcher`, `AgentSession`, `Claude.Runner` |
+| 2 | Workflow Observatory | **Partial** | `Executions.Event` (event sourcing), gaps, tokens |
+| 3 | Proposal Intelligence | **Working** | `ProposalEngine.*` (5-stage pipeline) |
+| 4 | Decision Memory | **Schema only** | `Decisions` context + controller — no mining/linking |
+| 5 | Intent-Driven Analysis | **Partial** | `IntentMap` context — 5-level hierarchy, no Superman wiring |
+| 6 | Project Graph | **Working** | `Intelligence.ProjectGraph` — aggregates all data sources |
+| 7 | Pattern Crystallizer | **Not started** | Spec at `docs/features/FEATURE_PATTERN_CRYSTALLIZER.md` |
+| 8 | Autonomous Reasoning | **Not started** | Spec at `docs/features/FEATURE_AUTONOMOUS_REASONING.md` |
+
+### Build Order (remaining work)
 
 ```
-1. Execution Fabric + DCC     (foundation — everything routes through this)
-   ↓
-2. Workflow Observatory        (needs execution events to observe)
-   ↓
-3. Proposal Intelligence       (needs observatory data for validation)
-   ↓
-4. Decision Memory             (needs proposal outcomes to link decisions)
-   ↓
-5. Intent-Driven Analysis      (needs decision memory for precedent)
-   ↓
-6. Autonomous Reasoning        (needs all above to make autonomous choices)
-   ↓
-7. Pattern Crystallizer        (needs workflow data to detect patterns)
+Currently working:
+  Execution Fabric ✅ → Proposal Intelligence ✅ → Project Graph ✅
+
+Next to build:
+  Workflow Observatory (needs execution events — already emitting)
+    ↓
+  Decision Memory (needs outcome linking)
+    ↓
+  Intent Analysis + Superman integration
+    ↓
+  Pattern Crystallizer (needs workflow history)
+    ↓
+  Autonomous Reasoning (needs all above)
 ```
 
 ## Data Flow
@@ -159,36 +166,36 @@ Real-time sync pattern: REST load on mount → channel join → push events upda
 ## Frontend Architecture
 
 ```
-app/
-├── src/
-│   ├── App.tsx              # Router — maps app IDs to components
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Launchpad.tsx    # Home screen with app tiles
-│   │   │   ├── Shell.tsx        # Window chrome wrapper
-│   │   │   └── AppTile.tsx      # Individual tile component
-│   │   ├── brain-dump/          # Brain dump capture + inbox
-│   │   ├── tasks/               # Kanban board + task detail
-│   │   ├── proposals/           # Proposal cards + pipeline view
-│   │   ├── agents/              # Agent grid + chat interface
-│   │   ├── vault/               # Second Brain file browser + editor
-│   │   ├── project-graph/       # Force-directed knowledge graph ← NEW
-│   │   └── ...
-│   ├── stores/                  # Zustand stores (one per domain)
-│   │   ├── graph-store.ts       # Project graph state ← NEW
-│   │   └── ...
-│   ├── lib/
-│   │   ├── api.ts               # REST client (Tauri HTTP plugin)
-│   │   └── ws.ts                # Phoenix WebSocket client
-│   └── types/
-│       └── workspace.ts         # App config definitions
-└── package.json
+app/src/
+├── App.tsx                     # Route switch — maps 50+ app IDs to components
+├── components/
+│   ├── layout/                 # Shell, Dock, Launchpad, AmbientStrip, AppWindowChrome
+│   ├── executions/             # Execution tracking (HQ surface)
+│   ├── proposals/              # Proposal pipeline + detail view
+│   ├── tasks/                  # Task board
+│   ├── agents/                 # Agent fleet + chat
+│   ├── vault/                  # Second Brain file browser
+│   ├── project-graph/          # Force-directed knowledge graph
+│   ├── contacts-crm/           # CRM
+│   ├── finance-tracker/        # Income/expense
+│   ├── invoice-billing/        # Invoicing
+│   └── ...                     # 50+ total app components
+├── stores/                     # 60+ Zustand stores (one per domain)
+├── lib/
+│   ├── api.ts                  # REST client (Tauri HTTP plugin)
+│   └── ws.ts                   # Phoenix WebSocket singleton
+├── types/
+│   └── workspace.ts            # APP_CONFIGS — app metadata, dimensions, accents
+└── styles/
+    └── globals.css             # Glass morphism design system
 ```
 
 ### Store Pattern
 
 Every store follows the same contract:
-1. `loadViaRest()` — initial data fetch via REST
+1. `loadViaRest()` — initial data fetch via REST (called by Shell on mount)
 2. `connect()` — join WebSocket channel for real-time updates (optional)
 3. Domain-specific actions and selectors
 4. Zustand `create()` with `(set, get)` pattern
+
+Shell.tsx loads 28 stores in parallel on startup via `Promise.all`.

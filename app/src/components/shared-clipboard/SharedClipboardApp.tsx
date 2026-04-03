@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useClipboardStore } from "@/stores/clipboard-store";
 import type { Clip } from "@/stores/clipboard-store";
+
+const config = APP_CONFIGS["shared-clipboard"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -190,6 +194,7 @@ export function SharedClipboardApp() {
     );
 
   return (
+    <AppWindowChrome appId="shared-clipboard" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -345,5 +350,6 @@ export function SharedClipboardApp() {
         )}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }

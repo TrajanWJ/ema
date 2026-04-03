@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useTunnelStore } from "@/stores/tunnel-store";
+
+const config = APP_CONFIGS["tunnel-manager"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -71,6 +75,7 @@ export function TunnelManagerApp() {
   };
 
   return (
+    <AppWindowChrome appId="tunnel-manager" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -280,5 +285,6 @@ export function TunnelManagerApp() {
         )}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }

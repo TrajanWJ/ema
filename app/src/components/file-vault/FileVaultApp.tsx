@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useFileVaultStore } from "@/stores/file-vault-store";
 import type { ManagedFile } from "@/stores/file-vault-store";
+
+const config = APP_CONFIGS["file-vault"];
 
 const card = {
   background: "rgba(14,16,23,0.55)",
@@ -213,6 +217,7 @@ export function FileVaultApp() {
   };
 
   return (
+    <AppWindowChrome appId="file-vault" title={config.title} icon={config.icon} accent={config.accent}>
     <div
       style={{
         height: "100%",
@@ -352,5 +357,6 @@ export function FileVaultApp() {
         )}
       </div>
     </div>
+    </AppWindowChrome>
   );
 }
