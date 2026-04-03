@@ -51,6 +51,13 @@ interface ThreatReport {
   checked_at: string | null;
 }
 
+interface ExecutionDay {
+  date: string;
+  score: number;
+  completed: number;
+  total: number;
+}
+
 interface QualityReport {
   friction: FrictionReport;
   gradient: QualityGradient;
@@ -75,6 +82,7 @@ const TREND_ICONS: Record<string, string> = {
 
 export default function QualityApp() {
   const [report, setReport] = useState<QualityReport | null>(null);
+  const [executionDays, setExecutionDays] = useState<ExecutionDay[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('Friction');
   const [loading, setLoading] = useState(true);
 
@@ -89,11 +97,41 @@ export default function QualityApp() {
     }
   }, []);
 
+  const loadExecutionGradient = useCallback(async () => {
+    try {
+      interface ExecRecord { status: string; inserted_at: string }
+      const data = await api.get<{ executions: ExecRecord[] }>('/executions');
+      const execs = data.executions ?? [];
+
+      // Group by day over last 14 days
+      const now = new Date();
+      const days: ExecutionDay[] = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const dayExecs = execs.filter((e) => e.inserted_at?.startsWith(dateStr));
+        const completed = dayExecs.filter((e) => e.status === 'completed').length;
+        const total = dayExecs.length;
+        days.push({
+          date: dateStr,
+          score: total > 0 ? completed / total : 0,
+          completed,
+          total,
+        });
+      }
+      setExecutionDays(days);
+    } catch {
+      // silent
+    }
+  }, []);
+
   useEffect(() => {
     loadReport();
+    loadExecutionGradient();
     const interval = setInterval(loadReport, 60_000);
     return () => clearInterval(interval);
-  }, [loadReport]);
+  }, [loadReport, loadExecutionGradient]);
 
   if (loading || !report) {
     return (
@@ -125,7 +163,7 @@ export default function QualityApp() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'Friction' && <FrictionTab friction={report.friction} />}
-        {activeTab === 'Trends' && <TrendsTab gradient={report.gradient} />}
+        {activeTab === 'Trends' && <TrendsTab gradient={report.gradient} executionDays={executionDays} />}
         {activeTab === 'Budget' && <BudgetTab budget={report.budget} />}
         {activeTab === 'Threats' && <ThreatsTab threats={report.threats} />}
       </div>
@@ -175,7 +213,49 @@ function FrictionTab({ friction }: { friction: FrictionReport }) {
   );
 }
 
-function TrendsTab({ gradient }: { gradient: QualityGradient }) {
+function QualitySparkline({ days }: { days: ExecutionDay[] }) {
+  if (days.length === 0) return null;
+  const barWidth = Math.max(12, Math.floor(320 / days.length) - 2);
+
+  return (
+    <div className="glass-surface rounded-xl p-4 border border-white/[0.08]">
+      <h3 className="text-sm font-semibold text-primary mb-3">
+        Quality Score (14-day)
+      </h3>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 64 }}>
+        {days.map((d) => {
+          const h = Math.max(2, d.score * 60);
+          const color = d.score >= 0.8
+            ? 'rgba(34,197,94,0.7)'
+            : d.score >= 0.5
+              ? 'rgba(245,158,11,0.7)'
+              : d.total === 0
+                ? 'rgba(255,255,255,0.06)'
+                : 'rgba(239,68,68,0.7)';
+          return (
+            <div
+              key={d.date}
+              title={`${d.date}: ${d.completed}/${d.total} (${(d.score * 100).toFixed(0)}%)`}
+              style={{
+                width: barWidth,
+                height: h,
+                background: color,
+                borderRadius: '3px 3px 0 0',
+                transition: 'height 0.3s',
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        <span className="text-[10px] text-tertiary">{days[0]?.date.slice(5)}</span>
+        <span className="text-[10px] text-tertiary">{days[days.length - 1]?.date.slice(5)}</span>
+      </div>
+    </div>
+  );
+}
+
+function TrendsTab({ gradient, executionDays }: { gradient: QualityGradient; executionDays: ExecutionDay[] }) {
   const trendIcon = TREND_ICONS[gradient.trend] ?? '?';
   const trendColor =
     gradient.trend === 'improving'
@@ -186,6 +266,8 @@ function TrendsTab({ gradient }: { gradient: QualityGradient }) {
 
   return (
     <div className="space-y-4">
+      <QualitySparkline days={executionDays} />
+
       <div className="glass-surface rounded-xl p-4 border border-white/[0.08]">
         <div className="flex items-center gap-2 mb-3">
           <h3 className="text-sm font-semibold text-primary">Quality Trend</h3>

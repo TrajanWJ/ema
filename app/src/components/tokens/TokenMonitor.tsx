@@ -82,7 +82,7 @@ function BreakdownTable({
 const tokenConfig = APP_CONFIGS["token-monitor"];
 
 export function TokenMonitor() {
-  const { summary, history, forecast, alerts, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
+  const { summary, history, forecast, alerts, modeBreakdown, avgCostPerExecution, totalExecutions, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
   const [ready, setReady] = useState(false);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
@@ -148,9 +148,17 @@ export function TokenMonitor() {
           Budget warning: {s?.percent_used.toFixed(0)}% used ({s?.days_remaining} days remaining)
         </div>
       )}
+      {forecast && forecast.projected_monthly > 50 && (
+        <div
+          className="rounded-lg px-4 py-2 text-sm font-medium"
+          style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", borderLeft: "3px solid #f87171" }}
+        >
+          Projected monthly spend: ${forecast.projected_monthly.toFixed(2)} exceeds $50 budget threshold
+        </div>
+      )}
 
       {/* Big numbers row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="glass-surface rounded-lg p-4 text-center">
           <div className="text-xs mb-1" style={{ color: "var(--pn-text-tertiary)" }}>Today</div>
           <div className="text-xl font-mono font-bold" style={{ color: "rgba(255,255,255,0.87)" }}>
@@ -169,6 +177,15 @@ export function TokenMonitor() {
           <div className="text-xl font-mono font-bold" style={{ color: "rgba(255,255,255,0.87)" }}>
             ${s?.month_cost.toFixed(2) ?? "0.00"}
           </div>
+        </div>
+        <div className="glass-surface rounded-lg p-4 text-center">
+          <div className="text-xs mb-1" style={{ color: "var(--pn-text-tertiary)" }}>Avg / Exec</div>
+          <div className="text-xl font-mono font-bold" style={{ color: "rgba(255,255,255,0.87)" }}>
+            ${avgCostPerExecution.toFixed(2)}
+          </div>
+          <span className="text-xs" style={{ color: "var(--pn-text-muted)" }}>
+            {totalExecutions} total
+          </span>
         </div>
       </div>
 
@@ -309,6 +326,35 @@ export function TokenMonitor() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Per-mode breakdown */}
+      {modeBreakdown.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium mb-2" style={{ color: "var(--pn-text-secondary)" }}>
+            By Mode
+          </h3>
+          <div className="flex flex-col gap-1">
+            {modeBreakdown.map((row) => (
+              <div key={row.mode} className="flex items-center justify-between text-xs px-2 py-1.5 rounded" style={{ background: "rgba(255,255,255,0.03)" }}>
+                <span className="font-mono truncate" style={{ color: "var(--pn-text-secondary)", maxWidth: 120 }}>
+                  {row.mode}
+                </span>
+                <div className="flex items-center gap-4">
+                  <span style={{ color: "var(--pn-text-tertiary)" }}>
+                    {row.count} execs
+                  </span>
+                  <span style={{ color: "var(--pn-text-tertiary)" }}>
+                    avg ${row.avg_cost.toFixed(2)}
+                  </span>
+                  <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>
+                    ${row.total_cost.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

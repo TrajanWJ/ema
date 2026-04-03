@@ -46,41 +46,80 @@ function CheckBadge({ label, ok }: { label: string; ok: boolean }) {
 interface Container {
   readonly ID?: string;
   readonly Names?: string;
+  readonly name?: string;
   readonly Image?: string;
   readonly Status?: string;
   readonly State?: string;
+  readonly state?: string;
+  readonly status?: string;
   readonly Ports?: string;
+  readonly health?: string;
+}
+
+function getContainerHealth(container: Container): { color: string; bg: string; label: string } {
+  const state = container.state ?? container.State ?? "unknown";
+  const health = container.health ?? "";
+  const running = state === "running";
+
+  if (!running || state === "exited" || state === "dead") {
+    return { color: "#EF4444", bg: "rgba(239,68,68,0.15)", label: "stopped" };
+  }
+  if (health === "unhealthy" || state === "restarting") {
+    return { color: "#f59e0b", bg: "rgba(245,158,11,0.15)", label: health || state };
+  }
+  return { color: "#22C55E", bg: "rgba(34,197,94,0.15)", label: health || "running" };
 }
 
 function ContainerCard({ container }: { container: Container }) {
-  const running = container.State === "running";
+  const displayName = container.name ?? container.Names ?? container.ID?.slice(0, 12) ?? "unknown";
+  const displayStatus = container.status ?? container.Status ?? "";
+  const displayState = container.state ?? container.State ?? "unknown";
+  const h = getContainerHealth(container);
+  const isUnhealthy = h.color !== "#22C55E";
+
   return (
     <div
       className="glass-surface rounded-lg p-3"
-      style={{ borderLeft: `2px solid ${running ? "#22C55E" : "#EF4444"}` }}
+      style={{ borderLeft: `2px solid ${h.color}` }}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-mono font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
-          {container.Names ?? container.ID?.slice(0, 12) ?? "unknown"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-block rounded-full shrink-0"
+            style={{ width: 8, height: 8, background: h.color, boxShadow: `0 0 6px ${h.color}` }}
+          />
+          <span className="text-xs font-mono font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
+            {displayName}
+          </span>
+        </div>
         <span
           className="text-[0.6rem] px-1.5 py-0.5 rounded"
-          style={{
-            background: running ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-            color: running ? "#22C55E" : "#EF4444",
-          }}
+          style={{ background: h.bg, color: h.color }}
         >
-          {container.State ?? "unknown"}
+          {h.label}
         </span>
       </div>
       <div className="text-[0.6rem] font-mono truncate" style={{ color: "var(--pn-text-tertiary)" }}>
         {container.Image ?? ""}
       </div>
-      {container.Status && (
+      {displayStatus && (
         <div className="text-[0.6rem] mt-1" style={{ color: "var(--pn-text-muted)" }}>
-          {container.Status}
+          {displayStatus}
         </div>
       )}
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-[0.55rem]" style={{ color: "var(--pn-text-muted)" }}>{displayState}</span>
+        {isUnhealthy && (
+          <button
+            disabled
+            title="Coming soon"
+            className="text-[0.55rem] px-2 py-0.5 rounded opacity-50 cursor-not-allowed"
+            style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}
+          >
+            Restart
+          </button>
+        )}
+      </div>
     </div>
   );
 }

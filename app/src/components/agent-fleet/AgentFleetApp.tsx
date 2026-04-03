@@ -101,6 +101,19 @@ function AgentCard({ agent, selected, onSelect }: {
         <span>{formatRuntime(agent.runtime_seconds)}</span>
         <span>{formatTokens(agent.token_count)} tokens</span>
       </div>
+      {agent.trust_score && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+          <span style={{
+            fontSize: "0.65rem", fontWeight: 600, padding: "2px 6px",
+            borderRadius: 4, background: `${agent.trust_score.color}20`, color: agent.trust_score.color,
+          }}>
+            Trust: {agent.trust_score.score}
+          </span>
+          <span style={{ fontSize: "0.6rem", color: "var(--pn-text-muted)" }}>
+            {agent.trust_score.session_count} sessions
+          </span>
+        </div>
+      )}
       {agent.project && (
         <span style={{
           display: "inline-block", marginTop: 8, fontSize: "0.65rem", padding: "2px 8px",
@@ -149,10 +162,14 @@ function DetailPanel({ agent, onClose }: { readonly agent: FleetAgent; readonly 
           Close
         </button>
       </div>
-      <div style={{ display: "flex", gap: 16, fontSize: "0.75rem", color: "var(--pn-text-secondary)", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 16, fontSize: "0.75rem", color: "var(--pn-text-secondary)", marginBottom: 12, flexWrap: "wrap" }}>
         <span>Status: <span style={{ color: STATUS_COLORS[agent.status] }}>{STATUS_LABELS[agent.status]}</span></span>
         <span>Runtime: {formatRuntime(agent.runtime_seconds)}</span>
         <span>Tokens: {formatTokens(agent.token_count)}</span>
+        {agent.trust_score && (
+          <span>Trust: <span style={{ color: agent.trust_score.color }}>{agent.trust_score.score} ({agent.trust_score.label})</span></span>
+        )}
+        {agent.model && <span>Model: {agent.model}</span>}
       </div>
       <div style={{
         background: "rgba(0,0,0,0.3)", borderRadius: 6, padding: 12, height: 180, overflowY: "auto",

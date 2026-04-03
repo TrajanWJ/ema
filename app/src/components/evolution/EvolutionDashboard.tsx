@@ -9,11 +9,12 @@ import { APP_CONFIGS } from "@/types/workspace";
 
 const config = APP_CONFIGS.evolution;
 
-type Tab = "rules" | "signals" | "stats";
+type Tab = "rules" | "signals" | "proposals" | "stats";
 
 const TAB_OPTIONS = [
   { value: "rules" as const, label: "Rules" },
   { value: "signals" as const, label: "Signals" },
+  { value: "proposals" as const, label: "Proposals" },
   { value: "stats" as const, label: "Stats" },
 ] as const;
 
@@ -36,7 +37,7 @@ export function EvolutionDashboard() {
     async function init() {
       try {
         const store = useEvolutionStore.getState();
-        await Promise.all([store.loadRules(), store.loadSignals(), store.loadStats()]);
+        await Promise.all([store.loadRules(), store.loadSignals(), store.loadStats(), store.loadProposals()]);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
       }
@@ -83,6 +84,7 @@ export function EvolutionDashboard() {
             />
           )}
           {tab === "signals" && <SignalsTab />}
+          {tab === "proposals" && <ProposalsTab />}
           {tab === "stats" && <StatsTab />}
         </div>
       </div>
@@ -264,8 +266,117 @@ function SignalsTab() {
   );
 }
 
+const PROPOSAL_STATUS_COLORS: Record<string, string> = {
+  queued: "#6b95f0",
+  approved: "#22c55e",
+  accepted: "#22c55e",
+  implemented: "#2dd4a8",
+  completed: "#2dd4a8",
+  killed: "#ef4444",
+  cancelled: "#ef4444",
+};
+
+function ProposalsTab() {
+  const proposals = useEvolutionStore((s) => s.proposals);
+  const proposalCounts = useEvolutionStore((s) => s.proposalCounts);
+  const { generateFromSignals, approveProposal } = useEvolutionStore();
+  const [generating, setGenerating] = useState(false);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      await generateFromSignals();
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Proposal stats */}
+      <div className="grid grid-cols-3 gap-2 mb-2">
+        <div className="glass-surface rounded-lg p-3 flex flex-col items-center">
+          <span className="text-[1.1rem] font-bold" style={{ color: "#6b95f0" }}>{proposalCounts.generated}</span>
+          <span className="text-[0.55rem]" style={{ color: "var(--pn-text-muted)" }}>Generated</span>
+        </div>
+        <div className="glass-surface rounded-lg p-3 flex flex-col items-center">
+          <span className="text-[1.1rem] font-bold" style={{ color: "#22c55e" }}>{proposalCounts.accepted}</span>
+          <span className="text-[0.55rem]" style={{ color: "var(--pn-text-muted)" }}>Accepted</span>
+        </div>
+        <div className="glass-surface rounded-lg p-3 flex flex-col items-center">
+          <span className="text-[1.1rem] font-bold" style={{ color: "#2dd4a8" }}>{proposalCounts.implemented}</span>
+          <span className="text-[0.55rem]" style={{ color: "var(--pn-text-muted)" }}>Implemented</span>
+        </div>
+      </div>
+
+      {/* Generate button */}
+      <button
+        onClick={handleGenerate}
+        disabled={generating}
+        className="text-[0.65rem] px-3 py-2 rounded transition-opacity hover:opacity-80 self-start"
+        style={{ background: "rgba(167,139,250,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.25)", opacity: generating ? 0.5 : 1 }}
+      >
+        {generating ? "Generating..." : "Generate from Signals"}
+      </button>
+
+      {/* Proposal list */}
+      {proposals.length === 0 ? (
+        <div className="flex items-center justify-center py-12">
+          <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
+            No evolution proposals yet
+          </span>
+        </div>
+      ) : (
+        proposals.slice(0, 20).map((p) => {
+          const statusColor = PROPOSAL_STATUS_COLORS[p.status] ?? "var(--pn-text-muted)";
+          const canApprove = p.status === "queued" || p.status === "refined" || p.status === "debated";
+          return (
+            <div key={p.id} className="glass-surface rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[0.75rem] font-medium flex-1 truncate" style={{ color: "var(--pn-text-primary)" }}>
+                  {p.title}
+                </span>
+                <span
+                  className="shrink-0 text-[0.55rem] px-1.5 py-0.5 rounded"
+                  style={{ background: `${statusColor}18`, color: statusColor }}
+                >
+                  {p.status}
+                </span>
+              </div>
+              {p.summary && (
+                <p className="text-[0.65rem] leading-relaxed mb-2" style={{ color: "var(--pn-text-secondary)" }}>
+                  {p.summary.length > 120 ? `${p.summary.slice(0, 120)}...` : p.summary}
+                </p>
+              )}
+              {p.confidence != null && (
+                <span className="text-[0.55rem] mr-2" style={{ color: "var(--pn-text-tertiary)" }}>
+                  Confidence: {(p.confidence * 100).toFixed(0)}%
+                </span>
+              )}
+              {p.tags.length > 0 && (
+                <span className="text-[0.55rem]" style={{ color: "var(--pn-text-muted)" }}>
+                  {p.tags.join(", ")}
+                </span>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                {canApprove && (
+                  <ActionBtn label="Accept → Execute" color="#22c55e" onClick={() => approveProposal(p.id)} />
+                )}
+                <span className="text-[0.55rem] ml-auto" style={{ color: "var(--pn-text-muted)" }}>
+                  {new Date(p.inserted_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 function StatsTab() {
   const stats = useEvolutionStore((s) => s.stats);
+  const proposalCounts = useEvolutionStore((s) => s.proposalCounts);
   const [instruction, setInstruction] = useState("");
   const { proposeEvolution } = useEvolutionStore();
 
@@ -286,13 +397,16 @@ function StatsTab() {
   return (
     <div className="flex flex-col gap-4">
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <StatCard label="Active Rules" value={stats.rules.active_rules} color="#22c55e" />
         <StatCard label="Proposed" value={stats.rules.proposed_rules} color="#f59e0b" />
         <StatCard label="Rolled Back" value={stats.rules.rolled_back_rules} color="#ef4444" />
         <StatCard label="Total Scans" value={stats.scanner.total_scans} color="#6b95f0" />
         <StatCard label="Signals Detected" value={stats.scanner.signals_detected} color="#a78bfa" />
         <StatCard label="Total Rules" value={stats.rules.total_rules} color="var(--pn-text-secondary)" />
+        <StatCard label="Proposals Generated" value={proposalCounts.generated} color="#6b95f0" />
+        <StatCard label="Proposals Accepted" value={proposalCounts.accepted} color="#22c55e" />
+        <StatCard label="Proposals Implemented" value={proposalCounts.implemented} color="#2dd4a8" />
       </div>
 
       {stats.scanner.last_scan_at && (

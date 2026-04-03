@@ -4,15 +4,35 @@ import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
 import type { BehaviorRule, EvolutionSignal, EvolutionStats } from "@/types/evolution";
 
+interface EvolutionProposal {
+  readonly id: string;
+  readonly title: string;
+  readonly summary: string | null;
+  readonly status: string;
+  readonly confidence: number | null;
+  readonly tags: readonly string[];
+  readonly metadata: Record<string, unknown> | null;
+  readonly inserted_at: string;
+}
+
+interface ProposalCounts {
+  generated: number;
+  accepted: number;
+  implemented: number;
+}
+
 interface EvolutionState {
   rules: readonly BehaviorRule[];
   signals: readonly EvolutionSignal[];
   stats: EvolutionStats | null;
+  proposals: readonly EvolutionProposal[];
+  proposalCounts: ProposalCounts;
   connected: boolean;
   channel: Channel | null;
   loadRules: (opts?: { status?: string }) => Promise<void>;
   loadSignals: () => Promise<void>;
   loadStats: () => Promise<void>;
+  loadProposals: () => Promise<void>;
   connect: () => Promise<void>;
   createRule: (data: { content: string; source?: string }) => Promise<void>;
   updateRule: (id: string, data: Partial<BehaviorRule>) => Promise<void>;
@@ -22,12 +42,16 @@ interface EvolutionState {
   getVersionHistory: (id: string) => Promise<readonly BehaviorRule[]>;
   triggerScan: () => Promise<void>;
   proposeEvolution: (instruction: string) => Promise<void>;
+  generateFromSignals: () => Promise<void>;
+  approveProposal: (id: string) => Promise<void>;
 }
 
 export const useEvolutionStore = create<EvolutionState>((set) => ({
   rules: [],
   signals: [],
   stats: null,
+  proposals: [],
+  proposalCounts: { generated: 0, accepted: 0, implemented: 0 },
   connected: false,
   channel: null,
 
@@ -45,6 +69,21 @@ export const useEvolutionStore = create<EvolutionState>((set) => ({
   async loadStats() {
     const data = await api.get<EvolutionStats>("/evolution/stats");
     set({ stats: data });
+  },
+
+  async loadProposals() {
+    try {
+      const data = await api.get<{ proposals: EvolutionProposal[] }>("/proposals");
+      const proposals = data.proposals ?? [];
+      const counts: ProposalCounts = {
+        generated: proposals.length,
+        accepted: proposals.filter((p) => p.status === "approved" || p.status === "accepted").length,
+        implemented: proposals.filter((p) => p.status === "implemented" || p.status === "completed").length,
+      };
+      set({ proposals, proposalCounts: counts });
+    } catch {
+      // silent
+    }
   },
 
   async connect() {
@@ -102,5 +141,15 @@ export const useEvolutionStore = create<EvolutionState>((set) => ({
 
   async proposeEvolution(instruction) {
     await api.post("/evolution/propose", { instruction });
+  },
+
+  async generateFromSignals() {
+    await api.post("/proposals/generate", { seed: "system self-improvement", mode: "refactor" });
+    await useEvolutionStore.getState().loadProposals();
+  },
+
+  async approveProposal(id: string) {
+    await api.post(`/proposals/${id}/approve`, {});
+    await useEvolutionStore.getState().loadProposals();
   },
 }));

@@ -15,6 +15,22 @@ interface TokenSummary {
   readonly as_of: string;
 }
 
+interface ExecutionRecord {
+  readonly id: string;
+  readonly mode: string;
+  readonly status: string;
+  readonly metadata: Record<string, unknown> | null;
+  readonly inserted_at: string;
+  readonly completed_at: string | null;
+}
+
+interface ModeBreakdown {
+  readonly mode: string;
+  readonly count: number;
+  readonly total_cost: number;
+  readonly avg_cost: number;
+}
+
 interface BreakdownRow {
   readonly key: string;
   readonly total_cost: number;
@@ -57,6 +73,9 @@ interface TokenState {
   forecast: Forecast | null;
   budget: Budget | null;
   alerts: readonly CostAlert[];
+  modeBreakdown: readonly ModeBreakdown[];
+  avgCostPerExecution: number;
+  totalExecutions: number;
   loading: boolean;
   connected: boolean;
   channel: Channel | null;
@@ -65,6 +84,7 @@ interface TokenState {
   loadHistory: () => Promise<void>;
   loadForecast: () => Promise<void>;
   loadBudget: () => Promise<void>;
+  loadExecutionStats: () => Promise<void>;
   setBudget: (amount: number) => Promise<void>;
   clearAlerts: () => void;
 }
@@ -75,6 +95,9 @@ export const useTokenStore = create<TokenState>((set, get) => ({
   forecast: null,
   budget: null,
   alerts: [],
+  modeBreakdown: [],
+  avgCostPerExecution: 0,
+  totalExecutions: 0,
   loading: false,
   connected: false,
   channel: null,
@@ -95,6 +118,7 @@ export const useTokenStore = create<TokenState>((set, get) => ({
         budget,
         loading: false,
       });
+      get().loadExecutionStats().catch(() => {});
     } catch {
       set({ loading: false });
     }
@@ -165,6 +189,44 @@ export const useTokenStore = create<TokenState>((set, get) => ({
     try {
       const budget = await api.get<Budget>("/tokens/budget");
       set({ budget });
+    } catch {
+      // silent
+    }
+  },
+
+  loadExecutionStats: async () => {
+    try {
+      const res = await api.get<{ executions: ExecutionRecord[] }>("/executions");
+      const execs = res.executions ?? [];
+      const completed = execs.filter((e) => e.status === "completed");
+
+      // Per-mode breakdown
+      const modeMap = new Map<string, { count: number; total_cost: number }>();
+      for (const e of completed) {
+        const mode = e.mode || "unknown";
+        const cost = (e.metadata as Record<string, unknown> | null)?.total_cost_usd;
+        const costNum = typeof cost === "number" ? cost : 0;
+        const existing = modeMap.get(mode) ?? { count: 0, total_cost: 0 };
+        modeMap.set(mode, { count: existing.count + 1, total_cost: existing.total_cost + costNum });
+      }
+
+      const modeBreakdown: ModeBreakdown[] = Array.from(modeMap.entries())
+        .map(([mode, { count, total_cost }]) => ({
+          mode,
+          count,
+          total_cost,
+          avg_cost: count > 0 ? total_cost / count : 0,
+        }))
+        .sort((a, b) => b.total_cost - a.total_cost);
+
+      const totalCost = modeBreakdown.reduce((s, m) => s + m.total_cost, 0);
+      const totalCount = completed.length;
+
+      set({
+        modeBreakdown,
+        avgCostPerExecution: totalCount > 0 ? totalCost / totalCount : 0,
+        totalExecutions: totalCount,
+      });
     } catch {
       // silent
     }

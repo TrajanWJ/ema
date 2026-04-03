@@ -6,10 +6,14 @@ import type { Channel } from "phoenix";
 interface Container {
   readonly ID?: string;
   readonly Names?: string;
+  readonly name?: string;
   readonly Image?: string;
   readonly Status?: string;
   readonly State?: string;
+  readonly state?: string;
+  readonly status?: string;
   readonly Ports?: string;
+  readonly health?: string;
 }
 
 interface VmHealth {
