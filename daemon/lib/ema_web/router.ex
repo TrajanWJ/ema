@@ -92,7 +92,8 @@ defmodule EmaWeb.Router do
     post "/responsibilities/:id/check-in", ResponsibilityController, :check_in
     resources "/responsibilities", ResponsibilityController, except: [:new, :edit]
 
-    # Agents
+    # Agents — specific routes before resources to avoid :id shadowing
+    get "/agents/network/status", AgentController, :network_status
     resources "/agents", AgentController, param: "id", except: [:new, :edit]
     post "/agents/:slug/chat", AgentController, :chat
     get "/agents/:slug/conversations", AgentController, :conversations
@@ -101,6 +102,9 @@ defmodule EmaWeb.Router do
     put "/agents/:slug/channels/:id", AgentChannelController, :update
     delete "/agents/:slug/channels/:id", AgentChannelController, :delete
     post "/agents/:slug/channels/:id/test", AgentChannelController, :test_connection
+
+    # Notes
+    resources "/notes", NotesController, except: [:new, :edit]
 
     # Canvases
     resources "/canvases", CanvasController, except: [:new, :edit]
@@ -132,6 +136,13 @@ defmodule EmaWeb.Router do
     get "/channels/inbox", ChannelsController, :inbox
     get "/channels/:channel_id/messages", ChannelsController, :messages
     post "/channels/:channel_id/messages", ChannelsController, :send_message
+
+    # AI Sessions (streaming conversations)
+    get "/ai-sessions", AiSessionController, :index
+    post "/ai-sessions", AiSessionController, :create
+    get "/ai-sessions/:id", AiSessionController, :show
+    post "/ai-sessions/:id/resume", AiSessionController, :resume
+    post "/ai-sessions/:id/fork", AiSessionController, :fork
 
     # Claude Sessions (Bridge)
     get "/claude-sessions", ClaudeSessionController, :index

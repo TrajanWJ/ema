@@ -19,6 +19,9 @@ defmodule Ema.Application do
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         {Task.Supervisor, name: Ema.TaskSupervisor},
         Ema.Agents.Supervisor,
+        Ema.Agents.NetworkMonitor,
+        # AI session tracking
+        Ema.Claude.SessionManager,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
         Ema.Pipes.Supervisor
       ] ++
@@ -32,6 +35,7 @@ defmodule Ema.Application do
         maybe_start_metamind() ++
         maybe_start_evolution() ++
         maybe_start_voice() ++
+        maybe_start_harvesters() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -132,6 +136,14 @@ defmodule Ema.Application do
   defp maybe_start_metamind do
     if Application.get_env(:ema, :metamind)[:enabled] do
       [Ema.MetaMind.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_harvesters do
+    if Application.get_env(:ema, :start_harvesters, true) do
+      [Ema.Harvesters.Supervisor]
     else
       []
     end
