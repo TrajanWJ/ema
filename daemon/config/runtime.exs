@@ -29,6 +29,18 @@ config :ema, :openclaw,
   default_agent: System.get_env("OPENCLAW_DEFAULT_AGENT", "main"),
   timeout: String.to_integer(System.get_env("OPENCLAW_TIMEOUT", "120"))
 
+# Git repositories to watch for wiki sync
+config :ema, :git_watch_paths,
+  String.split(
+    System.get_env(
+      "GIT_WATCH_PATHS",
+      "#{Path.expand("~/Projects/ema")},#{Path.expand("~/Desktop/place.org")},#{Path.expand("~/Desktop/JarvisAI")}"
+    ),
+    ","
+  )
+  |> Enum.map(&String.trim/1)
+  |> Enum.filter(&(String.length(&1) > 0))
+
 if config_env() == :prod do
   config :ema, Ema.Repo,
     database: System.get_env("DATABASE_PATH") || Path.expand("~/.local/share/ema/ema.db"),

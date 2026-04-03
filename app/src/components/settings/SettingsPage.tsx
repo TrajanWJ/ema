@@ -1,7 +1,9 @@
 import { useSettingsStore } from "@/stores/settings-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { useVoiceStore } from "@/stores/voice-store";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { VoiceMicSetup } from "@/components/voice/VoiceMicSetup";
 
 const COLOR_MODE_OPTIONS = [
   { value: "dark" as const, label: "Dark" },
@@ -188,6 +190,9 @@ export function SettingsPage() {
         </div>
       </GlassCard>
 
+      {/* Voice / Jarvis */}
+      <VoiceSettingsSection />
+
       {/* Data */}
       <GlassCard>
         <SectionHeader title="Data" />
@@ -260,5 +265,42 @@ export function SettingsPage() {
         </div>
       </GlassCard>
     </div>
+  );
+}
+
+function VoiceSettingsSection() {
+  const voiceSettings = useVoiceStore((s) => s.settings);
+  const audioLevel = useVoiceStore((s) => s.audioLevel);
+  const updateSettings = useVoiceStore((s) => s.updateSettings);
+  const orbVisible = useVoiceStore((s) => s.orbVisible);
+  const setOrbVisible = useVoiceStore((s) => s.setOrbVisible);
+
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-3">
+        <h3
+          className="text-[0.7rem] font-medium uppercase tracking-wider"
+          style={{ color: "var(--pn-text-secondary)" }}
+        >
+          Voice / Jarvis
+        </h3>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <span className="text-[0.7rem]" style={{ color: "var(--pn-text-tertiary)" }}>
+            Show Orb
+          </span>
+          <input
+            type="checkbox"
+            checked={orbVisible}
+            onChange={(e) => setOrbVisible(e.target.checked)}
+            className="rounded accent-[var(--color-pn-primary-400)]"
+          />
+        </label>
+      </div>
+      <VoiceMicSetup
+        settings={voiceSettings}
+        onSettingsChange={updateSettings}
+        audioLevel={audioLevel}
+      />
+    </GlassCard>
   );
 }

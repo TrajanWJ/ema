@@ -96,6 +96,71 @@ defmodule EmaWeb.CanvasController do
     end
   end
 
+  # --- Templates ---
+
+  def templates(conn, params) do
+    templates =
+      case params["category"] do
+        nil -> Canvases.list_templates()
+        cat -> Canvases.list_templates_by_category(cat)
+      end
+
+    json(conn, %{templates: Enum.map(templates, &serialize_template/1)})
+  end
+
+  def create_template(conn, params) do
+    attrs = %{
+      name: params["name"],
+      description: params["description"],
+      category: params["category"] || "general",
+      layout_json: if(is_map(params["layout_json"]), do: Jason.encode!(params["layout_json"]), else: params["layout_json"]),
+      thumbnail: params["thumbnail"]
+    }
+
+    with {:ok, template} <- Canvases.create_template(attrs) do
+      conn
+      |> put_status(:created)
+      |> json(serialize_template(template))
+    end
+  end
+
+  def instantiate_template(conn, %{"id" => template_id} = params) do
+    overrides = %{
+      name: params["name"],
+      project_id: params["project_id"]
+    }
+
+    case Canvases.instantiate_template(template_id, overrides) do
+      {:ok, canvas} ->
+        conn
+        |> put_status(:created)
+        |> json(serialize_canvas_with_elements(canvas))
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "template not found"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: inspect(reason)})
+    end
+  end
+
+  defp serialize_template(template) do
+    %{
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      category: template.category,
+      layout_json: template.layout_json,
+      thumbnail: template.thumbnail,
+      created_at: template.inserted_at,
+      updated_at: template.updated_at
+    }
+  end
+
   defp serialize_canvas(canvas) do
     %{
       id: canvas.id,

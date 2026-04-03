@@ -25,7 +25,10 @@ defmodule Ema.Application do
         # Focus timer GenServer
         Ema.Focus.Timer,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
-        Ema.Pipes.Supervisor
+        Ema.Pipes.Supervisor,
+        # CLI Manager — process registry and supervisor for session runners
+        {Registry, keys: :unique, name: Ema.CliManager.Registry},
+        {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
       ] ++
         maybe_start_bridge() ++
         maybe_start_claude_sessions() ++
@@ -37,7 +40,9 @@ defmodule Ema.Application do
         maybe_start_metamind() ++
         maybe_start_evolution() ++
         maybe_start_voice() ++
+        maybe_start_git_watcher() ++
         maybe_start_harvesters() ++
+        maybe_start_openclaw() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -143,9 +148,25 @@ defmodule Ema.Application do
     end
   end
 
+  defp maybe_start_git_watcher do
+    if Application.get_env(:ema, :start_git_watcher, true) do
+      [Ema.Intelligence.GitWatcher]
+    else
+      []
+    end
+  end
+
   defp maybe_start_harvesters do
     if Application.get_env(:ema, :start_harvesters, true) do
       [Ema.Harvesters.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_openclaw do
+    if Application.get_env(:ema, :start_openclaw, true) do
+      [Ema.OpenClaw.AgentBridge]
     else
       []
     end

@@ -7,6 +7,8 @@ import type { Proposal, Seed, ProposalSortKey, ProposalSortDir } from "@/types/p
 interface ProposalsState {
   proposals: readonly Proposal[];
   seeds: readonly Seed[];
+  loading: boolean;
+  error: string | null;
   connected: boolean;
   channel: Channel | null;
   sortKey: ProposalSortKey;
@@ -29,6 +31,8 @@ interface ProposalsState {
 export const useProposalsStore = create<ProposalsState>((set) => ({
   proposals: [],
   seeds: [],
+  loading: false,
+  error: null,
   connected: false,
   channel: null,
   sortKey: "created_at",

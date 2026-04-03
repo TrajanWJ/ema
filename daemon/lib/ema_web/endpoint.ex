@@ -38,6 +38,8 @@ defmodule EmaWeb.Endpoint do
     websocket: [timeout: 45_000, check_origin: false],
     longpoll: false
 
+  plug EmaWeb.CORSPlug
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 

@@ -11,6 +11,12 @@ defmodule Ema.Canvas.Supervisor do
       Ema.Canvas.DataRefresher
     ]
 
+    # Seed stock templates after a short delay so Repo is ready
+    Task.start(fn ->
+      Process.sleep(1_000)
+      Ema.Canvases.seed_stock_templates()
+    end)
+
     Supervisor.init(children, strategy: :one_for_one)
   end
 end

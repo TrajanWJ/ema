@@ -32,6 +32,8 @@ interface DashboardSnapshot {
 
 interface DashboardState {
   snapshot: DashboardSnapshot | null;
+  loading: boolean;
+  error: string | null;
   connected: boolean;
   channel: Channel | null;
   loadViaRest: () => Promise<void>;
@@ -40,19 +42,30 @@ interface DashboardState {
 
 export const useDashboardStore = create<DashboardState>((set) => ({
   snapshot: null,
+  loading: false,
+  error: null,
   connected: false,
   channel: null,
 
   async loadViaRest() {
-    const snapshot = await api.get<DashboardSnapshot>("/dashboard/today");
-    set({ snapshot });
+    set({ loading: true, error: null });
+    try {
+      const snapshot = await api.get<DashboardSnapshot>("/dashboard/today");
+      set({ snapshot, loading: false });
+    } catch (e) {
+      set({ loading: false, error: e instanceof Error ? e.message : "Load failed" });
+    }
   },
 
   async connect() {
-    const { channel } = await joinChannel("dashboard:lobby");
-    set({ channel, connected: true });
-    channel.on("snapshot", (snapshot: DashboardSnapshot) => {
-      set({ snapshot });
-    });
+    try {
+      const { channel } = await joinChannel("dashboard:lobby");
+      set({ channel, connected: true });
+      channel.on("snapshot", (snapshot: DashboardSnapshot) => {
+        set({ snapshot });
+      });
+    } catch (e) {
+      console.warn("Channel connect failed:", e);
+    }
   },
 }));

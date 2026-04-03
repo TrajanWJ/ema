@@ -6,6 +6,8 @@ import type { InboxItem } from "@/types/brain-dump";
 
 interface BrainDumpState {
   items: readonly InboxItem[];
+  loading: boolean;
+  error: string | null;
   connected: boolean;
   channel: Channel | null;
   loadViaRest: () => Promise<void>;

@@ -2,15 +2,17 @@ import { create } from "zustand";
 import { joinChannel } from "@/lib/ws";
 import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
-import type { Canvas, CanvasElement } from "@/types/canvas";
+import type { Canvas, CanvasElement, CanvasTemplate } from "@/types/canvas";
 
 interface CanvasState {
   canvases: readonly Canvas[];
   selectedCanvasId: string | null;
   elements: readonly CanvasElement[];
+  templates: readonly CanvasTemplate[];
   connected: boolean;
   channel: Channel | null;
   loadViaRest: () => Promise<void>;
+  loadTemplates: () => Promise<void>;
   createCanvas: (data: {
     name: string;
     description?: string;
@@ -24,12 +26,14 @@ interface CanvasState {
   addElement: (data: Partial<CanvasElement>) => Promise<void>;
   updateElement: (elementId: string, data: Partial<CanvasElement>) => Promise<void>;
   removeElement: (elementId: string) => Promise<void>;
+  instantiateTemplate: (templateId: string, name?: string, projectId?: string) => Promise<void>;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvases: [],
   selectedCanvasId: null,
   elements: [],
+  templates: [],
   connected: false,
   channel: null,
 
@@ -38,9 +42,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ canvases: data.canvases });
   },
 
+  async loadTemplates() {
+    const data = await api.get<{ templates: CanvasTemplate[] }>("/canvas/templates");
+    set({ templates: data.templates });
+  },
+
   async createCanvas(data) {
     await api.post("/canvases", data);
-    // Reload the list after creating
     const resp = await api.get<{ canvases: Canvas[] }>("/canvases");
     set({ canvases: resp.canvases });
   },
@@ -53,17 +61,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   async selectCanvas(id) {
-    // Leave any existing canvas channel
     const existing = get().channel;
     if (existing) {
       existing.leave();
     }
 
-    // Join the canvas-specific channel for real-time element sync
     const { channel } = await joinChannel(`canvas:${id}`);
     set({ selectedCanvasId: id, channel, connected: true, elements: [] });
 
-    // The channel sends a "snapshot" event after join with full canvas + elements
     channel.on("snapshot", (payload: { elements: CanvasElement[] }) => {
       set({ elements: payload.elements });
     });
@@ -96,6 +101,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return { elements: reordered };
       });
     });
+
+    // Live data updates from server for data-bound elements
+    channel.on("element:data_updated", (payload: { element_id: string; data: unknown }) => {
+      set((state) => ({
+        elements: state.elements.map((e) =>
+          e.id === payload.element_id ? { ...e, live_data: payload.data } : e
+        ),
+      }));
+    });
   },
 
   leaveCanvas() {
@@ -124,5 +138,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const ch = get().channel;
     if (!ch) return;
     ch.push("element:delete", { id: elementId });
+  },
+
+  async instantiateTemplate(templateId, name, projectId) {
+    const resp = await api.post<Canvas>(`/canvas/${templateId}/instantiate-template`, {
+      name,
+      project_id: projectId,
+    });
+    // Reload and select the new canvas
+    await get().loadViaRest();
+    if (resp && "id" in resp) {
+      await get().selectCanvas((resp as Canvas).id);
+    }
   },
 }));

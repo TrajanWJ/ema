@@ -155,6 +155,11 @@ defmodule EmaWeb.AgentController do
     end
   end
 
+  def network_status(conn, _params) do
+    status = Ema.Agents.NetworkMonitor.get_status()
+    json(conn, status)
+  end
+
   # --- Serializers ---
 
   defp serialize_agent(agent) do

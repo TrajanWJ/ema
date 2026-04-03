@@ -8,6 +8,19 @@ defmodule EmaWeb.CanvasChannel do
     case Canvases.get_canvas_with_elements(canvas_id) do
       {:ok, canvas} ->
         socket = assign(socket, :canvas_id, canvas_id)
+
+        # Subscribe to live data topics so linked elements get pushed updates
+        for el <- canvas.elements do
+          if el.data_source && el.data_source != "" do
+            :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "canvas:data:#{el.id}")
+          end
+        end
+
+        # Subscribe to domain PubSub topics for cross-domain pushes
+        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "tasks:updates")
+        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
+        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "focus:updates")
+
         send(self(), {:send_canvas, canvas})
         {:ok, socket}
 
@@ -41,6 +54,7 @@ defmodule EmaWeb.CanvasChannel do
       {:ok, element} ->
         broadcast!(socket, "element:created", serialize_element(element))
         maybe_track_refresh(element)
+        maybe_subscribe_data(element)
         {:reply, {:ok, serialize_element(element)}, socket}
 
       {:error, changeset} ->
@@ -91,6 +105,48 @@ defmodule EmaWeb.CanvasChannel do
     end
   end
 
+  # Live data refresh from DataRefresher
+  @impl true
+  def handle_info({:data_refresh, element_id, data}, socket) do
+    push(socket, "element:data_updated", %{element_id: element_id, data: data})
+    {:noreply, socket}
+  end
+
+  # Domain event handlers — notify canvas clients when linked data changes
+  @impl true
+  def handle_info({:task_created, _task}, socket), do: push_domain_event(socket, "tasks")
+  def handle_info({:task_updated, _task}, socket), do: push_domain_event(socket, "tasks")
+  def handle_info({:proposals, _stage, _proposal}, socket), do: push_domain_event(socket, "proposals")
+  def handle_info({:session_started, _session}, socket), do: push_domain_event(socket, "focus")
+  def handle_info({:session_ended, _session}, socket), do: push_domain_event(socket, "focus")
+  # Catch-all for unhandled PubSub messages
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  defp push_domain_event(socket, domain) do
+    # Refresh all data-bound elements matching this domain
+    canvas_id = socket.assigns.canvas_id
+
+    case Canvases.get_canvas_with_elements(canvas_id) do
+      {:ok, canvas} ->
+        for el <- canvas.elements do
+          if el.data_source && String.starts_with?(el.data_source, domain) do
+            case Ema.Canvas.DataSource.fetch(el.data_source, el.data_config) do
+              {:ok, data} ->
+                push(socket, "element:data_updated", %{element_id: el.id, data: data})
+
+              _ ->
+                :ok
+            end
+          end
+        end
+
+      _ ->
+        :ok
+    end
+
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({:send_canvas, canvas}, socket) do
     elements = Enum.map(canvas.elements, &serialize_element/1)
@@ -118,6 +174,12 @@ defmodule EmaWeb.CanvasChannel do
   end
 
   defp maybe_track_refresh(_element), do: :ok
+
+  defp maybe_subscribe_data(%{data_source: ds} = element) when is_binary(ds) and ds != "" do
+    Phoenix.PubSub.subscribe(Ema.PubSub, "canvas:data:#{element.id}")
+  end
+
+  defp maybe_subscribe_data(_element), do: :ok
 
   defp serialize_element(element) do
     %{

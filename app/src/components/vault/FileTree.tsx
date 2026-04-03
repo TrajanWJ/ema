@@ -94,7 +94,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({ notes, onSelect }: FileTreeProps) {
-  const tree = useMemo(() => buildTree(notes), [notes]);
+  const tree = useMemo(() => buildTree(notes ?? []), [notes]);
 
   if (tree.length === 0) {
     return (

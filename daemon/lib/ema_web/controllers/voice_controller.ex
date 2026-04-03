@@ -57,6 +57,68 @@ defmodule EmaWeb.VoiceController do
     end
   end
 
+  @doc """
+  POST /api/voice/process — Stateless text processing endpoint.
+  Accepts {"text": "..."} and routes through CommandParser + Claude,
+  returning {"reply": "..."} for the frontend voice router fallback.
+  """
+  def process(conn, %{"text" => text}) when is_binary(text) and text != "" do
+    alias Ema.Voice.CommandParser
+
+    reply =
+      case CommandParser.parse(text) do
+        {:command, :open_app, app} ->
+          Phoenix.PubSub.broadcast(Ema.PubSub, "workspace:commands", {:open_app, app})
+          "Opening #{app}."
+
+        {:command, :create_task, content} ->
+          case Ema.Tasks.create_task(%{title: content, status: "todo"}) do
+            {:ok, task} -> "Task created: #{task.title}"
+            {:error, _} -> "I couldn't create that task."
+          end
+
+        {:command, :brain_dump, content} ->
+          case Ema.BrainDump.create_item(%{content: content, source: "voice"}) do
+            {:ok, _item} -> "Captured to brain dump."
+            {:error, _} -> "Failed to capture that."
+          end
+
+        {:command, :ask_claude, question} ->
+          case Ema.Claude.Runner.run(question, timeout: 60_000) do
+            {:ok, response} -> response
+            {:error, _} -> "I couldn't reach Claude right now."
+          end
+
+        {:command, :show, target} ->
+          Phoenix.PubSub.broadcast(Ema.PubSub, "workspace:commands", {:navigate, target})
+          "Showing #{target}."
+
+        {:command, _other, raw} ->
+          "I'm not sure how to handle: #{raw}"
+
+        :conversation ->
+          prompt = """
+          You are Jarvis, an AI assistant integrated into EMA.
+          Be concise, helpful, and slightly formal. Keep responses under 3 sentences.
+
+          User: #{text}
+          """
+
+          case Ema.Claude.Runner.run(prompt, timeout: 60_000) do
+            {:ok, response} -> response
+            {:error, _} -> "I'm having trouble processing that right now."
+          end
+      end
+
+    json(conn, %{reply: reply})
+  end
+
+  def process(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "missing or empty text parameter"})
+  end
+
   def end_session(conn, %{"id" => session_id}) do
     try do
       VoiceCore.stop(session_id)

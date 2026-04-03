@@ -25,6 +25,6 @@ defmodule Ema.Notes.Note do
   def changeset(note, attrs) do
     note
     |> cast(attrs, [:id, :title, :content, :source_type, :source_id])
-    |> validate_required([:id])
+    |> validate_required([:id, :title])
   end
 end

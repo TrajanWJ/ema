@@ -18,6 +18,11 @@ export interface VoiceSettings {
   speed: number;
   listenMode: ListenMode;
   muted: boolean;
+  inputDeviceId: string;
+  silenceThreshold: number;
+  whisperModel: "tiny" | "base";
+  wakeWord: string;
+  useLocalWhisper: boolean;
 }
 
 interface VoiceStoreState {
@@ -30,6 +35,10 @@ interface VoiceStoreState {
   voiceState: VoiceState;
   transcript: readonly TranscriptEntry[];
   audioLevel: number;
+
+  // Floating orb
+  orbVisible: boolean;
+  historyOpen: boolean;
 
   // Settings
   settings: VoiceSettings;
@@ -45,14 +54,40 @@ interface VoiceStoreState {
   setAudioLevel: (level: number) => void;
   updateSettings: (settings: Partial<VoiceSettings>) => void;
   toggleMute: () => void;
+  setOrbVisible: (visible: boolean) => void;
+  toggleHistory: () => void;
+  addTranscriptEntry: (entry: Omit<TranscriptEntry, "id" | "timestamp">) => void;
 }
 
-const DEFAULT_SETTINGS: VoiceSettings = {
-  voice: "onyx",
-  speed: 1.0,
-  listenMode: "push-to-talk",
-  muted: false,
-};
+const SETTINGS_KEY = "ema-voice-settings";
+
+function loadPersistedSettings(): VoiceSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return JSON.parse(raw) as VoiceSettings;
+  } catch {
+    // corrupt storage — use defaults
+  }
+  return {
+    voice: "onyx",
+    speed: 1.0,
+    listenMode: "push-to-talk",
+    muted: false,
+    inputDeviceId: "",
+    silenceThreshold: 1.5,
+    whisperModel: "tiny",
+    wakeWord: "hey ema",
+    useLocalWhisper: false,
+  };
+}
+
+function persistSettings(settings: VoiceSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // quota exceeded — ignore
+  }
+}
 
 export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
   channel: null,
@@ -61,7 +96,9 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
   voiceState: "idle",
   transcript: [],
   audioLevel: 0,
-  settings: { ...DEFAULT_SETTINGS },
+  orbVisible: true,
+  historyOpen: false,
+  settings: loadPersistedSettings(),
 
   async connect() {
     try {
@@ -197,6 +234,7 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
     const { channel, settings } = get();
     const updated = { ...settings, ...partial };
     set({ settings: updated });
+    persistSettings(updated);
 
     // Sync TTS config to backend
     if (partial.voice !== undefined || partial.speed !== undefined) {
@@ -208,5 +246,22 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
     set((s) => ({
       settings: { ...s.settings, muted: !s.settings.muted },
     }));
+  },
+
+  setOrbVisible(orbVisible: boolean) {
+    set({ orbVisible });
+  },
+
+  toggleHistory() {
+    set((s) => ({ historyOpen: !s.historyOpen }));
+  },
+
+  addTranscriptEntry(entry: Omit<TranscriptEntry, "id" | "timestamp">) {
+    const full: TranscriptEntry = {
+      ...entry,
+      id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: new Date().toISOString(),
+    };
+    set((s) => ({ transcript: [...s.transcript, full] }));
   },
 }));

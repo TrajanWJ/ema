@@ -5,7 +5,7 @@ defmodule Ema.Canvases do
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.Canvas.{Canvas, Element}
+  alias Ema.Canvas.{Canvas, CanvasTemplate, Element}
 
   # --- Canvases ---
 
@@ -111,6 +111,96 @@ defmodule Ema.Canvases do
         |> Repo.update_all(set: [z_index: index])
       end)
     end)
+  end
+
+  # --- Templates ---
+
+  def list_templates do
+    CanvasTemplate
+    |> order_by(asc: :category)
+    |> Repo.all()
+  end
+
+  def list_templates_by_category(category) do
+    CanvasTemplate
+    |> where([t], t.category == ^category)
+    |> order_by(asc: :name)
+    |> Repo.all()
+  end
+
+  def get_template(id) do
+    case Repo.get(CanvasTemplate, id) do
+      nil -> {:error, :not_found}
+      template -> {:ok, template}
+    end
+  end
+
+  def create_template(attrs) do
+    id = generate_id("tpl")
+
+    %CanvasTemplate{}
+    |> CanvasTemplate.changeset(Map.put(attrs, :id, id))
+    |> Repo.insert()
+  end
+
+  def seed_stock_templates do
+    for tpl <- CanvasTemplate.stock_templates() do
+      case Repo.get(CanvasTemplate, tpl.id) do
+        nil ->
+          %CanvasTemplate{}
+          |> CanvasTemplate.changeset(tpl)
+          |> Repo.insert!()
+
+        _existing ->
+          :ok
+      end
+    end
+  end
+
+  @doc """
+  Instantiate a template into a new canvas with pre-populated elements.
+  Optionally override the canvas name and project_id.
+  """
+  def instantiate_template(template_id, overrides \\ %{}) do
+    with {:ok, template} <- get_template(template_id),
+         {:ok, layout} <- Jason.decode(template.layout_json) do
+      canvas_attrs =
+        %{
+          name: overrides[:name] || layout["canvas"]["name"] || template.name,
+          canvas_type: layout["canvas"]["canvas_type"] || "freeform",
+          description: template.description,
+          project_id: overrides[:project_id]
+        }
+
+      Repo.transaction(fn ->
+        {:ok, canvas} = create_canvas(canvas_attrs)
+
+        elements =
+          (layout["elements"] || [])
+          |> Enum.with_index()
+          |> Enum.map(fn {el_data, idx} ->
+            attrs = %{
+              element_type: el_data["element_type"],
+              x: el_data["x"] || 0,
+              y: el_data["y"] || 0,
+              width: el_data["width"] || 200,
+              height: el_data["height"] || 150,
+              text: el_data["text"],
+              style: el_data["style"] || %{},
+              data_source: el_data["data_source"],
+              data_config: el_data["data_config"] || %{},
+              chart_config: el_data["chart_config"] || %{},
+              refresh_interval: el_data["refresh_interval"],
+              z_index: idx
+            }
+
+            {:ok, element} = create_element(canvas.id, attrs)
+            element
+          end)
+
+        %{canvas | elements: elements}
+      end)
+    end
   end
 
   defp generate_id(prefix) do

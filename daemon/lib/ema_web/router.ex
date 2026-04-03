@@ -107,6 +107,11 @@ defmodule EmaWeb.Router do
     # Notes
     resources "/notes", NotesController, except: [:new, :edit]
 
+    # Canvas templates
+    get "/canvas/templates", CanvasController, :templates
+    post "/canvas/templates", CanvasController, :create_template
+    post "/canvas/:id/instantiate-template", CanvasController, :instantiate_template
+
     # Canvases
     resources "/canvases", CanvasController, except: [:new, :edit]
     get "/canvases/:id/export", CanvasController, :export
@@ -155,6 +160,7 @@ defmodule EmaWeb.Router do
     # Voice
     get "/voice/sessions", VoiceController, :sessions
     post "/voice/sessions", VoiceController, :create_session
+    post "/voice/process", VoiceController, :process
     delete "/voice/sessions/:id", VoiceController, :end_session
 
     # Vectors / Scoring
@@ -191,6 +197,41 @@ defmodule EmaWeb.Router do
     post "/focus/resume", FocusController, :resume
     post "/focus/break", FocusController, :take_break
     post "/focus/resume-work", FocusController, :resume_work
+
+    # Git Sync / Intelligence
+    get "/intelligence/git-events", GitSyncController, :index
+    get "/intelligence/git-events/:id/suggestions", GitSyncController, :suggestions
+    post "/intelligence/git-events/:id/apply/:action_id", GitSyncController, :apply_suggestion
+    get "/intelligence/sync-status", GitSyncController, :sync_status
+    post "/intelligence/git-events/scan", GitSyncController, :scan
+
+    # CLI Manager
+    get "/cli-manager/tools", CliManagerController, :list_tools
+    post "/cli-manager/tools", CliManagerController, :create_tool
+    get "/cli-manager/sessions", CliManagerController, :list_sessions
+    post "/cli-manager/sessions", CliManagerController, :create_session
+    post "/cli-manager/sessions/:id/stop", CliManagerController, :stop_session
+    post "/cli-manager/scan", CliManagerController, :scan
+
+    # OpenClaw Gateway
+    get "/openclaw/status", OpenClawController, :status
+    post "/openclaw/message", OpenClawController, :send_message
+    get "/openclaw/sessions", OpenClawController, :sessions
+    post "/openclaw/dispatch", OpenClawController, :dispatch
+
+    # Superman — Code Intelligence
+    get "/superman/health", SupermanController, :health
+    get "/superman/status", SupermanController, :status
+    post "/superman/index", SupermanController, :index_repo
+    post "/superman/ask", SupermanController, :ask
+    get "/superman/gaps", SupermanController, :gaps
+    get "/superman/flows", SupermanController, :flows
+    post "/superman/apply", SupermanController, :apply_change
+    get "/superman/intent", SupermanController, :intent_graph
+    post "/superman/simulate", SupermanController, :simulate
+    post "/superman/autonomous", SupermanController, :autonomous
+    get "/superman/panels", SupermanController, :panels
+    post "/superman/build", SupermanController, :build
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook

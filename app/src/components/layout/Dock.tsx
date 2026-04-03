@@ -20,6 +20,9 @@ const DOCK_APPS = [
   { id: "voice", icon: "\u25CE", label: "Jarvis" },
   { id: "goals", icon: "\u25CE", label: "Goals" },
   { id: "focus", icon: "\u23F1", label: "Focus" },
+  { id: "git-sync", icon: "\u2B82", label: "Git Sync" },
+  { id: "openclaw", icon: "\u2318", label: "OpenClaw" },
+  { id: "cli-manager", icon: "\u2395", label: "CLI Manager" },
 ] as const;
 
 export function Dock() {

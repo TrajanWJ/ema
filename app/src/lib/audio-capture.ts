@@ -8,6 +8,22 @@
 
 type AudioChunkCallback = (base64Chunk: string) => void;
 type AudioLevelCallback = (level: number) => void;
+type SpeechCallback = () => void;
+
+export interface VadConfig {
+  /** RMS level threshold below which audio is considered silence (0-1). Default 0.02 */
+  silenceThreshold: number;
+  /** Seconds of silence before utterance is considered ended. Default 1.5 */
+  silenceDurationSec: number;
+  /** Minimum speech duration in seconds to trigger. Default 0.3 */
+  minSpeechDurationSec: number;
+}
+
+const DEFAULT_VAD: VadConfig = {
+  silenceThreshold: 0.02,
+  silenceDurationSec: 1.5,
+  minSpeechDurationSec: 0.3,
+};
 
 interface CaptureState {
   stream: MediaStream | null;
@@ -16,6 +32,14 @@ interface CaptureState {
   recorder: MediaRecorder | null;
   rafId: number | null;
   levelCallback: AudioLevelCallback | null;
+  // VAD state
+  vadConfig: VadConfig;
+  vadEnabled: boolean;
+  isSpeech: boolean;
+  speechStartTime: number;
+  silenceStartTime: number;
+  onSpeechStart: SpeechCallback | null;
+  onSpeechEnd: SpeechCallback | null;
 }
 
 const state: CaptureState = {
@@ -25,6 +49,13 @@ const state: CaptureState = {
   recorder: null,
   rafId: null,
   levelCallback: null,
+  vadConfig: { ...DEFAULT_VAD },
+  vadEnabled: false,
+  isSpeech: false,
+  speechStartTime: 0,
+  silenceStartTime: 0,
+  onSpeechStart: null,
+  onSpeechEnd: null,
 };
 
 /**
@@ -103,6 +134,51 @@ export function isRecording(): boolean {
  */
 export function getAnalyser(): AnalyserNode | null {
   return state.analyser;
+}
+
+/**
+ * Enable Voice Activity Detection (VAD).
+ * When enabled, monitors audio levels and fires callbacks when speech starts/stops.
+ */
+export function enableVad(
+  config: Partial<VadConfig>,
+  onSpeechStart: SpeechCallback,
+  onSpeechEnd: SpeechCallback,
+): void {
+  state.vadConfig = { ...DEFAULT_VAD, ...config };
+  state.vadEnabled = true;
+  state.onSpeechStart = onSpeechStart;
+  state.onSpeechEnd = onSpeechEnd;
+  state.isSpeech = false;
+  state.silenceStartTime = 0;
+  state.speechStartTime = 0;
+}
+
+/**
+ * Disable Voice Activity Detection.
+ */
+export function disableVad(): void {
+  state.vadEnabled = false;
+  state.onSpeechStart = null;
+  state.onSpeechEnd = null;
+}
+
+/**
+ * Update VAD configuration without toggling it off.
+ */
+export function updateVadConfig(config: Partial<VadConfig>): void {
+  state.vadConfig = { ...state.vadConfig, ...config };
+}
+
+/**
+ * Get raw Float32Array PCM samples from the current audio stream.
+ * Useful for feeding directly to Whisper.
+ */
+export function getRawAudioData(): Float32Array | null {
+  if (!state.audioContext || !state.analyser) return null;
+  const data = new Float32Array(state.analyser.fftSize);
+  state.analyser.getFloatTimeDomainData(data);
+  return data;
 }
 
 /**
@@ -203,6 +279,34 @@ function startLevelMonitoring(): void {
     }
     const rms = Math.sqrt(sum / dataArray.length);
     state.levelCallback(rms);
+
+    // Voice Activity Detection
+    if (state.vadEnabled) {
+      const now = performance.now() / 1000;
+      const { silenceThreshold, silenceDurationSec, minSpeechDurationSec } = state.vadConfig;
+
+      if (rms > silenceThreshold) {
+        // Audio above threshold — speech detected
+        state.silenceStartTime = 0;
+        if (!state.isSpeech) {
+          state.isSpeech = true;
+          state.speechStartTime = now;
+          state.onSpeechStart?.();
+        }
+      } else if (state.isSpeech) {
+        // Audio below threshold while in speech — potential silence
+        if (state.silenceStartTime === 0) {
+          state.silenceStartTime = now;
+        }
+        const silenceDuration = now - state.silenceStartTime;
+        const speechDuration = now - state.speechStartTime;
+        if (silenceDuration >= silenceDurationSec && speechDuration >= minSpeechDurationSec) {
+          state.isSpeech = false;
+          state.silenceStartTime = 0;
+          state.onSpeechEnd?.();
+        }
+      }
+    }
 
     state.rafId = requestAnimationFrame(tick);
   }

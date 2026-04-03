@@ -19,12 +19,16 @@ import { ClaudeBridgeApp } from "@/components/claude-bridge/ClaudeBridgeApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
 import { GoalsApp } from "@/components/goals/GoalsApp";
 import { FocusApp } from "@/components/focus/FocusApp";
+import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
+import { OpenClawApp } from "@/components/openclaw/OpenClawApp";
+import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
+import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
 }
 
-export default function App() {
+function AppContent() {
   const route = getRoute();
 
   switch (route) {
@@ -66,6 +70,12 @@ export default function App() {
       return <GoalsApp />;
     case "focus":
       return <FocusApp />;
+    case "git-sync":
+      return <GitSyncApp />;
+    case "openclaw":
+      return <OpenClawApp />;
+    case "cli-manager":
+      return <CliManagerApp />;
     default:
       return (
         <Shell>
@@ -73,4 +83,13 @@ export default function App() {
         </Shell>
       );
   }
+}
+
+export default function App() {
+  return (
+    <>
+      <AppContent />
+      <VoiceOverlay />
+    </>
+  );
 }

@@ -2,6 +2,7 @@ import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useHabitsStore } from "@/stores/habits-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useJournalStore } from "@/stores/journal-store";
+import { useGitSyncStore } from "@/stores/git-sync-store";
 import { openApp } from "@/lib/window-manager";
 import { APP_CONFIGS } from "@/types/workspace";
 import { AppTile } from "./AppTile";
@@ -47,6 +48,9 @@ const NEW_APPS = [
   { id: "claude-bridge", name: "Claude Bridge", status: "interactive sessions" },
   { id: "goals", name: "Goals", status: "goal tracking" },
   { id: "focus", name: "Focus", status: "deep work timer" },
+  { id: "git-sync", name: "Git Sync", status: "wiki auto-sync" },
+  { id: "openclaw", name: "OpenClaw", status: "gateway bridge" },
+  { id: "cli-manager", name: "CLI Manager", status: "agent sessions" },
 ] as const;
 
 export function Launchpad() {
@@ -55,6 +59,7 @@ export function Launchpad() {
   const todayLogs = useHabitsStore((s) => s.todayLogs);
   const entry = useJournalStore((s) => s.currentEntry);
   const windows = useWorkspaceStore((s) => s.windows);
+  const pendingSuggestions = useGitSyncStore((s) => s.syncStatus?.pending_suggestions ?? 0);
 
   const unprocessedCount = inboxItems.filter((i) => !i.processed).length;
   const completedToday = todayLogs.filter((l) => l.completed).length;
@@ -130,6 +135,7 @@ export function Launchpad() {
         {/* New Apps */}
         {NEW_APPS.map((app) => {
           const appConfig = APP_CONFIGS[app.id];
+          const badge = app.id === "git-sync" ? pendingSuggestions : undefined;
           return (
             <AppTile
               key={app.id}
@@ -137,7 +143,8 @@ export function Launchpad() {
               name={app.name}
               icon={appConfig?.icon ?? "\u25A1"}
               accent={appConfig?.accent ?? "var(--pn-text-tertiary)"}
-              status={app.status}
+              badge={badge}
+              status={app.id === "git-sync" && pendingSuggestions > 0 ? `${pendingSuggestions} pending` : app.status}
               onClick={() => handleOpenApp(app.id)}
             />
           );

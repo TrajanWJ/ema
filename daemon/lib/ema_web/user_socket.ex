@@ -14,6 +14,7 @@ defmodule EmaWeb.UserSocket do
   channel "vault:*", EmaWeb.VaultChannel
   channel "pipes:*", EmaWeb.PipesChannel
   channel "responsibilities:*", EmaWeb.ResponsibilityChannel
+  channel "agent_network:*", EmaWeb.AgentNetworkChannel
   channel "agents:lobby", EmaWeb.AgentLobbyChannel
   channel "agents:chat:*", EmaWeb.AgentChatChannel
   channel "canvas:*", EmaWeb.CanvasChannel
@@ -24,6 +25,10 @@ defmodule EmaWeb.UserSocket do
   channel "metamind:*", EmaWeb.MetaMindChannel
   channel "goals:*", EmaWeb.GoalChannel
   channel "focus:*", EmaWeb.FocusChannel
+  channel "notes:*", EmaWeb.NotesChannel
+  channel "openclaw:*", EmaWeb.OpenClawChannel
+  channel "cli_manager:*", EmaWeb.CliManagerChannel
+  channel "superman:*", EmaWeb.SupermanChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

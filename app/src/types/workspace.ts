@@ -190,5 +190,32 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#f43f5e",
     icon: "\u23F1",
   },
+  "git-sync": {
+    title: "Git Sync",
+    defaultWidth: 900,
+    defaultHeight: 700,
+    minWidth: 700,
+    minHeight: 500,
+    accent: "#f97316",
+    icon: "\u2B82",
+  },
+  openclaw: {
+    title: "OpenClaw",
+    defaultWidth: 900,
+    defaultHeight: 700,
+    minWidth: 700,
+    minHeight: 500,
+    accent: "#f97316",
+    icon: "\u2318",
+  },
+  "cli-manager": {
+    title: "CLI Manager",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#10b981",
+    icon: "\u2395",
+  },
 } as const;
 

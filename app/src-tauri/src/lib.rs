@@ -2,9 +2,16 @@ use std::env;
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
+
+/// Global handle so ensure_daemon can store the child for later cleanup.
+static DAEMON_CHILD: OnceLock<Mutex<Option<Child>>> = OnceLock::new();
+
+fn daemon_child() -> &'static Mutex<Option<Child>> {
+    DAEMON_CHILD.get_or_init(|| Mutex::new(None))
+}
 
 use tauri::{
     Manager, RunEvent,
@@ -116,14 +123,38 @@ fn wait_for_daemon() {
     log::warn!("Daemon did not become ready within 15s — frontend will retry");
 }
 
+/// Tauri command: start daemon from frontend if it's not running.
+#[tauri::command]
+fn ensure_daemon() -> Result<String, String> {
+    if daemon_is_running() {
+        return Ok("already_running".into());
+    }
+    match start_daemon() {
+        Some(child) => {
+            *daemon_child().lock().unwrap() = Some(child);
+            wait_for_daemon();
+            if daemon_is_running() {
+                Ok("started".into())
+            } else {
+                Err("Daemon spawned but did not become ready".into())
+            }
+        }
+        None => Err("Failed to spawn daemon process".into()),
+    }
+}
+
+/// Tauri command: check if daemon is reachable.
+#[tauri::command]
+fn check_daemon() -> bool {
+    daemon_is_running()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let daemon_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
-
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
+        .invoke_handler(tauri::generate_handler![ensure_daemon, check_daemon])
         .setup({
-            let daemon_process = daemon_process.clone();
             move |app| {
                 if cfg!(debug_assertions) {
                     app.handle().plugin(
@@ -134,11 +165,10 @@ pub fn run() {
                 }
 
                 // Start the Phoenix daemon
-                let child = start_daemon();
-                if child.is_some() {
+                if let Some(child) = start_daemon() {
+                    *daemon_child().lock().unwrap() = Some(child);
                     wait_for_daemon();
                 }
-                *daemon_process.lock().unwrap() = child;
 
                 // Build tray menu
                 let show = MenuItemBuilder::with_id("show", "Show Launchpad").build(app)?;
@@ -187,7 +217,7 @@ pub fn run() {
 
     app.run(move |_app, event| {
         if let RunEvent::Exit = event {
-            let mut guard = daemon_process.lock().unwrap();
+            let mut guard = daemon_child().lock().unwrap();
             if let Some(ref mut child) = *guard {
                 log::info!("Shutting down daemon (pid {})", child.id());
                 let _ = child.kill();

@@ -4,7 +4,7 @@ const BASE = "http://localhost:4488/api";
 
 // Use Tauri's HTTP plugin which bypasses CORS and respects capability permissions.
 // In Tauri 2, the global is __TAURI_INTERNALS__ (not __TAURI__).
-const doFetch =
+export const doFetch =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
     ? tauriFetch
     : globalThis.fetch;
