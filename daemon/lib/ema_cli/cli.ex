@@ -52,7 +52,7 @@ defmodule EmaCli.CLI do
   def api_get(path) do
     base = System.get_env("EMA_API_URL", "http://localhost:4488/api")
 
-    case Req.get("#{base}#{path}", receive_timeout: 10_000) do
+    case Req.get("#{base}#{path}", receive_timeout: 10_000, retry: false) do
       {:ok, %{status: 200, body: body}} -> {:ok, body}
       {:ok, %{status: s, body: b}} -> {:error, "HTTP #{s}: #{inspect(b)}"}
       {:error, reason} -> {:error, inspect(reason)}
@@ -62,7 +62,7 @@ defmodule EmaCli.CLI do
   def api_post(path, body) do
     base = System.get_env("EMA_API_URL", "http://localhost:4488/api")
 
-    case Req.post("#{base}#{path}", json: body, receive_timeout: 30_000) do
+    case Req.post("#{base}#{path}", json: body, receive_timeout: 30_000, retry: false) do
       {:ok, %{status: s, body: b}} when s in [200, 201] -> {:ok, b}
       {:ok, %{status: s, body: b}} -> {:error, "HTTP #{s}: #{inspect(b)}"}
       {:error, reason} -> {:error, inspect(reason)}

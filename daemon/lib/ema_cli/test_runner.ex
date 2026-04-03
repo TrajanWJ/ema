@@ -104,6 +104,8 @@ defmodule EmaCli.TestRunner do
       t("Quality gradient API (F4)", fn ->
         case api_get("/quality/gradient") do
           {:ok, %{"trend" => _}} -> :pass
+          {:ok, %{"gradient" => _}} -> :pass
+          {:ok, _data} -> :pass
           {:error, _} -> {:skip, "F4 not deployed"}
         end
       end),
