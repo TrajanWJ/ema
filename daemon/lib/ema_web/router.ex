@@ -77,6 +77,7 @@ defmodule EmaWeb.Router do
     get "/vault/search", VaultController, :search
     get "/vault/graph", VaultController, :graph
     get "/vault/graph/neighbors/:id", VaultController, :neighbors
+    get "/vault/graph/typed-neighbors/:id", VaultController, :typed_neighbors
     get "/vault/graph/orphans", VaultController, :orphans
 
     # Pipes — specific routes before resources to avoid :id shadowing

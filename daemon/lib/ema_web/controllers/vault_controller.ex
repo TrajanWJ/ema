@@ -93,6 +93,19 @@ defmodule EmaWeb.VaultController do
     json(conn, %{notes: Enum.map(notes, &serialize_note/1)})
   end
 
+  def typed_neighbors(conn, %{"id" => id}) do
+    typed = SecondBrain.get_typed_neighbors(id)
+
+    grouped =
+      typed
+      |> Enum.group_by(fn {edge_type, _note} -> edge_type end, fn {_edge_type, note} -> note end)
+      |> Enum.map(fn {edge_type, notes} ->
+        %{edge_type: edge_type, notes: Enum.map(notes, &serialize_note/1)}
+      end)
+
+    json(conn, %{groups: grouped})
+  end
+
   def orphans(conn, _params) do
     notes = SecondBrain.get_orphans()
     json(conn, %{notes: Enum.map(notes, &serialize_note/1)})
