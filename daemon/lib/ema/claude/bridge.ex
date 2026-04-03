@@ -290,9 +290,11 @@ defmodule Ema.Claude.Bridge do
   # --- Internal ---
 
   defp open_port(%{project_path: project_path, model: model}) do
+    wrapper_path = "/home/trajan/bin/claude-wrapper.sh"
     claude_path = Ema.Claude.Runner.resolve_claude_path()
 
     args = [
+      claude_path,
       "--print",
       "--output-format", "stream-json",
       "--input-format", "stream-json",
@@ -301,7 +303,7 @@ defmodule Ema.Claude.Bridge do
     ]
 
     Port.open(
-      {:spawn_executable, claude_path},
+      {:spawn_executable, wrapper_path},
       [
         :binary,
         :exit_status,
