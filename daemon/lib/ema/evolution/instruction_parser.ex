@@ -13,7 +13,7 @@ defmodule Ema.Evolution.InstructionParser do
   def parse(instruction) when is_binary(instruction) do
     prompt = build_parse_prompt(instruction)
 
-    case Ema.Claude.Runner.run(prompt, model: "haiku") do
+    case Ema.Claude.Bridge.run(prompt, model: "haiku") do
       {:ok, result} ->
         {:ok, normalize_result(result, instruction)}
 

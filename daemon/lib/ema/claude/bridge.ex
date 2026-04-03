@@ -37,8 +37,41 @@ defmodule Ema.Claude.Bridge do
   Send a one-shot prompt and collect the full result.
   Blocks until the CLI returns a result or times out.
   """
-  def run(pid, prompt, timeout \\ 120_000) do
-    GenServer.call(pid, {:run, prompt}, timeout)
+  def call(pid, prompt, timeout \\ 120_000) do
+    GenServer.call(pid, {:call, prompt}, timeout)
+  end
+
+  @doc """
+  Run a prompt through the Claude bridge with PubSub streaming and telemetry.
+  Maintains API compatibility with Ema.Claude.Runner.run/2.
+
+  Options:
+    - :model - model to use (default: "sonnet")
+    - :timeout - timeout ms (default: 120_000)
+    - :proposal_id - broadcasts stage updates to "proposal:<id>"
+    - :agent_id - for telemetry (default: "system")
+    - :task_type - for telemetry (default: "general")
+  """
+  @spec run(String.t(), keyword()) :: {:ok, map()} | {:error, map()}
+  def run(prompt, opts \\ []) when is_binary(prompt) and is_list(opts) do
+    model = Keyword.get(opts, :model, @default_model)
+    timeout = Keyword.get(opts, :timeout, 120_000)
+    proposal_id = Keyword.get(opts, :proposal_id)
+    agent_id = Keyword.get(opts, :agent_id, "system")
+    task_type = Keyword.get(opts, :task_type, "general")
+    started_at = System.monotonic_time(:millisecond)
+
+    with :ok <- maybe_broadcast_stage(proposal_id, "generating"),
+         {:ok, result} <- do_run(prompt, model, timeout),
+         :ok <- maybe_broadcast_stage(proposal_id, "complete") do
+      elapsed_ms = System.monotonic_time(:millisecond) - started_at
+      log_usage_async(agent_id, task_type, model, elapsed_ms)
+      {:ok, result}
+    else
+      {:error, reason} ->
+        maybe_broadcast_stage(proposal_id, "error")
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -87,7 +120,7 @@ defmodule Ema.Claude.Bridge do
   end
 
   @impl true
-  def handle_call({:run, prompt}, from, state) do
+  def handle_call({:call, prompt}, from, state) do
     port = open_port(state)
 
     send_to_port(port, prompt)
@@ -200,6 +233,59 @@ defmodule Ema.Claude.Bridge do
   end
 
   def terminate(_reason, _state), do: :ok
+
+  defp do_run(prompt, model, timeout) do
+    case GenServer.whereis(__MODULE__) do
+      nil ->
+        Ema.Claude.Runner.run(prompt, model: model, timeout: timeout)
+
+      pid ->
+        case __MODULE__.call(pid, prompt, timeout) do
+          {:ok, %{text: text}} -> {:ok, %{"result" => text}}
+          {:ok, result} -> {:ok, result}
+          {:error, _} = error -> error
+        end
+    end
+  end
+
+  defp maybe_broadcast_stage(nil, _stage), do: :ok
+
+  defp maybe_broadcast_stage(proposal_id, stage) when is_binary(proposal_id) do
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "proposal:\#{proposal_id}",
+      {:streaming_stage, stage}
+    )
+
+    :ok
+  end
+
+  defp log_usage_async(agent_id, task_type, model, elapsed_ms) do
+    Task.start(fn ->
+      attrs = %{
+        agent_id: agent_id,
+        task_type: task_type,
+        model: model,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: Decimal.new("0.00"),
+        metadata: %{elapsed_ms: elapsed_ms}
+      }
+
+      case Ema.Repo.insert(
+             Ema.Intelligence.UsageRecord.changeset(
+               %Ema.Intelligence.UsageRecord{},
+               attrs
+             )
+           ) do
+        {:ok, _} ->
+          :ok
+
+        {:error, _reason} ->
+          Logger.debug("[Bridge] Usage log skipped: \#{inspect(reason)}")
+      end
+    end)
+  end
 
   # --- Internal ---
 

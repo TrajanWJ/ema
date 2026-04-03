@@ -10,7 +10,8 @@ defmodule Ema.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      escript: [main_module: EmaCli.CLI, name: "ema"]
     ]
   end
 

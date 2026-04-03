@@ -9,7 +9,7 @@ defmodule Ema.Agents.AgentMemory do
   require Logger
 
   alias Ema.Agents
-  alias Ema.Claude.Runner
+  alias Ema.Claude.Bridge
 
   @default_threshold 20
 
@@ -90,7 +90,7 @@ defmodule Ema.Agents.AgentMemory do
       #{content_to_summarize}
       """
 
-      case Runner.run(prompt, model: "haiku", max_tokens: 1024) do
+      case Bridge.run(prompt, model: "haiku") do
         {:ok, summary} ->
           # Delete the old messages
           oldest_kept = Enum.at(to_summarize, -1)

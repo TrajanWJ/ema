@@ -153,7 +153,7 @@ defmodule Ema.MetaMind.Reviewer do
     Provide your review as JSON.
     """
 
-    case Ema.Claude.Runner.run(review_prompt, model: "haiku") do
+    case Ema.Claude.Bridge.run(review_prompt, model: "haiku") do
       {:ok, result} ->
         %{
           expert: expert_key,

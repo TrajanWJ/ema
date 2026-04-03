@@ -23,7 +23,14 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   const [redirectNote, setRedirectNote] = useState("");
   const [showRedirectInput, setShowRedirectInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { approve, redirect, kill } = useProposalsStore();
+  const { approve, redirect, kill, streamingStatus } = useProposalsStore();
+  const activeStage = streamingStatus[proposal.id];
+  const isStreaming = Boolean(activeStage && activeStage !== "idle");
+  const STAGE_LABELS: Record<string, string> = {
+    generating: "1/4: Generating...",
+    refining: "2/4: Refining...",
+    reviewing: "3/4: Reviewing...",
+  };
 
   const level = confidenceLevel(proposal.confidence);
   const dotColor = CONFIDENCE_COLORS[level];
@@ -67,6 +74,25 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
     <div
       className="glass-surface rounded-lg p-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
     >
+      {isStreaming && (
+        <div
+          className="mb-2 px-2 py-1.5 rounded flex items-center gap-2"
+          style={{
+            background: "rgba(107, 149, 240, 0.08)",
+            border: "1px solid rgba(107,149,240,0.2)",
+          }}
+        >
+          <span
+            className="animate-spin inline-block text-xs"
+            style={{ color: "#6b95f0" }}
+          >
+            ⟳
+          </span>
+          <span className="text-[0.65rem]" style={{ color: "#6b95f0" }}>
+            {STAGE_LABELS[activeStage] ?? activeStage}
+          </span>
+        </div>
+      )}
       {/* Collapsed header */}
       <div
         className="flex items-start gap-2.5"

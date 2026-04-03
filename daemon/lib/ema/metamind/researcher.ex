@@ -131,7 +131,7 @@ defmodule Ema.MetaMind.Researcher do
     ]
     """
 
-    case Ema.Claude.Runner.run(prompt, model: "haiku") do
+    case Ema.Claude.Bridge.run(prompt, model: "haiku") do
       {:ok, results} when is_list(results) ->
         discoveries =
           Enum.map(results, fn template ->

@@ -6,7 +6,7 @@ defmodule Ema.Focus.Summary do
 
   require Logger
 
-  alias Ema.Claude.Runner
+  alias Ema.Claude.Bridge
   alias Ema.{Focus, Journal, Tasks}
 
   @doc """
@@ -22,7 +22,7 @@ defmodule Ema.Focus.Summary do
       Logger.debug("Focus.Summary: session too short (#{div(work_ms, 60_000)}m), skipping")
       :skip
     else
-      if Runner.available?() do
+      if true do
         generate(session, task_id, work_ms)
       else
         Logger.debug("Focus.Summary: Claude CLI unavailable, skipping")
@@ -34,7 +34,7 @@ defmodule Ema.Focus.Summary do
   defp generate(session, task_id, work_ms) do
     prompt = build_prompt(session, task_id, work_ms)
 
-    case Runner.run(prompt, model: "haiku", timeout: 30_000) do
+    case Bridge.run(prompt, model: "haiku", timeout: 30_000) do
       {:ok, result} ->
         summary = extract_text(result)
         save_summary(session, summary)

@@ -92,7 +92,7 @@ defmodule Ema.MetaMind.Pipeline do
       revision_prompt = build_revision_prompt(original_prompt, merge_result)
 
       revised =
-        case Ema.Claude.Runner.run(revision_prompt, model: "haiku") do
+        case Ema.Claude.Bridge.run(revision_prompt, model: "haiku") do
           {:ok, %{"revised_prompt" => revised}} -> revised
           {:ok, %{"result" => revised}} when is_binary(revised) -> revised
           _ -> original_prompt

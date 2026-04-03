@@ -26,6 +26,8 @@ interface ProposalsState {
   createSeed: (data: Partial<Seed>) => Promise<void>;
   toggleSeed: (id: string) => Promise<void>;
   runSeedNow: (id: string) => Promise<void>;
+  streamingStatus: Record<string, "idle" | "generating" | "refining" | "reviewing">;
+  setStreamingStatus: (id: string, status: "idle" | "generating" | "refining" | "reviewing") => void;
 }
 
 export const useProposalsStore = create<ProposalsState>((set) => ({
@@ -38,6 +40,7 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
   sortKey: "created_at",
   sortDir: "desc",
   filterMinScore: 0,
+  streamingStatus: {} as Record<string, "idle" | "generating" | "refining" | "reviewing">,
 
   setSortKey(key) {
     set({ sortKey: key });
@@ -49,6 +52,12 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
 
   setFilterMinScore(min) {
     set({ filterMinScore: min });
+  },
+
+  setStreamingStatus(id, status) {
+    set((state) => ({
+      streamingStatus: { ...state.streamingStatus, [id]: status },
+    }));
   },
 
   async loadViaRest() {
@@ -74,6 +83,13 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
     channel.on("proposal_deleted", (payload: { id: string }) => {
       set((state) => ({
         proposals: state.proposals.filter((p) => p.id !== payload.id),
+      }));
+    });
+
+    channel.on("streaming_stage", (payload: { proposal_id: string; stage: string }) => {
+      const status = (payload.stage as "idle" | "generating" | "refining" | "reviewing") || "idle";
+      set((state) => ({
+        streamingStatus: { ...state.streamingStatus, [payload.proposal_id]: status },
       }));
     });
   },

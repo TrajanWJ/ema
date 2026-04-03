@@ -8,7 +8,7 @@ defmodule Ema.Agents.AgentWorker do
   require Logger
 
   alias Ema.Agents
-  alias Ema.Claude.Runner
+  alias Ema.Claude.Bridge
   alias Ema.Claude.Adapters.OpenClaw, as: OpenClawAdapter
 
   # --- Public API ---
@@ -178,11 +178,7 @@ defmodule Ema.Agents.AgentWorker do
     prompt = build_prompt(state, conversation_id, content)
 
     # Call Claude CLI
-    case Runner.run(prompt,
-           model: agent.model,
-           max_tokens: agent.max_tokens,
-           project_path: project_path(agent)
-         ) do
+    case Bridge.run(prompt, model: agent.model) do
       {:ok, response_text} ->
         {reply, tool_calls} = parse_response(response_text)
 

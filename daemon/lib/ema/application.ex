@@ -36,6 +36,7 @@ defmodule Ema.Application do
         Ema.Intelligence.CostForecaster,
         Ema.Intelligence.SessionMemoryWatcher,
         Ema.Intelligence.GapScanner,
+        Ema.Intelligence.AgentSupervisor,
         # CLI Manager — process registry and supervisor for session runners
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}

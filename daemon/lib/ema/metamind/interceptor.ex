@@ -22,7 +22,7 @@ defmodule Ema.MetaMind.Interceptor do
 
   @doc "Bypass review and dispatch directly (for system-level prompts)."
   def passthrough(prompt, opts \\ []) do
-    Ema.Claude.Runner.run(prompt, opts)
+    Ema.Claude.Bridge.run(prompt, opts)
   end
 
   @doc "Get current interception stats."
@@ -79,7 +79,7 @@ defmodule Ema.MetaMind.Interceptor do
       end
 
     Task.Supervisor.start_child(Ema.MetaMind.TaskSupervisor, fn ->
-      response = Ema.Claude.Runner.run(revised_prompt, opts)
+      response = Ema.Claude.Bridge.run(revised_prompt, opts)
       GenServer.reply(from, response)
     end)
 

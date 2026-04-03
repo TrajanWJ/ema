@@ -84,7 +84,7 @@ defmodule EmaWeb.VoiceController do
           end
 
         {:command, :ask_claude, question} ->
-          case Ema.Claude.Runner.run(question, timeout: 60_000) do
+          case Ema.Claude.Bridge.run(question, timeout: 60_000) do
             {:ok, response} -> response
             {:error, _} -> "I couldn't reach Claude right now."
           end
@@ -104,7 +104,7 @@ defmodule EmaWeb.VoiceController do
           User: #{text}
           """
 
-          case Ema.Claude.Runner.run(prompt, timeout: 60_000) do
+          case Ema.Claude.Bridge.run(prompt, timeout: 60_000) do
             {:ok, response} -> response
             {:error, _} -> "I'm having trouble processing that right now."
           end

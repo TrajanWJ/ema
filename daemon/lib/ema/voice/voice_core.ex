@@ -179,7 +179,7 @@ defmodule Ema.Voice.VoiceCore do
   end
 
   defp execute_command(:ask_claude, question, _state) do
-    case Ema.Claude.Runner.run(question, timeout: 60_000) do
+    case Ema.Claude.Bridge.run(question, timeout: 60_000) do
       {:ok, response} -> response
       {:error, _} -> "I couldn't reach Claude right now."
     end
@@ -208,7 +208,7 @@ defmodule Ema.Voice.VoiceCore do
     User: #{text}
     """
 
-    case Ema.Claude.Runner.run(prompt, timeout: 60_000) do
+    case Ema.Claude.Bridge.run(prompt, timeout: 60_000) do
       {:ok, response} -> response
       {:error, _} -> "I'm having trouble processing that. Could you rephrase?"
     end
