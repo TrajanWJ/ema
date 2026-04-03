@@ -164,31 +164,14 @@ defmodule Ema.Proposals.CostAggregator do
   end
 
   defp query_usage_records(session_prefix) do
-    # Query Ema.Claude.UsageRecord (or whatever the CostTracker stores to)
-    try do
-      Ema.Repo.all(
-        from r in Ema.Claude.UsageRecord,
-        where: like(r.session_id, ^"#{session_prefix}%"),
-        order_by: [asc: r.inserted_at]
-      )
-    rescue
-      _ ->
-        # Table may not exist yet or module may differ — return empty
-        Logger.debug("[CostAggregator] Could not query usage records for #{session_prefix}")
-        []
-    end
+    # Ema.Claude.UsageRecord not yet defined — return empty list gracefully
+    Logger.debug("[CostAggregator] usage record query skipped for #{session_prefix} (module pending)")
+    []
   end
 
-  defp query_daily_total(since) do
-    try do
-      Ema.Repo.one(
-        from r in Ema.Claude.UsageRecord,
-        where: r.inserted_at >= ^since,
-        select: sum(r.cost_usd)
-      ) || 0.0
-    rescue
-      _ -> 0.0
-    end
+  defp query_daily_total(_since) do
+    # Ema.Claude.UsageRecord not yet defined — return 0.0 gracefully
+    0.0
   end
 
   defp group_by_stage(usage_records) do
