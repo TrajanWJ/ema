@@ -167,7 +167,105 @@ defmodule EmaWeb.ChannelsController do
     json(conn, %{messages: messages})
   end
 
+  # GET /api/channels/platforms
+  def platforms(conn, _params) do
+    agents = Agents.list_active_agents()
+
+    # Build platform status from agent channel configs
+    platform_map =
+      agents
+      |> Enum.flat_map(fn agent ->
+        channels = Agents.list_channels_by_agent(agent.id)
+
+        Enum.map(channels, fn ch ->
+          %{
+            platform: ch.channel_type,
+            agent_slug: agent.slug,
+            agent_name: agent.name,
+            active: ch.active,
+            connection_status: ch.connection_status || "unknown",
+            config: redact_config(ch.config)
+          }
+        end)
+      end)
+      |> Enum.group_by(& &1.platform)
+
+    platforms =
+      known_platforms()
+      |> Enum.map(fn {key, label, icon} ->
+        connections = Map.get(platform_map, key, [])
+        connected = Enum.any?(connections, & &1.active)
+
+        %{
+          key: key,
+          label: label,
+          icon: icon,
+          status: if(connected, do: "connected", else: "not_connected"),
+          connections: connections,
+          active_channels: length(Enum.filter(connections, & &1.active)),
+          total_channels: length(connections)
+        }
+      end)
+
+    json(conn, %{platforms: platforms})
+  end
+
+  # POST /api/channels/send
+  def send_cross_platform(conn, %{"platform" => platform, "channel" => channel_ref, "content" => content}) do
+    # Proxy to OpenClaw for cross-platform messaging
+    bridge = Ema.OpenClaw.AgentBridge
+
+    if Code.ensure_loaded?(bridge) and function_exported?(bridge, :send_message, 3) do
+      case bridge.send_message(platform, channel_ref, content) do
+        {:ok, result} ->
+          json(conn, %{ok: true, result: result})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "send_failed", message: inspect(reason)})
+      end
+    else
+      conn
+      |> put_status(:service_unavailable)
+      |> json(%{error: "openclaw_unavailable", message: "OpenClaw bridge does not support send_message"})
+    end
+  rescue
+    _ ->
+      conn
+      |> put_status(:service_unavailable)
+      |> json(%{error: "openclaw_unavailable", message: "OpenClaw bridge not running"})
+  end
+
   # --- Private helpers ---
+
+  defp known_platforms do
+    [
+      {"discord", "Discord", "💬"},
+      {"telegram", "Telegram", "✈️"},
+      {"slack", "Slack", "📨"},
+      {"matrix", "Matrix", "🌐"},
+      {"signal", "Signal", "🔐"},
+      {"whatsapp", "WhatsApp", "📱"},
+      {"irc", "IRC", "💻"},
+      {"webchat", "Webchat", "💬"},
+      {"teams", "Teams", "👥"}
+    ]
+  end
+
+  defp redact_config(nil), do: %{}
+  defp redact_config(config) when is_map(config) do
+    config
+    |> Map.drop(["token", "api_key", "secret", "password", "webhook_url"])
+    |> Map.new(fn {k, v} ->
+      if String.contains?(String.downcase(to_string(k)), ["token", "key", "secret"]) do
+        {k, "***"}
+      else
+        {k, v}
+      end
+    end)
+  end
+  defp redact_config(_), do: %{}
 
   defp build_servers(agents) do
     ema_server = %{

@@ -73,7 +73,17 @@ export interface Member {
   isTyping?: boolean;
 }
 
-export type ViewMode = "channels" | "inbox";
+export interface Platform {
+  key: string;
+  label: string;
+  icon: string;
+  status: "connected" | "not_connected" | "error";
+  connections: readonly { agent_slug: string; agent_name: string; active: boolean; connection_status: string }[];
+  active_channels: number;
+  total_channels: number;
+}
+
+export type ViewMode = "channels" | "inbox" | "platforms";
 
 export interface SearchState {
   query: string;
@@ -101,6 +111,7 @@ interface ChannelsState {
   messages: ChannelMessage[];
   members: Member[];
   inboxMessages: ChannelMessage[];
+  platforms: Platform[];
 
   // UI state
   activeServerId: string | null;
@@ -134,6 +145,8 @@ interface ChannelsState {
   loadInbox: (filters?: Record<string, string>) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   sendTypingIndicator: () => void;
+  loadPlatforms: () => Promise<void>;
+  sendCrossPlatform: (platform: string, channel: string, content: string) => Promise<void>;
 
   // Computed
   activeServer: () => Server | null;
@@ -426,6 +439,7 @@ export const useChannelsStore = create<ChannelsState>((set, get) => ({
   messages: [],
   members: DEMO_MEMBERS,
   inboxMessages: [],
+  platforms: [],
 
   // -- UI state -------------------------------------------------------------
   activeServerId: null,
@@ -785,5 +799,18 @@ export const useChannelsStore = create<ChannelsState>((set, get) => ({
   isAgentChannel(): boolean {
     const channel = get().activeChannel();
     return !!channel?.agentSlug;
+  },
+
+  async loadPlatforms() {
+    try {
+      const data = await api.get<{ platforms: Platform[] }>("/channels/platforms");
+      set({ platforms: data.platforms });
+    } catch {
+      // Platform data unavailable
+    }
+  },
+
+  async sendCrossPlatform(platform: string, channel: string, content: string) {
+    await api.post("/channels/send", { platform, channel, content });
   },
 }));

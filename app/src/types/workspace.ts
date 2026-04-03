@@ -448,5 +448,42 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#2dd4a8",
     icon: "\u2B21",
   },
+  // Intelligence & Knowledge
+  memory: {
+    title: "Memory",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#5eead4",
+    icon: "\u{1F9E0}",
+  },
+  gaps: {
+    title: "Gap Inbox",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#f59e0b",
+    icon: "\u26A0",
+  },
+  "intent-map": {
+    title: "Intent Map",
+    defaultWidth: 1100,
+    defaultHeight: 800,
+    minWidth: 900,
+    minHeight: 650,
+    accent: "#a78bfa",
+    icon: "\u{1F5FA}",
+  },
+  "code-health": {
+    title: "Code Health",
+    defaultWidth: 1000,
+    defaultHeight: 750,
+    minWidth: 800,
+    minHeight: 600,
+    accent: "#22C55E",
+    icon: "\u{1F4CA}",
+  },
 } as const;
 

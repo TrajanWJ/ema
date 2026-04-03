@@ -52,6 +52,11 @@ const DOCK_APPS = [
   { id: "token-monitor", icon: "\uD83D\uDCB0", label: "Tokens" },
   { id: "vm-health", icon: "\u2B22", label: "VM Health" },
   { id: "security", icon: "\uD83D\uDD12", label: "Security" },
+  // Intelligence & Knowledge
+  { id: "memory", icon: "\uD83E\uDDE0", label: "Memory" },
+  { id: "gaps", icon: "\u26A0", label: "Gaps" },
+  { id: "intent-map", icon: "\uD83D\uDDFA", label: "Intent Map" },
+  { id: "code-health", icon: "\uD83D\uDCCA", label: "Code Health" },
   // Organizations & P2P
   { id: "org", icon: "\u2B21", label: "Organizations" },
 ] as const;

@@ -18,6 +18,10 @@ import { usePipesStore } from "@/stores/pipes-store";
 import { useChannelsStore } from "@/stores/channels-store";
 import { useGoalsStore } from "@/stores/goals-store";
 import { useFocusStore } from "@/stores/focus-store";
+import { useOrgStore } from "@/stores/org-store";
+import { useMemoryStore } from "@/stores/memory-store";
+import { useGapStore } from "@/stores/gap-store";
+import { useIntentStore } from "@/stores/intent-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 import { doFetch } from "@/lib/api";
 import { invoke } from "@tauri-apps/api/core";
@@ -76,6 +80,10 @@ export function Shell({ children }: ShellProps) {
       useChannelsStore.getState().loadViaRest().catch(() => {}),
       useGoalsStore.getState().loadViaRest().catch(() => {}),
       useFocusStore.getState().loadViaRest().catch(() => {}),
+      useOrgStore.getState().loadViaRest().catch(() => {}),
+      useMemoryStore.getState().loadViaRest().catch(() => {}),
+      useGapStore.getState().loadViaRest().catch(() => {}),
+      useIntentStore.getState().loadViaRest().catch(() => {}),
     ]);
   }, []);
 
@@ -97,6 +105,10 @@ export function Shell({ children }: ShellProps) {
       useChannelsStore.getState().connect().catch(() => {}),
       useGoalsStore.getState().connect().catch(() => {}),
       useFocusStore.getState().connect().catch(() => {}),
+      useOrgStore.getState().connect().catch(() => {}),
+      useMemoryStore.getState().connect().catch(() => {}),
+      useGapStore.getState().connect().catch(() => {}),
+      useIntentStore.getState().connect().catch(() => {}),
     ]);
   }, []);
 

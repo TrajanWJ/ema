@@ -56,6 +56,11 @@ const NEW_APPS = [
   { id: "token-monitor", name: "Token Monitor", status: "cost tracking" },
   { id: "vm-health", name: "VM Health", status: "infrastructure" },
   { id: "security", name: "Security", status: "posture monitoring" },
+  // Intelligence & Knowledge
+  { id: "memory", name: "Memory", status: "session context" },
+  { id: "gaps", name: "Gap Inbox", status: "system gaps" },
+  { id: "intent-map", name: "Intent Map", status: "project intent" },
+  { id: "code-health", name: "Code Health", status: "project health" },
 ] as const;
 
 export function Launchpad() {

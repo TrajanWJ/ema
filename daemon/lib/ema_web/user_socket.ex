@@ -29,6 +29,11 @@ defmodule EmaWeb.UserSocket do
   channel "openclaw:*", EmaWeb.OpenClawChannel
   channel "cli_manager:*", EmaWeb.CliManagerChannel
   channel "superman:*", EmaWeb.SupermanChannel
+  channel "orgs:*", EmaWeb.OrgChannel
+  channel "temporal:*", EmaWeb.TemporalChannel
+  channel "memory:*", EmaWeb.MemoryChannel
+  channel "gaps:*", EmaWeb.GapChannel
+  channel "intent:*", EmaWeb.IntentChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

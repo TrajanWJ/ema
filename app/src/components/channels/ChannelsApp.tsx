@@ -7,6 +7,7 @@ import { ChannelTree } from "./ChannelTree";
 import { ChatView } from "./ChatView";
 import { MemberList } from "./MemberList";
 import { UnifiedInboxView } from "./UnifiedInboxView";
+import { PlatformStatusGrid } from "./PlatformStatusGrid";
 
 const config = APP_CONFIGS["channels"];
 
@@ -96,7 +97,7 @@ export function ChannelsApp() {
 
       {/* View mode toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: "2px", position: "absolute", top: "10px", right: "60px", zIndex: 20, background: "rgba(14,16,23,0.55)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)", padding: "2px" }}>
-        {(["channels", "inbox"] as const).map((mode) => (
+        {(["channels", "inbox", "platforms"] as const).map((mode) => (
           <button
             key={mode}
             onClick={() => setViewMode(mode)}
@@ -112,14 +113,16 @@ export function ChannelsApp() {
               transition: "all 0.15s",
             }}
           >
-            {mode === "channels" ? "Channels" : "Inbox"}
+            {mode === "channels" ? "Channels" : mode === "inbox" ? "Inbox" : "Platforms"}
           </button>
         ))}
       </div>
 
       {/* Layout */}
       <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-        {viewMode === "channels" ? (
+        {viewMode === "platforms" ? (
+          <PlatformStatusGrid />
+        ) : viewMode === "channels" ? (
           <>
             <ServerList />
             <ChannelTree />

@@ -53,6 +53,11 @@ import { AuditTrailApp } from "@/components/audit-trail/AuditTrailApp";
 import { TokenMonitorApp } from "@/components/tokens/TokenMonitor";
 import { VMHealthApp } from "@/components/vm/VMHealthPanel";
 import { SecurityPanelApp } from "@/components/security/SecurityPanel";
+// Intelligence & Knowledge (Batch 3)
+import { SessionMemoryApp } from "@/components/memory/SessionMemoryApp";
+import { GapInboxApp } from "@/components/gaps/GapInboxApp";
+import { IntentMapApp } from "@/components/intent/IntentMapApp";
+import { CodeHealthDashboard } from "@/components/superman/CodeHealthDashboard";
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
 
@@ -166,6 +171,15 @@ function AppContent() {
       return <VMHealthApp />;
     case "security":
       return <SecurityPanelApp />;
+    // Intelligence & Knowledge (Batch 3)
+    case "memory":
+      return <SessionMemoryApp />;
+    case "gaps":
+      return <GapInboxApp />;
+    case "intent-map":
+      return <IntentMapApp />;
+    case "code-health":
+      return <CodeHealthDashboard />;
     default:
       return (
         <Shell>

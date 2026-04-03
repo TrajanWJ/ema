@@ -153,6 +153,8 @@ defmodule EmaWeb.Router do
     get "/channels", ChannelsController, :index
     get "/channels/health", ChannelsController, :health
     get "/channels/inbox", ChannelsController, :inbox
+    get "/channels/platforms", ChannelsController, :platforms
+    post "/channels/send", ChannelsController, :send_cross_platform
     get "/channels/:channel_id/messages", ChannelsController, :messages
     post "/channels/:channel_id/messages", ChannelsController, :send_message
 
@@ -192,6 +194,15 @@ defmodule EmaWeb.Router do
     post "/ralph/run", RalphController, :run_cycle
     post "/ralph/configure", RalphController, :configure
     post "/ralph/surface/:id", RalphController, :surface
+
+    # Executions — runtime linkage object
+    get "/executions", ExecutionController, :index
+    get "/executions/:id", ExecutionController, :show
+    post "/executions", ExecutionController, :create
+    post "/executions/:id/approve", ExecutionController, :approve
+    post "/executions/:id/cancel", ExecutionController, :cancel
+    get "/executions/:id/events", ExecutionController, :events
+    get "/executions/:id/agent-sessions", ExecutionController, :agent_sessions
 
     # Goals
     resources "/goals", GoalController, except: [:new, :edit]
@@ -283,6 +294,29 @@ defmodule EmaWeb.Router do
     get "/tokens/forecast", TokenController, :forecast
     get "/tokens/budget", TokenController, :budget
     put "/tokens/budget", TokenController, :set_budget
+
+    # Intent Map
+    get "/intent/nodes", IntentController, :index
+    get "/intent/tree/:project_id", IntentController, :tree
+    get "/intent/export/:project_id", IntentController, :export
+    post "/intent/nodes", IntentController, :create
+    get "/intent/nodes/:id", IntentController, :show
+    put "/intent/nodes/:id", IntentController, :update
+    delete "/intent/nodes/:id", IntentController, :delete
+
+    # Gap Inbox
+    get "/gaps", GapController, :index
+    post "/gaps/:id/resolve", GapController, :resolve
+    post "/gaps/:id/create_task", GapController, :create_task
+    post "/gaps/scan", GapController, :scan
+
+    # Session Memory
+    get "/memory/sessions", MemoryController, :sessions
+    get "/memory/sessions/:id", MemoryController, :show_session
+    get "/memory/fragments", MemoryController, :fragments
+    get "/memory/context", MemoryController, :context
+    get "/memory/search", MemoryController, :search
+    post "/memory/extract/:session_id", MemoryController, :extract
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook
