@@ -24,6 +24,36 @@ const DOCK_APPS = [
   { id: "openclaw", icon: "\u2318", label: "OpenClaw" },
   { id: "cli-manager", icon: "\u2395", label: "CLI Manager" },
   { id: "jarvis", icon: "\u2B22", label: "Jarvis" },
+  // Chunk 2
+  { id: "pipeline", icon: "\u25B6", label: "Pipeline" },
+  { id: "agent-fleet", icon: "\u2B21", label: "Agent Fleet" },
+  { id: "prompt-workshop", icon: "\u270D", label: "Prompts" },
+  { id: "ingestor", icon: "\u2B07", label: "Ingestor" },
+  { id: "decision-log", icon: "\u2696", label: "Decisions" },
+  // Chunk 3
+  { id: "file-vault", icon: "\uD83D\uDD12", label: "File Vault" },
+  { id: "message-hub", icon: "\u2709", label: "Messages" },
+  { id: "shared-clipboard", icon: "\uD83D\uDCCB", label: "Clipboard" },
+  { id: "service-dashboard", icon: "\u2699", label: "Services" },
+  { id: "tunnel-manager", icon: "\u21C6", label: "Tunnels" },
+  // Chunk 4
+  { id: "life-dashboard", icon: "\u2600", label: "Life Dashboard" },
+  { id: "routine-builder", icon: "\u21BB", label: "Routines" },
+  { id: "finance-tracker", icon: "\uD83D\uDCB0", label: "Finance" },
+  { id: "contacts-crm", icon: "\uD83D\uDC64", label: "Contacts" },
+  { id: "goal-planner", icon: "\uD83C\uDFAF", label: "Goal Planner" },
+  // Chunk 5
+  { id: "team-pulse", icon: "\uD83D\uDC65", label: "Team Pulse" },
+  { id: "meeting-room", icon: "\uD83D\uDCC5", label: "Meetings" },
+  { id: "project-portfolio", icon: "\u25A3", label: "Portfolio" },
+  { id: "invoice-billing", icon: "\uD83D\uDCC4", label: "Invoices" },
+  { id: "audit-trail", icon: "\uD83D\uDD0D", label: "Audit Trail" },
+  // Monitoring & Intelligence
+  { id: "token-monitor", icon: "\uD83D\uDCB0", label: "Tokens" },
+  { id: "vm-health", icon: "\u2B22", label: "VM Health" },
+  { id: "security", icon: "\uD83D\uDD12", label: "Security" },
+  // Organizations & P2P
+  { id: "org", icon: "\u2B21", label: "Organizations" },
 ] as const;
 
 export function Dock() {

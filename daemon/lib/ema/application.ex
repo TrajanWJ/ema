@@ -26,6 +26,10 @@ defmodule Ema.Application do
         Ema.Focus.Timer,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
         Ema.Pipes.Supervisor,
+        # Ingest job processor
+        Ema.Ingestor.Processor,
+        # Intelligence — token & cost tracking
+        Ema.Intelligence.TokenTracker,
         # CLI Manager — process registry and supervisor for session runners
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
@@ -42,6 +46,7 @@ defmodule Ema.Application do
         maybe_start_voice() ++
         maybe_start_git_watcher() ++
         maybe_start_harvesters() ++
+        maybe_start_temporal() ++
         maybe_start_openclaw() ++
         [
           # Start to serve requests, typically the last entry
@@ -175,6 +180,14 @@ defmodule Ema.Application do
   defp maybe_start_evolution do
     if Application.get_env(:ema, :evolution_engine, true) do
       [Ema.Evolution.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_temporal do
+    if Application.get_env(:ema, :start_temporal, true) do
+      [Ema.Temporal.Engine]
     else
       []
     end

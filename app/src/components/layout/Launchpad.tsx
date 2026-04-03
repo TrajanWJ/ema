@@ -52,6 +52,10 @@ const NEW_APPS = [
   { id: "openclaw", name: "OpenClaw", status: "gateway bridge" },
   { id: "cli-manager", name: "CLI Manager", status: "agent sessions" },
   { id: "jarvis", name: "Jarvis", status: "AI assistant" },
+  // Monitoring & Intelligence
+  { id: "token-monitor", name: "Token Monitor", status: "cost tracking" },
+  { id: "vm-health", name: "VM Health", status: "infrastructure" },
+  { id: "security", name: "Security", status: "posture monitoring" },
 ] as const;
 
 export function Launchpad() {

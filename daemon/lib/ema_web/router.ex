@@ -10,6 +10,19 @@ defmodule EmaWeb.Router do
 
     get "/dashboard/today", DashboardController, :today
 
+    # Organizations
+    get "/orgs", OrgController, :index
+    post "/orgs", OrgController, :create
+    get "/orgs/:id", OrgController, :show
+    put "/orgs/:id", OrgController, :update
+    delete "/orgs/:id", OrgController, :delete
+    post "/orgs/:id/invitations", OrgController, :create_invitation
+    delete "/orgs/:org_id/invitations/:id", OrgController, :revoke_invitation
+    delete "/orgs/:id/members/:member_id", OrgController, :remove_member
+    put "/orgs/:id/members/:member_id/role", OrgController, :update_role
+    post "/join/:token", OrgController, :join
+    get "/join/:token/preview", OrgController, :preview_invitation
+
     get "/brain-dump/items", BrainDumpController, :index
     post "/brain-dump/items", BrainDumpController, :create
     patch "/brain-dump/items/:id/process", BrainDumpController, :process
@@ -232,6 +245,35 @@ defmodule EmaWeb.Router do
     post "/superman/autonomous", SupermanController, :autonomous
     get "/superman/panels", SupermanController, :panels
     post "/superman/build", SupermanController, :build
+
+    # Pipeline analytics
+    get "/pipeline/stats", PipelineController, :stats
+    get "/pipeline/bottlenecks", PipelineController, :bottlenecks
+    get "/pipeline/throughput", PipelineController, :throughput
+
+    # Prompt Workshop
+    resources "/prompts", PromptController, except: [:new, :edit]
+    post "/prompts/:id/version", PromptController, :create_version
+
+    # Ingestor
+    resources "/ingest-jobs", IngestController, except: [:new, :edit]
+
+    # Decisions
+    resources "/decisions", DecisionController, except: [:new, :edit]
+
+    # Temporal Intelligence
+    get "/temporal/rhythm", TemporalController, :rhythm
+    get "/temporal/now", TemporalController, :now
+    get "/temporal/best-time", TemporalController, :best_time
+    post "/temporal/log", TemporalController, :log
+    get "/temporal/history", TemporalController, :history
+
+    # Token & Cost Monitoring
+    get "/tokens/summary", TokenController, :summary
+    get "/tokens/history", TokenController, :history
+    get "/tokens/forecast", TokenController, :forecast
+    get "/tokens/budget", TokenController, :budget
+    put "/tokens/budget", TokenController, :set_budget
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook

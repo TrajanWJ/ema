@@ -25,6 +25,36 @@ import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
 import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
 import { OrbWindow } from "@/components/orb/OrbWindow";
 import { JarvisApp } from "@/components/jarvis/JarvisApp";
+// Chunk 2: AI Pipeline & Management
+import PipelineApp from "@/components/pipeline/PipelineApp";
+import { AgentFleetApp } from "@/components/agent-fleet/AgentFleetApp";
+import { PromptWorkshopApp } from "@/components/prompt-workshop/PromptWorkshopApp";
+import { IngestorApp } from "@/components/ingestor/IngestorApp";
+import { DecisionLogApp } from "@/components/decision-log/DecisionLogApp";
+// Chunk 3: P2P Services
+import { FileVaultApp } from "@/components/file-vault/FileVaultApp";
+import { MessageHubApp } from "@/components/message-hub/MessageHubApp";
+import { SharedClipboardApp } from "@/components/shared-clipboard/SharedClipboardApp";
+import { ServiceDashboardApp } from "@/components/service-dashboard/ServiceDashboardApp";
+import { TunnelManagerApp } from "@/components/tunnel-manager/TunnelManagerApp";
+// Chunk 4: Personal Executive Management
+import { LifeDashboardApp } from "@/components/life-dashboard/LifeDashboardApp";
+import { RoutineBuilderApp } from "@/components/routine-builder/RoutineBuilderApp";
+import { FinanceTrackerApp } from "@/components/finance-tracker/FinanceTrackerApp";
+import { ContactsCRMApp } from "@/components/contacts-crm/ContactsCRMApp";
+import { GoalPlannerApp } from "@/components/goal-planner/GoalPlannerApp";
+// Chunk 5: Business/Organization Management
+import { TeamPulseApp } from "@/components/team-pulse/TeamPulseApp";
+import { MeetingRoomApp } from "@/components/meeting-room/MeetingRoomApp";
+import { ProjectPortfolioApp } from "@/components/project-portfolio/ProjectPortfolioApp";
+import { InvoiceBillingApp } from "@/components/invoice-billing/InvoiceBillingApp";
+import { AuditTrailApp } from "@/components/audit-trail/AuditTrailApp";
+// Monitoring & Intelligence
+import { TokenMonitorApp } from "@/components/tokens/TokenMonitor";
+import { VMHealthApp } from "@/components/vm/VMHealthPanel";
+import { SecurityPanelApp } from "@/components/security/SecurityPanel";
+// Organizations & P2P
+import { OrgApp } from "@/components/org/OrgApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -82,6 +112,60 @@ function AppContent() {
       return <OrbWindow />;
     case "jarvis":
       return <JarvisApp />;
+    // Chunk 2
+    case "pipeline":
+      return <PipelineApp />;
+    case "agent-fleet":
+      return <AgentFleetApp />;
+    case "prompt-workshop":
+      return <PromptWorkshopApp />;
+    case "ingestor":
+      return <IngestorApp />;
+    case "decision-log":
+      return <DecisionLogApp />;
+    // Chunk 3
+    case "file-vault":
+      return <FileVaultApp />;
+    case "message-hub":
+      return <MessageHubApp />;
+    case "shared-clipboard":
+      return <SharedClipboardApp />;
+    case "service-dashboard":
+      return <ServiceDashboardApp />;
+    case "tunnel-manager":
+      return <TunnelManagerApp />;
+    // Chunk 4
+    case "life-dashboard":
+      return <LifeDashboardApp />;
+    case "routine-builder":
+      return <RoutineBuilderApp />;
+    case "finance-tracker":
+      return <FinanceTrackerApp />;
+    case "contacts-crm":
+      return <ContactsCRMApp />;
+    case "goal-planner":
+      return <GoalPlannerApp />;
+    // Chunk 5
+    case "team-pulse":
+      return <TeamPulseApp />;
+    case "meeting-room":
+      return <MeetingRoomApp />;
+    case "project-portfolio":
+      return <ProjectPortfolioApp />;
+    case "invoice-billing":
+      return <InvoiceBillingApp />;
+    case "audit-trail":
+      return <AuditTrailApp />;
+    // Organizations
+    case "org":
+      return <OrgApp />;
+    // Monitoring & Intelligence
+    case "token-monitor":
+      return <TokenMonitorApp />;
+    case "vm-health":
+      return <VMHealthApp />;
+    case "security":
+      return <SecurityPanelApp />;
     default:
       return (
         <Shell>
