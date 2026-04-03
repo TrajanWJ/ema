@@ -4,6 +4,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useSupermanStore } from "@/stores/superman-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { APP_CONFIGS } from "@/types/workspace";
+import { HQTab } from "./HQTab";
 import { IndexTab } from "./IndexTab";
 import { AskTab } from "./AskTab";
 import { GapsTab } from "./GapsTab";
@@ -14,6 +15,7 @@ import { AutonomousTab } from "./AutonomousTab";
 const config = APP_CONFIGS["superman"];
 
 const TABS = [
+  { value: "hq" as const, label: "HQ" },
   { value: "index" as const, label: "Index" },
   { value: "ask" as const, label: "Ask" },
   { value: "gaps" as const, label: "Gaps" },
@@ -26,7 +28,7 @@ type Tab = (typeof TABS)[number]["value"];
 
 export function SupermanApp() {
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<Tab>("index");
+  const [tab, setTab] = useState<Tab>("hq");
   const serverStatus = useSupermanStore((s) => s.serverStatus);
   const checkHealth = useSupermanStore((s) => s.checkHealth);
 
@@ -63,6 +65,7 @@ export function SupermanApp() {
 
         {/* Tab content */}
         <div className="flex-1 overflow-auto">
+          {tab === "hq" && <HQTab />}
           {tab === "index" && <IndexTab />}
           {tab === "ask" && <AskTab />}
           {tab === "gaps" && <GapsTab />}

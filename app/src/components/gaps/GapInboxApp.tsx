@@ -33,6 +33,7 @@ export function GapInboxApp() {
   const setFilterSeverity = useGapStore((s) => s.setFilterSeverity);
   const resolveGap = useGapStore((s) => s.resolveGap);
   const createTaskFromGap = useGapStore((s) => s.createTaskFromGap);
+  const sendToExecution = useGapStore((s) => s.sendToExecution);
   const scan = useGapStore((s) => s.scan);
 
   useEffect(() => {
@@ -165,6 +166,14 @@ export function GapInboxApp() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => sendToExecution({ title: gap.title, description: gap.description })}
+                    className="px-2 py-1 rounded text-[0.6rem] font-mono transition-all hover:brightness-110"
+                    style={{ background: "rgba(167,139,250,0.15)", color: "#a78bfa" }}
+                    title="Send to Execution"
+                  >
+                    Execute
+                  </button>
                   <button
                     onClick={() => createTaskFromGap(gap.id)}
                     className="px-2 py-1 rounded text-[0.6rem] font-mono transition-all hover:brightness-110"

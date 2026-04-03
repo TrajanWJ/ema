@@ -41,6 +41,7 @@ interface GapState {
   setFilterProject: (projectId: string | null) => void;
   resolveGap: (id: string) => Promise<void>;
   createTaskFromGap: (id: string) => Promise<void>;
+  sendToExecution: (gap: { title: string; description: string | null }) => Promise<void>;
   scan: () => Promise<void>;
 }
 
@@ -116,6 +117,13 @@ export const useGapStore = create<GapState>((set, get) => ({
   async createTaskFromGap(id) {
     await api.post(`/gaps/${id}/create_task`, {});
     set((state) => ({ gaps: state.gaps.filter((g) => g.id !== id) }));
+  },
+
+  async sendToExecution(gap) {
+    const content = gap.description
+      ? `${gap.title}: ${gap.description}`
+      : gap.title;
+    await api.post("/brain-dump/items", { content, source: "text" });
   },
 
   async scan() {

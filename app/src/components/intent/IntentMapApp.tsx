@@ -1,52 +1,77 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
-import { NativeSelect } from "@/components/ui/NativeSelect";
-import { useIntentStore, type IntentNode } from "@/stores/intent-store";
-import { useProjectsStore } from "@/stores/projects-store";
+import { useIntentMapStore, type IntentNode } from "@/stores/intent-map-store";
 import { APP_CONFIGS } from "@/types/workspace";
+import type { Execution, ExecutionEvent } from "@/types/executions";
 
 const config = APP_CONFIGS["intent-map"];
 
-interface TreeNode {
-  readonly id: string;
-  readonly title: string;
-  readonly level: number;
-  readonly status: string;
-  readonly children?: readonly TreeNode[];
+const STATUS_COLORS: Record<string, string> = {
+  completed: "#22C55E",
+  in_progress: "#6b95f0",
+  researched: "#eab308",
+  outlined: "#f59e0b",
+  blocked: "#ef4444",
+  idle: "#6b7280",
+};
+
+const EXEC_STATUS_COLORS: Record<string, string> = {
+  completed: "#22C55E",
+  running: "#6b95f0",
+  approved: "#5eead4",
+  created: "#a78bfa",
+  failed: "#ef4444",
+  cancelled: "#6b7280",
+  awaiting_approval: "#eab308",
+  proposed: "#eab308",
+  delegated: "#8b5cf6",
+  harvesting: "#f59e0b",
+};
+
+const MODE_COLORS: Record<string, string> = {
+  research: "#a78bfa",
+  outline: "#6b95f0",
+  implement: "#22C55E",
+  review: "#5eead4",
+  harvest: "#f59e0b",
+  refactor: "#f43f5e",
+};
+
+function toTitleCase(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-const LEVEL_LABELS = ["Product", "Flow", "Action", "System", "Implementation"];
-const LEVEL_COLORS = ["#a78bfa", "#6b95f0", "#5eead4", "#f59e0b", "#ef4444"];
-const STATUS_COLORS: Record<string, string> = { planned: "#6b7280", partial: "#eab308", complete: "#22C55E" };
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export function IntentMapApp() {
   const [ready, setReady] = useState(false);
-  const projects = useProjectsStore((s) => s.projects);
-  const tree = useIntentStore((s) => s.tree);
-  const selectedProject = useIntentStore((s) => s.selectedProject);
-  const selectedNode = useIntentStore((s) => s.selectedNode);
-  const selectProject = useIntentStore((s) => s.selectProject);
-  const selectNode = useIntentStore((s) => s.selectNode);
-  const createNode = useIntentStore((s) => s.createNode);
-  const updateNode = useIntentStore((s) => s.updateNode);
-  const deleteNode = useIntentStore((s) => s.deleteNode);
-  const zoomLevel = useIntentStore((s) => s.zoomLevel);
-  const setZoomLevel = useIntentStore((s) => s.setZoomLevel);
-  const exportMarkdown = useIntentStore((s) => s.exportMarkdown);
-  const [showAdd, setShowAdd] = useState(false);
-  const [addTitle, setAddTitle] = useState("");
-  const [addParent, setAddParent] = useState<string | null>(null);
-  const [addLevel, setAddLevel] = useState(0);
+  const intents = useIntentMapStore((s) => s.intents);
+  const loading = useIntentMapStore((s) => s.loading);
+  const expandedSlug = useIntentMapStore((s) => s.expandedSlug);
+  const expandedExecutionId = useIntentMapStore((s) => s.expandedExecutionId);
+  const events = useIntentMapStore((s) => s.events);
+  const fetchIntents = useIntentMapStore((s) => s.fetchIntents);
+  const toggleExpanded = useIntentMapStore((s) => s.toggleExpanded);
+  const toggleExecutionEvents = useIntentMapStore((s) => s.toggleExecutionEvents);
 
   useEffect(() => {
     async function init() {
-      await useProjectsStore.getState().loadViaRest().catch(() => {});
-      await useIntentStore.getState().loadViaRest().catch(() => {});
+      await fetchIntents().catch(() => {});
       setReady(true);
-      useIntentStore.getState().connect().catch(() => {});
     }
     init();
-  }, []);
+  }, [fetchIntents]);
 
   if (!ready) {
     return (
@@ -58,276 +83,245 @@ export function IntentMapApp() {
     );
   }
 
-  function handleAddNode() {
-    if (!addTitle.trim() || !selectedProject) return;
-    createNode({
-      title: addTitle,
-      level: addLevel,
-      parent_id: addParent,
-      project_id: selectedProject,
-    });
-    setAddTitle("");
-    setShowAdd(false);
-  }
-
-  async function handleExport() {
-    if (!selectedProject) return;
-    const md = await exportMarkdown(selectedProject);
-    navigator.clipboard.writeText(md);
-  }
-
   return (
     <AppWindowChrome appId="intent-map" title={config.title} icon={config.icon} accent={config.accent}>
       <div className="flex flex-col gap-3 h-full">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          {/* Project selector */}
-          <NativeSelect
-            value={selectedProject ?? ""}
-            onChange={(e) => selectProject(e.target.value || null)}
-            uiSize="sm"
-            wrapperClassName="w-[14rem]"
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[0.8rem] font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
+              Intent Map
+            </span>
+            <span className="text-[0.65rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
+              {intents.length} intents
+            </span>
+          </div>
+          <button
+            onClick={() => fetchIntents()}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-md text-[0.65rem] font-mono transition-all hover:brightness-110"
+            style={{ background: "rgba(107,149,240,0.15)", color: "#6b95f0", border: "1px solid rgba(107,149,240,0.2)" }}
           >
-            <option value="">Select Project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </NativeSelect>
-
-          {/* Zoom level */}
-          <div className="flex items-center gap-1">
-            {LEVEL_LABELS.map((label, i) => (
-              <button
-                key={label}
-                onClick={() => setZoomLevel(i)}
-                className="px-2 py-1 rounded text-[0.55rem] font-mono transition-all"
-                style={{
-                  background: i <= zoomLevel ? `${LEVEL_COLORS[i]}15` : "transparent",
-                  color: i <= zoomLevel ? LEVEL_COLORS[i] : "rgba(255,255,255,0.2)",
-                  border: i <= zoomLevel ? `1px solid ${LEVEL_COLORS[i]}30` : "1px solid transparent",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="ml-auto flex gap-2">
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-3 py-1.5 rounded-md text-[0.65rem] font-mono"
-              style={{ background: "rgba(167,139,250,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}
-            >
-              + Add Node
-            </button>
-            <button
-              onClick={handleExport}
-              className="px-3 py-1.5 rounded-md text-[0.65rem] font-mono"
-              style={{ background: "rgba(255,255,255,0.06)", color: "var(--pn-text-secondary)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              Export MD
-            </button>
-          </div>
+            {loading ? "Loading..." : "Refresh"}
+          </button>
         </div>
 
-        {/* Tree + detail */}
-        <div className="flex flex-1 gap-3 min-h-0">
-          {/* Tree */}
-          <div className="flex-1 overflow-auto">
-            {!selectedProject ? (
-              <div className="flex items-center justify-center h-full">
-                <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>Select a project</span>
-              </div>
-            ) : tree.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
-                  No intent nodes. Add one to start mapping.
-                </span>
-              </div>
-            ) : (
-              <TreeView
-                nodes={tree}
-                maxLevel={zoomLevel}
-                selectedId={selectedNode?.id ?? null}
-                onSelect={(node) => selectNode(node as IntentNode)}
-                onAddChild={(parentId, level) => { setAddParent(parentId); setAddLevel(level + 1); setShowAdd(true); }}
-              />
-            )}
-          </div>
+        {/* Status legend */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {Object.entries(STATUS_COLORS).map(([status, color]) => {
+            const count = intents.filter((i) => i.status === status).length;
+            if (count === 0) return null;
+            return (
+              <span
+                key={status}
+                className="flex items-center gap-1 text-[0.55rem] font-mono uppercase"
+                style={{ color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                {status.replace("_", " ")} ({count})
+              </span>
+            );
+          })}
+        </div>
 
-          {/* Detail panel */}
-          {selectedNode && (
-            <div
-              className="overflow-auto rounded-lg p-3"
-              style={{ width: "300px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <NodeDetail
-                node={selectedNode}
-                onUpdate={(attrs) => updateNode(selectedNode.id, attrs)}
-                onDelete={() => deleteNode(selectedNode.id)}
-              />
+        {/* Intent list */}
+        <div className="flex-1 overflow-auto space-y-1.5">
+          {intents.length === 0 ? (
+            <div className="flex items-center justify-center h-32">
+              <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
+                No intents with executions found.
+              </span>
             </div>
+          ) : (
+            intents.map((intent) => (
+              <IntentCard
+                key={intent.intent_slug}
+                intent={intent}
+                expanded={expandedSlug === intent.intent_slug}
+                expandedExecutionId={expandedExecutionId}
+                events={events}
+                onToggle={() => toggleExpanded(intent.intent_slug)}
+                onToggleExecution={toggleExecutionEvents}
+              />
+            ))
           )}
         </div>
-
-        {/* Add node modal */}
-        {showAdd && (
-          <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setShowAdd(false)}>
-            <div className="rounded-lg p-4 w-80" style={{ background: "rgba(14,16,23,0.95)", border: "1px solid rgba(167,139,250,0.2)" }} onClick={(e) => e.stopPropagation()}>
-              <div className="text-[0.8rem] font-medium mb-3" style={{ color: "rgba(255,255,255,0.87)" }}>Add Intent Node</div>
-              <input
-                autoFocus
-                placeholder="Title"
-                value={addTitle}
-                onChange={(e) => setAddTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddNode()}
-                className="w-full px-3 py-2 rounded-md text-[0.8rem] mb-2"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.87)", outline: "none" }}
-              />
-              <NativeSelect
-                value={addLevel}
-                onChange={(e) => setAddLevel(Number(e.target.value))}
-                uiSize="md"
-                wrapperClassName="mb-3"
-              >
-                {LEVEL_LABELS.map((label, i) => (
-                  <option key={i} value={i}>{label}</option>
-                ))}
-              </NativeSelect>
-              <div className="flex gap-2">
-                <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-md text-[0.7rem]" style={{ background: "rgba(255,255,255,0.06)", color: "var(--pn-text-secondary)" }}>Cancel</button>
-                <button onClick={handleAddNode} className="flex-1 py-2 rounded-md text-[0.7rem]" style={{ background: "rgba(167,139,250,0.2)", color: "#a78bfa" }}>Create</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </AppWindowChrome>
   );
 }
 
-function TreeView({
-  nodes, maxLevel, selectedId, onSelect, onAddChild, depth = 0,
+function IntentCard({
+  intent,
+  expanded,
+  expandedExecutionId,
+  events,
+  onToggle,
+  onToggleExecution,
 }: {
-  readonly nodes: readonly TreeNode[];
-  readonly maxLevel: number;
-  readonly selectedId: string | null;
-  readonly onSelect: (node: TreeNode) => void;
-  readonly onAddChild: (parentId: string, level: number) => void;
-  readonly depth?: number;
+  readonly intent: IntentNode;
+  readonly expanded: boolean;
+  readonly expandedExecutionId: string | null;
+  readonly events: Record<string, readonly ExecutionEvent[]>;
+  readonly onToggle: () => void;
+  readonly onToggleExecution: (id: string) => void;
 }) {
-  return (
-    <div style={{ paddingLeft: depth > 0 ? "16px" : "0" }}>
-      {nodes.map((node) => {
-        if (node.level > maxLevel) return null;
-        const color = LEVEL_COLORS[node.level] ?? "#6b7280";
-        const statusColor = STATUS_COLORS[node.status] ?? "#6b7280";
+  const statusColor = STATUS_COLORS[intent.status] ?? "#6b7280";
+  const pct = Math.round(intent.completion_pct);
 
-        return (
-          <div key={node.id}>
-            <button
-              onClick={() => onSelect(node)}
-              className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md mb-0.5 transition-all hover:bg-[rgba(255,255,255,0.04)]"
+  return (
+    <div
+      className="rounded-lg transition-all"
+      style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${expanded ? `${statusColor}30` : "rgba(255,255,255,0.05)"}` }}
+    >
+      {/* Intent header */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-[rgba(255,255,255,0.02)] rounded-lg transition-all"
+      >
+        <span className="text-[0.5rem]" style={{ color: "var(--pn-text-muted)" }}>
+          {expanded ? "\u25BC" : "\u25B6"}
+        </span>
+
+        {/* Status badge */}
+        <span
+          className="text-[0.55rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
+          style={{ background: `${statusColor}15`, color: statusColor, border: `1px solid ${statusColor}25` }}
+        >
+          {intent.status.replace("_", " ")}
+        </span>
+
+        {/* Title */}
+        <span className="text-[0.75rem] font-medium flex-1 truncate" style={{ color: "rgba(255,255,255,0.87)" }}>
+          {toTitleCase(intent.intent_slug)}
+        </span>
+
+        {/* Completion bar */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${pct}%`, background: statusColor }}
+            />
+          </div>
+          <span className="text-[0.55rem] font-mono w-8 text-right" style={{ color: statusColor }}>
+            {pct}%
+          </span>
+        </div>
+
+        {/* Mode badges */}
+        <div className="flex items-center gap-1 shrink-0">
+          {Object.entries(intent.modes_executed).map(([mode, modeStatus]) => (
+            <span
+              key={mode}
+              className="text-[0.5rem] font-mono px-1 py-0.5 rounded"
               style={{
-                background: selectedId === node.id ? "rgba(167,139,250,0.1)" : "transparent",
-                borderLeft: `2px solid ${color}`,
+                background: `${MODE_COLORS[mode] ?? "#6b7280"}10`,
+                color: MODE_COLORS[mode] ?? "#6b7280",
               }}
             >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
-              <span className="text-[0.55rem] font-mono uppercase shrink-0" style={{ color, opacity: 0.7 }}>
-                {LEVEL_LABELS[node.level]?.slice(0, 4)}
-              </span>
-              <span className="text-[0.72rem] truncate" style={{ color: "rgba(255,255,255,0.87)" }}>
-                {node.title}
-              </span>
-              {node.level < 4 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onAddChild(node.id, node.level); }}
-                  className="ml-auto text-[0.6rem] opacity-30 hover:opacity-70 shrink-0"
-                >
-                  +
-                </button>
-              )}
-            </button>
-            {node.children && node.children.length > 0 && (
-              <TreeView
-                nodes={node.children as typeof nodes}
-                maxLevel={maxLevel}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                onAddChild={onAddChild}
-                depth={depth + 1}
-              />
-            )}
+              {mode.slice(0, 3)} {modeStatus === "completed" ? "\u2713" : "\u2717"}
+            </span>
+          ))}
+        </div>
+      </button>
+
+      {/* Expanded: execution timeline */}
+      {expanded && (
+        <div className="px-3 pb-3 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+          <div className="text-[0.6rem] font-mono uppercase pt-2 pb-1" style={{ color: "var(--pn-text-muted)" }}>
+            Executions ({intent.executions.length})
           </div>
-        );
-      })}
+          {intent.executions.map((exec) => (
+            <ExecutionRow
+              key={exec.id}
+              execution={exec}
+              expanded={expandedExecutionId === exec.id}
+              events={events[exec.id]}
+              onToggle={() => onToggleExecution(exec.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function NodeDetail({
-  node, onUpdate, onDelete,
+function ExecutionRow({
+  execution,
+  expanded,
+  events,
+  onToggle,
 }: {
-  readonly node: { readonly id: string; readonly title: string; readonly description: string | null; readonly level: number; readonly level_name: string; readonly status: string; readonly linked_task_ids: readonly string[]; readonly linked_wiki_path: string | null };
-  readonly onUpdate: (attrs: Record<string, unknown>) => void;
-  readonly onDelete: () => void;
+  readonly execution: Execution;
+  readonly expanded: boolean;
+  readonly events: readonly ExecutionEvent[] | undefined;
+  readonly onToggle: () => void;
 }) {
-  const color = LEVEL_COLORS[node.level] ?? "#6b7280";
+  const modeColor = MODE_COLORS[execution.mode] ?? "#6b7280";
+  const statusColor = EXEC_STATUS_COLORS[execution.status] ?? "#6b7280";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-[0.8rem] font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>{node.title}</div>
-      <div className="flex items-center gap-2">
-        <span className="text-[0.55rem] font-mono uppercase px-1.5 py-0.5 rounded" style={{ background: `${color}15`, color }}>
-          {node.level_name}
+    <div className="rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-2.5 py-2 flex items-center gap-2 hover:bg-[rgba(255,255,255,0.02)] rounded transition-all"
+      >
+        <span
+          className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
+          style={{ background: `${modeColor}15`, color: modeColor }}
+        >
+          {execution.mode}
         </span>
         <span
-          className="text-[0.55rem] font-mono uppercase px-1.5 py-0.5 rounded"
-          style={{ background: `${STATUS_COLORS[node.status]}15`, color: STATUS_COLORS[node.status] }}
+          className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
+          style={{ background: `${statusColor}15`, color: statusColor }}
         >
-          {node.status}
+          {execution.status.replace("_", " ")}
         </span>
-      </div>
-      {node.description && (
-        <div className="text-[0.7rem] leading-relaxed" style={{ color: "var(--pn-text-secondary)" }}>
-          {node.description}
-        </div>
-      )}
-      {/* Status buttons */}
-      <div className="flex gap-1">
-        {(["planned", "partial", "complete"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => onUpdate({ status: s })}
-            className="flex-1 py-1.5 rounded text-[0.6rem] font-mono transition-all"
-            style={{
-              background: node.status === s ? `${STATUS_COLORS[s]}20` : "rgba(255,255,255,0.04)",
-              color: node.status === s ? STATUS_COLORS[s] : "var(--pn-text-muted)",
-              border: node.status === s ? `1px solid ${STATUS_COLORS[s]}30` : "1px solid transparent",
-            }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-      {node.linked_wiki_path && (
-        <div className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-tertiary)" }}>
-          Wiki: {node.linked_wiki_path}
-        </div>
-      )}
-      {node.linked_task_ids.length > 0 && (
-        <div className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-tertiary)" }}>
-          Tasks: {node.linked_task_ids.length} linked
-        </div>
-      )}
-      <button
-        onClick={onDelete}
-        className="mt-2 py-1.5 rounded text-[0.65rem] font-mono transition-all hover:brightness-110"
-        style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}
-      >
-        Delete Node
+        <span className="text-[0.65rem] truncate flex-1" style={{ color: "var(--pn-text-secondary)" }}>
+          {execution.title}
+        </span>
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
+          {relativeTime(execution.inserted_at)}
+        </span>
       </button>
+
+      {expanded && (
+        <div className="px-2.5 pb-2 space-y-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+          {execution.result_path && (
+            <div className="flex items-center gap-2 pt-1.5">
+              <span className="text-[0.55rem] font-mono" style={{ color: "var(--pn-text-tertiary)" }}>
+                Result: {execution.result_path}
+              </span>
+            </div>
+          )}
+          {events === undefined ? (
+            <div className="text-[0.6rem] py-1" style={{ color: "var(--pn-text-muted)" }}>Loading events...</div>
+          ) : events.length === 0 ? (
+            <div className="text-[0.6rem] py-1" style={{ color: "var(--pn-text-muted)" }}>No events recorded.</div>
+          ) : (
+            <div className="space-y-0.5 pt-1">
+              {events.map((evt) => (
+                <div key={evt.id} className="flex items-center gap-2 text-[0.55rem] font-mono">
+                  <span style={{ color: "var(--pn-text-muted)" }}>
+                    {new Date(evt.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span
+                    className="px-1 py-0.5 rounded"
+                    style={{ background: "rgba(255,255,255,0.04)", color: "var(--pn-text-secondary)" }}
+                  >
+                    {evt.type}
+                  </span>
+                  {evt.actor_kind && (
+                    <span style={{ color: "var(--pn-text-tertiary)" }}>{evt.actor_kind}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
