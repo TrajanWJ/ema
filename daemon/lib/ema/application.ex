@@ -22,6 +22,8 @@ defmodule Ema.Application do
         Ema.Agents.NetworkMonitor,
         # AI session tracking
         Ema.Claude.SessionManager,
+        # Focus timer GenServer
+        Ema.Focus.Timer,
         # Pipes — workflow automation (Registry -> Loader -> Executor)
         Ema.Pipes.Supervisor
       ] ++

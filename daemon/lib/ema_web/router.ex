@@ -176,15 +176,20 @@ defmodule EmaWeb.Router do
     # Goals
     resources "/goals", GoalController, except: [:new, :edit]
 
-    # Focus
-    get "/focus/sessions", FocusController, :index
+    # Focus — timer-driven sessions
     get "/focus/current", FocusController, :current
     get "/focus/today", FocusController, :today
+    get "/focus/weekly", FocusController, :weekly
+    get "/focus/history", FocusController, :history
+    get "/focus/sessions", FocusController, :index
     get "/focus/sessions/:id", FocusController, :show
-    post "/focus/sessions", FocusController, :start
-    post "/focus/sessions/:id/stop", FocusController, :stop
-    post "/focus/sessions/:id/blocks", FocusController, :add_block
-    post "/focus/blocks/:block_id/end", FocusController, :end_block
+    get "/focus/tasks/:task_id/sessions", FocusController, :task_sessions
+    post "/focus/start", FocusController, :start
+    post "/focus/stop", FocusController, :stop
+    post "/focus/pause", FocusController, :pause
+    post "/focus/resume", FocusController, :resume
+    post "/focus/break", FocusController, :take_break
+    post "/focus/resume-work", FocusController, :resume_work
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook

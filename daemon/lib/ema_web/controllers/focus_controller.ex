@@ -2,6 +2,7 @@ defmodule EmaWeb.FocusController do
   use EmaWeb, :controller
 
   alias Ema.Focus
+  alias Ema.Focus.Timer
 
   action_fallback EmaWeb.FallbackController
 
@@ -20,50 +21,100 @@ defmodule EmaWeb.FocusController do
 
   def current(conn, _params) do
     case Focus.current_session() do
-      nil -> json(conn, %{session: nil})
-      session -> json(conn, %{session: serialize_session(session)})
+      nil -> json(conn, %{session: nil, timer: Timer.status()})
+      session -> json(conn, %{session: serialize_session(session), timer: Timer.status()})
     end
   end
 
   def start(conn, params) do
-    attrs =
-      case params["target_ms"] do
-        nil -> %{}
-        ms -> %{target_ms: ms}
-      end
+    opts =
+      []
+      |> maybe_put(:target_ms, params["target_ms"])
+      |> maybe_put(:break_ms, params["break_ms"])
+      |> maybe_put(:task_id, params["task_id"])
 
-    with {:ok, session} <- Focus.start_session(attrs) do
-      conn
-      |> put_status(:created)
-      |> json(serialize_session(session))
+    case Timer.start_session(opts) do
+      {:ok, session} ->
+        conn
+        |> put_status(:created)
+        |> json(serialize_session(session))
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
     end
   end
 
-  def stop(conn, %{"id" => id}) do
-    with {:ok, session} <- Focus.end_session(id) do
-      json(conn, serialize_session(session))
+  def stop(conn, _params) do
+    case Timer.stop_session() do
+      {:ok, session} -> json(conn, serialize_session(session))
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
     end
   end
 
-  def add_block(conn, %{"id" => id} = params) do
-    block_type = params["block_type"] || "work"
-
-    with {:ok, block} <- Focus.add_block(id, block_type) do
-      conn
-      |> put_status(:created)
-      |> json(serialize_block(block))
+  def pause(conn, _params) do
+    case Timer.pause() do
+      :ok -> json(conn, %{status: "paused"})
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
     end
   end
 
-  def end_block(conn, %{"block_id" => block_id}) do
-    with {:ok, block} <- Focus.end_block(block_id) do
-      json(conn, serialize_block(block))
+  def resume(conn, _params) do
+    case Timer.resume() do
+      :ok -> json(conn, %{status: "focusing"})
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def take_break(conn, _params) do
+    case Timer.take_break() do
+      :ok -> json(conn, %{status: "break"})
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def resume_work(conn, _params) do
+    case Timer.resume_work() do
+      :ok -> json(conn, %{status: "focusing"})
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: to_string(reason)})
     end
   end
 
   def today(conn, _params) do
     stats = Focus.today_stats()
     json(conn, stats)
+  end
+
+  def weekly(conn, _params) do
+    stats = Focus.weekly_stats()
+    json(conn, stats)
+  end
+
+  def history(conn, params) do
+    limit = parse_int(params["limit"], 20)
+    sessions = Focus.list_sessions(limit: limit) |> Enum.map(&serialize_session/1)
+    json(conn, %{sessions: sessions})
+  end
+
+  def task_sessions(conn, %{"task_id" => task_id}) do
+    sessions = Focus.sessions_for_task(task_id) |> Enum.map(&serialize_session/1)
+    json(conn, %{sessions: sessions})
   end
 
   defp serialize_session(session) do
@@ -78,6 +129,8 @@ defmodule EmaWeb.FocusController do
       started_at: session.started_at,
       ended_at: session.ended_at,
       target_ms: session.target_ms,
+      task_id: session.task_id,
+      summary: session.summary,
       blocks: blocks,
       created_at: session.inserted_at,
       updated_at: session.updated_at
@@ -107,4 +160,7 @@ defmodule EmaWeb.FocusController do
   end
 
   defp parse_int(val, _default) when is_integer(val), do: val
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, key, val), do: Keyword.put(opts, key, val)
 end

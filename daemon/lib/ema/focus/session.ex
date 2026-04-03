@@ -8,6 +8,8 @@ defmodule Ema.Focus.Session do
     field :started_at, :utc_datetime
     field :ended_at, :utc_datetime
     field :target_ms, :integer
+    field :task_id, :string
+    field :summary, :string
 
     has_many :blocks, Ema.Focus.Block
 
@@ -16,7 +18,7 @@ defmodule Ema.Focus.Session do
 
   def changeset(session, attrs) do
     session
-    |> cast(attrs, [:id, :started_at, :ended_at, :target_ms])
+    |> cast(attrs, [:id, :started_at, :ended_at, :target_ms, :task_id, :summary])
     |> validate_required([:id, :started_at])
   end
 end

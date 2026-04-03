@@ -9,7 +9,7 @@ defmodule Ema.Focus do
   alias Ema.Repo
   alias Ema.Focus.{Session, Block}
 
-  @default_target_ms 25 * 60 * 1000
+  @default_target_ms 45 * 60 * 1000
 
   def list_sessions(opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -199,6 +199,48 @@ defmodule Ema.Focus do
       error ->
         error
     end
+  end
+
+  def sessions_for_task(task_id) do
+    Session
+    |> where([s], s.task_id == ^task_id)
+    |> order_by(desc: :started_at)
+    |> preload(:blocks)
+    |> Repo.all()
+  end
+
+  def weekly_stats do
+    week_start =
+      Date.utc_today()
+      |> Date.add(-6)
+      |> DateTime.new!(~T[00:00:00], "Etc/UTC")
+
+    sessions =
+      Session
+      |> where([s], s.started_at >= ^week_start)
+      |> preload(:blocks)
+      |> Repo.all()
+
+    completed = Enum.filter(sessions, &(not is_nil(&1.ended_at)))
+
+    total_work_ms =
+      completed
+      |> Enum.flat_map(& &1.blocks)
+      |> Enum.filter(&(&1.block_type == "work" && &1.elapsed_ms))
+      |> Enum.reduce(0, &(&1.elapsed_ms + &2))
+
+    # Count distinct days with completed sessions
+    streak_days =
+      completed
+      |> Enum.map(&DateTime.to_date(&1.started_at))
+      |> Enum.uniq()
+      |> length()
+
+    %{
+      sessions_count: length(completed),
+      total_work_ms: total_work_ms,
+      streak_days: streak_days
+    }
   end
 
   defp generate_id(prefix) do
