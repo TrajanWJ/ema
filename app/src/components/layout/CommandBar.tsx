@@ -11,7 +11,7 @@ export function CommandBar() {
         <input
           type="text"
           placeholder="Search everything..."
-          className="bg-transparent border-none outline-none text-[0.7rem] flex-1"
+          className="bg-transparent border-none outline-none text-[0.7rem] flex-1 cursor-pointer"
           style={{ color: "var(--pn-text-secondary)" }}
           readOnly
         />

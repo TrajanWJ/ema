@@ -23,7 +23,7 @@ export function AppTile({
   return (
     <button
       onClick={onClick}
-      className="relative flex flex-col text-left rounded-xl p-4 transition-all hover:-translate-y-px"
+      className="relative flex flex-col text-left rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98]"
       style={{
         background: "rgba(14, 16, 23, 0.55)",
         backdropFilter: "blur(20px) saturate(150%)",

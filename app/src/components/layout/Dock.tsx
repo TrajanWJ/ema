@@ -40,7 +40,7 @@ export function Dock() {
         {/* Launchpad icon — always active */}
         <Tooltip label="Launchpad">
           <button
-            className="relative flex items-center justify-center rounded-md"
+            className="relative flex items-center justify-center rounded-md transition-all duration-200 hover:bg-[rgba(45,212,168,0.12)]"
             style={{
               width: "40px",
               height: "40px",
@@ -73,7 +73,7 @@ export function Dock() {
             <Tooltip key={id} label={label}>
               <button
                 onClick={() => handleClick(id)}
-                className="relative flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
+                className="relative flex items-center justify-center rounded-md transition-all duration-200 hover:bg-white/5 active:scale-95"
                 style={{
                   width: "40px",
                   height: "40px",
@@ -90,6 +90,7 @@ export function Dock() {
                       height: "6px",
                       background: "#22C55E",
                       border: "1px solid var(--color-pn-base)",
+                      animation: "fadeIn 200ms ease-out",
                     }}
                   />
                 )}
@@ -110,7 +111,7 @@ export function Dock() {
             const saved = windows.find((w) => w.app_id === "settings") ?? null;
             openApp("settings", saved);
           }}
-          className="relative flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
+          className="relative flex items-center justify-center rounded-md transition-all duration-200 hover:bg-white/5 active:scale-95"
           style={{
             width: "40px",
             height: "40px",

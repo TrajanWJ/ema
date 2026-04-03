@@ -35,7 +35,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             <Tooltip key={page} label={label}>
               <button
                 onClick={() => onNavigate(page)}
-                className="relative flex items-center justify-center rounded-md transition-colors"
+                className={`relative flex items-center justify-center rounded-md transition-all duration-200 ${active ? "" : "hover:bg-white/5 active:scale-95"}`}
                 style={{
                   width: "40px",
                   height: "40px",
@@ -69,7 +69,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
       <Tooltip label="Settings">
         <button
           onClick={() => onNavigate("settings")}
-          className="flex items-center justify-center rounded-md transition-colors"
+          className={`flex items-center justify-center rounded-md transition-all duration-200 ${activePage === "settings" ? "" : "hover:bg-white/5 active:scale-95"}`}
           style={{
             width: "40px",
             height: "40px",
