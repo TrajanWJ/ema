@@ -62,7 +62,7 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
   const isGenerating = proposal.status === "generating";
   const isQueued = proposal.status === "queued";
 
-  function handleComplete(id: string) {
+  function handleComplete(_id: string) {
     // Reload proposals store to get updated proposal after pipeline finishes
     void useProposalsStore.getState().loadViaRest();
   }

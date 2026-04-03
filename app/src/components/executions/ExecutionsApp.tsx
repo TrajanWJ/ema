@@ -24,10 +24,6 @@ const MODE_ICONS: Record<ExecutionMode, string> = {
   refactor: "♻️",
 };
 
-const ALL_STATUSES: ExecutionStatus[] = [
-  "created", "proposed", "awaiting_approval", "approved",
-  "delegated", "running", "harvesting", "completed", "failed", "cancelled",
-];
 
 const ALL_MODES: ExecutionMode[] = [
   "research", "outline", "implement", "review", "harvest", "refactor",
@@ -123,7 +119,7 @@ export function ExecutionsApp() {
   const {
     connect, loadViaRest, connected, loading, error,
     filteredExecutions, approve, cancel,
-    statusFilter, modeFilter, setStatusFilter, setModeFilter,
+    statusFilter, setStatusFilter,
     create,
   } = useExecutionStore();
 
