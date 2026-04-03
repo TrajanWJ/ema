@@ -22,7 +22,7 @@ defmodule Ema.Claude.AI do
         end
 
       _runner ->
-        Ema.Claude.Bridge.run(prompt, opts)
+        Ema.Claude.Runner.run(prompt, opts)
     end
   end
 

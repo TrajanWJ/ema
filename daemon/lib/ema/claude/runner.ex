@@ -19,7 +19,7 @@ defmodule Ema.Claude.Runner do
     timeout = Keyword.get(opts, :timeout, 300_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
 
-    args = ["--print", "--output-format", "json", "--model", model, "-p", prompt]
+    args = ["--print", "--output-format", "json", "--model", model, "--permission-mode", "bypassPermissions", "-p", prompt]
 
     task =
       Task.async(fn ->
