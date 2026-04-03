@@ -31,9 +31,11 @@ defmodule EmaWeb.ExecutionController do
     case Ema.Executions.get_execution(id) do
       nil ->
         conn |> put_status(404) |> json(%{error: "not found"})
+      execution when execution.status in ["running", "completed", "failed", "cancelled", "delegated"] ->
+        # Already past approved — return current state, don't re-dispatch
+        json(conn, %{execution: serialize(execution)})
       execution ->
-        {:ok, updated} = Ema.Executions.transition(execution, "approved")
-        Phoenix.PubSub.broadcast(Ema.PubSub, "executions:dispatch", {:dispatch, updated})
+        {:ok, updated} = Ema.Executions.approve_and_dispatch(execution)
         json(conn, %{execution: serialize(updated)})
     end
   end

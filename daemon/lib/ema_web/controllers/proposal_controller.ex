@@ -16,6 +16,23 @@ defmodule EmaWeb.ProposalController do
     json(conn, %{proposals: proposals})
   end
 
+  def create(conn, params) do
+    attrs = %{
+      title: params["title"],
+      body: params["body"],
+      summary: params["summary"],
+      status: params["status"] || "queued",
+      project_id: params["project_id"]
+    }
+
+    case Proposals.create_proposal(attrs) do
+      {:ok, proposal} ->
+        conn |> put_status(:created) |> json(serialize_proposal(proposal))
+      {:error, changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
+    end
+  end
+
   def show(conn, %{"id" => id}) do
     case Proposals.get_proposal(id) do
       nil ->
@@ -113,6 +130,11 @@ defmodule EmaWeb.ProposalController do
   def cost(conn, %{"id" => id}) do
     cost_data = Ema.Proposals.CostAggregator.proposal_cost(id)
     json(conn, cost_data)
+  end
+
+  def surfaced(conn, _params) do
+    proposals = Proposals.list_proposals(status: "queued")
+    json(conn, %{proposals: Enum.map(proposals, &serialize_proposal/1)})
   end
 
   @doc """

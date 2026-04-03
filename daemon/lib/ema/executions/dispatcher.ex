@@ -10,6 +10,8 @@ defmodule Ema.Executions.Dispatcher do
   use GenServer
   require Logger
 
+  alias Ema.Executions.Router
+
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -65,9 +67,10 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp attempt_local_claude(execution, agent_session, prompt) do
-    case Ema.Claude.AI.run(prompt) do
+    # 5 min timeout — delegation prompts are long and Claude needs time to read files + produce output
+    case Ema.Claude.AI.run(prompt, timeout: 300_000) do
       {:ok, result} ->
-        result_text = if is_map(result), do: Jason.encode!(result), else: to_string(result)
+        result_text = extract_result_text(result)
         Ema.Executions.complete_agent_session(agent_session.id, result_text)
         Ema.Executions.on_execution_completed(execution.id, result_text)
 
@@ -79,6 +82,28 @@ defmodule Ema.Executions.Dispatcher do
     end
   end
 
+  # Extract the clean result text from Claude's JSON output.
+  # Claude returns {"result": "...", "type": "result", ...} — we want just the result field.
+  defp extract_result_text(%{"result" => text}) when is_binary(text), do: text
+  defp extract_result_text(%{"raw" => raw}) when is_binary(raw) do
+    # The "raw" field may contain a warning prefix + JSON. Try to parse the JSON part.
+    case Regex.run(~r/\{.*"result"\s*:\s*"/, raw) do
+      nil -> raw
+      _ ->
+        # Find the JSON object in the raw output
+        case Regex.run(~r/(\{[^\n]*"type"\s*:\s*"result"[^\n]*\})/, raw) do
+          [_, json_str] ->
+            case Jason.decode(json_str) do
+              {:ok, %{"result" => text}} -> text
+              _ -> raw
+            end
+          _ -> raw
+        end
+    end
+  end
+  defp extract_result_text(result) when is_map(result), do: Jason.encode!(result)
+  defp extract_result_text(result), do: to_string(result)
+
   defp build_packet(execution) do
     intent_path = execution.intent_path || ".superman/intents/#{execution.intent_slug}"
 
@@ -86,18 +111,18 @@ defmodule Ema.Executions.Dispatcher do
       execution_id: execution.id,
       project_slug: execution.project_slug,
       intent_slug: execution.intent_slug,
-      agent_role: mode_to_role(execution.mode),
+      agent_role: Router.mode_to_role(execution.mode),
       objective: execution.objective || execution.title,
       mode: execution.mode,
       requires_patchback: not is_nil(execution.intent_path),
-      success_criteria: mode_success_criteria(execution.mode),
+      success_criteria: Router.mode_success_criteria(execution.mode),
       read_files: [
         "#{intent_path}/intent.md",
         "#{intent_path}/signals.md",
         ".superman/project.md",
         ".superman/context.md"
-      ] ++ mode_read_files(execution.mode, intent_path),
-      write_files: mode_write_files(execution.mode, intent_path),
+      ] ++ Router.mode_read_files(execution.mode, intent_path),
+      write_files: Router.mode_write_files(execution.mode, intent_path),
       constraints: [
         "Do not modify files outside the write_files list",
         "Be specific and concrete — no vague conclusions",
@@ -105,39 +130,6 @@ defmodule Ema.Executions.Dispatcher do
       ]
     }
   end
-
-  defp mode_to_role("research"), do: "researcher"
-  defp mode_to_role("outline"), do: "outliner"
-  defp mode_to_role("review"), do: "reviewer"
-  defp mode_to_role("refactor"), do: "refactorer"
-  defp mode_to_role("harvest"), do: "harvester"
-  defp mode_to_role(_), do: "implementer"
-
-  defp mode_success_criteria("research") do
-    [
-      "Durable architecture principles extracted",
-      "Minimal runtime model defined",
-      "Unresolved questions listed",
-      "Smallest viable implementation path identified"
-    ]
-  end
-  defp mode_success_criteria("outline") do
-    [
-      "Filesystem structure defined",
-      "Runtime schema specified",
-      "Event flow documented",
-      "App boundaries clear",
-      "Build order established"
-    ]
-  end
-  defp mode_success_criteria(_), do: ["Objective completed", "Output written to specified files"]
-
-  defp mode_read_files("outline", intent_path), do: ["#{intent_path}/research.md"]
-  defp mode_read_files(_, _), do: []
-
-  defp mode_write_files("research", intent_path), do: ["#{intent_path}/research.md"]
-  defp mode_write_files("outline", intent_path), do: ["#{intent_path}/outline.md", "#{intent_path}/decisions.md"]
-  defp mode_write_files(_, intent_path), do: ["#{intent_path}/result.md"]
 
   defp format_prompt(packet) do
     """

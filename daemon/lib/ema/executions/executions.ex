@@ -14,7 +14,7 @@ defmodule Ema.Executions do
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.Executions.{Execution, Event, AgentSession}
+  alias Ema.Executions.{Execution, Event, AgentSession, Router}
   require Logger
 
   # ── Public API ──────────────────────────────────────────────────────────────
@@ -42,13 +42,20 @@ defmodule Ema.Executions do
 
   def create(attrs) do
     id = generate_id()
+    # Normalize to string keys so Ecto changeset doesn't get mixed atom/string maps
+    attrs = attrs |> Map.new(fn {k, v} -> {to_string(k), v} end) |> Map.put("id", id)
 
     %Execution{}
-    |> Execution.changeset(Map.put(attrs, :id, id))
+    |> Execution.changeset(attrs)
     |> Repo.insert()
     |> tap_ok(fn execution ->
       record_event(execution.id, "created", %{mode: execution.mode, intent_slug: execution.intent_slug})
       broadcast("execution:created", execution)
+      # Auto-dispatch when no approval needed
+      if not execution.requires_approval do
+        {:ok, approved} = transition(execution, "approved")
+        dispatch_if_ready(approved)
+      end
     end)
   end
 
@@ -90,7 +97,7 @@ defmodule Ema.Executions do
           case create(%{
             title: proposal.title,
             objective: proposal.summary || proposal.body,
-            mode: infer_mode_from_proposal(proposal),
+            mode: Router.infer_mode_from_text((proposal.body || "") <> " " <> (proposal.summary || "")),
             status: "created",
             proposal_id: proposal_id,
             project_slug: proposal.project_id,
@@ -136,7 +143,7 @@ defmodule Ema.Executions do
         :ok
 
       execution ->
-        signal = infer_signal(result_summary)
+        signal = Router.classify_outcome(result_summary)
 
         execution
         |> Execution.changeset(%{
@@ -159,16 +166,19 @@ defmodule Ema.Executions do
         Logger.warning("[Executions] on_execution_completed: no execution #{execution_id}")
         {:error, :not_found}
       execution ->
-        signal = infer_signal(result_summary)
+        signal = Router.classify_outcome(result_summary)
+        result_path = write_result_artifact(execution, result_summary)
+
         execution
         |> Execution.changeset(%{
           status: "completed",
           completed_at: DateTime.utc_now() |> DateTime.truncate(:second),
-          metadata: Map.put(execution.metadata, "result_summary", result_summary)
+          result_path: result_path,
+          metadata: Map.put(execution.metadata || %{}, "result_summary", result_summary)
         })
         |> Repo.update()
         |> tap_ok(fn updated ->
-          record_event(updated.id, "completed", %{signal: signal})
+          record_event(updated.id, "completed", %{signal: signal, result_path: result_path})
           broadcast("execution:completed", %{execution: updated, signal: signal})
           patch_intent_file(updated, result_summary)
         end)
@@ -236,6 +246,43 @@ defmodule Ema.Executions do
     end
   end
 
+  # ── Public: Approval & Cancellation ─────────────────────────────────────────
+
+  def approve_execution(id) do
+    case get_execution(id) do
+      nil -> {:error, :not_found}
+      execution ->
+        case transition(execution, "approved") do
+          {:ok, updated} ->
+            dispatch_if_ready(updated)
+            {:ok, updated}
+          error -> error
+        end
+    end
+  end
+
+  def cancel_execution(id) do
+    case get_execution(id) do
+      nil -> {:error, :not_found}
+      execution -> transition(execution, "cancelled")
+    end
+  end
+
+  @doc """
+  Approve an execution and dispatch it. Idempotent — guards against
+  re-dispatching an execution that is already running or past approval.
+  """
+  def approve_and_dispatch(execution) do
+    case execution.status do
+      s when s in ["running", "completed", "failed", "cancelled", "delegated"] ->
+        {:ok, execution}
+      _ ->
+        {:ok, approved} = transition(execution, "approved")
+        dispatch_if_ready(approved)
+        {:ok, approved}
+    end
+  end
+
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp maybe_filter(query, _field, nil), do: query
@@ -255,91 +302,72 @@ defmodule Ema.Executions do
   end
   defp tap_ok(error, _fun), do: error
 
-  defp infer_mode_from_proposal(proposal) do
-    body = String.downcase((proposal.body || "") <> " " <> (proposal.summary || ""))
-    cond do
-      String.contains?(body, ["research", "investigate", "explore", "study"]) -> "research"
-      String.contains?(body, ["refactor", "clean up", "simplify", "improve"]) -> "refactor"
-      String.contains?(body, ["review", "audit", "check", "assess"]) -> "review"
-      String.contains?(body, ["outline", "plan", "design", "architect"]) -> "outline"
-      true -> "implement"
-    end
-  end
-
-  defp infer_signal(nil), do: "failed"
-  defp infer_signal(""), do: "failed"
-  defp infer_signal(s) when byte_size(s) < 50, do: "partial"
-  defp infer_signal(_), do: "success"
-
-  defp dispatch_if_ready(%{requires_approval: false} = execution) do
+  defp dispatch_if_ready(%{requires_approval: false, status: "approved"} = execution) do
     Phoenix.PubSub.broadcast(Ema.PubSub, "executions:dispatch", {:dispatch, execution})
   end
   defp dispatch_if_ready(_), do: :ok
 
-    def compute_intent_status(project_slug, intent_slug) do
-    # Get all executions, group by mode (latest per mode)
-    all_execs = Execution
+  # ── Intent Status ─────────────────────────────────────────────────────────────
+  # Computes intent progress from accumulated execution history across modes.
+  # "latest execution wins" is wrong — a failed retry after success isn't blocked.
+  # Rules:
+  #   - cancelled executions never count
+  #   - any active execution → in_progress (overrides everything)
+  #   - implement completed → completed (100%), regardless of review/refactor outcome
+  #   - outline completed → outlined (75%), even if subsequent runs failed
+  #   - research completed → researched (40%), even if retries failed
+  #   - all failed, none active → blocked (0%)
+  #   - otherwise fall through to raw execution status
+
+  def compute_intent_status(project_slug, intent_slug) do
+    active_statuses = ~w(running approved delegated harvesting)
+
+    executions =
+      Execution
       |> where([e], e.project_slug == ^project_slug and e.intent_slug == ^intent_slug)
-      |> order_by([e], [e.mode, desc: e.inserted_at])
+      |> where([e], e.status != "cancelled")
+      |> order_by([e], desc: e.inserted_at)
       |> Repo.all()
 
-    if Enum.empty?(all_execs) do
+    if executions == [] do
       %{
         status: "idle",
+        latest_execution_id: nil,
         modes_executed: %{},
         completion_pct: 0,
         last_updated: DateTime.utc_now() |> DateTime.to_iso8601()
       }
     else
-      # Group by mode, keep latest of each
-      execs_by_mode =
-        all_execs
-        |> Enum.uniq_by(& &1.mode)
-        |> Map.new(fn exec -> {exec.mode, exec.status} end)
+      # Best terminal outcome per mode (completed beats failed for same mode)
+      completed_modes = executions
+        |> Enum.filter(&(&1.status == "completed"))
+        |> Enum.map(&(&1.mode))
+        |> MapSet.new()
 
-      # Latest execution for ID and timestamp
-      latest = List.first(all_execs)
+      # Latest status per mode (for modes_executed map — useful for UI)
+      modes_executed = executions
+        |> Enum.uniq_by(&(&1.mode))
+        |> Map.new(fn e -> {e.mode, e.status} end)
 
-      # Compute status using 3 signals
-      status = compute_phase_status(execs_by_mode)
+      active = Enum.find(executions, fn e -> e.status in active_statuses end)
+      latest = hd(executions)
+
+      {status, pct} = cond do
+        active != nil                                -> {"in_progress", 50}
+        MapSet.member?(completed_modes, "implement") -> {"completed", 100}
+        MapSet.member?(completed_modes, "outline")   -> {"outlined", 75}
+        MapSet.member?(completed_modes, "research")  -> {"researched", 40}
+        latest.status == "failed"                    -> {"blocked", 0}
+        true -> {execution_to_status(latest.status), estimate_completion(latest.status)}
+      end
 
       %{
         status: status,
-        modes_executed: execs_by_mode,
         latest_execution_id: latest.id,
-        completion_pct: estimate_phase_completion(execs_by_mode),
+        modes_executed: modes_executed,
+        completion_pct: pct,
         last_updated: latest.updated_at |> DateTime.to_iso8601()
       }
-    end
-  end
-
-  defp compute_phase_status(execs_by_mode) do
-    cond do
-      Enum.any?(execs_by_mode, fn {_mode, status} -> status == "running" end) ->
-        "in_progress"
-
-      execs_by_mode["implement"] == "completed" ->
-        "completed"
-
-      true ->
-        cond do
-          execs_by_mode["review"] == "failed" -> "review_blocked"
-          execs_by_mode["outline"] == "completed" -> "outlined"
-          execs_by_mode["research"] == "completed" -> "researched"
-          execs_by_mode["implement"] == "failed" -> "implementation_blocked"
-          true -> "idle"
-        end
-    end
-  end
-
-  defp estimate_phase_completion(execs_by_mode) do
-    case execs_by_mode do
-      %{"implement" => "completed"} -> 100
-      %{"research" => "completed"} -> 50
-      %{"outline" => "completed"} -> 25
-      %{"review" => "running"} -> 75
-      %{"implement" => "running"} -> 60
-      _ -> 0
     end
   end
 
@@ -353,6 +381,49 @@ defmodule Ema.Executions do
   defp estimate_completion("approved"), do: 10
   defp estimate_completion(_), do: 0
 
+
+  # Always write a result artifact to disk, regardless of intent_path.
+  # Returns the path written, or nil on failure.
+  defp write_result_artifact(execution, result_summary) do
+    results_dir = Path.join([results_base_dir(), execution.id])
+
+    case File.mkdir_p(results_dir) do
+      :ok ->
+        path = Path.join(results_dir, "result.md")
+        now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+        content = """
+        # Execution Result
+
+        **Execution ID:** #{execution.id}
+        **Title:** #{execution.title}
+        **Mode:** #{execution.mode}
+        **Project:** #{execution.project_slug || "unlinked"}
+        **Completed:** #{now}
+
+        ---
+
+        #{result_summary}
+        """
+
+        case File.write(path, content) do
+          :ok ->
+            Logger.info("[Executions] Result written to #{path}")
+            path
+          {:error, reason} ->
+            Logger.error("[Executions] Failed to write result to #{path}: #{inspect(reason)}")
+            nil
+        end
+
+      {:error, reason} ->
+        Logger.error("[Executions] Failed to create results dir #{results_dir}: #{inspect(reason)}")
+        nil
+    end
+  end
+
+  defp results_base_dir do
+    Path.join([System.get_env("HOME", "/tmp"), ".local", "share", "ema", "results"])
+  end
 
   defp patch_intent_file(%{intent_path: nil}, _), do: :ok
   defp patch_intent_file(%{intent_path: ""}, _), do: :ok

@@ -16,17 +16,20 @@ defmodule Ema.SecondBrain.GraphBuilderTest do
   describe "parse_wikilinks/1" do
     test "extracts simple wikilinks" do
       content = "Check out [[My Note]] and [[Another Note]] for details."
-      assert GraphBuilder.parse_wikilinks(content) == ["My Note", "Another Note"]
+      assert GraphBuilder.parse_wikilinks(content) == [
+               {"references", "My Note"},
+               {"references", "Another Note"}
+             ]
     end
 
     test "extracts wikilinks with display text" do
       content = "See [[projects/ema/spec|the EMA spec]] for details."
-      assert GraphBuilder.parse_wikilinks(content) == ["projects/ema/spec"]
+      assert GraphBuilder.parse_wikilinks(content) == [{"references", "projects/ema/spec"}]
     end
 
     test "deduplicates links" do
       content = "Link to [[Note A]] and again to [[Note A]]."
-      assert GraphBuilder.parse_wikilinks(content) == ["Note A"]
+      assert GraphBuilder.parse_wikilinks(content) == [{"references", "Note A"}]
     end
 
     test "returns empty for content without links" do
@@ -39,12 +42,16 @@ defmodule Ema.SecondBrain.GraphBuilderTest do
 
     test "handles multiple links on same line" do
       content = "[[A]] links to [[B]] and [[C]]"
-      assert GraphBuilder.parse_wikilinks(content) == ["A", "B", "C"]
+      assert GraphBuilder.parse_wikilinks(content) == [
+               {"references", "A"},
+               {"references", "B"},
+               {"references", "C"}
+             ]
     end
 
     test "handles links with paths" do
       content = "See [[projects/ema/design]] for the design doc."
-      assert GraphBuilder.parse_wikilinks(content) == ["projects/ema/design"]
+      assert GraphBuilder.parse_wikilinks(content) == [{"references", "projects/ema/design"}]
     end
   end
 

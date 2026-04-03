@@ -11,7 +11,7 @@ defmodule Ema.Claude.Runner do
 
   Options:
     - :model - Claude model to use (default: "sonnet")
-    - :timeout - command timeout in ms (default: 120_000)
+    - :timeout - command timeout in ms (default: 300_000)
     - :cmd_fn - function to use for running commands (default: &System.cmd/3, for testing)
   """
   def run(prompt, opts \\ []) do
@@ -19,17 +19,11 @@ defmodule Ema.Claude.Runner do
     timeout = Keyword.get(opts, :timeout, 300_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
 
-    args = ["--print", "--output-format", "json", "--model", model, "--permission-mode", "bypassPermissions", "-p", prompt]
-
     task =
       Task.async(fn ->
         try do
-          # Resolve full path to claude binary — daemon PATH doesn't include ~/.local/bin
           claude_bin = resolve_claude_path()
-          case cmd_fn.(claude_bin, args, stderr_to_stdout: true) do
-            {output, 0} -> {:ok, parse_output(output)}
-            {error, code} -> {:error, %{code: code, message: error}}
-          end
+          run_via_stdin(claude_bin, prompt, model, cmd_fn)
         rescue
           e in ErlangError ->
             Logger.warning("Claude CLI not available: #{inspect(e)}")
@@ -40,6 +34,35 @@ defmodule Ema.Claude.Runner do
     case Task.yield(task, timeout) || Task.shutdown(task) do
       {:ok, result} -> result
       nil -> {:error, %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}}
+    end
+  end
+
+  # Write prompt to a temp file and redirect via bash.
+  # This avoids:
+  #   1. The 3-second stdin wait ("Warning: no stdin data received in 3s")
+  #   2. That warning prefix prepended to JSON output breaking parse_output
+  #   3. Argument-length limits on very large prompts
+  #
+  # The temp file path is shell-safe (only alphanumerics + path separators).
+  # No prompt content is interpolated into the shell command.
+  defp run_via_stdin(claude_bin, prompt, model, cmd_fn) do
+    tmp = System.tmp_dir!()
+    prompt_file = Path.join(tmp, "ema-prompt-#{System.unique_integer([:positive])}.txt")
+
+    try do
+      File.write!(prompt_file, prompt)
+
+      # Build the shell command — only safe values interpolated (bin path, model, file path)
+      # Prompt content stays in the file, never touches the shell command line
+      shell_cmd =
+        "#{claude_bin} --print --output-format json --model #{model} --permission-mode bypassPermissions < #{prompt_file}"
+
+      case cmd_fn.("bash", ["-c", shell_cmd], stderr_to_stdout: true) do
+        {output, 0} -> {:ok, parse_output(output)}
+        {error, code} -> {:error, %{code: code, message: error}}
+      end
+    after
+      File.rm(prompt_file)
     end
   end
 
@@ -65,9 +88,22 @@ defmodule Ema.Claude.Runner do
   end
 
   defp parse_output(output) do
-    case Jason.decode(output) do
-      {:ok, parsed} -> parsed
-      {:error, _} -> %{"raw" => output}
+    # Strip any warning/noise lines before the JSON object.
+    # Claude sometimes prefixes output with warnings like:
+    # "Warning: no stdin data received in 3s..."
+    json_str =
+      output
+      |> String.split("\n")
+      |> Enum.drop_while(fn line -> not String.starts_with?(String.trim(line), "{") end)
+      |> Enum.join("\n")
+
+    case Jason.decode(json_str) do
+      {:ok, parsed} ->
+        parsed
+
+      {:error, _} ->
+        Logger.warning("[Runner] Failed to parse Claude output as JSON, returning raw: #{String.slice(output, 0, 200)}")
+        %{"raw" => output}
     end
   end
 end
