@@ -276,21 +276,53 @@ defmodule Ema.Executions do
   end
   defp dispatch_if_ready(_), do: :ok
 
+  def compute_intent_status(project_slug, intent_slug) do
+    latest_execution =
+      Execution
+      |> where([e], e.project_slug == ^project_slug and e.intent_slug == ^intent_slug)
+      |> order_by([e], desc: e.inserted_at)
+      |> limit(1)
+      |> Repo.one()
+
+    if is_nil(latest_execution) do
+      %{
+        status: "idle",
+        latest_execution_id: nil,
+        completion_pct: 0,
+        last_updated: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    else
+      %{
+        status: execution_to_status(latest_execution.status),
+        latest_execution_id: latest_execution.id,
+        completion_pct: estimate_completion(latest_execution.status),
+        last_updated: latest_execution.updated_at |> DateTime.to_iso8601()
+      }
+    end
+  end
+
+  defp execution_to_status("completed"), do: "completed"
+  defp execution_to_status("failed"), do: "blocked"
+  defp execution_to_status("running"), do: "in_progress"
+  defp execution_to_status(status), do: status
+
+  defp estimate_completion("completed"), do: 100
+  defp estimate_completion("running"), do: 50
+  defp estimate_completion("approved"), do: 10
+  defp estimate_completion(_), do: 0
+
+
   defp patch_intent_file(%{intent_path: nil}, _), do: :ok
   defp patch_intent_file(%{intent_path: ""}, _), do: :ok
   defp patch_intent_file(execution, result_summary) do
     project_path = resolve_project_path(execution.project_slug) || File.cwd!()
     slug = execution.intent_slug || Path.basename(execution.intent_path)
 
-    Ema.Executions.IntentFolder.write_result(project_path, slug, result_summary)
-    Ema.Executions.IntentFolder.append_log(project_path, slug, execution.id, execution.mode, result_summary)
-    Ema.Executions.IntentFolder.update_status(project_path, slug, %{
-      latest_execution_id: execution.id,
-      status: "in_progress",
-      completion_pct: 10
-    })
+    case Ema.Executions.IntentFolder.append_log(project_path, slug, execution.id, execution.mode, result_summary) do
+      :ok -> :ok
+      {:error, reason} -> Logger.error("[IntentFolder] append_log failed for #{slug}: #{inspect(reason)}")
+    end
   end
-
   defp resolve_project_path(nil), do: nil
   defp resolve_project_path(slug) do
     case Ema.Projects.get_project(slug) do

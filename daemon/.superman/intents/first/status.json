@@ -2,10 +2,10 @@
   "status": "idle",
   "phase": 0,
   "slug": "first",
-  "completion_pct": 0,
-  "latest_execution_id": null,
   "clarity": 3,
+  "completion_pct": 0,
   "energy": 5,
-  "last_updated": "2026-04-03T11:31:04.428911Z",
+  "last_updated": "2026-04-03T18:34:03.876669Z",
+  "latest_execution_id": null,
   "open_questions": []
 }

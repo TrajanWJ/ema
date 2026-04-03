@@ -227,6 +227,7 @@ defmodule EmaWeb.Router do
     get "/executions/:id/events", ExecutionController, :events
     get "/executions/:id/agent-sessions", ExecutionController, :agent_sessions
     post "/executions/:id/complete", ExecutionController, :complete
+    get "/intents/:project_slug/:intent_slug/status", ExecutionController, :intent_status
 
     # Goals
     resources "/goals", GoalController, except: [:new, :edit]

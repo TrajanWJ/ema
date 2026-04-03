@@ -91,4 +91,13 @@ defmodule EmaWeb.ExecutionController do
         end
     end
   end
+
+  def intent_status(conn, %{"project_slug" => project_slug, "intent_slug" => intent_slug}) do
+    status = Ema.Executions.compute_intent_status(project_slug, intent_slug)
+    json(conn, status)
+  end
+
+  def intent_status(conn, _params) do
+    conn |> put_status(400) |> json(%{error: "project_slug and intent_slug required"})
+  end
 end

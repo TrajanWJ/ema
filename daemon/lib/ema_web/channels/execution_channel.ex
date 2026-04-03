@@ -9,8 +9,36 @@ defmodule EmaWeb.ExecutionChannel do
       Executions.list_executions(limit: 100)
       |> Enum.map(&serialize/1)
 
+    # Subscribe to internal PubSub so execution state changes reach this client
+    Phoenix.PubSub.subscribe(Ema.PubSub, "executions")
+
     {:ok, %{executions: executions}, socket}
   end
+
+  # Relay internal PubSub events to the WS client
+  # Broadcasts use STRING keys ("execution:created"), not atoms
+  @impl true
+  def handle_info({"execution:completed", %{execution: execution, signal: signal}}, socket) do
+    push(socket, "execution_completed", %{execution: serialize(execution), signal: signal})
+    {:noreply, socket}
+  end
+
+  def handle_info({"execution:completed", %{execution: execution}}, socket) do
+    push(socket, "execution_completed", %{execution: serialize(execution), signal: nil})
+    {:noreply, socket}
+  end
+
+  def handle_info({"execution:created", %Ema.Executions.Execution{} = execution}, socket) do
+    push(socket, "execution_created", %{execution: serialize(execution)})
+    {:noreply, socket}
+  end
+
+  def handle_info({"execution:updated", %Ema.Executions.Execution{} = execution}, socket) do
+    push(socket, "execution_updated", %{execution: serialize(execution)})
+    {:noreply, socket}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
   def join("executions:" <> id, _payload, socket) do
@@ -55,11 +83,6 @@ defmodule EmaWeb.ExecutionChannel do
       {:error, reason} ->
         {:reply, {:error, %{reason: inspect(reason)}}, socket}
     end
-  end
-
-  # PubSub relay — called from Executions context
-  def broadcast_execution_event(topic, payload) do
-    EmaWeb.Endpoint.broadcast("executions:all", topic, payload)
   end
 
   defp serialize(e) do

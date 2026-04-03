@@ -16,7 +16,7 @@ defmodule Ema.Claude.Runner do
   """
   def run(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, "sonnet")
-    timeout = Keyword.get(opts, :timeout, 120_000)
+    timeout = Keyword.get(opts, :timeout, 300_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
 
     args = ["--print", "--output-format", "json", "--model", model, "-p", prompt]
@@ -24,7 +24,9 @@ defmodule Ema.Claude.Runner do
     task =
       Task.async(fn ->
         try do
-          case cmd_fn.("claude", args, stderr_to_stdout: true) do
+          # Resolve full path to claude binary — daemon PATH doesn't include ~/.local/bin
+          claude_bin = resolve_claude_path()
+          case cmd_fn.(claude_bin, args, stderr_to_stdout: true) do
             {output, 0} -> {:ok, parse_output(output)}
             {error, code} -> {:error, %{code: code, message: error}}
           end
@@ -46,8 +48,19 @@ defmodule Ema.Claude.Runner do
   """
   def available? do
     case System.find_executable("claude") do
-      nil -> false
+      nil ->
+        fallback = Path.join([System.get_env("HOME", "/root"), ".local", "bin", "claude"])
+        File.exists?(fallback)
       _path -> true
+    end
+  end
+
+  def resolve_claude_path do
+    case System.find_executable("claude") do
+      nil ->
+        fallback = Path.join([System.get_env("HOME", "/root"), ".local", "bin", "claude"])
+        if File.exists?(fallback), do: fallback, else: "claude"
+      path -> path
     end
   end
 

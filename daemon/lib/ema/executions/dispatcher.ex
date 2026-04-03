@@ -53,11 +53,15 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp attempt_dispatch(execution, agent_session, prompt) do
-    # OpenClaw dispatch — check client signature before calling
-    # For now, route directly to local Claude (reliable path)
-    # TODO: wire OpenClaw.Client when spawn_agent/2 is confirmed
     Ema.Executions.record_event(execution.id, "dispatch_started", %{mode: execution.mode})
-    attempt_local_claude(execution, agent_session, prompt)
+    # Mark running before blocking AI call so HQ shows in-progress immediately
+    case Ema.Executions.transition(execution, "running") do
+      {:ok, running_execution} ->
+        attempt_local_claude(running_execution, agent_session, prompt)
+      {:error, reason} ->
+        Logger.warning("[Dispatcher] Could not transition to running: #{inspect(reason)}")
+        attempt_local_claude(execution, agent_session, prompt)
+    end
   end
 
   defp attempt_local_claude(execution, agent_session, prompt) do
@@ -68,7 +72,8 @@ defmodule Ema.Executions.Dispatcher do
         Ema.Executions.on_execution_completed(execution.id, result_text)
 
       {:error, reason} ->
-        Logger.error("[Dispatcher] Local Claude fallback failed for #{execution.id}: #{inspect(reason)}")
+        Logger.error("[Dispatcher] Local Claude failed for #{execution.id}: #{inspect(reason)}")
+        Ema.Executions.complete_agent_session(agent_session.id, "FAILED: #{inspect(reason)}")
         Ema.Executions.record_event(execution.id, "failed", %{reason: inspect(reason)})
         Ema.Executions.transition(execution, "failed")
     end

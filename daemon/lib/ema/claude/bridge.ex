@@ -253,7 +253,7 @@ defmodule Ema.Claude.Bridge do
   defp maybe_broadcast_stage(proposal_id, stage) when is_binary(proposal_id) do
     Phoenix.PubSub.broadcast(
       Ema.PubSub,
-      "proposal:\#{proposal_id}",
+      "proposal:#{proposal_id}",
       {:streaming_stage, stage}
     )
 
@@ -281,8 +281,8 @@ defmodule Ema.Claude.Bridge do
         {:ok, _} ->
           :ok
 
-        {:error, _reason} ->
-          Logger.debug("[Bridge] Usage log skipped: \#{inspect(reason)}")
+        {:error, reason} ->
+          Logger.debug("[Bridge] Usage log skipped: #{inspect(reason)}")
       end
     end)
   end
@@ -290,7 +290,7 @@ defmodule Ema.Claude.Bridge do
   # --- Internal ---
 
   defp open_port(%{project_path: project_path, model: model}) do
-    claude_path = System.find_executable("claude") || "claude"
+    claude_path = Ema.Claude.Runner.resolve_claude_path()
 
     args = [
       "--print",
