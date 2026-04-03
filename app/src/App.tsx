@@ -23,6 +23,8 @@ import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
 import { OpenClawApp } from "@/components/openclaw/OpenClawApp";
 import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
 import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
+import { OrbWindow } from "@/components/orb/OrbWindow";
+import { JarvisApp } from "@/components/jarvis/JarvisApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -76,6 +78,10 @@ function AppContent() {
       return <OpenClawApp />;
     case "cli-manager":
       return <CliManagerApp />;
+    case "orb":
+      return <OrbWindow />;
+    case "jarvis":
+      return <JarvisApp />;
     default:
       return (
         <Shell>

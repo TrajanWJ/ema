@@ -51,6 +51,7 @@ const NEW_APPS = [
   { id: "git-sync", name: "Git Sync", status: "wiki auto-sync" },
   { id: "openclaw", name: "OpenClaw", status: "gateway bridge" },
   { id: "cli-manager", name: "CLI Manager", status: "agent sessions" },
+  { id: "jarvis", name: "Jarvis", status: "AI assistant" },
 ] as const;
 
 export function Launchpad() {

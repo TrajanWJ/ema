@@ -17,12 +17,13 @@ const DOCK_APPS = [
   { id: "pipes", icon: "\u27BF", label: "Pipes" },
   { id: "channels", icon: "\u{1F4AC}", label: "Channels" },
   { id: "claude-bridge", icon: "\u2B23", label: "Claude Bridge" },
-  { id: "voice", icon: "\u25CE", label: "Jarvis" },
+  { id: "voice", icon: "\u25CE", label: "Voice" },
   { id: "goals", icon: "\u25CE", label: "Goals" },
   { id: "focus", icon: "\u23F1", label: "Focus" },
   { id: "git-sync", icon: "\u2B82", label: "Git Sync" },
   { id: "openclaw", icon: "\u2318", label: "OpenClaw" },
   { id: "cli-manager", icon: "\u2395", label: "CLI Manager" },
+  { id: "jarvis", icon: "\u2B22", label: "Jarvis" },
 ] as const;
 
 export function Dock() {

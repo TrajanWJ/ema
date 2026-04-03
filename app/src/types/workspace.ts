@@ -217,5 +217,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#10b981",
     icon: "\u2395",
   },
+  jarvis: {
+    title: "Jarvis",
+    defaultWidth: 800,
+    defaultHeight: 650,
+    minWidth: 600,
+    minHeight: 500,
+    accent: "#00D2FF",
+    icon: "\u2B22",
+  },
 } as const;
 
