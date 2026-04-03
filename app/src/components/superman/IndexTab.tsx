@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSupermanStore } from "@/stores/superman-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { NativeSelect } from "@/components/ui/NativeSelect";
 
 export function IndexTab() {
   const projects = useProjectsStore((s) => s.projects);
@@ -64,18 +65,13 @@ export function IndexTab() {
         <label className="text-[0.7rem] font-medium" style={{ color: "var(--pn-text-secondary)" }}>
           Select Project
         </label>
-        <select
+        <NativeSelect
           value={selectedProjectId}
           onChange={(e) => {
             setSelectedProjectId(e.target.value);
             setCustomPath("");
           }}
-          className="glass-surface rounded px-3 py-2 text-[0.75rem]"
-          style={{
-            border: "1px solid var(--pn-border-default)",
-            color: "var(--pn-text-primary)",
-            background: "rgba(255,255,255,0.03)",
-          }}
+          uiSize="md"
         >
           <option value="">-- Choose a project --</option>
           {projectsWithPath.map((p) => (
@@ -83,7 +79,7 @@ export function IndexTab() {
               {p.name} ({p.linked_path})
             </option>
           ))}
-        </select>
+        </NativeSelect>
 
         <div className="text-[0.6rem] text-center" style={{ color: "var(--pn-text-muted)" }}>
           OR

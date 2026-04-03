@@ -56,7 +56,19 @@ export function AppWindowChrome({
   }
 
   return (
-    <div className="h-screen flex flex-col rounded-xl overflow-hidden" style={{ background: "rgba(8, 9, 14, 0.85)" }}>
+    <div
+      className="h-screen flex flex-col rounded-xl overflow-hidden"
+      style={{
+        background: [
+          "radial-gradient(circle at top, rgba(45, 212, 168, 0.08), transparent 24%)",
+          "radial-gradient(circle at 85% 0%, rgba(107, 149, 240, 0.07), transparent 22%)",
+          "linear-gradient(180deg, rgba(8, 9, 14, 0.78), rgba(6, 6, 16, 0.84))",
+          "rgba(7, 9, 15, 0.58)",
+        ].join(", "),
+        backdropFilter: "blur(20px) saturate(128%)",
+        WebkitBackdropFilter: "blur(20px) saturate(128%)",
+      }}
+    >
       {/* Custom title bar */}
       <div
         className="glass-surface flex items-center justify-between px-3.5 shrink-0"
@@ -103,7 +115,15 @@ export function AppWindowChrome({
       </div>
 
       {/* App content */}
-      <main className="flex-1 overflow-auto p-4">{children}</main>
+      <main
+        className="flex-1 overflow-auto p-4"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0)), rgba(14, 16, 23, 0.46)",
+        }}
+      >
+        {children}
+      </main>
     </div>
   );
 }

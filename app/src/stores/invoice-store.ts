@@ -1,83 +1,98 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
 
-export interface Client {
-  readonly id: string;
-  readonly name: string;
-  readonly email: string;
-  readonly company: string | null;
-}
-
 export interface InvoiceLineItem {
   readonly description: string;
-  readonly quantity: number;
-  readonly rate: number;
   readonly amount: number;
 }
 
 export interface Invoice {
   readonly id: string;
-  readonly client_id: string;
-  readonly client_name: string;
   readonly number: string;
-  readonly status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
+  readonly contact_id: string | null;
+  readonly client_name: string | null;
+  readonly project_id: string | null;
   readonly items: readonly InvoiceLineItem[];
+  readonly subtotal: number;
+  readonly tax: number;
   readonly total: number;
+  readonly status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   readonly due_date: string;
-  readonly issued_at: string;
+  readonly paid_at: string | null;
+  readonly notes: string | null;
+  readonly inserted_at: string;
 }
 
 interface InvoiceState {
   invoices: readonly Invoice[];
-  clients: readonly Client[];
   loading: boolean;
   error: string | null;
-  loadInvoices: () => Promise<void>;
-  loadClients: () => Promise<void>;
-  createInvoice: (data: Omit<Invoice, "id" | "number" | "client_name" | "issued_at">) => Promise<void>;
-  updateInvoice: (id: string, data: Partial<Invoice>) => Promise<void>;
+  loadViaRest: () => Promise<void>;
+  createInvoice: (attrs: {
+    contact_id?: string;
+    client_id?: string;
+    due_date: string;
+    notes?: string;
+    items: { description: string; amount: number }[];
+  }) => Promise<void>;
+  updateInvoice: (
+    id: string,
+    attrs: Partial<Omit<Invoice, "id" | "inserted_at">>,
+  ) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
+  sendInvoice: (id: string) => Promise<void>;
+  markPaid: (id: string) => Promise<void>;
 }
 
 export const useInvoiceStore = create<InvoiceState>((set) => ({
   invoices: [],
-  clients: [],
   loading: false,
   error: null,
 
-  async loadInvoices() {
+  async loadViaRest() {
     set({ loading: true, error: null });
     try {
       const data = await api.get<{ invoices: Invoice[] }>("/invoices");
       set({ invoices: data.invoices, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+    } catch (e) {
+      set({ error: String(e), loading: false });
     }
   },
 
-  async loadClients() {
-    try {
-      const data = await api.get<{ clients: Client[] }>("/invoices/clients");
-      set({ clients: data.clients });
-    } catch (err) {
-      set({ error: (err as Error).message });
-    }
+  async createInvoice(attrs) {
+    await api.post<{ invoice: Invoice }>("/invoices", { invoice: attrs });
+    await useInvoiceStore.getState().loadViaRest();
   },
 
-  async createInvoice(data) {
-    await api.post("/invoices", { invoice: data });
-    const res = await api.get<{ invoices: Invoice[] }>("/invoices");
-    set({ invoices: res.invoices });
-  },
-
-  async updateInvoice(id, data) {
-    await api.patch(`/invoices/${id}`, { invoice: data });
-    const res = await api.get<{ invoices: Invoice[] }>("/invoices");
-    set({ invoices: res.invoices });
+  async updateInvoice(id, attrs) {
+    await api.put<{ invoice: Invoice }>(`/invoices/${id}`, {
+      invoice: attrs,
+    });
+    await useInvoiceStore.getState().loadViaRest();
   },
 
   async deleteInvoice(id) {
     await api.delete(`/invoices/${id}`);
-    set((s) => ({ invoices: s.invoices.filter((inv) => inv.id !== id) }));
+    set((s) => ({
+      invoices: s.invoices.filter((inv) => inv.id !== id),
+    }));
+  },
+
+  async sendInvoice(id) {
+    await api.post(`/invoices/${id}/send`, {});
+    set((s) => ({
+      invoices: s.invoices.map((inv) =>
+        inv.id === id ? { ...inv, status: "sent" as const } : inv,
+      ),
+    }));
+  },
+
+  async markPaid(id) {
+    await api.post(`/invoices/${id}/mark-paid`, {});
+    set((s) => ({
+      invoices: s.invoices.map((inv) =>
+        inv.id === id ? { ...inv, status: "paid" as const } : inv,
+      ),
+    }));
   },
 }));

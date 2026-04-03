@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTokenStore } from "@/stores/token-store";
+import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
 
 function DeltaArrow({ value }: { value: number }) {
   if (value === 0) return null;
@@ -309,5 +310,9 @@ export function TokenMonitor() {
 }
 
 export function TokenMonitorApp() {
-  return <TokenMonitor />;
+  return (
+    <StandaloneAppShell title="Token Monitor">
+      <TokenMonitor />
+    </StandaloneAppShell>
+  );
 }

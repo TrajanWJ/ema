@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { GlassInput } from "@/components/ui/GlassInput";
 import { useExecutionStore } from "@/stores/execution-store";
 import type { Execution, ExecutionStatus, ExecutionMode } from "@/types/executions";
+import { NativeSelect } from "@/components/ui/NativeSelect";
 
 const STATUS_COLORS: Record<ExecutionStatus, string> = {
   created: "#6b7280",
@@ -197,30 +199,24 @@ export function ExecutionsApp() {
           gap: 8,
           alignItems: "center",
         }}>
-          <input
+          <GlassInput
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="Execution title…"
-            style={{
-              flex: 1, padding: "8px 12px", borderRadius: 6,
-              background: "rgba(255,255,255,0.06)", color: "#f1f5f9",
-              border: "1px solid rgba(255,255,255,0.12)", fontSize: 13, outline: "none",
-            }}
+            className="flex-1"
+            uiSize="sm"
           />
-          <select
+          <NativeSelect
             value={newMode}
             onChange={(e) => setNewMode(e.target.value as ExecutionMode)}
-            style={{
-              padding: "8px 12px", borderRadius: 6,
-              background: "rgba(255,255,255,0.06)", color: "#f1f5f9",
-              border: "1px solid rgba(255,255,255,0.12)", fontSize: 13,
-            }}
+            uiSize="sm"
+            wrapperClassName="min-w-[10rem]"
           >
             {ALL_MODES.map((m) => (
               <option key={m} value={m}>{MODE_ICONS[m]} {m}</option>
             ))}
-          </select>
+          </NativeSelect>
           <button
             onClick={handleCreate}
             disabled={creating || !newTitle.trim()}

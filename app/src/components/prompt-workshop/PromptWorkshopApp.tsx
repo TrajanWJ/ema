@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { usePromptStore } from "@/stores/prompt-store";
 import type { PromptTemplate } from "@/stores/prompt-store";
+import { APP_CONFIGS } from "@/types/workspace";
+
+const config = APP_CONFIGS["prompt-workshop"];
 
 const CATEGORIES = ["system", "agent", "task", "custom"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -11,38 +15,9 @@ function extractVariables(body: string): string[] {
   return [...new Set(matches.map((m) => m.slice(2, -2)))];
 }
 
-const panel = {
-  background: "rgba(255, 255, 255, 0.04)",
-  border: "1px solid rgba(255, 255, 255, 0.06)",
-  borderRadius: "8px",
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  padding: "8px 12px",
-  background: "rgba(255, 255, 255, 0.04)",
-  border: "1px solid rgba(255, 255, 255, 0.08)",
-  borderRadius: "6px",
-  color: "var(--pn-text-primary, rgba(255,255,255,0.87))",
-  fontSize: "13px",
-  outline: "none",
-} as const;
-
 export function PromptWorkshopApp() {
-  const {
-    templates,
-    selected,
-    loading,
-    testing,
-    testResult,
-    loadTemplates,
-    selectTemplate,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate,
-    testPrompt,
-  } = usePromptStore();
-
+  const store = usePromptStore();
+  const [ready, setReady] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>("system");
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -50,26 +25,32 @@ export function PromptWorkshopApp() {
   const [body, setBody] = useState("");
 
   useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
+    let cancelled = false;
+    async function init() {
+      await store.loadTemplates();
+      if (!cancelled) setReady(true);
+    }
+    init();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    if (selected && !editing) {
-      setName(selected.name);
-      setCategory(selected.category);
-      setBody(selected.body);
+    if (store.selected && !editing) {
+      setName(store.selected.name);
+      setCategory(store.selected.category);
+      setBody(store.selected.body);
     }
-  }, [selected, editing]);
+  }, [store.selected, editing]);
 
   const filtered = useMemo(
-    () => templates.filter((t) => t.category === activeCategory),
-    [templates, activeCategory],
+    () => store.templates.filter((t) => t.category === activeCategory),
+    [store.templates, activeCategory],
   );
 
   const variables = useMemo(() => extractVariables(body), [body]);
 
   function handleNew() {
-    selectTemplate(null);
+    store.selectTemplate(null);
     setEditing(true);
     setName("");
     setCategory(activeCategory);
@@ -78,89 +59,55 @@ export function PromptWorkshopApp() {
 
   async function handleSave() {
     const attrs = { name, category, body, variables };
-    if (selected && !editing) {
-      await updateTemplate(selected.id, attrs);
+    if (store.selected && !editing) {
+      await store.updateTemplate(store.selected.id, attrs);
     } else {
-      await createTemplate(attrs);
+      await store.createTemplate(attrs);
       setEditing(false);
     }
   }
 
   function handleSelect(t: PromptTemplate) {
     setEditing(false);
-    selectTemplate(t);
+    store.selectTemplate(t);
+  }
+
+  if (!ready) {
+    return (
+      <AppWindowChrome appId="prompt-workshop" title={config.title} icon={config.icon} accent={config.accent}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+          <span style={{ fontSize: 13, color: "var(--pn-text-secondary)" }}>Loading...</span>
+        </div>
+      </AppWindowChrome>
+    );
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: "rgba(8, 9, 14, 0.95)",
-        color: "var(--pn-text-primary, rgba(255,255,255,0.87))",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      {/* Title bar */}
-      <div
-        data-tauri-drag-region
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "10px 16px",
-          gap: "8px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          fontSize: "13px",
-          fontWeight: 600,
-          color: "#f59e0b",
-          userSelect: "none",
-        }}
-      >
-        ✦ Prompt Workshop
-      </div>
-
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+    <AppWindowChrome appId="prompt-workshop" title={config.title} icon={config.icon} accent={config.accent}>
+      <div style={{ display: "flex", height: "100%" }}>
         {/* Left sidebar */}
-        <div
-          style={{
-            width: "240px",
-            minWidth: "240px",
-            ...panel,
-            borderRadius: 0,
-            borderTop: "none",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <div style={{
+          width: 240,
+          minWidth: 240,
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          flexDirection: "column",
+        }}>
           {/* Category tabs */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "4px",
-              padding: "10px 10px 6px",
-            }}
-          >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "10px 10px 6px" }}>
             {CATEGORIES.map((c) => (
               <button
                 key={c}
                 onClick={() => setActiveCategory(c)}
                 style={{
                   padding: "4px 10px",
-                  fontSize: "11px",
+                  fontSize: 11,
                   fontWeight: 500,
-                  borderRadius: "4px",
+                  borderRadius: 4,
                   border: "none",
                   cursor: "pointer",
-                  background:
-                    c === activeCategory
-                      ? "rgba(245, 158, 11, 0.2)"
-                      : "transparent",
-                  color:
-                    c === activeCategory
-                      ? "#f59e0b"
-                      : "var(--pn-text-secondary, rgba(255,255,255,0.6))",
+                  background: c === activeCategory ? "rgba(245, 158, 11, 0.2)" : "transparent",
+                  color: c === activeCategory ? "#f59e0b" : "var(--pn-text-secondary)",
                   textTransform: "capitalize",
                 }}
               >
@@ -175,9 +122,9 @@ export function PromptWorkshopApp() {
               onClick={handleNew}
               style={{
                 width: "100%",
-                padding: "6px",
-                fontSize: "12px",
-                borderRadius: "5px",
+                padding: 6,
+                fontSize: 12,
+                borderRadius: 5,
                 border: "1px solid rgba(245, 158, 11, 0.3)",
                 background: "rgba(245, 158, 11, 0.08)",
                 color: "#f59e0b",
@@ -190,16 +137,8 @@ export function PromptWorkshopApp() {
 
           {/* Template list */}
           <div style={{ flex: 1, overflowY: "auto", padding: "0 6px 6px" }}>
-            {loading && (
-              <p
-                style={{
-                  padding: "12px",
-                  fontSize: "12px",
-                  color: "var(--pn-text-muted, rgba(255,255,255,0.25))",
-                }}
-              >
-                Loading…
-              </p>
+            {store.loading && (
+              <p style={{ padding: 12, fontSize: 12, color: "var(--pn-text-muted)" }}>Loading...</p>
             )}
             {filtered.map((t) => (
               <button
@@ -211,73 +150,34 @@ export function PromptWorkshopApp() {
                   justifyContent: "space-between",
                   width: "100%",
                   padding: "8px 10px",
-                  marginBottom: "2px",
-                  fontSize: "12px",
-                  borderRadius: "5px",
+                  marginBottom: 2,
+                  fontSize: 12,
+                  borderRadius: 5,
                   border: "none",
                   cursor: "pointer",
                   textAlign: "left",
-                  background:
-                    selected?.id === t.id
-                      ? "rgba(255,255,255,0.06)"
-                      : "transparent",
-                  color: "var(--pn-text-primary, rgba(255,255,255,0.87))",
+                  background: store.selected?.id === t.id ? "rgba(255,255,255,0.06)" : "transparent",
+                  color: "var(--pn-text-primary)",
                 }}
               >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.name}
                 </span>
-                <span
-                  style={{
-                    fontSize: "10px",
-                    color: "var(--pn-text-muted, rgba(255,255,255,0.25))",
-                    marginLeft: "6px",
-                    flexShrink: 0,
-                  }}
-                >
+                <span style={{ fontSize: 10, color: "var(--pn-text-muted)", marginLeft: 6, flexShrink: 0 }}>
                   v{t.version}
                 </span>
               </button>
             ))}
-            {!loading && filtered.length === 0 && (
-              <p
-                style={{
-                  padding: "12px",
-                  fontSize: "12px",
-                  color: "var(--pn-text-muted, rgba(255,255,255,0.25))",
-                }}
-              >
-                No templates
-              </p>
+            {!store.loading && filtered.length === 0 && (
+              <p style={{ padding: 12, fontSize: 12, color: "var(--pn-text-muted)" }}>No templates</p>
             )}
           </div>
         </div>
 
         {/* Right panel */}
-        <div
-          style={{
-            flex: 1,
-            overflow: "auto",
-            padding: "16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          {!selected && !editing ? (
-            <p
-              style={{
-                color: "var(--pn-text-muted, rgba(255,255,255,0.25))",
-                fontSize: "13px",
-                margin: "auto",
-              }}
-            >
+        <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {!store.selected && !editing ? (
+            <p style={{ color: "var(--pn-text-muted)", fontSize: 13, margin: "auto" }}>
               Select a template or create a new one
             </p>
           ) : (
@@ -287,19 +187,33 @@ export function PromptWorkshopApp() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Template name"
-                style={inputStyle}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  color: "var(--pn-text-primary)",
+                  outline: "none",
+                }}
               />
 
               {/* Category select */}
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Category)}
-                style={{ ...inputStyle, cursor: "pointer" }}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  color: "var(--pn-text-primary)",
+                  outline: "none",
+                }}
               >
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c.charAt(0).toUpperCase() + c.slice(1)}
-                  </option>
+                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                 ))}
               </select>
 
@@ -307,49 +221,36 @@ export function PromptWorkshopApp() {
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Prompt body… Use {{variable}} for template variables"
+                placeholder="Prompt body... Use {{variable}} for template variables"
                 rows={12}
                 style={{
-                  ...inputStyle,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontSize: 12,
                   fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "12px",
                   lineHeight: 1.6,
+                  color: "var(--pn-text-primary)",
+                  outline: "none",
                   resize: "vertical",
                 }}
               />
 
               {/* Variables */}
               {variables.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color:
-                        "var(--pn-text-secondary, rgba(255,255,255,0.6))",
-                    }}
-                  >
-                    Variables:
-                  </span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--pn-text-secondary)" }}>Variables:</span>
                   {variables.map((v) => (
-                    <span
-                      key={v}
-                      style={{
-                        padding: "2px 8px",
-                        fontSize: "11px",
-                        fontFamily: "'JetBrains Mono', monospace",
-                        borderRadius: "4px",
-                        background: "rgba(245, 158, 11, 0.12)",
-                        color: "#f59e0b",
-                        border: "1px solid rgba(245, 158, 11, 0.25)",
-                      }}
-                    >
+                    <span key={v} style={{
+                      padding: "2px 8px",
+                      fontSize: 11,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      borderRadius: 4,
+                      background: "rgba(245, 158, 11, 0.12)",
+                      color: "#f59e0b",
+                      border: "1px solid rgba(245, 158, 11, 0.25)",
+                    }}>
                       {`{{${v}}}`}
                     </span>
                   ))}
@@ -357,15 +258,15 @@ export function PromptWorkshopApp() {
               )}
 
               {/* Action buttons */}
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={handleSave}
                   disabled={!name.trim() || !body.trim()}
                   style={{
                     padding: "7px 18px",
-                    fontSize: "12px",
+                    fontSize: 12,
                     fontWeight: 500,
-                    borderRadius: "5px",
+                    borderRadius: 5,
                     border: "none",
                     cursor: "pointer",
                     background: "rgba(245, 158, 11, 0.15)",
@@ -376,30 +277,29 @@ export function PromptWorkshopApp() {
                   Save
                 </button>
                 <button
-                  onClick={() => testPrompt(body)}
-                  disabled={testing || !body.trim()}
+                  onClick={() => store.testPrompt(body)}
+                  disabled={store.testing || !body.trim()}
                   style={{
                     padding: "7px 18px",
-                    fontSize: "12px",
+                    fontSize: 12,
                     fontWeight: 500,
-                    borderRadius: "5px",
+                    borderRadius: 5,
                     border: "1px solid rgba(255,255,255,0.08)",
                     cursor: "pointer",
                     background: "rgba(255,255,255,0.04)",
-                    color:
-                      "var(--pn-text-secondary, rgba(255,255,255,0.6))",
-                    opacity: testing || !body.trim() ? 0.4 : 1,
+                    color: "var(--pn-text-secondary)",
+                    opacity: store.testing || !body.trim() ? 0.4 : 1,
                   }}
                 >
-                  {testing ? "Testing…" : "Test"}
+                  {store.testing ? "Testing..." : "Test"}
                 </button>
-                {selected && !editing && (
+                {store.selected && !editing && (
                   <button
-                    onClick={() => deleteTemplate(selected.id)}
+                    onClick={() => store.deleteTemplate(store.selected!.id)}
                     style={{
                       padding: "7px 18px",
-                      fontSize: "12px",
-                      borderRadius: "5px",
+                      fontSize: 12,
+                      borderRadius: 5,
                       border: "1px solid rgba(239, 68, 68, 0.2)",
                       cursor: "pointer",
                       background: "rgba(239, 68, 68, 0.08)",
@@ -413,28 +313,27 @@ export function PromptWorkshopApp() {
               </div>
 
               {/* Test result */}
-              {testResult !== null && (
-                <div
-                  style={{
-                    ...panel,
-                    padding: "12px",
-                    fontSize: "12px",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                    color:
-                      "var(--pn-text-secondary, rgba(255,255,255,0.6))",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                  }}
-                >
-                  {testResult}
+              {store.testResult !== null && (
+                <div style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 12,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  color: "var(--pn-text-secondary)",
+                  maxHeight: 200,
+                  overflowY: "auto",
+                }}>
+                  {store.testResult}
                 </div>
               )}
             </>
           )}
         </div>
       </div>
-    </div>
+    </AppWindowChrome>
   );
 }

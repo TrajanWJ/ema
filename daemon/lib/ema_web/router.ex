@@ -80,6 +80,7 @@ defmodule EmaWeb.Router do
     resources "/tasks", TaskController, except: [:new, :edit]
 
     # Proposals — specific routes before general (param :id wildcard)
+    post "/proposals", ProposalController, :create
     get "/proposals", ProposalController, :index
     get "/proposals/surfaced", ProposalController, :surfaced
     # Batch 3: Orchestrator pipeline endpoints (must be before :id routes)
@@ -346,6 +347,49 @@ defmodule EmaWeb.Router do
     get "/memory/context", MemoryController, :context
     get "/memory/search", MemoryController, :search
     post "/memory/extract/:session_id", MemoryController, :extract
+
+    # Contacts CRM
+    resources "/contacts", ContactController, except: [:new, :edit]
+
+    # Finance Tracker
+    get "/finance/summary", FinanceController, :summary
+    resources "/finance", FinanceController, except: [:new, :edit]
+
+    # Invoices
+    post "/invoices/:id/send", InvoiceController, :send_invoice
+    post "/invoices/:id/mark-paid", InvoiceController, :mark_paid
+    resources "/invoices", InvoiceController, except: [:new, :edit]
+
+    # Routines
+    post "/routines/:id/toggle", RoutineController, :toggle
+    post "/routines/:id/run", RoutineController, :run
+    resources "/routines", RoutineController, except: [:new, :edit]
+
+    # Meetings
+    get "/meetings/upcoming", MeetingController, :upcoming
+    resources "/meetings", MeetingController, except: [:new, :edit]
+
+    # Shared Clipboard
+    post "/clipboard/:id/pin", ClipboardController, :pin
+    resources "/clipboard", ClipboardController, except: [:new, :edit, :update]
+
+    # Tunnels
+    get "/tunnels", TunnelController, :index
+    post "/tunnels", TunnelController, :create
+    delete "/tunnels/:pid", TunnelController, :delete
+
+    # File Vault
+    resources "/file-vault", FileVaultController, except: [:new, :edit, :update]
+
+    # Message Hub
+    get "/messages", MessageHubController, :index
+    get "/messages/conversations", MessageHubController, :conversations
+    post "/messages/send", MessageHubController, :send_message
+
+    # Team Pulse
+    get "/team-pulse", TeamPulseController, :index
+    get "/team-pulse/agents", TeamPulseController, :agents
+    get "/team-pulse/velocity", TeamPulseController, :velocity
 
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook

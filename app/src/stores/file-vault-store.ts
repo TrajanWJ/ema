@@ -1,57 +1,63 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
 
-export interface VaultFile {
+export interface ManagedFile {
   readonly id: string;
-  readonly name: string;
+  readonly filename: string;
   readonly path: string;
-  readonly size: number;
+  readonly size_bytes: number;
   readonly mime_type: string;
-  readonly created_at: string;
-  readonly updated_at: string;
+  readonly tags: readonly string[];
+  readonly project_id: string | null;
+  readonly uploaded_at: string;
+  readonly inserted_at: string;
 }
 
 interface FileVaultState {
-  files: readonly VaultFile[];
-  selectedFileId: string | null;
+  files: readonly ManagedFile[];
   loading: boolean;
   error: string | null;
-  loadFiles: () => Promise<void>;
-  selectFile: (id: string | null) => void;
-  uploadFile: (name: string, content: string, mime_type: string) => Promise<void>;
+  loadViaRest: () => Promise<void>;
+  createFile: (data: {
+    filename: string;
+    path: string;
+    mime_type: string;
+    project_id?: string;
+    tags?: string[];
+  }) => Promise<void>;
   deleteFile: (id: string) => Promise<void>;
 }
 
 export const useFileVaultStore = create<FileVaultState>((set) => ({
   files: [],
-  selectedFileId: null,
   loading: false,
   error: null,
 
-  async loadFiles() {
+  async loadViaRest() {
     set({ loading: true, error: null });
     try {
-      const data = await api.get<{ files: VaultFile[] }>("/file-vault/files");
+      const data = await api.get<{ files: ManagedFile[] }>("/file-vault");
       set({ files: data.files, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+    } catch (e) {
+      set({ error: String(e), loading: false });
     }
   },
 
-  selectFile(id) {
-    set({ selectedFileId: id });
-  },
-
-  async uploadFile(name, content, mime_type) {
-    const file = await api.post<VaultFile>("/file-vault/files", { name, content, mime_type });
-    set((s) => ({ files: [file, ...s.files] }));
+  async createFile(payload) {
+    try {
+      const data = await api.post<{ file: ManagedFile }>("/file-vault", payload);
+      set((s) => ({ files: [data.file, ...s.files] }));
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
 
   async deleteFile(id) {
-    await api.delete(`/file-vault/files/${id}`);
-    set((s) => ({
-      files: s.files.filter((f) => f.id !== id),
-      selectedFileId: s.selectedFileId === id ? null : s.selectedFileId,
-    }));
+    try {
+      await api.delete(`/file-vault/${id}`);
+      set((s) => ({ files: s.files.filter((f) => f.id !== id) }));
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
 }));

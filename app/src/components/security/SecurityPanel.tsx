@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSecurityStore } from "@/stores/security-store";
+import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
 
 function ScoreRing({ score, max }: { score: number; max: number }) {
   const percent = max > 0 ? Math.round((score / max) * 100) : 0;
@@ -201,8 +202,10 @@ function SecurityContent() {
 
 export function SecurityPanelApp() {
   return (
-    <div className="flex flex-col gap-4 p-6 h-full overflow-y-auto">
-      <SecurityContent />
-    </div>
+    <StandaloneAppShell title="Security">
+      <div className="flex flex-col gap-4 h-full overflow-y-auto">
+        <SecurityContent />
+      </div>
+    </StandaloneAppShell>
   );
 }

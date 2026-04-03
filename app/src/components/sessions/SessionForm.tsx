@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { GlassInput } from "@/components/ui/GlassInput";
+import { NativeSelect } from "@/components/ui/NativeSelect";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -56,17 +58,12 @@ export function SessionForm({ onClose, onCreate }: SessionFormProps) {
           >
             Project Path
           </label>
-          <input
+          <GlassInput
             value={projectPath}
             onChange={(e) => setProjectPath(e.target.value)}
             placeholder="~/Projects/..."
-            className="text-[0.8rem] px-3 py-2 rounded-lg outline-none"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--pn-border-subtle)",
-              color: "var(--pn-text-primary)",
-              caretColor: "#6b95f0",
-            }}
+            className="w-full"
+            uiSize="md"
           />
         </div>
 
@@ -78,26 +75,17 @@ export function SessionForm({ onClose, onCreate }: SessionFormProps) {
           >
             Model
           </label>
-          <select
+          <NativeSelect
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="text-[0.8rem] px-3 py-2 rounded-lg outline-none appearance-none cursor-pointer"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--pn-border-subtle)",
-              color: "var(--pn-text-primary)",
-            }}
+            uiSize="md"
           >
             {MODEL_OPTIONS.map((opt) => (
-              <option
-                key={opt.value}
-                value={opt.value}
-                style={{ background: "#141721", color: "rgba(255,255,255,0.87)" }}
-              >
+              <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         {/* Buttons */}

@@ -7,31 +7,41 @@ export interface AgendaItem {
   readonly presenter: string;
 }
 
-export interface ActionItem {
-  readonly id: string;
-  readonly description: string;
-  readonly assignee: string;
-  readonly done: boolean;
-}
-
 export interface Meeting {
   readonly id: string;
   readonly title: string;
-  readonly agenda: readonly AgendaItem[];
-  readonly attendees: readonly string[];
+  readonly description: string | null;
   readonly scheduled_at: string;
-  readonly notes: string;
-  readonly action_items: readonly ActionItem[];
+  readonly starts_at: string;
+  readonly ends_at: string | null;
+  readonly attendees: readonly string[];
+  readonly agenda: readonly AgendaItem[];
+  readonly location: string | null;
+  readonly project_id: string | null;
+  readonly notes: string | null;
   readonly status: "scheduled" | "in_progress" | "completed" | "cancelled";
+  readonly inserted_at: string;
 }
 
 interface MeetingState {
   meetings: readonly Meeting[];
   loading: boolean;
   error: string | null;
-  loadMeetings: () => Promise<void>;
-  createMeeting: (data: Omit<Meeting, "id" | "action_items" | "notes" | "status">) => Promise<void>;
-  updateMeeting: (id: string, data: Partial<Meeting>) => Promise<void>;
+  loadViaRest: () => Promise<void>;
+  createMeeting: (attrs: {
+    title: string;
+    scheduled_at: string;
+    starts_at?: string;
+    ends_at?: string;
+    location?: string;
+    notes?: string;
+    attendees?: string[];
+    agenda?: { topic: string; duration_min: number; presenter: string }[];
+  }) => Promise<void>;
+  updateMeeting: (
+    id: string,
+    attrs: Partial<Omit<Meeting, "id" | "inserted_at">>,
+  ) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;
 }
 
@@ -40,30 +50,32 @@ export const useMeetingStore = create<MeetingState>((set) => ({
   loading: false,
   error: null,
 
-  async loadMeetings() {
+  async loadViaRest() {
     set({ loading: true, error: null });
     try {
       const data = await api.get<{ meetings: Meeting[] }>("/meetings");
       set({ meetings: data.meetings, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+    } catch (e) {
+      set({ error: String(e), loading: false });
     }
   },
 
-  async createMeeting(data) {
-    await api.post("/meetings", { meeting: data });
-    const res = await api.get<{ meetings: Meeting[] }>("/meetings");
-    set({ meetings: res.meetings });
+  async createMeeting(attrs) {
+    await api.post<{ meeting: Meeting }>("/meetings", { meeting: attrs });
+    await useMeetingStore.getState().loadViaRest();
   },
 
-  async updateMeeting(id, data) {
-    await api.patch(`/meetings/${id}`, { meeting: data });
-    const res = await api.get<{ meetings: Meeting[] }>("/meetings");
-    set({ meetings: res.meetings });
+  async updateMeeting(id, attrs) {
+    await api.put<{ meeting: Meeting }>(`/meetings/${id}`, {
+      meeting: attrs,
+    });
+    await useMeetingStore.getState().loadViaRest();
   },
 
   async deleteMeeting(id) {
     await api.delete(`/meetings/${id}`);
-    set((s) => ({ meetings: s.meetings.filter((m) => m.id !== id) }));
+    set((s) => ({
+      meetings: s.meetings.filter((m) => m.id !== id),
+    }));
   },
 }));

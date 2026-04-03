@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useVmHealthStore } from "@/stores/vm-health-store";
+import { StandaloneAppShell } from "@/components/layout/StandaloneAppShell";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   online: { color: "#22C55E", bg: "rgba(34,197,94,0.15)", label: "Online" },
@@ -186,8 +187,10 @@ function VMHealthContent() {
 
 export function VMHealthApp() {
   return (
-    <div className="flex flex-col gap-4 p-6 h-full overflow-y-auto">
-      <VMHealthContent />
-    </div>
+    <StandaloneAppShell title="VM Health">
+      <div className="flex flex-col gap-4 h-full overflow-y-auto">
+        <VMHealthContent />
+      </div>
+    </StandaloneAppShell>
   );
 }

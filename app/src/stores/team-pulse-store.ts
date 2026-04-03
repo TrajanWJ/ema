@@ -1,69 +1,111 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
 
+export interface PulseSummary {
+  readonly active_agents: number;
+  readonly executions_today: number;
+  readonly proposals_today: number;
+  readonly tasks_completed: number;
+}
+
+export interface Agent {
+  readonly id: string;
+  readonly agent_id: string;
+  readonly name: string;
+  readonly status: "active" | "idle" | "error";
+  readonly last_active: string | null;
+  readonly tasks_completed: number;
+  readonly proposals_generated: number;
+  readonly skills?: readonly string[];
+}
+
+export interface AgentActivity {
+  readonly agent_id: string;
+  readonly action: string;
+  readonly timestamp: string;
+}
+
+export interface Velocity {
+  readonly daily: readonly number[];
+  readonly length: number;
+  map: <T>(fn: (v: number, i: number) => T) => T[];
+}
+
+export type VelocityData = Velocity;
+
 export interface TeamMember {
   readonly id: string;
   readonly name: string;
   readonly role: string;
-  readonly avatar_url: string | null;
-  readonly availability: "available" | "busy" | "away" | "offline";
+  readonly status: string;
   readonly skills: readonly string[];
-  readonly current_load: number; // 0-100
-  readonly current_task: string | null;
-}
-
-export interface Standup {
-  readonly id: string;
-  readonly member_id: string;
-  readonly member_name: string;
-  readonly yesterday: string;
-  readonly today: string;
-  readonly blockers: string;
-  readonly submitted_at: string;
 }
 
 interface TeamPulseState {
+  summary: PulseSummary | null;
+  agents: readonly Agent[];
+  velocity: Velocity | null;
   members: readonly TeamMember[];
-  standups: readonly Standup[];
   loading: boolean;
   error: string | null;
-  loadTeam: () => Promise<void>;
+  loadViaRest: () => Promise<void>;
   loadStandups: () => Promise<void>;
   submitStandup: (data: {
-    yesterday: string;
-    today: string;
-    blockers: string;
+    agent_id: string;
+    content: string;
   }) => Promise<void>;
 }
 
 export const useTeamPulseStore = create<TeamPulseState>((set) => ({
+  summary: null,
+  agents: [],
+  velocity: null,
   members: [],
-  standups: [],
   loading: false,
   error: null,
 
-  async loadTeam() {
+  async loadViaRest() {
     set({ loading: true, error: null });
     try {
-      const data = await api.get<{ members: TeamMember[] }>("/team-pulse/members");
-      set({ members: data.members, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+      const [pulseData, agentData, velocityData] = await Promise.all([
+        api
+          .get<{ summary: PulseSummary }>("/team-pulse")
+          .catch(() => ({ summary: null })),
+        api
+          .get<{ agents: Agent[] }>("/team-pulse/agents")
+          .catch(() => ({ agents: [] as Agent[] })),
+        api
+          .get<{ velocity: Velocity }>("/team-pulse/velocity")
+          .catch(() => ({ velocity: null })),
+      ]);
+      set({
+        summary: pulseData.summary,
+        agents: agentData.agents,
+        velocity: velocityData.velocity,
+        loading: false,
+      });
+    } catch (e) {
+      set({ error: String(e), loading: false });
     }
   },
 
   async loadStandups() {
     try {
-      const data = await api.get<{ standups: Standup[] }>("/team-pulse/standups");
-      set({ standups: data.standups });
-    } catch (err) {
-      set({ error: (err as Error).message });
+      const data = await api.get<{ members: TeamMember[] }>(
+        "/team-pulse/standups",
+      );
+      set({ members: data.members });
+    } catch (e) {
+      console.warn("Failed to load standups:", e);
     }
   },
 
-  async submitStandup(data) {
-    await api.post("/team-pulse/standups", data);
-    const res = await api.get<{ standups: Standup[] }>("/team-pulse/standups");
-    set({ standups: res.standups });
+  async submitStandup(payload) {
+    try {
+      await api.post("/team-pulse/standups", payload);
+      await useTeamPulseStore.getState().loadStandups();
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
 }));

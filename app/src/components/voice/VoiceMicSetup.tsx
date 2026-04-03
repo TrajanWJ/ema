@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { NativeSelect } from "@/components/ui/NativeSelect";
 
 interface VoiceSettings {
   readonly voice: string;
@@ -40,16 +41,6 @@ const inputStyle: React.CSSProperties = {
   color: "var(--pn-text-primary)",
   outline: "none",
   transition: "border-color 200ms ease",
-};
-
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  appearance: "none",
-  cursor: "pointer",
-  backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 12px center",
-  paddingRight: 32,
 };
 
 const sectionGap: React.CSSProperties = { marginBottom: 20 };
@@ -167,12 +158,12 @@ export function VoiceMicSetup({
         {/* Input device */}
         <div style={sectionGap}>
           <label style={labelStyle}>Input Device</label>
-          <select
+          <NativeSelect
             value={settings.inputDeviceId ?? ""}
             onChange={(e) =>
               onSettingsChange({ inputDeviceId: e.target.value || undefined })
             }
-            style={selectStyle}
+            uiSize="md"
           >
             <option value="">System Default</option>
             {devices.map((d) => (
@@ -180,7 +171,7 @@ export function VoiceMicSetup({
                 {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         {/* Audio level meter */}
@@ -250,10 +241,10 @@ export function VoiceMicSetup({
         {/* TTS voice */}
         <div style={sectionGap}>
           <label style={labelStyle}>TTS Voice</label>
-          <select
+          <NativeSelect
             value={settings.voice}
             onChange={(e) => onSettingsChange({ voice: e.target.value })}
-            style={selectStyle}
+            uiSize="md"
           >
             {ttsVoices.length === 0 && (
               <option value={settings.voice}>{settings.voice}</option>
@@ -263,7 +254,7 @@ export function VoiceMicSetup({
                 {v.name} ({v.lang})
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         {/* Whisper model */}

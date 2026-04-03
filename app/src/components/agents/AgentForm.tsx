@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAgentsStore } from "@/stores/agents-store";
 import { GlassSelect } from "@/components/ui/GlassSelect";
+import { GlassInput } from "@/components/ui/GlassInput";
+import { GlassTextarea } from "@/components/ui/GlassTextarea";
 
 const MODELS = ["opus", "sonnet", "haiku"] as const;
 
@@ -28,12 +30,6 @@ export function AgentForm({ onClose }: AgentFormProps) {
     onClose();
   }
 
-  const inputStyle = {
-    background: "var(--pn-surface-3)",
-    color: "var(--pn-text-primary)",
-    border: "1px solid var(--pn-border-default)",
-  };
-
   return (
     <form onSubmit={handleSubmit} className="glass-surface rounded-lg p-4 mb-4">
       <h3
@@ -43,21 +39,21 @@ export function AgentForm({ onClose }: AgentFormProps) {
         New Agent
       </h3>
 
-      <input
+      <GlassInput
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Agent name"
-        className="w-full text-[0.8rem] px-3 py-2 rounded-lg outline-none mb-2"
-        style={inputStyle}
+        className="w-full mb-2"
+        uiSize="md"
       />
 
-      <textarea
+      <GlassTextarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
         rows={2}
-        className="w-full text-[0.75rem] px-3 py-2 rounded-lg outline-none resize-none mb-2"
-        style={inputStyle}
+        className="w-full mb-2 resize-none"
+        uiSize="sm"
       />
 
       <div className="flex gap-2 mb-3">

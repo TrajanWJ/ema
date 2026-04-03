@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { NativeSelect } from "@/components/ui/NativeSelect";
 import { useIntentStore, type IntentNode } from "@/stores/intent-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { APP_CONFIGS } from "@/types/workspace";
@@ -81,22 +82,17 @@ export function IntentMapApp() {
         {/* Header */}
         <div className="flex items-center gap-3">
           {/* Project selector */}
-          <select
+          <NativeSelect
             value={selectedProject ?? ""}
             onChange={(e) => selectProject(e.target.value || null)}
-            className="px-3 py-1.5 rounded-md text-[0.75rem]"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.87)",
-              outline: "none",
-            }}
+            uiSize="sm"
+            wrapperClassName="w-[14rem]"
           >
             <option value="">Select Project</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
-          </select>
+          </NativeSelect>
 
           {/* Zoom level */}
           <div className="flex items-center gap-1">
@@ -188,16 +184,16 @@ export function IntentMapApp() {
                 className="w-full px-3 py-2 rounded-md text-[0.8rem] mb-2"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.87)", outline: "none" }}
               />
-              <select
+              <NativeSelect
                 value={addLevel}
                 onChange={(e) => setAddLevel(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-md text-[0.75rem] mb-3"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.87)", outline: "none" }}
+                uiSize="md"
+                wrapperClassName="mb-3"
               >
                 {LEVEL_LABELS.map((label, i) => (
                   <option key={i} value={i}>{label}</option>
                 ))}
-              </select>
+              </NativeSelect>
               <div className="flex gap-2">
                 <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-md text-[0.7rem]" style={{ background: "rgba(255,255,255,0.06)", color: "var(--pn-text-secondary)" }}>Cancel</button>
                 <button onClick={handleAddNode} className="flex-1 py-2 rounded-md text-[0.7rem]" style={{ background: "rgba(167,139,250,0.2)", color: "#a78bfa" }}>Create</button>

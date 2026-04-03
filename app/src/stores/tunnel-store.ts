@@ -2,21 +2,26 @@ import { create } from "zustand";
 import { api } from "@/lib/api";
 
 export interface Tunnel {
-  readonly id: string;
-  readonly name: string;
+  readonly pid: number;
   readonly local_port: number;
-  readonly public_url: string;
+  readonly remote_host: string;
+  readonly remote_port: number;
+  readonly ssh_host: string;
   readonly status: "active" | "inactive" | "error";
-  readonly created_at: string;
 }
 
 interface TunnelState {
   tunnels: readonly Tunnel[];
   loading: boolean;
   error: string | null;
-  loadTunnels: () => Promise<void>;
-  createTunnel: (name: string, local_port: number) => Promise<void>;
-  deleteTunnel: (id: string) => Promise<void>;
+  loadViaRest: () => Promise<void>;
+  createTunnel: (data: {
+    local_port: number;
+    remote_host: string;
+    remote_port: number;
+    ssh_host: string;
+  }) => Promise<void>;
+  killTunnel: (pid: number) => Promise<void>;
 }
 
 export const useTunnelStore = create<TunnelState>((set) => ({
@@ -24,23 +29,31 @@ export const useTunnelStore = create<TunnelState>((set) => ({
   loading: false,
   error: null,
 
-  async loadTunnels() {
+  async loadViaRest() {
     set({ loading: true, error: null });
     try {
       const data = await api.get<{ tunnels: Tunnel[] }>("/tunnels");
       set({ tunnels: data.tunnels, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+    } catch (e) {
+      set({ error: String(e), loading: false });
     }
   },
 
-  async createTunnel(name, local_port) {
-    const tunnel = await api.post<Tunnel>("/tunnels", { name, local_port });
-    set((s) => ({ tunnels: [tunnel, ...s.tunnels] }));
+  async createTunnel(payload) {
+    try {
+      const data = await api.post<{ tunnels: Tunnel[] }>("/tunnels", payload);
+      set({ tunnels: data.tunnels });
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
 
-  async deleteTunnel(id) {
-    await api.delete(`/tunnels/${id}`);
-    set((s) => ({ tunnels: s.tunnels.filter((t) => t.id !== id) }));
+  async killTunnel(pid) {
+    try {
+      await api.delete(`/tunnels/${pid}`);
+      set((s) => ({ tunnels: s.tunnels.filter((t) => t.pid !== pid) }));
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
 }));

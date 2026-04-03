@@ -2,8 +2,14 @@ import { useEffect, useState } from "react";
 import { useCliManagerStore } from "@/stores/cli-manager-store";
 import type { CliTool, CliSession } from "@/stores/cli-manager-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { GlassInput } from "@/components/ui/GlassInput";
+import { GlassTextarea } from "@/components/ui/GlassTextarea";
+import { NativeSelect } from "@/components/ui/NativeSelect";
+import { APP_CONFIGS } from "@/types/workspace";
 
 type Tab = "active" | "tools" | "history";
+const config = APP_CONFIGS["cli-manager"];
 
 const STATUS_COLORS: Record<string, string> = {
   running: "#22c55e",
@@ -188,22 +194,17 @@ function NewSessionDialog({
           <label className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
             CLI Tool
           </label>
-          <select
+          <NativeSelect
             value={toolName}
             onChange={(e) => setToolName(e.target.value)}
-            className="rounded px-3 py-2 text-sm"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.87)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            uiSize="md"
           >
             {tools.map((t) => (
               <option key={t.id} value={t.name}>
                 {t.name} {t.version ? `(v${t.version})` : ""}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         <div className="flex flex-col gap-1">
@@ -235,16 +236,12 @@ function NewSessionDialog({
               )}
             </div>
           )}
-          <input
+          <GlassInput
             value={projectPath}
             onChange={(e) => setProjectPath(e.target.value)}
             placeholder="/path/to/project"
-            className="rounded px-3 py-2 text-sm"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.87)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            className="w-full"
+            uiSize="md"
           />
         </div>
 
@@ -252,17 +249,13 @@ function NewSessionDialog({
           <label className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
             Prompt
           </label>
-          <textarea
+          <GlassTextarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the task..."
             rows={4}
-            className="rounded px-3 py-2 text-sm resize-none"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.87)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            className="w-full resize-none"
+            uiSize="md"
           />
         </div>
 
@@ -351,148 +344,155 @@ export function CliManagerApp() {
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-6 h-full overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold" style={{ color: "rgba(255,255,255,0.87)" }}>
-          CLI Manager
-        </h1>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleScan}
-            className="text-xs px-3 py-1.5 rounded"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.6)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            Scan for CLIs
-          </button>
-          {tools.length > 0 && (
+    <AppWindowChrome
+      appId="cli-manager"
+      title={config.title}
+      icon={config.icon}
+      accent={config.accent}
+    >
+      <div className="flex flex-col gap-4 h-full overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold" style={{ color: "rgba(255,255,255,0.87)" }}>
+            CLI Manager
+          </h1>
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => handleStartSession(tools[0].name)}
+              onClick={handleScan}
               className="text-xs px-3 py-1.5 rounded"
               style={{
-                backgroundColor: "rgba(20, 184, 166, 0.15)",
-                color: "#14b8a6",
-                border: "1px solid rgba(20, 184, 166, 0.3)",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "rgba(255,255,255,0.6)",
+                border: "1px solid rgba(255,255,255,0.08)",
               }}
             >
-              + New Session
+              Scan for CLIs
             </button>
-          )}
+            {tools.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleStartSession(tools[0].name)}
+                className="text-xs px-3 py-1.5 rounded"
+                style={{
+                  backgroundColor: "rgba(20, 184, 166, 0.15)",
+                  color: "#14b8a6",
+                  border: "1px solid rgba(20, 184, 166, 0.3)",
+                }}
+              >
+                + New Session
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {error && (
-        <div
-          className="text-xs px-3 py-2 rounded"
-          style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Tab bar */}
-      <div
-        className="flex gap-1 p-1 rounded-lg"
-        style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
-      >
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className="flex-1 text-xs py-1.5 rounded-md transition-colors"
-            style={{
-              backgroundColor: tab === t.key ? "rgba(255,255,255,0.08)" : "transparent",
-              color: tab === t.key ? "rgba(255,255,255,0.87)" : "rgba(255,255,255,0.4)",
-            }}
+        {error && (
+          <div
+            className="text-xs px-3 py-2 rounded"
+            style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
           >
-            {t.label} ({t.count})
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3">
-        {loading && (
-          <div className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Loading...
+            {error}
           </div>
         )}
 
-        {tab === "active" && (
-          <>
-            {activeSessions.length === 0 && !loading && (
-              <div
-                className="text-sm text-center py-8"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-              >
-                No active sessions. Start one from the Tools tab.
-              </div>
-            )}
-            {activeSessions.map((session) => (
-              <ActiveSessionCard
-                key={session.id}
-                session={session}
-                onStop={stopSession}
-              />
-            ))}
-          </>
-        )}
+        {/* Tab bar */}
+        <div
+          className="flex gap-1 p-1 rounded-lg"
+          style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className="flex-1 text-xs py-1.5 rounded-md transition-colors"
+              style={{
+                backgroundColor: tab === t.key ? "rgba(255,255,255,0.08)" : "transparent",
+                color: tab === t.key ? "rgba(255,255,255,0.87)" : "rgba(255,255,255,0.4)",
+              }}
+            >
+              {t.label} ({t.count})
+            </button>
+          ))}
+        </div>
 
-        {tab === "tools" && (
-          <>
-            {tools.length === 0 && !loading && (
-              <div
-                className="text-sm text-center py-8"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-              >
-                No CLI tools detected. Click &quot;Scan for CLIs&quot; to find installed tools.
-              </div>
-            )}
-            {tools.map((tool) => (
-              <ToolCard
-                key={tool.id}
-                tool={tool}
-                onStartSession={handleStartSession}
-              />
-            ))}
-          </>
-        )}
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+          {loading && (
+            <div className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Loading...
+            </div>
+          )}
 
-        {tab === "history" && (
-          <>
-            {historySessions.length === 0 && !loading && (
-              <div
-                className="text-sm text-center py-8"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-              >
-                No session history yet.
-              </div>
-            )}
-            {historySessions.map((session) => (
-              <ActiveSessionCard
-                key={session.id}
-                session={session}
-                onStop={stopSession}
-              />
-            ))}
-          </>
+          {tab === "active" && (
+            <>
+              {activeSessions.length === 0 && !loading && (
+                <div
+                  className="text-sm text-center py-8"
+                  style={{ color: "rgba(255,255,255,0.3)" }}
+                >
+                  No active sessions. Start one from the Tools tab.
+                </div>
+              )}
+              {activeSessions.map((session) => (
+                <ActiveSessionCard
+                  key={session.id}
+                  session={session}
+                  onStop={stopSession}
+                />
+              ))}
+            </>
+          )}
+
+          {tab === "tools" && (
+            <>
+              {tools.length === 0 && !loading && (
+                <div
+                  className="text-sm text-center py-8"
+                  style={{ color: "rgba(255,255,255,0.3)" }}
+                >
+                  No CLI tools detected. Click &quot;Scan for CLIs&quot; to find installed tools.
+                </div>
+              )}
+              {tools.map((tool) => (
+                <ToolCard
+                  key={tool.id}
+                  tool={tool}
+                  onStartSession={handleStartSession}
+                />
+              ))}
+            </>
+          )}
+
+          {tab === "history" && (
+            <>
+              {historySessions.length === 0 && !loading && (
+                <div
+                  className="text-sm text-center py-8"
+                  style={{ color: "rgba(255,255,255,0.3)" }}
+                >
+                  No session history yet.
+                </div>
+              )}
+              {historySessions.map((session) => (
+                <ActiveSessionCard
+                  key={session.id}
+                  session={session}
+                  onStop={stopSession}
+                />
+              ))}
+            </>
+          )}
+        </div>
+
+        {showNewSession && (
+          <NewSessionDialog
+            tools={tools}
+            initialTool={newSessionTool}
+            onClose={() => setShowNewSession(false)}
+            onSubmit={handleSubmitSession}
+          />
         )}
       </div>
-
-      {showNewSession && (
-        <NewSessionDialog
-          tools={tools}
-          initialTool={newSessionTool}
-          onClose={() => setShowNewSession(false)}
-          onSubmit={handleSubmitSession}
-        />
-      )}
-    </div>
+    </AppWindowChrome>
   );
 }

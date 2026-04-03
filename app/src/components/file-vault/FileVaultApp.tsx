@@ -1,21 +1,37 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useFileVaultStore } from "@/stores/file-vault-store";
-import type { VaultFile } from "@/stores/file-vault-store";
+import type { ManagedFile } from "@/stores/file-vault-store";
 
 const card = {
-  background: "rgba(255, 255, 255, 0.04)",
-  border: "1px solid rgba(255, 255, 255, 0.06)",
-  borderRadius: "10px",
-};
-const input = {
-  background: "rgba(255, 255, 255, 0.04)",
-  border: "1px solid rgba(255, 255, 255, 0.08)",
-  borderRadius: "6px",
-  color: "var(--pn-text-primary)",
+  background: "rgba(14,16,23,0.55)",
+  backdropFilter: "blur(20px)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 12,
+  padding: 16,
+  marginBottom: 12,
+} as const;
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 8,
   padding: "8px 12px",
+  color: "var(--pn-text-primary)",
   width: "100%",
   outline: "none",
-};
+  fontSize: 13,
+} as const;
+
+const btnPrimary = {
+  background: "#2DD4A8",
+  color: "#000",
+  border: "none",
+  borderRadius: 8,
+  padding: "8px 16px",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: 13,
+} as const;
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,110 +39,315 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function FileCard({ file, selected, onSelect, onDelete }: {
-  readonly file: VaultFile;
-  readonly selected: boolean;
-  readonly onSelect: () => void;
+function mimeIcon(mime: string): string {
+  if (mime.startsWith("text/")) return "\u{1F4C4}";
+  if (mime.startsWith("image/")) return "\u{1F5BC}";
+  if (
+    mime.includes("zip") ||
+    mime.includes("tar") ||
+    mime.includes("gzip") ||
+    mime.includes("archive")
+  )
+    return "\u{1F4E6}";
+  return "\u{1F4C1}";
+}
+
+function FileCard({
+  file,
+  onDelete,
+}: {
+  readonly file: ManagedFile;
   readonly onDelete: () => void;
 }) {
   return (
-    <div
-      onClick={onSelect}
-      style={{
-        ...card,
-        padding: "12px",
-        cursor: "pointer",
-        outline: selected ? "1px solid rgba(56, 189, 248, 0.4)" : "none",
-      }}
-    >
-      <div style={{ color: "var(--pn-text-primary)", fontSize: 13, fontWeight: 500 }}>{file.name}</div>
-      <div style={{ color: "var(--pn-text-muted)", fontSize: 11, marginTop: 4 }}>
-        {formatSize(file.size)} &middot; {file.mime_type}
-      </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        style={{ marginTop: 6, fontSize: 11, color: "#f87171", background: "none", border: "none", cursor: "pointer" }}
+    <div style={card}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+        }}
       >
-        Delete
-      </button>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 20 }}>{mimeIcon(file.mime_type)}</span>
+          <div>
+            <div
+              style={{
+                color: "var(--pn-text-primary)",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {file.filename}
+            </div>
+            <div
+              style={{
+                color: "var(--pn-text-secondary)",
+                fontSize: 12,
+                marginTop: 2,
+              }}
+            >
+              {file.path}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginTop: 6,
+              }}
+            >
+              <span
+                style={{
+                  color: "var(--pn-text-secondary)",
+                  fontSize: 11,
+                }}
+              >
+                {formatSize(file.size_bytes)}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  background: "rgba(107,149,240,0.1)",
+                  color: "#6B95F0",
+                }}
+              >
+                {file.mime_type}
+              </span>
+              {file.project_id && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                    background: "rgba(45,212,168,0.1)",
+                    color: "#2DD4A8",
+                  }}
+                >
+                  {file.project_id}
+                </span>
+              )}
+            </div>
+            {file.tags.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 4,
+                  flexWrap: "wrap",
+                  marginTop: 6,
+                }}
+              >
+                {file.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    style={{
+                      fontSize: 9,
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "rgba(245,158,11,0.1)",
+                      color: "#F59E0B",
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={onDelete}
+          style={{
+            background: "rgba(248,113,113,0.12)",
+            color: "#f87171",
+            border: "none",
+            borderRadius: 6,
+            padding: "6px 12px",
+            cursor: "pointer",
+            fontSize: 11,
+            fontWeight: 500,
+          }}
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
 
 export function FileVaultApp() {
-  const { files, selectedFileId, loading, error, loadFiles, selectFile, deleteFile } = useFileVaultStore();
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [dragOver, setDragOver] = useState(false);
+  const { files, loading, error, loadViaRest, createFile, deleteFile } =
+    useFileVaultStore();
 
-  useEffect(() => { loadFiles(); }, [loadFiles]);
+  const [showForm, setShowForm] = useState(false);
+  const [filename, setFilename] = useState("");
+  const [path, setPath] = useState("");
+  const [mimeType, setMimeType] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [tags, setTags] = useState("");
 
-  const selectedFile = files.find((f) => f.id === selectedFileId) ?? null;
+  useEffect(() => {
+    loadViaRest();
+  }, [loadViaRest]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    // Upload would read files from e.dataTransfer.files when backend exists
-  }, []);
-
-  if (loading && files.length === 0) {
-    return (
-      <div style={{ background: "rgba(8, 9, 14, 0.95)", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "var(--pn-text-muted)", fontSize: 13 }}>Loading files...</span>
-      </div>
-    );
-  }
+  const handleCreate = () => {
+    if (!filename.trim() || !path.trim()) return;
+    createFile({
+      filename: filename.trim(),
+      path: path.trim(),
+      mime_type: mimeType.trim() || "application/octet-stream",
+      project_id: projectId.trim() || undefined,
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    });
+    setFilename("");
+    setPath("");
+    setMimeType("");
+    setProjectId("");
+    setTags("");
+    setShowForm(false);
+  };
 
   return (
-    <div style={{ background: "rgba(8, 9, 14, 0.95)", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div data-tauri-drag-region style={{ padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ color: "var(--pn-text-primary)", fontSize: 16, fontWeight: 600, margin: 0 }}>File Vault</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setView("grid")} style={{ ...input, width: "auto", padding: "4px 10px", fontSize: 11, opacity: view === "grid" ? 1 : 0.5 }}>Grid</button>
-          <button onClick={() => setView("list")} style={{ ...input, width: "auto", padding: "4px 10px", fontSize: 11, opacity: view === "list" ? 1 : 0.5 }}>List</button>
-        </div>
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
+        <h2
+          style={{
+            color: "var(--pn-text-primary)",
+            fontSize: 16,
+            fontWeight: 600,
+            margin: 0,
+          }}
+        >
+          File Vault
+        </h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            padding: "6px 12px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: showForm
+              ? "rgba(239,68,68,0.12)"
+              : "rgba(107,149,240,0.12)",
+            color: showForm ? "#ef4444" : "#6B95F0",
+          }}
+        >
+          {showForm ? "Cancel" : "+ Add File"}
+        </button>
       </div>
 
-      {error && <div style={{ padding: "0 20px", color: "#f87171", fontSize: 12 }}>{error}</div>}
+      {error && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "8px 12px",
+            borderRadius: 8,
+            background: "rgba(239,68,68,0.1)",
+            color: "#ef4444",
+            fontSize: 12,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        <div style={{ flex: 1, padding: "0 20px 20px", overflowY: "auto" }}>
+      {showForm && (
+        <div style={card}>
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
             style={{
-              ...card,
-              padding: 20,
-              marginBottom: 16,
-              textAlign: "center",
-              border: dragOver ? "1px dashed rgba(56, 189, 248, 0.5)" : "1px dashed rgba(255, 255, 255, 0.1)",
-              color: "var(--pn-text-muted)",
-              fontSize: 12,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+              marginBottom: 10,
             }}
           >
-            Drop files here to upload
+            <input
+              value={filename}
+              onChange={(e) => setFilename(e.target.value)}
+              placeholder="Filename *"
+              style={inputStyle}
+            />
+            <input
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="Path *"
+              style={inputStyle}
+            />
+            <input
+              value={mimeType}
+              onChange={(e) => setMimeType(e.target.value)}
+              placeholder="MIME type"
+              style={inputStyle}
+            />
+            <input
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              placeholder="Project ID (optional)"
+              style={inputStyle}
+            />
+            <input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="Tags (comma-separated)"
+              style={{ ...inputStyle, gridColumn: "1 / -1" }}
+            />
           </div>
-
-          {files.length === 0 ? (
-            <div style={{ color: "var(--pn-text-muted)", fontSize: 13, textAlign: "center", marginTop: 32 }}>No files yet</div>
-          ) : (
-            <div style={{ display: view === "grid" ? "grid" : "flex", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, flexDirection: "column" }}>
-              {files.map((f) => (
-                <FileCard key={f.id} file={f} selected={f.id === selectedFileId} onSelect={() => selectFile(f.id)} onDelete={() => deleteFile(f.id)} />
-              ))}
-            </div>
-          )}
+          <button onClick={handleCreate} style={btnPrimary}>
+            Add File
+          </button>
         </div>
+      )}
 
-        {selectedFile && (
-          <div style={{ width: 260, padding: "0 20px 20px", borderLeft: "1px solid rgba(255, 255, 255, 0.06)", overflowY: "auto" }}>
-            <h3 style={{ color: "var(--pn-text-primary)", fontSize: 14, fontWeight: 600 }}>Preview</h3>
-            <div style={{ color: "var(--pn-text-secondary)", fontSize: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-              <span>Name: {selectedFile.name}</span>
-              <span>Size: {formatSize(selectedFile.size)}</span>
-              <span>Type: {selectedFile.mime_type}</span>
-              <span>Created: {new Date(selectedFile.created_at).toLocaleDateString()}</span>
-            </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {loading && files.length === 0 && (
+          <div
+            style={{
+              color: "var(--pn-text-secondary)",
+              fontSize: 13,
+              textAlign: "center",
+              marginTop: 32,
+            }}
+          >
+            Loading...
+          </div>
+        )}
+
+        {files.map((f) => (
+          <FileCard key={f.id} file={f} onDelete={() => deleteFile(f.id)} />
+        ))}
+
+        {!loading && files.length === 0 && (
+          <div
+            style={{
+              color: "var(--pn-text-secondary)",
+              fontSize: 13,
+              textAlign: "center",
+              marginTop: 32,
+            }}
+          >
+            No files yet
           </div>
         )}
       </div>
