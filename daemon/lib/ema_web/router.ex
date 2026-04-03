@@ -268,6 +268,10 @@ defmodule EmaWeb.Router do
     post "/temporal/log", TemporalController, :log
     get "/temporal/history", TemporalController, :history
 
+    # Security Posture
+    get "/security/posture", SecurityController, :posture
+    post "/security/audit", SecurityController, :audit
+
     # VM Health Monitoring
     get "/vm/health", VmController, :health
     get "/vm/containers", VmController, :containers
