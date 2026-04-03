@@ -1,0 +1,15 @@
+{
+  "slug": "execution-first-ema-os",
+  "status": "in_progress",
+  "phase": 2,
+  "clarity": 9,
+  "energy": 9,
+  "latest_execution_id": "sprint1",
+  "sprint_completed": ["research", "sprint1-backend"],
+  "open_questions": [
+    "How does OpenClaw.Client.spawn_agent work — is that the right call?",
+    "Should ExecutionHarvester be a GenServer or inline?"
+  ],
+  "completion_pct": 50,
+  "last_updated": "2026-04-03T11:18:38Z"
+}

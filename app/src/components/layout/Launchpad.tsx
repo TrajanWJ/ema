@@ -49,6 +49,7 @@ const NEW_APPS = [
   { id: "goals", name: "Goals", status: "goal tracking" },
   { id: "focus", name: "Focus", status: "deep work timer" },
   { id: "git-sync", name: "Git Sync", status: "wiki auto-sync" },
+  { id: "executions", name: "HQ", status: "execution timeline" },
   { id: "openclaw", name: "OpenClaw", status: "gateway bridge" },
   { id: "cli-manager", name: "CLI Manager", status: "agent sessions" },
   { id: "jarvis", name: "Jarvis", status: "AI assistant" },

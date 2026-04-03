@@ -32,6 +32,36 @@ defmodule Ema.BrainDump do
 
     case result do
       {:ok, item} ->
+        Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+          project_path = File.cwd!()
+          intent_slug = Ema.Executions.IntentFolder.slugify(String.slice(item.content, 0, 60))
+          intent_path = ".superman/intents/\#{intent_slug}"
+
+          # Create intent folder on disk
+          case Ema.Executions.IntentFolder.create(project_path, intent_slug, item.content) do
+            :ok -> :ok
+            {:error, reason} ->
+              require Logger
+              Logger.warning("[BrainDump] IntentFolder create failed for \#{intent_slug}: \#{inspect(reason)}")
+          end
+
+          # Create execution with semantic anchor
+          case Ema.Executions.create(%{
+            title: String.slice(item.content, 0, 120),
+            objective: item.content,
+            mode: "research",
+            status: "created",
+            brain_dump_item_id: item.id,
+            intent_slug: intent_slug,
+            intent_path: intent_path,
+            requires_approval: true
+          }) do
+            {:ok, _} -> :ok
+            {:error, reason} ->
+              require Logger
+              Logger.warning("[BrainDump] Failed to create execution for item \#{item.id}: \#{inspect(reason)}")
+          end
+        end)
         Ema.Pipes.EventBus.broadcast_event("brain_dump:item_created", %{
           item_id: item.id,
           content: item.content,

@@ -203,6 +203,7 @@ defmodule EmaWeb.Router do
     post "/executions/:id/cancel", ExecutionController, :cancel
     get "/executions/:id/events", ExecutionController, :events
     get "/executions/:id/agent-sessions", ExecutionController, :agent_sessions
+    post "/executions/:id/complete", ExecutionController, :complete
 
     # Goals
     resources "/goals", GoalController, except: [:new, :edit]

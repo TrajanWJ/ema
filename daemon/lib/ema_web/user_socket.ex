@@ -34,6 +34,7 @@ defmodule EmaWeb.UserSocket do
   channel "memory:*", EmaWeb.MemoryChannel
   channel "gaps:*", EmaWeb.GapChannel
   channel "intent:*", EmaWeb.IntentChannel
+  channel "executions:*", EmaWeb.ExecutionChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

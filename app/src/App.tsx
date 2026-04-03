@@ -19,6 +19,7 @@ import { ClaudeBridgeApp } from "@/components/claude-bridge/ClaudeBridgeApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
 import { GoalsApp } from "@/components/goals/GoalsApp";
 import { FocusApp } from "@/components/focus/FocusApp";
+import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
 import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
 import { OpenClawApp } from "@/components/openclaw/OpenClawApp";
 import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
@@ -109,6 +110,8 @@ function AppContent() {
       return <FocusApp />;
     case "git-sync":
       return <GitSyncApp />;
+    case "executions":
+      return <ExecutionsApp />;
     case "openclaw":
       return <OpenClawApp />;
     case "cli-manager":

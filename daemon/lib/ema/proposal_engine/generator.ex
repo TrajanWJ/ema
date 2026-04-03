@@ -139,6 +139,10 @@ defmodule Ema.ProposalEngine.Generator do
 
     case Ema.Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
+        if attrs[:brain_dump_item_id] do
+          Ema.Executions.link_proposal(attrs[:brain_dump_item_id], proposal.id)
+        end
+
         Logger.info("Generator: created proposal #{proposal.id} from seed #{seed.id}")
 
         Phoenix.PubSub.broadcast(
