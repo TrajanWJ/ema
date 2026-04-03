@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ProjectForm } from "./ProjectForm";
 import { useTasksStore } from "@/stores/tasks-store";
 import { useProposalsStore } from "@/stores/proposals-store";
+import { useExecutionStore } from "@/stores/execution-store";
 import type { Project } from "@/types/projects";
+import type { Execution } from "@/types/executions";
 
-type Tab = "overview" | "tasks" | "proposals" | "seeds" | "settings";
+type Tab = "overview" | "intents" | "tasks" | "proposals" | "seeds" | "settings";
 
 const TAB_OPTIONS = [
   { value: "overview" as const, label: "Overview" },
+  { value: "intents" as const, label: "Intents" },
   { value: "tasks" as const, label: "Tasks" },
   { value: "proposals" as const, label: "Proposals" },
   { value: "seeds" as const, label: "Seeds" },
@@ -25,10 +28,15 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const tasks = useTasksStore((s) => s.tasks);
   const proposals = useProposalsStore((s) => s.proposals);
   const seeds = useProposalsStore((s) => s.seeds);
+  const executions = useExecutionStore((s) => s.executions);
 
   const projectTasks = tasks.filter((t) => t.project_id === project.id);
   const projectProposals = proposals.filter((p) => p.project_id === project.id);
   const projectSeeds = seeds.filter((s) => s.project_id === project.id);
+  const projectExecs = useMemo(
+    () => executions.filter((e) => e.project_slug === project.slug),
+    [executions, project.slug],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -58,8 +66,9 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
 
       <div className="flex-1 min-h-0 overflow-auto">
         {tab === "overview" && (
-          <OverviewTab project={project} taskCount={projectTasks.length} proposalCount={projectProposals.length} />
+          <OverviewTab project={project} taskCount={projectTasks.length} proposalCount={projectProposals.length} intentCount={projectExecs.length} />
         )}
+        {tab === "intents" && <IntentsTab executions={projectExecs} />}
         {tab === "tasks" && <TaskListTab tasks={projectTasks} />}
         {tab === "proposals" && <ProposalListTab proposals={projectProposals} />}
         {tab === "seeds" && <SeedListTab seeds={projectSeeds} />}
@@ -73,10 +82,12 @@ function OverviewTab({
   project,
   taskCount,
   proposalCount,
+  intentCount,
 }: {
   project: Project;
   taskCount: number;
   proposalCount: number;
+  intentCount: number;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -101,11 +112,116 @@ function OverviewTab({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2 mt-2">
+      <div className="grid grid-cols-4 gap-2 mt-2">
         <StatMini label="Tasks" value={taskCount} />
         <StatMini label="Proposals" value={proposalCount} />
+        <StatMini label="Executions" value={intentCount} />
         <StatMini label="Status" value={project.status} />
       </div>
+    </div>
+  );
+}
+
+const EXEC_STATUS_COLORS: Record<string, string> = {
+  completed: "#22c55e",
+  running: "#6b95f0",
+  delegated: "#6b95f0",
+  approved: "#2dd4a8",
+  failed: "#ef4444",
+  cancelled: "#ef4444",
+  created: "#a78bfa",
+  proposed: "#a78bfa",
+  awaiting_approval: "#f59e0b",
+  harvesting: "#f59e0b",
+};
+
+interface IntentGroup {
+  slug: string;
+  executions: readonly Execution[];
+  completed: number;
+  total: number;
+  modesUsed: readonly string[];
+  latestUpdate: string;
+}
+
+function IntentsTab({ executions }: { executions: readonly Execution[] }) {
+  const groups = useMemo(() => {
+    const map = new Map<string, Execution[]>();
+    for (const e of executions) {
+      const slug = e.intent_slug ?? "(no intent)";
+      const arr = map.get(slug) ?? [];
+      arr.push(e);
+      map.set(slug, arr);
+    }
+    const result: IntentGroup[] = [];
+    for (const [slug, execs] of map) {
+      const completed = execs.filter((e) => e.status === "completed").length;
+      const modesUsed = [...new Set(execs.map((e) => e.mode))];
+      const latestUpdate = execs.reduce((a, b) => (a.updated_at > b.updated_at ? a : b)).updated_at;
+      result.push({ slug, executions: execs, completed, total: execs.length, modesUsed, latestUpdate });
+    }
+    return result.sort((a, b) => b.latestUpdate.localeCompare(a.latestUpdate));
+  }, [executions]);
+
+  if (groups.length === 0) {
+    return <EmptyState message="No intents/executions for this project" />;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {groups.map((group) => (
+        <div key={group.slug} className="glass-surface rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[0.7rem] font-medium" style={{ color: "var(--pn-text-primary)" }}>
+              {group.slug}
+            </span>
+            <span className="text-[0.55rem] ml-auto" style={{ color: "var(--pn-text-muted)" }}>
+              {Math.round((group.completed / group.total) * 100)}% complete
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${(group.completed / group.total) * 100}%`, background: "#22c55e" }}
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {group.modesUsed.map((mode) => (
+              <span
+                key={mode}
+                className="text-[0.5rem] px-1.5 py-0.5 rounded"
+                style={{ background: "rgba(107,149,240,0.1)", color: "#6b95f0" }}
+              >
+                {mode}
+              </span>
+            ))}
+            <span className="text-[0.5rem] ml-auto" style={{ color: "var(--pn-text-muted)" }}>
+              {new Date(group.latestUpdate).toLocaleDateString()}
+            </span>
+          </div>
+          {/* Individual executions */}
+          <div className="flex flex-col gap-1 mt-2">
+            {group.executions.map((e) => (
+              <div key={e.id} className="flex items-center gap-2 px-2 py-1 rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <span
+                  className="shrink-0 rounded-full"
+                  style={{ width: "6px", height: "6px", background: EXEC_STATUS_COLORS[e.status] ?? "#a78bfa" }}
+                />
+                <span className="text-[0.6rem] flex-1 truncate" style={{ color: "var(--pn-text-secondary)" }}>
+                  {e.title}
+                </span>
+                <span
+                  className="text-[0.5rem] px-1 py-0.5 rounded shrink-0"
+                  style={{ background: `${EXEC_STATUS_COLORS[e.status] ?? "#a78bfa"}15`, color: EXEC_STATUS_COLORS[e.status] ?? "#a78bfa" }}
+                >
+                  {e.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

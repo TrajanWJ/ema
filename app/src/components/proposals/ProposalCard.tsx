@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Proposal } from "@/types/proposals";
 import { useProposalsStore } from "@/stores/proposals-store";
+import { useExecutionStore } from "@/stores/execution-store";
 
 interface ProposalCardProps {
   readonly proposal: Proposal;
@@ -24,6 +25,8 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   const [showRedirectInput, setShowRedirectInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { approve, redirect, kill, streamingStatus } = useProposalsStore();
+  const executions = useExecutionStore((s) => s.executions);
+  const linkedExec = executions.find((e) => e.proposal_id === proposal.id);
   const activeStage = streamingStatus[proposal.id];
   const isStreaming = Boolean(activeStage && activeStage !== "idle");
   const STAGE_LABELS: Record<string, string> = {
@@ -163,6 +166,21 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
                 }}
               >
                 project
+              </span>
+            )}
+            {linkedExec && (
+              <span
+                className="text-[0.55rem] px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: linkedExec.status === "completed" ? "rgba(34,197,94,0.1)" :
+                    linkedExec.status === "running" ? "rgba(107,149,240,0.1)" :
+                    linkedExec.status === "failed" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
+                  color: linkedExec.status === "completed" ? "#22c55e" :
+                    linkedExec.status === "running" ? "#6b95f0" :
+                    linkedExec.status === "failed" ? "#ef4444" : "#f59e0b",
+                }}
+              >
+                exec: {linkedExec.status}
               </span>
             )}
             <span

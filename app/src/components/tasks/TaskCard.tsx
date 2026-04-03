@@ -1,3 +1,4 @@
+import { useExecutionStore } from "@/stores/execution-store";
 import type { Task } from "@/types/tasks";
 
 interface TaskCardProps {
@@ -22,8 +23,26 @@ const SOURCE_LABELS: Record<string, string> = {
   decomposition: "sub",
 };
 
+const EXEC_STATUS_COLORS: Record<string, string> = {
+  completed: "#22c55e",
+  running: "#6b95f0",
+  delegated: "#6b95f0",
+  approved: "#2dd4a8",
+  failed: "#ef4444",
+  cancelled: "#ef4444",
+  created: "#a78bfa",
+  proposed: "#a78bfa",
+  awaiting_approval: "#f59e0b",
+  harvesting: "#f59e0b",
+};
+
 export function TaskCard({ task, onClick }: TaskCardProps) {
   const dotColor = PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS[3];
+  const executions = useExecutionStore((s) => s.executions);
+  // Find execution linked to this task (by source_id or matching task title)
+  const linkedExec = executions.find(
+    (e) => e.id === task.source_id || (task.source_type === "execution" && e.id === task.source_id),
+  );
 
   return (
     <button
@@ -46,7 +65,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           >
             {task.title}
           </span>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {task.source_type && (
               <span
                 className="text-[0.5rem] px-1 py-0.5 rounded"
@@ -67,6 +86,17 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 }}
               >
                 {task.effort}
+              </span>
+            )}
+            {linkedExec && (
+              <span
+                className="text-[0.5rem] px-1 py-0.5 rounded"
+                style={{
+                  background: `${EXEC_STATUS_COLORS[linkedExec.status] ?? "#a78bfa"}15`,
+                  color: EXEC_STATUS_COLORS[linkedExec.status] ?? "#a78bfa",
+                }}
+              >
+                exec: {linkedExec.status}
               </span>
             )}
             {task.due_date && (

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTasksStore } from "@/stores/tasks-store";
 import { TaskCard } from "./TaskCard";
 import type { Task } from "@/types/tasks";
@@ -12,6 +13,55 @@ const BOARD_COLUMNS: readonly { status: Task["status"]; label: string; color: st
 
 interface TaskBoardProps {
   readonly onSelectTask: (task: Task) => void;
+}
+
+function QuickAddTask({ status, color }: { status: Task["status"]; color: string }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const createTask = useTasksStore((s) => s.createTask);
+
+  async function handleSubmit() {
+    if (!title.trim()) { setAdding(false); return; }
+    await createTask({ title: title.trim(), status });
+    setTitle("");
+    setAdding(false);
+  }
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => setAdding(true)}
+        className="w-full text-[0.55rem] py-1 rounded opacity-40 hover:opacity-80 transition-opacity"
+        style={{ color, border: `1px dashed ${color}40` }}
+      >
+        + Add
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-1">
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void handleSubmit();
+          if (e.key === "Escape") { setAdding(false); setTitle(""); }
+        }}
+        onBlur={() => void handleSubmit()}
+        className="w-full rounded px-2 py-1 text-[0.65rem]"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: `1px solid ${color}40`,
+          color: "var(--pn-text-primary)",
+          outline: "none",
+        }}
+        placeholder="Task title..."
+        autoFocus
+      />
+    </div>
+  );
 }
 
 export function TaskBoard({ onSelectTask }: TaskBoardProps) {
@@ -50,6 +100,11 @@ export function TaskBoard({ onSelectTask }: TaskBoardProps) {
               >
                 {columnTasks.length}
               </span>
+            </div>
+
+            {/* Quick add at top of column */}
+            <div className="mb-1.5 px-1">
+              <QuickAddTask status={column.status} color={column.color} />
             </div>
 
             {/* Column body */}

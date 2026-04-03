@@ -2,20 +2,24 @@ import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ProposalQueue } from "./ProposalQueue";
+import { ProposalLineage } from "./ProposalLineage";
 import { SeedList } from "./SeedList";
 import { EngineStatus } from "./EngineStatus";
 import { ScoreDashboard } from "./ScoreDashboard";
 import { ProposalCard } from "./ProposalCard";
 import { useProposalsStore } from "@/stores/proposals-store";
 import { useEvolutionStore } from "@/stores/evolution-store";
+import { useExecutionStore } from "@/stores/execution-store";
+import { api } from "@/lib/api";
 import { APP_CONFIGS } from "@/types/workspace";
 
 const config = APP_CONFIGS.proposals;
 
-type Tab = "queue" | "evolution" | "seeds" | "scores" | "engine";
+type Tab = "queue" | "lineage" | "evolution" | "seeds" | "scores" | "engine";
 
 const TAB_OPTIONS = [
   { value: "queue" as const, label: "Queue" },
+  { value: "lineage" as const, label: "Lineage" },
   { value: "evolution" as const, label: "Evolution" },
   { value: "seeds" as const, label: "Seeds" },
   { value: "scores" as const, label: "Scores" },
@@ -26,6 +30,8 @@ export function ProposalsApp() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("queue");
+  const [generating, setGenerating] = useState(false);
+  const seeds = useProposalsStore((s) => s.seeds);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +40,7 @@ export function ProposalsApp() {
         await Promise.all([
           useProposalsStore.getState().loadViaRest(),
           useProposalsStore.getState().loadSeeds(),
+          useExecutionStore.getState().loadViaRest(),
           useEvolutionStore.getState().loadRules().catch(() => {}),
         ]);
       } catch (err) {
@@ -47,6 +54,20 @@ export function ProposalsApp() {
     init();
     return () => { cancelled = true; };
   }, []);
+
+  async function handleGenerate() {
+    const activeSeed = seeds.find((s) => s.active);
+    if (!activeSeed) { setError("No active seed to generate from"); return; }
+    setGenerating(true);
+    setError(null);
+    try {
+      await api.post("/proposals/generate", { seed_id: activeSeed.id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (!ready) {
     return (
@@ -62,12 +83,25 @@ export function ProposalsApp() {
     <AppWindowChrome appId="proposals" title={config.title} icon={config.icon} accent={config.accent} breadcrumb={tab}>
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between mb-4">
-          <h2
-            className="text-[0.9rem] font-semibold"
-            style={{ color: "var(--pn-text-primary)" }}
-          >
-            Proposals
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2
+              className="text-[0.9rem] font-semibold"
+              style={{ color: "var(--pn-text-primary)" }}
+            >
+              Proposals
+            </h2>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="text-[0.6rem] font-medium px-2 py-1 rounded transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{
+                background: "rgba(167, 139, 250, 0.12)",
+                color: "#a78bfa",
+              }}
+            >
+              {generating ? "Generating..." : "Generate"}
+            </button>
+          </div>
           <SegmentedControl options={TAB_OPTIONS} value={tab} onChange={setTab} />
         </div>
         {error && (
@@ -77,6 +111,7 @@ export function ProposalsApp() {
         )}
         <div className="flex-1 min-h-0 overflow-auto">
           {tab === "queue" && <ProposalQueue />}
+          {tab === "lineage" && <ProposalLineage />}
           {tab === "evolution" && <EvolutionProposals />}
           {tab === "seeds" && <SeedList />}
           {tab === "scores" && <ScoreDashboard />}
