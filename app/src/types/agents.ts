@@ -1,3 +1,15 @@
+export interface TrustScore {
+  readonly score: number;
+  readonly label: string;
+  readonly color: string;
+  readonly completion_rate: number;
+  readonly avg_latency_ms: number;
+  readonly error_count: number;
+  readonly session_count: number;
+  readonly days_active: number;
+  readonly calculated_at: string;
+}
+
 export interface Agent {
   readonly id: string;
   readonly slug: string;
@@ -11,6 +23,7 @@ export interface Agent {
   readonly tools: string[];
   readonly project_id: string | null;
   readonly created_at: string;
+  readonly trust_score?: TrustScore | null;
 }
 
 export interface AgentChannel {

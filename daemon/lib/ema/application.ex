@@ -28,8 +28,9 @@ defmodule Ema.Application do
         Ema.Pipes.Supervisor,
         # Ingest job processor
         Ema.Ingestor.Processor,
-        # Intelligence — token & cost tracking
+        # Intelligence — token & cost tracking, trust scoring
         Ema.Intelligence.TokenTracker,
+        Ema.Intelligence.TrustScorer,
         # CLI Manager — process registry and supervisor for session runners
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}

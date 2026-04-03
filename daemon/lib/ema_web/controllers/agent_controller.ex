@@ -3,12 +3,21 @@ defmodule EmaWeb.AgentController do
 
   alias Ema.Agents
   alias Ema.Agents.ApiChannel
+  alias Ema.Intelligence.TrustScorer
 
   action_fallback EmaWeb.FallbackController
 
   def index(conn, _params) do
-    agents = Agents.list_agents() |> Enum.map(&serialize_agent/1)
-    json(conn, %{agents: agents})
+    agents = Agents.list_agents()
+    trust_scores = TrustScorer.all_scores()
+
+    serialized =
+      Enum.map(agents, fn agent ->
+        trust = Map.get(trust_scores, agent.id)
+        serialize_agent(agent) |> Map.put(:trust_score, serialize_trust(trust))
+      end)
+
+    json(conn, %{agents: serialized})
   end
 
   def show(conn, %{"id" => slug}) do
@@ -179,6 +188,24 @@ defmodule EmaWeb.AgentController do
       project_id: agent.project_id,
       created_at: agent.inserted_at,
       updated_at: agent.updated_at
+    }
+  end
+
+  defp serialize_trust(nil), do: nil
+
+  defp serialize_trust(trust) do
+    badge = TrustScorer.badge(trust.score)
+
+    %{
+      score: trust.score,
+      label: badge.label,
+      color: badge.color,
+      completion_rate: trust.completion_rate,
+      avg_latency_ms: trust.avg_latency_ms,
+      error_count: trust.error_count,
+      session_count: trust.session_count,
+      days_active: trust.days_active,
+      calculated_at: trust.calculated_at
     }
   end
 
