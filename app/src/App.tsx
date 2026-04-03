@@ -59,6 +59,7 @@ import { SessionMemoryApp } from "@/components/memory/SessionMemoryApp";
 import { GapInboxApp } from "@/components/gaps/GapInboxApp";
 import { IntentMapApp } from "@/components/intent/IntentMapApp";
 import { CodeHealthDashboard } from "@/components/superman/CodeHealthDashboard";
+import { ProjectGraphApp } from "@/components/project-graph/ProjectGraphApp";
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
 
@@ -181,6 +182,8 @@ function AppContent() {
       return <GapInboxApp />;
     case "intent-map":
       return <IntentMapApp />;
+    case "project-graph":
+      return <ProjectGraphApp />;
     case "code-health":
       return <CodeHealthDashboard />;
     default:

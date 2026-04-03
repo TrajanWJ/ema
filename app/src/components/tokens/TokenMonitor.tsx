@@ -78,7 +78,7 @@ function BreakdownTable({
 }
 
 export function TokenMonitor() {
-  const { summary, history, forecast, loading, loadViaRest, connect, setBudget } = useTokenStore();
+  const { summary, history, forecast, alerts, loading, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
 
@@ -259,6 +259,44 @@ export function TokenMonitor() {
             >
               {forecast.trend}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-medium" style={{ color: "var(--pn-text-secondary)" }}>
+              Alerts ({alerts.length})
+            </h3>
+            <button
+              onClick={clearAlerts}
+              className="text-[0.6rem] hover:underline"
+              style={{ color: "var(--pn-text-muted)" }}
+            >
+              Clear all
+            </button>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {alerts.map((alert, i) => {
+              const alertColor =
+                alert.type === "cost_spike" ? "#EF4444" :
+                alert.type === "budget_exceeded" ? "#EF4444" :
+                "#2dd4a8";
+              return (
+                <div
+                  key={`${alert.type}-${i}`}
+                  className="rounded-lg px-3 py-2 text-xs"
+                  style={{ background: `${alertColor}10`, borderLeft: `2px solid ${alertColor}`, color: "var(--pn-text-secondary)" }}
+                >
+                  <div>{alert.message}</div>
+                  <div className="text-[0.6rem] mt-0.5" style={{ color: "var(--pn-text-muted)" }}>
+                    {new Date(alert.timestamp).toLocaleString()}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

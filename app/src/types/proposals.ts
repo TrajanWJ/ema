@@ -3,7 +3,7 @@ export interface Proposal {
   readonly title: string;
   readonly summary: string;
   readonly body: string;
-  readonly status: "queued" | "reviewing" | "approved" | "redirected" | "killed";
+  readonly status: "queued" | "reviewing" | "approved" | "redirected" | "killed" | "generating" | "failed";
   readonly confidence: number;
   readonly risks: readonly string[];
   readonly benefits: readonly string[];
@@ -19,6 +19,12 @@ export interface Proposal {
   readonly parent_proposal_id: string | null;
   readonly children_count: number;
   readonly created_at: string;
+  // Batch 3: Pipeline fields
+  readonly quality_score: number | null;
+  readonly pipeline_stage: string | null;
+  readonly pipeline_iteration: number | null;
+  readonly cost_display: string | null;
+  readonly generation_log: Record<string, unknown> | null;
 }
 
 export interface ScoreBreakdown {

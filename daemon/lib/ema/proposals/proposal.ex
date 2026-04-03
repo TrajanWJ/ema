@@ -22,6 +22,12 @@ defmodule Ema.Proposals.Proposal do
     field :prompt_quality_score, :float
     field :score_breakdown, :map, default: %{}
 
+    # Batch 3: Pipeline fields
+    field :quality_score, :float
+    field :pipeline_stage, :string
+    field :pipeline_iteration, :integer, default: 1
+    field :cost_display, :string
+
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :seed, Ema.Proposals.Seed, type: :string
     belongs_to :parent_proposal, __MODULE__, type: :string
@@ -32,7 +38,8 @@ defmodule Ema.Proposals.Proposal do
     timestamps(type: :utc_datetime)
   end
 
-  @valid_statuses ~w(queued reviewing approved redirected killed)
+  # Added "generating" and "failed" for Batch 3 orchestrator pipeline
+  @valid_statuses ~w(queued reviewing approved redirected killed generating failed)
   @valid_scopes ~w(xs s m l xl)
 
   def changeset(proposal, attrs) do
@@ -55,6 +62,11 @@ defmodule Ema.Proposals.Proposal do
       :idea_score,
       :prompt_quality_score,
       :score_breakdown,
+      # Batch 3 fields
+      :quality_score,
+      :pipeline_stage,
+      :pipeline_iteration,
+      :cost_display,
       :project_id,
       :seed_id,
       :parent_proposal_id
@@ -62,13 +74,28 @@ defmodule Ema.Proposals.Proposal do
     |> validate_required([:id, :title])
     |> validate_inclusion(:status, @valid_statuses)
     |> maybe_validate_inclusion(:estimated_scope, @valid_scopes)
-    |> validate_number(:confidence, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)
+    |> validate_number(:confidence,
+      greater_than_or_equal_to: 0.0,
+      less_than_or_equal_to: 1.0
+    )
+    |> maybe_validate_number(:quality_score,
+      greater_than_or_equal_to: 0.0,
+      less_than_or_equal_to: 1.0
+    )
+    |> maybe_validate_number(:pipeline_iteration, greater_than_or_equal_to: 1)
   end
 
   defp maybe_validate_inclusion(changeset, field, values) do
     case get_change(changeset, field) do
       nil -> changeset
       _ -> validate_inclusion(changeset, field, values)
+    end
+  end
+
+  defp maybe_validate_number(changeset, field, opts) do
+    case get_change(changeset, field) do
+      nil -> changeset
+      _ -> validate_number(changeset, field, opts)
     end
   end
 end

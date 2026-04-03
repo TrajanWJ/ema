@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useVoiceStore } from "@/stores/voice-store";
+import { useTokenStore } from "@/stores/token-store";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { VoiceMicSetup } from "@/components/voice/VoiceMicSetup";
@@ -193,6 +195,9 @@ export function SettingsPage() {
       {/* Voice / Jarvis */}
       <VoiceSettingsSection />
 
+      {/* Budget & Cost */}
+      <BudgetSettingsSection />
+
       {/* Data */}
       <GlassCard>
         <SectionHeader title="Data" />
@@ -265,6 +270,102 @@ export function SettingsPage() {
         </div>
       </GlassCard>
     </div>
+  );
+}
+
+function BudgetSettingsSection() {
+  const budget = useTokenStore((s) => s.budget);
+  const summary = useTokenStore((s) => s.summary);
+  const setBudget = useTokenStore((s) => s.setBudget);
+  const loadBudget = useTokenStore((s) => s.loadBudget);
+  const [editing, setEditing] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
+
+  // Load budget on first render
+  useState(() => {
+    loadBudget();
+  });
+
+  function handleSave() {
+    const amount = parseFloat(budgetInput);
+    if (!isNaN(amount) && amount > 0) {
+      setBudget(amount);
+      setEditing(false);
+    }
+  }
+
+  const percent = summary?.percent_used ?? budget?.percent_used ?? 0;
+  const monthCost = summary?.month_cost ?? budget?.current_spend ?? 0;
+  const monthlyBudget = budget?.monthly_budget ?? 100;
+
+  return (
+    <GlassCard>
+      <SectionHeader title="Budget & Cost Alerts" />
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[0.75rem]" style={{ color: "var(--pn-text-primary)" }}>
+            Monthly budget
+          </span>
+          {editing ? (
+            <div className="flex items-center gap-1">
+              <span className="text-[0.7rem]" style={{ color: "var(--pn-text-tertiary)" }}>$</span>
+              <input
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                className="bg-transparent border rounded px-2 py-0.5 text-[0.75rem] w-20 outline-none"
+                style={{ borderColor: "var(--pn-border-default)", color: "rgba(255,255,255,0.87)" }}
+                autoFocus
+              />
+              <button
+                onClick={handleSave}
+                className="text-[0.7rem] px-2 py-0.5 rounded"
+                style={{ background: "rgba(45,212,168,0.2)", color: "#2dd4a8" }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="text-[0.7rem] px-2 py-0.5"
+                style={{ color: "var(--pn-text-tertiary)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setBudgetInput(String(monthlyBudget)); setEditing(true); }}
+              className="text-[0.75rem] font-mono hover:underline"
+              style={{ color: "var(--pn-text-secondary)" }}
+            >
+              ${monthlyBudget}/month
+            </button>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div>
+          <div className="w-full rounded-full overflow-hidden mb-1" style={{ height: 4, background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(percent, 100)}%`,
+                background: percent >= 100 ? "#EF4444" : percent >= 80 ? "#f59e0b" : "#2dd4a8",
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-[0.65rem]" style={{ color: "var(--pn-text-muted)" }}>
+            <span>${monthCost.toFixed(2)} spent</span>
+            <span>{percent.toFixed(0)}%</span>
+          </div>
+        </div>
+
+        {/* Alert thresholds info */}
+        <div className="text-[0.65rem]" style={{ color: "var(--pn-text-tertiary)" }}>
+          Alerts trigger at 80% (warning) and 100% (exceeded). Cost spike alerts fire when daily spend exceeds 2x your daily average.
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 

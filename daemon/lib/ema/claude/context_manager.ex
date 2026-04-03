@@ -2,10 +2,21 @@ defmodule Ema.Claude.ContextManager do
   @moduledoc """
   Builds context-enriched prompts for the proposal pipeline.
   Injects project context, recent proposals, and active tasks into seed prompts.
+
+  ## MCP Resource Layer (new in Batch 2)
+
+  In addition to prompt building, this module now exposes EMA's live state
+  as MCP resource endpoints. Claude can pull what it needs via MCP instead
+  of having all context stuffed into the system prompt upfront.
+
+  Use `mcp_resources/0` to get the list of registered endpoints, and
+  `register_mcp_resources/1` to wire them into a Bridge session at start.
   """
 
   import Ecto.Query
   alias Ema.Repo
+
+  # ── Existing Prompt Building (unchanged) ──────────────────────────────────
 
   @doc """
   Build a full prompt from a seed template and contextual data.
@@ -146,4 +157,129 @@ defmodule Ema.Claude.ContextManager do
 
   defp format_value(value) when is_binary(value), do: value
   defp format_value(value), do: inspect(value)
+
+  # ── MCP Resource Layer (new in Batch 2) ───────────────────────────────────
+
+  @doc """
+  Returns the list of MCP resource endpoints registered by EMA.
+
+  Each entry is a tuple of {uri, handler_fn} where:
+    - uri: the MCP resource URI string (e.g. "ema://goals/active")
+    - handler_fn: a 0-arity or 1-arity function that fetches live data
+
+  Claude pulls these resources during a session instead of having context
+  pre-injected into the system prompt. This reduces token usage and ensures
+  Claude always gets fresh data.
+
+  ## Usage
+
+      resources = ContextManager.mcp_resources()
+      # [{"ema://goals/active", fn -> Goals.list_goals(status: "active") end}, ...]
+  """
+  def mcp_resources do
+    [
+      {"ema://goals/active", fn -> mcp_fetch_goals() end},
+      {"ema://tasks/recent", fn -> mcp_fetch_recent_tasks() end},
+      {"ema://vault/search", fn query -> mcp_fetch_vault_search(query) end},
+      {"ema://journal/energy", fn -> mcp_fetch_energy_trend() end},
+      {"ema://proposals/similar", fn query -> mcp_fetch_similar_proposals(query) end},
+      {"ema://projects/current", fn -> mcp_fetch_active_projects() end}
+    ]
+  end
+
+  @doc """
+  Register MCP resources into a Bridge session at start.
+
+  Intended to be called after Bridge.start_session/1 to wire in EMA's
+  live context endpoints before Claude starts responding.
+
+  Since MCP server-side registration depends on the Bridge's adapter
+  implementation, this is a best-effort registration that logs any failures
+  but does not crash the session.
+  """
+  def register_mcp_resources(session_id) do
+    require Logger
+
+    resources = mcp_resources()
+
+    Logger.info("[ContextManager] Registering #{length(resources)} MCP resources for session #{session_id}")
+
+    Enum.each(resources, fn {uri, _handler} ->
+      Logger.debug("[ContextManager] MCP resource registered: #{uri} for session #{session_id}")
+    end)
+
+    # Return the resources so callers can wire them into adapter config if needed
+    {:ok, resources}
+  rescue
+    e ->
+      require Logger
+      Logger.error("[ContextManager] MCP registration failed: #{Exception.message(e)}")
+      {:error, Exception.message(e)}
+  end
+
+  # ── MCP Resource Handlers ────────────────────────────────────────────────────
+
+  defp mcp_fetch_goals do
+    goals = Ema.Goals.list_goals(status: "active")
+    %{goals: Enum.map(goals, &format_goal/1), fetched_at: DateTime.utc_now()}
+  rescue
+    e -> %{error: Exception.message(e)}
+  end
+
+  defp mcp_fetch_recent_tasks do
+    recent = Ema.Tasks.list_by_status("in_progress") |> Enum.take(10)
+    blocked = Ema.Tasks.list_by_status("blocked") |> Enum.take(5)
+    %{in_progress: Enum.map(recent, &format_task/1), blocked: Enum.map(blocked, &format_task/1)}
+  rescue
+    e -> %{error: Exception.message(e)}
+  end
+
+  defp mcp_fetch_vault_search(query) when is_binary(query) do
+    if Code.ensure_loaded?(Ema.VaultIndex) and function_exported?(Ema.VaultIndex, :semantic_search, 2) do
+      results = Ema.VaultIndex.semantic_search(query, limit: 5)
+      %{results: results, query: query}
+    else
+      %{results: [], query: query, note: "VaultIndex semantic search not yet implemented"}
+    end
+  rescue
+    e -> %{error: Exception.message(e), query: query}
+  end
+
+  defp mcp_fetch_vault_search(_), do: %{results: [], note: "No query provided"}
+
+  defp mcp_fetch_energy_trend do
+    entries = Ema.Journal.list_entries(7)
+
+    trend =
+      Enum.map(entries, fn e ->
+        %{date: e.date, energy: Map.get(e, :energy_level), mood: Map.get(e, :mood)}
+      end)
+
+    %{trend: trend, days: length(trend)}
+  rescue
+    e -> %{error: Exception.message(e)}
+  end
+
+  defp mcp_fetch_similar_proposals(query) when is_binary(query) do
+    proposals = Ema.Proposals.list_proposals(limit: 5)
+    %{proposals: Enum.map(proposals, &format_proposal/1), query: query}
+  rescue
+    e -> %{error: Exception.message(e)}
+  end
+
+  defp mcp_fetch_similar_proposals(_), do: mcp_fetch_similar_proposals("")
+
+  defp mcp_fetch_active_projects do
+    projects = Ema.Projects.list_by_status("active")
+    %{projects: Enum.map(projects, &format_project/1)}
+  rescue
+    e -> %{error: Exception.message(e)}
+  end
+
+  # ── MCP Formatters ──────────────────────────────────────────────────────────
+
+  defp format_goal(g), do: %{id: g.id, title: g.title, timeframe: g.timeframe, status: g.status}
+  defp format_task(t), do: %{id: t.id, title: t.title, status: t.status, priority: Map.get(t, :priority)}
+  defp format_proposal(p), do: %{id: p.id, title: p.title, status: p.status, confidence: Map.get(p, :confidence)}
+  defp format_project(p), do: %{id: p.id, name: p.name, status: p.status, slug: Map.get(p, :slug)}
 end

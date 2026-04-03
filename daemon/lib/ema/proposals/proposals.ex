@@ -51,6 +51,7 @@ defmodule Ema.Proposals do
         |> Proposal.changeset(%{status: "approved"})
         |> Repo.update()
         |> tap_ok(&broadcast_proposal_event("proposal_approved", &1))
+        |> tap_ok(fn proposal -> Ema.Executions.on_proposal_approved(proposal.id) end)
     end
   end
 

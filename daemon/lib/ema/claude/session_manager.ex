@@ -14,6 +14,8 @@ defmodule Ema.Claude.SessionManager do
   alias Ema.Repo
   alias Ema.Claude.AiSession
   alias Ema.Claude.AiSessionMessage
+  alias Ema.Core.DccPrimitive
+  alias Ema.Persistence.SessionStore
 
   import Ecto.Query
 
@@ -75,6 +77,64 @@ defmodule Ema.Claude.SessionManager do
     GenServer.call(__MODULE__, {:get, session_id})
   end
 
+  @doc """
+  Build a context summary for a session, suitable for injection into
+  Superman or other external tool calls. Returns a map with session
+  metadata, recent messages, and the DCC snapshot if available.
+  """
+  def build_context_summary(session_id) when is_binary(session_id) do
+    case get_session(session_id) do
+      {:ok, %{session: session, messages: messages}} ->
+        build_summary_from(session, messages)
+
+      {:error, _} ->
+        %{session_id: session_id, error: :not_found}
+    end
+  end
+
+  def build_context_summary(%AiSession{} = session) do
+    messages =
+      AiSessionMessage
+      |> where([m], m.session_id == ^session.id)
+      |> order_by([m], desc: m.inserted_at)
+      |> limit(20)
+      |> Repo.all()
+      |> Enum.reverse()
+
+    build_summary_from(session, messages)
+  end
+
+  defp build_summary_from(session, messages) do
+    dcc =
+      case SessionStore.fetch(session.id) do
+        {:ok, dcc} -> DccPrimitive.to_map(dcc)
+        :error -> nil
+      end
+
+    recent =
+      messages
+      |> Enum.take(-10)
+      |> Enum.map(fn m ->
+        %{role: m.role, content: truncate(m.content, 500), tool_calls: m.tool_calls}
+      end)
+
+    %{
+      session_id: session.id,
+      model: session.model,
+      status: session.status,
+      project_path: session.project_path,
+      message_count: session.message_count,
+      total_tokens: session.total_input_tokens + session.total_output_tokens,
+      cost_usd: session.cost_usd,
+      recent_messages: recent,
+      dcc: dcc
+    }
+  end
+
+  defp truncate(nil, _max), do: nil
+  defp truncate(str, max) when byte_size(str) <= max, do: str
+  defp truncate(str, max), do: String.slice(str, 0, max) <> "..."
+
   # --- Callbacks ---
 
   @impl true
@@ -98,6 +158,7 @@ defmodule Ema.Claude.SessionManager do
 
     case %AiSession{} |> AiSession.changeset(attrs) |> Repo.insert() do
       {:ok, session} ->
+        maybe_create_dcc(session)
         broadcast(:session_created, session)
         {:reply, {:ok, session}, state}
 
@@ -266,6 +327,7 @@ defmodule Ema.Claude.SessionManager do
 
   def handle_cast({:complete, session_id}, state) do
     update_status(session_id, "completed")
+    maybe_crystallize_dcc(session_id)
     {:noreply, state}
   end
 
@@ -312,5 +374,53 @@ defmodule Ema.Claude.SessionManager do
     ts = System.system_time(:millisecond)
     rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "ais_#{ts}_#{rand}"
+  end
+
+  defp maybe_create_dcc(session) do
+    if session_store_running?() do
+      dcc =
+        DccPrimitive.new(%{session_id: session.id, project_id: session.project_path})
+        |> DccPrimitive.with_intent_snapshot(%{
+          model: session.model,
+          agent_id: session.agent_id,
+          created_at: DateTime.to_iso8601(DateTime.utc_now())
+        })
+
+      SessionStore.store(session.id, dcc)
+    end
+  rescue
+    _ -> Logger.debug("[SessionManager] SessionStore not available for DCC creation")
+  end
+
+  defp maybe_crystallize_dcc(session_id) do
+    if session_store_running?() do
+      case SessionStore.fetch(session_id) do
+        {:ok, dcc} ->
+          # Update narrative with final message count before crystallizing
+          case Repo.get(AiSession, session_id) do
+            nil ->
+              SessionStore.crystallize(session_id)
+
+            session ->
+              narrative =
+                "Session #{session_id}: #{session.message_count} messages, " <>
+                  "#{session.total_input_tokens + session.total_output_tokens} tokens, " <>
+                  "$#{Float.round(session.cost_usd, 4)} cost"
+
+              updated = DccPrimitive.with_narrative(dcc, narrative)
+              SessionStore.store(session_id, updated)
+              SessionStore.crystallize(session_id)
+          end
+
+        :error ->
+          :ok
+      end
+    end
+  rescue
+    _ -> Logger.debug("[SessionManager] SessionStore not available for DCC crystallization")
+  end
+
+  defp session_store_running? do
+    Process.whereis(SessionStore) != nil
   end
 end

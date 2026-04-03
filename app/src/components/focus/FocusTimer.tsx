@@ -9,9 +9,10 @@ interface FocusTimerProps {
 
 export function FocusTimer({ session }: FocusTimerProps) {
   const startSession = useFocusStore((s) => s.startSession);
-  const endSession = useFocusStore((s) => s.endSession);
-  const addBlock = useFocusStore((s) => s.addBlock);
-  const endBlock = useFocusStore((s) => s.endBlock);
+  const stopSession = useFocusStore((s) => s.stopSession);
+  const resumeWork = useFocusStore((s) => s.resumeWork);
+  const takeBreak = useFocusStore((s) => s.takeBreak);
+  const pause = useFocusStore((s) => s.pause);
 
   const [selectedDuration, setSelectedDuration] = useState(PRESET_DURATIONS[0].ms);
   const [elapsed, setElapsed] = useState(0);
@@ -56,25 +57,22 @@ export function FocusTimer({ session }: FocusTimerProps) {
 
   function handleStartWork() {
     if (!session) return;
-    addBlock(session.id, "work");
+    resumeWork();
   }
 
   function handleStartBreak() {
     if (!session) return;
-    if (activeBlock) {
-      endBlock(activeBlock.id);
-    }
-    addBlock(session.id, "break");
+    takeBreak();
   }
 
   function handlePauseBlock() {
     if (!activeBlock) return;
-    endBlock(activeBlock.id);
+    pause();
   }
 
   function handleEnd() {
     if (!session) return;
-    endSession(session.id);
+    stopSession();
   }
 
   // Format ms to mm:ss

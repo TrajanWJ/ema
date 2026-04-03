@@ -44,6 +44,23 @@ defmodule EmaWeb.Router do
 
     get "/context/executive-summary", ContextController, :executive_summary
 
+    # DCC Session Context
+    get "/context", ContextController, :index
+    get "/context/sessions", ContextController, :sessions
+    post "/context/crystallize", ContextController, :crystallize
+
+    # Quality Monitoring
+    get "/quality/report", QualityController, :report
+    get "/quality/friction", QualityController, :friction
+    get "/quality/gradient", QualityController, :gradient
+    get "/quality/budget", QualityController, :budget
+    get "/quality/threats", QualityController, :threats
+
+    # Orchestration
+    get "/orchestration/stats", OrchestrationController, :stats
+    get "/orchestration/fitness", OrchestrationController, :fitness
+    post "/orchestration/route", OrchestrationController, :route
+
     get "/workspace", WorkspaceController, :index
     put "/workspace/:app_id", WorkspaceController, :update
 
@@ -62,13 +79,19 @@ defmodule EmaWeb.Router do
     post "/tasks/:id/comments", TaskController, :add_comment
     resources "/tasks", TaskController, except: [:new, :edit]
 
-    # Proposals — specific routes before general
+    # Proposals — specific routes before general (param :id wildcard)
     get "/proposals", ProposalController, :index
     get "/proposals/surfaced", ProposalController, :surfaced
+    # Batch 3: Orchestrator pipeline endpoints (must be before :id routes)
+    post "/proposals/generate", ProposalController, :generate
+    get "/proposals/pipelines", ProposalController, :pipelines
+    get "/proposals/budget", ProposalController, :budget
     get "/proposals/:id", ProposalController, :show
+    get "/proposals/:id/cost", ProposalController, :cost
     post "/proposals/:id/approve", ProposalController, :approve
     post "/proposals/:id/redirect", ProposalController, :redirect
     post "/proposals/:id/kill", ProposalController, :kill
+    post "/proposals/:id/cancel", ProposalController, :cancel
     get "/proposals/:id/lineage", ProposalController, :lineage
 
     # Seeds
@@ -310,6 +333,10 @@ defmodule EmaWeb.Router do
     post "/gaps/:id/resolve", GapController, :resolve
     post "/gaps/:id/create_task", GapController, :create_task
     post "/gaps/scan", GapController, :scan
+
+    # Project Graph
+    get "/project-graph", ProjectGraphController, :index
+    get "/project-graph/nodes/:id", ProjectGraphController, :show
 
     # Session Memory
     get "/memory/sessions", MemoryController, :sessions

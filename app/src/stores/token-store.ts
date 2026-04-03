@@ -45,11 +45,18 @@ interface Budget {
   readonly days_remaining: number;
 }
 
+interface CostAlert {
+  readonly type: string;
+  readonly message: string;
+  readonly timestamp: string;
+}
+
 interface TokenState {
   summary: TokenSummary | null;
   history: readonly HistoryDay[];
   forecast: Forecast | null;
   budget: Budget | null;
+  alerts: readonly CostAlert[];
   loading: boolean;
   connected: boolean;
   channel: Channel | null;
@@ -59,6 +66,7 @@ interface TokenState {
   loadForecast: () => Promise<void>;
   loadBudget: () => Promise<void>;
   setBudget: (amount: number) => Promise<void>;
+  clearAlerts: () => void;
 }
 
 export const useTokenStore = create<TokenState>((set, get) => ({
@@ -66,6 +74,7 @@ export const useTokenStore = create<TokenState>((set, get) => ({
   history: [],
   forecast: null,
   budget: null,
+  alerts: [],
   loading: false,
   connected: false,
   channel: null,
@@ -103,6 +112,30 @@ export const useTokenStore = create<TokenState>((set, get) => ({
             ? { ...s.summary, percent_used: (payload.percent as number) ?? s.summary.percent_used }
             : s.summary,
         }));
+      });
+      channel.on("cost_spike", (payload: Record<string, unknown>) => {
+        const alert: CostAlert = {
+          type: "cost_spike",
+          message: (payload.message as string) ?? "Cost spike detected",
+          timestamp: new Date().toISOString(),
+        };
+        set((s) => ({ alerts: [alert, ...s.alerts].slice(0, 20) }));
+      });
+      channel.on("budget_exceeded", (payload: Record<string, unknown>) => {
+        const alert: CostAlert = {
+          type: "budget_exceeded",
+          message: (payload.message as string) ?? "Budget exceeded",
+          timestamp: new Date().toISOString(),
+        };
+        set((s) => ({ alerts: [alert, ...s.alerts].slice(0, 20) }));
+      });
+      channel.on("weekly_digest", (payload: Record<string, unknown>) => {
+        const alert: CostAlert = {
+          type: "weekly_digest",
+          message: (payload.message as string) ?? "Weekly digest available",
+          timestamp: new Date().toISOString(),
+        };
+        set((s) => ({ alerts: [alert, ...s.alerts].slice(0, 20) }));
       });
       set({ connected: true, channel });
     } catch {
@@ -145,5 +178,9 @@ export const useTokenStore = create<TokenState>((set, get) => ({
     } catch {
       // silent
     }
+  },
+
+  clearAlerts: () => {
+    set({ alerts: [] });
   },
 }));

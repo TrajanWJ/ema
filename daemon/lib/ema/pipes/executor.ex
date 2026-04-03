@@ -222,9 +222,9 @@ defmodule Ema.Pipes.Executor do
     end
   end
 
-  defp apply_transform(%{transform_type: "claude"}, payload) do
-    # Claude transform stub — would call Claude CLI
-    {:ok, payload}
+  defp apply_transform(%{transform_type: "claude"} = transform, payload) do
+    config = transform.config || %{}
+    Ema.Pipes.Actions.ClaudeAction.execute(payload, config)
   end
 
   defp apply_transform(_transform, payload) do

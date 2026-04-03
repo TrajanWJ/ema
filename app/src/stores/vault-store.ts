@@ -40,6 +40,8 @@ export const useVaultStore = create<VaultState>((set) => ({
   neighbors: [],
   orphans: [],
   typedNeighbors: [],
+  loading: false,
+  error: null,
   connected: false,
   channel: null,
 

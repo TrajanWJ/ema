@@ -62,6 +62,7 @@ const NEW_APPS = [
   { id: "gaps", name: "Gap Inbox", status: "system gaps" },
   { id: "intent-map", name: "Intent Map", status: "project intent" },
   { id: "code-health", name: "Code Health", status: "project health" },
+  { id: "project-graph", name: "Project Graph", status: "knowledge graph" },
 ] as const;
 
 export function Launchpad() {

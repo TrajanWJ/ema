@@ -487,6 +487,25 @@ defmodule Ema.Pipes.Registry do
           Logger.log(level, "Pipe: #{message}")
           {:ok, :logged}
         end
+      },
+
+      # Claude AI (Intelligence Layer)
+      %Action{
+        id: "claude:run",
+        context: "claude",
+        action_id: "claude:run",
+        label: "Run Claude AI",
+        description: "Send payload through Claude via the Intelligence Router",
+        schema: %{prompt_template: :string, event_keys: {:array, :string}, model: :string, event_type: :string},
+        execute: fn payload ->
+          config = %{
+            "prompt_template" => payload["prompt_template"] || "Process this: {{content}}",
+            "event_keys" => payload["event_keys"] || [],
+            "model" => payload["model"],
+            "event_type" => payload["event_type"] || "general"
+          }
+          Ema.Pipes.Actions.ClaudeAction.execute(payload, config)
+        end
       }
     ]
   end

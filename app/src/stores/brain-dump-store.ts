@@ -19,6 +19,8 @@ interface BrainDumpState {
 
 export const useBrainDumpStore = create<BrainDumpState>((set) => ({
   items: [],
+  loading: false,
+  error: null,
   connected: false,
   channel: null,
 

@@ -60,6 +60,94 @@ defmodule EmaWeb.ProposalController do
     end
   end
 
+  # ── Batch 3: Pipeline Orchestrator endpoints ──────────────────────────────
+
+  @doc """
+  POST /api/proposals/generate
+  Start a new proposal pipeline via the Orchestrator.
+
+  Body: { seed_id: string, project_id?: string, context?: object }
+  Returns: { proposal_id, pubsub_topic } (pipeline runs async)
+  """
+  def generate(conn, params) do
+    seed_id = params["seed_id"]
+    project_id = params["project_id"]
+    context = params["context"] || %{}
+
+    with {:ok, seed} <- fetch_seed(seed_id),
+         project <- if(project_id, do: Ema.Projects.get_project(project_id)),
+         {:ok, proposal_id, pubsub_topic} <-
+           Ema.Proposals.Orchestrator.start_proposal(seed, project, context) do
+      conn
+      |> put_status(:accepted)
+      |> json(%{
+        proposal_id: proposal_id,
+        pubsub_topic: pubsub_topic,
+        message: "Pipeline started. Subscribe to topic for streaming updates."
+      })
+    end
+  end
+
+  @doc """
+  DELETE /api/proposals/:id/cancel
+  Cancel an active proposal pipeline.
+  """
+  def cancel(conn, %{"id" => id}) do
+    Ema.Proposals.Orchestrator.cancel_proposal(id)
+    json(conn, %{status: "cancelled", proposal_id: id})
+  end
+
+  @doc """
+  GET /api/proposals/pipelines
+  List all active proposal pipelines.
+  """
+  def pipelines(conn, _params) do
+    active = Ema.Proposals.Orchestrator.active_pipelines()
+    json(conn, %{pipelines: active})
+  end
+
+  @doc """
+  GET /api/proposals/:id/cost
+  Get cost breakdown for a proposal.
+  """
+  def cost(conn, %{"id" => id}) do
+    cost_data = Ema.Proposals.CostAggregator.proposal_cost(id)
+    json(conn, cost_data)
+  end
+
+  @doc """
+  GET /api/proposals/budget
+  Get daily AI budget status.
+  """
+  def budget(conn, _params) do
+    spend = Ema.Proposals.CostAggregator.daily_spend()
+    budget = Ema.Proposals.CostAggregator.daily_budget()
+    check = Ema.Proposals.CostAggregator.budget_check()
+
+    status = case check do
+      :ok -> "ok"
+      {:warning, _} -> "warning"
+      {:blocked, _} -> "blocked"
+    end
+
+    json(conn, %{
+      daily_spend_usd: spend,
+      daily_budget_usd: budget,
+      pct_used: if(budget > 0, do: Float.round(spend / budget * 100, 1), else: 0.0),
+      status: status
+    })
+  end
+
+  # ── Private helpers ────────────────────────────────────────────────────────
+
+  defp fetch_seed(nil), do: {:error, :bad_request}
+  defp fetch_seed(seed_id) do
+    case Proposals.get_seed(seed_id) do
+      nil -> {:error, :not_found}
+      seed -> {:ok, seed}
+    end
+  end
+
   defp serialize_proposal(proposal) do
     %{
       id: proposal.id,
@@ -79,8 +167,13 @@ defmodule EmaWeb.ProposalController do
       prompt_quality_score: proposal.prompt_quality_score,
       score_breakdown: proposal.score_breakdown,
       project_id: proposal.project_id,
-      seed_id: proposal.seed_id,
+      seed_id: Map.get(proposal, :seed_id),
       parent_proposal_id: proposal.parent_proposal_id,
+      # Batch 3 fields
+      quality_score: Map.get(proposal, :quality_score),
+      pipeline_stage: Map.get(proposal, :pipeline_stage),
+      pipeline_iteration: Map.get(proposal, :pipeline_iteration, 1),
+      cost_display: Map.get(proposal, :cost_display),
       created_at: proposal.inserted_at,
       updated_at: proposal.updated_at
     }

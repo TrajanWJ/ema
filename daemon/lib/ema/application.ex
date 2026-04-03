@@ -40,6 +40,9 @@ defmodule Ema.Application do
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
       ] ++
+        maybe_start_session_store() ++
+        maybe_start_quality() ++
+        maybe_start_orchestration() ++
         maybe_start_bridge() ++
         maybe_start_claude_sessions() ++
         maybe_start_canvas() ++
@@ -54,6 +57,7 @@ defmodule Ema.Application do
         maybe_start_harvesters() ++
         maybe_start_temporal() ++
         maybe_start_openclaw() ++
+        maybe_start_mcp() ++
         [
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
@@ -84,6 +88,14 @@ defmodule Ema.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp maybe_start_session_store do
+    if Application.get_env(:ema, :start_session_store, true) do
+      [Ema.Persistence.SessionStore]
+    else
+      []
+    end
   end
 
   defp maybe_start_bridge do
@@ -194,6 +206,32 @@ defmodule Ema.Application do
   defp maybe_start_temporal do
     if Application.get_env(:ema, :start_temporal, true) do
       [Ema.Temporal.Engine]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_quality do
+    if Application.get_env(:ema, :start_quality, true) do
+      [Ema.Quality.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_orchestration do
+    if Application.get_env(:ema, :start_orchestration, true) do
+      [Ema.Orchestration.Supervisor]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_mcp do
+    if Application.get_env(:ema, :mcp_server, [])[:enabled] do
+      # Initialize the ETS table for recursion guard before server starts
+      Ema.MCP.RecursionGuard.init()
+      [Ema.MCP.Server]
     else
       []
     end

@@ -48,3 +48,6 @@ config :ema, start_canvas: false
 
 # Disable Evolution Engine in test
 config :ema, evolution_engine: false
+
+# Disable SessionStore background persistence in test (started manually when needed)
+config :ema, start_session_store: false

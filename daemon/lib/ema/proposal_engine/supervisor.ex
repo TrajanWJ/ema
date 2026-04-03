@@ -3,6 +3,10 @@ defmodule Ema.ProposalEngine.Supervisor do
   Supervisor for the proposal pipeline.
   Manages scheduler, generator, refiner, debater, tagger, combiner, and kill memory.
   Uses rest_for_one strategy: if a process crashes, all processes started after it restart.
+
+  Batch 3 additions:
+    - Ema.Proposals.Orchestrator   — 4-stage pipeline GenServer
+    - Ema.Proposals.CostAggregator — Per-proposal cost tracking and budget alerts
   """
 
   use Supervisor
@@ -22,7 +26,10 @@ defmodule Ema.ProposalEngine.Supervisor do
       Ema.ProposalEngine.Refiner,
       Ema.ProposalEngine.Generator,
       Ema.ProposalEngine.Combiner,
-      Ema.ProposalEngine.Scheduler
+      Ema.ProposalEngine.Scheduler,
+      # Batch 3: Orchestrator pipeline + cost tracking
+      Ema.Proposals.Orchestrator,
+      Ema.Proposals.CostAggregator
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)

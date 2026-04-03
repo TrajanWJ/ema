@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { OrgSwitcher } from "@/components/org/OrgSwitcher";
 
 function Clock() {
   const [time, setTime] = useState(() => formatTime());
@@ -71,7 +72,9 @@ export function AmbientStrip() {
         ema
       </span>
       <Clock />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <OrgSwitcher />
+        <div className="flex items-center gap-2">
         <button
           onClick={handleMinimize}
           className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
@@ -87,6 +90,7 @@ export function AmbientStrip() {
           className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
           style={{ background: "#E24B4A" }}
         />
+        </div>
       </div>
     </div>
   );

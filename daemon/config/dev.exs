@@ -57,3 +57,6 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Enable MCP server in dev (disabled by default — set to true to test)
+# config :ema, :mcp_server, enabled: true, port: 4001

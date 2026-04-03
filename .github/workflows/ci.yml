@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-daemon:
+    name: Elixir Tests
+    runs-on: ubuntu-latest
+    
+    env:
+      MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.16.3'
+          otp-version: '26.2.5'
+
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        with:
+          path: daemon/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('daemon/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install deps
+        working-directory: daemon
+        run: mix deps.get
+
+      - name: Compile (warnings as errors)
+        working-directory: daemon
+        run: mix compile --warnings-as-errors
+
+      - name: Check formatting
+        working-directory: daemon
+        run: mix format --check-formatted
+
+      - name: Run tests
+        working-directory: daemon
+        run: mix test --trace
+
+  lint-frontend:
+    name: Frontend Lint + Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install deps
+        working-directory: app
+        run: npm ci
+
+      - name: Type check
+        working-directory: app
+        run: npx tsc -b --noEmit
+
+      - name: Lint
+        working-directory: app
+        run: npm run lint
+
+      - name: Build
+        working-directory: app
+        run: npm run build
