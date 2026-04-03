@@ -119,15 +119,28 @@ function WarningCard({ warning }: { warning: { id: string; severity: string; tit
   );
 }
 
-function SecurityContent() {
-  const { posture, loading, auditing, loadPosture, runAudit } = useSecurityStore();
+const secConfig = APP_CONFIGS["security"];
+
+export function SecurityPanelApp() {
+  const { posture, auditing, loadPosture, runAudit } = useSecurityStore();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    loadPosture();
+    async function init() {
+      await loadPosture().catch(() => {});
+      setReady(true);
+    }
+    init();
   }, [loadPosture]);
 
-  if (loading && !posture) {
-    return <div className="text-sm" style={{ color: "var(--pn-text-tertiary)" }}>Running security checks...</div>;
+  if (!ready) {
+    return (
+      <AppWindowChrome appId="security" title={secConfig.title} icon={secConfig.icon} accent={secConfig.accent}>
+        <div className="flex items-center justify-center h-full">
+          <span className="text-sm" style={{ color: "var(--pn-text-secondary)" }}>Running security checks...</span>
+        </div>
+      </AppWindowChrome>
+    );
   }
 
   const p = posture;
@@ -137,76 +150,68 @@ function SecurityContent() {
   const failed = checks.filter((c) => !c.passed).length;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold" style={{ color: "rgba(255,255,255,0.87)" }}>
-          Security Posture
-        </h1>
-        <button
-          onClick={runAudit}
-          disabled={auditing}
-          className="text-xs px-3 py-1.5 rounded transition-colors hover:opacity-80 disabled:opacity-50"
-          style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444" }}
-        >
-          {auditing ? "Auditing..." : "Run Security Audit"}
-        </button>
-      </div>
+    <AppWindowChrome appId="security" title={secConfig.title} icon={secConfig.icon} accent={secConfig.accent}>
+      <div className="flex flex-col gap-4 h-full overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold" style={{ color: "rgba(255,255,255,0.87)" }}>
+            Security Posture
+          </h1>
+          <button
+            onClick={runAudit}
+            disabled={auditing}
+            className="text-xs px-3 py-1.5 rounded transition-colors hover:opacity-80 disabled:opacity-50"
+            style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444" }}
+          >
+            {auditing ? "Auditing..." : "Run Security Audit"}
+          </button>
+        </div>
 
-      {/* Score + summary */}
-      <div className="glass-surface rounded-lg p-4 flex items-center gap-6">
-        <ScoreRing score={p?.score ?? 0} max={p?.max_score ?? 100} />
-        <div className="flex-1">
-          <div className="text-sm font-medium mb-2" style={{ color: "rgba(255,255,255,0.87)" }}>
-            {(p?.percent ?? 0) >= 80 ? "Good posture" : (p?.percent ?? 0) >= 60 ? "Needs attention" : "At risk"}
-          </div>
-          <div className="flex gap-4 text-xs">
-            <span style={{ color: "#22C55E" }}>{passed} passed</span>
-            <span style={{ color: "#EF4444" }}>{failed} failed</span>
-          </div>
-          {p?.audited_at && (
-            <div className="text-[0.6rem] mt-2" style={{ color: "var(--pn-text-muted)" }}>
-              Last check: {new Date(p.audited_at).toLocaleString()}
+        {/* Score + summary */}
+        <div className="glass-surface rounded-lg p-4 flex items-center gap-6">
+          <ScoreRing score={p?.score ?? 0} max={p?.max_score ?? 100} />
+          <div className="flex-1">
+            <div className="text-sm font-medium mb-2" style={{ color: "rgba(255,255,255,0.87)" }}>
+              {(p?.percent ?? 0) >= 80 ? "Good posture" : (p?.percent ?? 0) >= 60 ? "Needs attention" : "At risk"}
             </div>
-          )}
+            <div className="flex gap-4 text-xs">
+              <span style={{ color: "#22C55E" }}>{passed} passed</span>
+              <span style={{ color: "#EF4444" }}>{failed} failed</span>
+            </div>
+            {p?.audited_at && (
+              <div className="text-[0.6rem] mt-2" style={{ color: "var(--pn-text-muted)" }}>
+                Last check: {new Date(p.audited_at).toLocaleString()}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Checks */}
-      <div>
-        <h2 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
-          Security Checks ({passed}/{checks.length})
-        </h2>
-        <div className="flex flex-col gap-2">
-          {checks.map((check) => (
-            <CheckRow key={check.id} check={check} />
-          ))}
-        </div>
-      </div>
-
-      {/* Supply chain warnings */}
-      {warnings.length > 0 && (
+        {/* Checks */}
         <div>
           <h2 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
-            Supply Chain Alerts
+            Security Checks ({passed}/{checks.length})
           </h2>
           <div className="flex flex-col gap-2">
-            {warnings.map((w) => (
-              <WarningCard key={w.id} warning={w} />
+            {checks.map((check) => (
+              <CheckRow key={check.id} check={check} />
             ))}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-export function SecurityPanelApp() {
-  return (
-    <StandaloneAppShell title="Security">
-      <div className="flex flex-col gap-4 h-full overflow-y-auto">
-        <SecurityContent />
+        {/* Supply chain warnings */}
+        {warnings.length > 0 && (
+          <div>
+            <h2 className="text-xs font-medium mb-3" style={{ color: "var(--pn-text-secondary)" }}>
+              Supply Chain Alerts
+            </h2>
+            <div className="flex flex-col gap-2">
+              {warnings.map((w) => (
+                <WarningCard key={w.id} warning={w} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </StandaloneAppShell>
+    </AppWindowChrome>
   );
 }

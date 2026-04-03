@@ -88,7 +88,7 @@ function ContainerCard({ container }: { container: Container }) {
 const vmConfig = APP_CONFIGS["vm-health"];
 
 export function VMHealthApp() {
-  const { health, loading, loadViaRest, connect, triggerCheck } = useVmHealthStore();
+  const { health, loadViaRest, connect, triggerCheck } = useVmHealthStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {

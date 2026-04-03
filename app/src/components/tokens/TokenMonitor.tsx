@@ -82,7 +82,7 @@ function BreakdownTable({
 const tokenConfig = APP_CONFIGS["token-monitor"];
 
 export function TokenMonitor() {
-  const { summary, history, forecast, alerts, loading, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
+  const { summary, history, forecast, alerts, loadViaRest, connect, setBudget, clearAlerts } = useTokenStore();
   const [ready, setReady] = useState(false);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
