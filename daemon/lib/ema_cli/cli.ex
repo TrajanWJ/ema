@@ -2,6 +2,9 @@ defmodule EmaCli.CLI do
   @moduledoc "EMA CLI — mirrors all EMA features via HTTP API"
 
   def main(args) do
+    # Only start HTTP client deps — do NOT start the full :ema app
+    {:ok, _} = Application.ensure_all_started(:req)
+
     case parse(args) do
       {:ok, feature, subcommand, opts} -> dispatch(feature, subcommand, opts)
       {:error, msg} -> error(msg)

@@ -11,7 +11,7 @@ defmodule Ema.MixProject do
       aliases: aliases(),
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
-      escript: [main_module: EmaCli.CLI, name: "ema"]
+      escript: [main_module: EmaCli.CLI, name: "ema", app: nil]
     ]
   end
 
