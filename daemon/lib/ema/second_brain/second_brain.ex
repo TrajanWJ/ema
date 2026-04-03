@@ -202,6 +202,31 @@ defmodule Ema.SecondBrain do
     |> Repo.all()
   end
 
+  def get_typed_neighbors(note_id) do
+    outgoing =
+      Link
+      |> where([l], l.source_note_id == ^note_id and not is_nil(l.target_note_id))
+      |> preload(:target_note)
+      |> Repo.all()
+      |> Enum.map(fn l -> {l.edge_type, l.target_note} end)
+
+    incoming =
+      Link
+      |> where([l], l.target_note_id == ^note_id)
+      |> preload(:source_note)
+      |> Repo.all()
+      |> Enum.map(fn l -> {l.edge_type, l.source_note} end)
+
+    outgoing ++ incoming
+  end
+
+  def get_links_by_type(edge_type) do
+    Link
+    |> where([l], l.edge_type == ^edge_type and not is_nil(l.target_note_id))
+    |> preload([:source_note, :target_note])
+    |> Repo.all()
+  end
+
   def get_backlinks(note_id) do
     source_ids =
       Link
@@ -294,7 +319,8 @@ defmodule Ema.SecondBrain do
           source: l.source_note_id,
           target: l.target_note_id,
           link_text: l.link_text,
-          link_type: l.link_type
+          link_type: l.link_type,
+          edge_type: l.edge_type
         }
       end)
 
