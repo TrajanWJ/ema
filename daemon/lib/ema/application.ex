@@ -15,6 +15,8 @@ defmodule Ema.Application do
          repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
         {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Ema.PubSub},
+        # Babysitter — system observability and Discord stream-of-consciousness
+        Ema.Babysitter.Supervisor,
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         {Task.Supervisor, name: Ema.TaskSupervisor},
@@ -76,6 +78,10 @@ defmodule Ema.Application do
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
         ]
+
+    # Initialize plugin registry and hooks
+    :ok = Ema.PluginRegistry.init()
+    :ok = Ema.Hooks.init()
 
     # Install fuse circuit breakers (safe if fuse not yet loaded)
     try do
