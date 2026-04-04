@@ -12,6 +12,7 @@ config :ema,
   generators: [timestamp_type: :utc_datetime],
   # AI backend: :runner (legacy Claude CLI) or :bridge (multi-backend router)
   ai_backend: :bridge,
+  proposal_engine: [enabled: true],
   vault_path: System.get_env("EMA_VAULT_PATH", "/home/trajan/vault")
 
 # Configure the endpoint
@@ -41,3 +42,15 @@ import_config "#{config_env()}.exs"
 config :ema, :mcp_server,
   enabled: false,
   port: 4001
+
+# Distributed AI (off by default — enable in runtime.exs per node)
+config :ema, :distributed_ai,
+  enabled: false,
+  cluster_strategy: :local
+
+config :ema, Ema.Claude.ClusterConfig,
+  strategy: :local,
+  app_name: "ema"
+
+config :libcluster,
+  topologies: []

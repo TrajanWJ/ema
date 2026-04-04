@@ -89,6 +89,11 @@ import { OrgApp } from "@/components/org/OrgApp";
 import { OutcomeDashboard } from "@/components/outcome-dashboard/OutcomeDashboard";
 import { KnowledgeGraphApp } from "@/components/knowledge-graph/KnowledgeGraphApp";
 import { IntegrationsApp } from "@/components/integrations/IntegrationsApp";
+// Agent cross-pollination vApps
+import { AgentStreamApp } from "@/components/agent-stream/AgentStreamApp";
+import { AgentBridgeApp } from "@/components/agent-bridge/AgentBridgeApp";
+import { AgentSystemApp } from "@/components/agent-system/AgentSystemApp";
+import { AgentGraphApp } from "@/components/agent-graph/AgentGraphApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -260,6 +265,15 @@ function AppContent() {
       return <KnowledgeGraphApp />;
     case "integrations":
       return <IntegrationsApp />;
+    // Agent cross-pollination
+    case "agent-stream":
+      return <AgentStreamApp />;
+    case "agent-bridge":
+      return <AgentBridgeApp />;
+    case "agent-system":
+      return <AgentSystemApp />;
+    case "agent-graph":
+      return <AgentGraphApp />;
 
     default:
       return (

@@ -531,4 +531,8 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   "obsidian-vault": { title: "Obsidian Vault", defaultWidth: 1100, defaultHeight: 780, minWidth: 900, minHeight: 600, accent: "#7c3aed", icon: "📚" },
   "soul-editor": { title: "SOUL Editor", defaultWidth: 1100, defaultHeight: 750, minWidth: 900, minHeight: 600, accent: "#f472b6", icon: "♡" },
   "knowledge-graph": { title: "Knowledge Graph", defaultWidth: 1100, defaultHeight: 800, minWidth: 900, minHeight: 650, accent: "#3b82f6", icon: "◉" },
+  "agent-stream": { title: "Agent Stream", defaultWidth: 900, defaultHeight: 700, minWidth: 700, minHeight: 500, accent: "#E8A838", icon: "📡" },
+  "agent-bridge": { title: "Agent Bridge", defaultWidth: 1000, defaultHeight: 750, minWidth: 800, minHeight: 600, accent: "#a78bfa", icon: "⚡" },
+  "agent-system": { title: "System Pulse", defaultWidth: 1000, defaultHeight: 750, minWidth: 800, minHeight: 600, accent: "#22C55E", icon: "⚙️" },
+  "agent-graph": { title: "Knowledge Graph", defaultWidth: 1200, defaultHeight: 850, minWidth: 900, minHeight: 650, accent: "#2dd4a8", icon: "🕸️" },
 } as const;
