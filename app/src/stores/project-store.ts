@@ -49,6 +49,30 @@ interface ProjectExecutionSummary {
   readonly [key: string]: unknown;
 }
 
+interface ProjectAggregate<T> {
+  readonly total?: number;
+  readonly by_status?: Record<string, number> | null;
+  readonly recent?: readonly T[];
+}
+
+interface RawProjectContext {
+  readonly project?: Record<string, unknown>;
+  readonly tasks?: ProjectAggregate<ProjectTaskSummary> | null;
+  readonly proposals?: ProjectAggregate<Record<string, unknown>> | null;
+  readonly campaigns?: unknown;
+  readonly active_campaign?: ProjectCampaignSummary | null;
+  readonly executions?: {
+    readonly total?: number;
+    readonly running?: number;
+    readonly succeeded?: number;
+    readonly failed?: number;
+    readonly success_rate?: number;
+    readonly recent?: readonly ProjectExecutionSummary[];
+  } | null;
+  readonly stats?: Record<string, unknown> | null;
+  readonly [key: string]: unknown;
+}
+
 export interface ProjectContext {
   readonly active_tasks: readonly ProjectTaskSummary[];
   readonly recent_proposals: readonly ProjectProposalSummary[];
@@ -86,14 +110,47 @@ const EMPTY_CONTEXT: ProjectContext = {
   last_execution: null,
 };
 
+function normalizeProposal(proposal: Record<string, unknown>): ProjectProposalSummary {
+  return {
+    ...proposal,
+    title:
+      typeof proposal.title === "string"
+        ? proposal.title
+        : typeof proposal.name === "string"
+          ? proposal.name
+          : typeof proposal.body_preview === "string"
+            ? proposal.body_preview
+            : undefined,
+    summary:
+      typeof proposal.summary === "string"
+        ? proposal.summary
+        : typeof proposal.body_preview === "string"
+          ? proposal.body_preview
+          : null,
+  };
+}
+
 function normalizeContext(input: unknown): ProjectContext {
-  const data = (input ?? {}) as Partial<ProjectContext>;
+  const data = (input ?? {}) as Partial<ProjectContext & RawProjectContext>;
+  const normalizedTasks = Array.isArray(data.active_tasks)
+    ? data.active_tasks
+    : Array.isArray(data.tasks?.recent)
+      ? data.tasks.recent
+      : [];
+  const normalizedProposals = Array.isArray(data.recent_proposals)
+    ? data.recent_proposals
+    : Array.isArray(data.proposals?.recent)
+      ? data.proposals.recent.map((proposal) => normalizeProposal(proposal))
+      : [];
+  const normalizedExecution = data.last_execution
+    ?? (Array.isArray(data.executions?.recent) ? data.executions.recent[0] ?? null : null);
+
   return {
     ...data,
-    active_tasks: Array.isArray(data.active_tasks) ? data.active_tasks : [],
-    recent_proposals: Array.isArray(data.recent_proposals) ? data.recent_proposals : [],
+    active_tasks: normalizedTasks,
+    recent_proposals: normalizedProposals,
     active_campaign: data.active_campaign ?? null,
-    last_execution: data.last_execution ?? null,
+    last_execution: normalizedExecution,
   };
 }
 

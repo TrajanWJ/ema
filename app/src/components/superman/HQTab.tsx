@@ -75,12 +75,15 @@ export function HQTab() {
   const recentProposals = context?.recent_proposals ?? [];
   const activeCampaign = context?.active_campaign;
   const lastExecution = context?.last_execution;
+  const taskByStatus = getAggregateByStatus(context, "tasks");
+  const proposalByStatus = getAggregateByStatus(context, "proposals");
 
-  const inProgress = activeTasks.filter((task) => task.status === "in_progress").length;
-  const blocked = activeTasks.filter((task) => task.status === "blocked").length;
-  const approvedProposals = recentProposals.filter((proposal) => proposal.status === "approved").length;
+  const activeTaskCount = getAggregateTotal(context, "tasks") ?? activeTasks.length;
+  const inProgress = getCount(taskByStatus, "in_progress");
+  const blocked = getCount(taskByStatus, "blocked");
+  const approvedProposals = getCount(proposalByStatus, "approved");
   const stats = [
-    { label: "Active Tasks", value: activeTasks.length },
+    { label: "Active Tasks", value: activeTaskCount },
     { label: "In Progress", value: inProgress },
     { label: "Approved Props", value: approvedProposals },
     { label: "Blocked", value: blocked + (lastExecution?.status === "failed" ? 1 : 0) },
@@ -426,4 +429,41 @@ function firstString(...values: unknown[]): string | null {
     }
   }
   return null;
+}
+
+function getCount(source: unknown, key: string): number {
+  if (!source || typeof source !== "object") {
+    return 0;
+  }
+
+  const value = (source as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : 0;
+}
+
+function getAggregateByStatus(context: Record<string, unknown> | null | undefined, key: string): Record<string, unknown> {
+  if (!context) {
+    return {};
+  }
+
+  const aggregate = context[key];
+  if (!aggregate || typeof aggregate !== "object") {
+    return {};
+  }
+
+  const byStatus = (aggregate as Record<string, unknown>).by_status;
+  return byStatus && typeof byStatus === "object" ? (byStatus as Record<string, unknown>) : {};
+}
+
+function getAggregateTotal(context: Record<string, unknown> | null | undefined, key: string): number | null {
+  if (!context) {
+    return null;
+  }
+
+  const aggregate = context[key];
+  if (!aggregate || typeof aggregate !== "object") {
+    return null;
+  }
+
+  const total = (aggregate as Record<string, unknown>).total;
+  return typeof total === "number" ? total : null;
 }
