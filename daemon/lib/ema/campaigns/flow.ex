@@ -1,17 +1,16 @@
 defmodule Ema.Campaigns.Flow do
   @moduledoc """
-  Campaign.Flow — 4-state machine tracking the lifecycle of a campaign.
+  Campaign.Flow — 5-state machine tracking the lifecycle of a campaign.
 
   State machine:
-    Forming → Developing → Testing → Done
+    Forming → Ready → Running → Completed (sink: Archived)
 
   Valid transitions:
-    forming    → developing  (work begins)
-    forming    → done        (abandoned before starting)
-    developing → testing     (ready to validate)
-    developing → forming     (sent back for rethink)
-    testing    → done        (accepted, shipped)
-    testing    → developing  (tests failed, iterate)
+    forming   → ready, archived
+    ready     → running, archived
+    running   → completed, forming, archived
+    completed → archived
+    archived  → (terminal)
 
   Each state records when it was entered and optional metadata.
   Full history is preserved in :state_history.
@@ -22,13 +21,14 @@ defmodule Ema.Campaigns.Flow do
 
   @primary_key {:id, :string, autogenerate: false}
 
-  @states ~w(forming developing testing done)
+  @states ~w(forming ready running completed archived)
 
   @valid_transitions %{
-    "forming"    => ~w(developing done),
-    "developing" => ~w(testing forming),
-    "testing"    => ~w(done developing),
-    "done"       => []
+    "forming"   => ~w(ready archived),
+    "ready"     => ~w(running archived),
+    "running"   => ~w(completed forming archived),
+    "completed" => ~w(archived),
+    "archived"  => []
   }
 
   schema "campaign_flows" do
@@ -123,6 +123,24 @@ defmodule Ema.Campaigns.Flow do
 
   @doc "Returns all defined states in order."
   def states, do: @states
+
+  @doc "Alias for valid_transition?/2."
+  def can_transition?(from, to), do: valid_transition?(from, to)
+
+  @doc "Builds a flow-like map from a Campaign struct (reads status, defaults to forming)."
+  def from_campaign(%{status: status} = _campaign) do
+    %{state: status || "forming", valid_next: valid_transitions(status || "forming")}
+  end
+
+  @doc """
+  Transitions a persisted Flow to a new state.
+  Returns {:ok, flow} or {:error, changeset}.
+  """
+  def transition(%__MODULE__{} = flow, new_state, metadata \\ %{}) do
+    flow
+    |> transition_changeset(new_state, metadata)
+    |> Ema.Repo.update()
+  end
 
   # ---------------------------------------------------------------------------
   # Private

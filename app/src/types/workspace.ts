@@ -528,5 +528,5 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   "persistence": { title: "Persistence", defaultWidth: 800, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#6366f1", icon: "◫" },
   "build-it": { title: "Build It", defaultWidth: 750, defaultHeight: 650, minWidth: 600, minHeight: 500, accent: "#f59e0b", icon: "🔨" },
   "briefing": { title: "Daily Brief", defaultWidth: 750, defaultHeight: 700, minWidth: 600, minHeight: 600, accent: "#6366f1", icon: "📋" },
+  "obsidian-vault": { title: "Obsidian Vault", defaultWidth: 1100, defaultHeight: 780, minWidth: 900, minHeight: 600, accent: "#7c3aed", icon: "📚" },
 } as const;
-

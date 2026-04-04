@@ -10,6 +10,9 @@ Personal AI desktop app: an autonomous thinking companion and life OS.
 
 ## Architecture Overview
 
+> **⚠️ Historical Artifact Warning:** `docs/superpowers/specs/2026-03-29-ema-design.md` is a spec for the **predecessor project "place-native"** (targets KDE Neon, uses `place.db` at `~/.local/share/place-native/`). It does **NOT** describe EMA. Ignore it for EMA development.
+
+
 ```
 ┌─────────────────────────────────────────────┐
 │  Tauri Shell (Rust)                         │
@@ -130,7 +133,7 @@ Pipeline: **Scheduler** → **Generator** → **Refiner** → **Debater** → **
 | `KillMemory` | Tracks killed proposal patterns (Jaccard similarity on titles, tag overlap) |
 
 PubSub topic: `"proposals:pipeline"` with `{:proposals, stage_atom, proposal}`.  
-User actions: **approve** (→ creates  record → dispatched via  PubSub →  → AI agent handles → output creates Task/artifact), **redirect** (→ 3 new seeds), **kill** (→ KillMemory).
+User actions: **approve** (→ creates `Execution` record → dispatched via `executions:dispatch` PubSub → `Ema.Executions.Dispatcher` → AI agent handles → output creates Task/artifact), **redirect** (→ 3 new seeds), **kill** (→ KillMemory).
 
 #### Pipes System (`lib/ema/pipes/`)
 Supervised by `Pipes.Supervisor` (rest_for_one: Registry → Loader → Executor).
@@ -223,9 +226,13 @@ TypeScript interfaces for each domain. `workspace.ts` contains `APP_CONFIGS` wit
 
 ---
 
-## Next Phase: Multi-Backend AI Architecture
+## AI Bridge Architecture (ACTIVE)
 
-Files in `~/shared/inbox-host/vm--ema-bridge-files/`. Replaces the current simple `claude` CLI shelling with a full provider mesh.
+**Status:** Bridge is now active (`ai_backend: :bridge` in `config/config.exs`). `BridgeSupervisor` starts on app boot.
+
+**Active features:** SmartRouter (multi-account rotation), QualityGate (response scoring), cost tracking (SQLite), governance audit logging, circuit breakers (soft/hard trip at 3/5 failures). Falls back gracefully to `Runner.run/2` if Bridge GenServer is unavailable.
+
+**Original build files** were in `~/shared/inbox-host/vm--ema-bridge-files/`.
 
 ### Build Order
 

@@ -138,6 +138,39 @@ defmodule Ema.Campaigns do
   end
 
   # ---------------------------------------------------------------------------
+  # Campaign status transitions
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Transitions the campaign's status field and broadcasts the update.
+  Uses Campaign.Flow.valid_transition?/2 to validate the transition.
+  """
+  def transition_campaign(%Campaign{} = campaign, new_status) do
+    current = campaign.status
+
+    if Flow.valid_transition?(current, new_status) do
+      with {:ok, updated} <- update_campaign(campaign, %{status: new_status}) do
+        Phoenix.PubSub.broadcast(
+          Ema.PubSub,
+          "campaigns:updates",
+          {:campaign_status_changed, updated.id, current, new_status}
+        )
+
+        {:ok, updated}
+      end
+    else
+      {:error, "invalid transition from #{current} to #{new_status}"}
+    end
+  end
+
+  def transition_campaign_by_id(id, new_status) do
+    case get_campaign(id) do
+      nil -> {:error, :not_found}
+      campaign -> transition_campaign(campaign, new_status)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Campaign Runs
   # ---------------------------------------------------------------------------
 

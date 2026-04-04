@@ -58,10 +58,12 @@ const DOCK_APPS = [
   { id: "intent-map", icon: "\uD83D\uDDFA", label: "Intent Map" },
   { id: "code-health", icon: "\uD83D\uDCCA", label: "Code Health" },
   { id: "dispatch-board", icon: "\uD83D\uDCE1", label: "Dispatch Board" },
+  { id: "campaigns", icon: "🎯", label: "Campaigns" },
   // Organizations & P2P
   { id: "org", icon: "\u2B21", label: "Organizations" },
   // Learning Loop
   { id: "outcome-dashboard", icon: "📊", label: "Outcome Dashboard" },
+  { id: "obsidian-vault", icon: "📚", label: "Obsidian Vault" },
 ] as const;
 
 export function Dock() {

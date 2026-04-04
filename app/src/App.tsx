@@ -10,6 +10,7 @@ import { SettingsApp } from "@/components/settings/SettingsApp";
 import { ResponsibilitiesApp } from "@/components/responsibilities/ResponsibilitiesApp";
 import { AgentsApp } from "@/components/agents/AgentsApp";
 import { VaultApp } from "@/components/vault/VaultApp";
+import { VaultBrowser } from "@/components/vault/VaultBrowser";
 import { CanvasApp } from "@/components/canvas/CanvasApp";
 import { PipesApp } from "@/components/pipes/PipesApp";
 import { ChannelsApp } from "@/components/channels/ChannelsApp";
@@ -114,6 +115,8 @@ function AppContent() {
       return <AgentsApp />;
     case "vault":
       return <VaultApp />;
+    case "obsidian-vault":
+      return <VaultBrowser />;
     case "canvas":
       return <CanvasApp />;
     case "channels":

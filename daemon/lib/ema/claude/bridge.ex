@@ -75,6 +75,31 @@ defmodule Ema.Claude.Bridge do
   end
 
   @doc """
+  Async version of run/2. Returns {:ok, task_id} immediately.
+  Broadcasts result to "claude:task:<task_id>" when done.
+  Optional on_complete callback is called with the result.
+  """
+  @spec spawn_async(String.t(), keyword(), (any() -> any()) | nil) :: {:ok, String.t()}
+  def spawn_async(prompt, opts \\ [], on_complete \\ nil)
+      when is_binary(prompt) and is_list(opts) do
+    task_id = generate_task_id()
+
+    Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+      result = run(prompt, opts)
+
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "claude:task:#{task_id}",
+        {:done, task_id, result}
+      )
+
+      if is_function(on_complete, 1), do: on_complete.(result)
+    end)
+
+    {:ok, task_id}
+  end
+
+  @doc """
   Send a prompt and stream events to a callback function.
   The callback receives tagged tuples from StreamParser.
   Returns immediately; events arrive asynchronously.

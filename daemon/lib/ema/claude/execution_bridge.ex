@@ -80,7 +80,7 @@ defmodule Ema.Claude.ExecutionBridge do
     execution_id = Keyword.get(opts, :execution_id, generate_id("sync"))
     opts = Keyword.put(opts, :execution_id, execution_id)
 
-    caller = self()
+    _caller = self()
     Phoenix.PubSub.subscribe(Ema.PubSub, "executions:#{execution_id}")
 
     case dispatch_async(prompt, opts) do
