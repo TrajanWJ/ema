@@ -5,12 +5,21 @@ defmodule Ema.Executions.Dispatcher do
   Delegation packet format sent to agent:
     execution_id, project_slug, intent_slug, agent_role, objective,
     success_criteria, read_files, write_files, constraints, mode, requires_patchback
+
+  Context injection: before each dispatch, `Ema.Intelligence.ContextBuilder.build_context/1`
+  assembles local context (recent outcomes, vault preferences, daily note, relevant notes)
+  and prepends it to the prompt.
+
+  Outcome recording: on completion, `Ema.Intelligence.OutcomeTracker.record/1` writes
+  the execution result to ~/.local/share/ema/outcome-tracker.json.
   """
 
   use GenServer
   require Logger
 
   alias Ema.Executions.Router
+  alias Ema.Intelligence.ContextBuilder
+  alias Ema.Intelligence.OutcomeTracker
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -37,7 +46,22 @@ defmodule Ema.Executions.Dispatcher do
     Logger.info("[Dispatcher] Dispatching #{execution.id}: #{execution.title} (mode: #{execution.mode})")
 
     packet = build_packet(execution)
-    prompt = format_prompt(packet)
+    base_prompt = format_prompt(packet)
+
+    # Inject pre-dispatch context from local files
+    prompt =
+      try do
+        context = ContextBuilder.build_context(execution)
+        enriched = ContextBuilder.inject_context(base_prompt, context)
+        if enriched != base_prompt do
+          Logger.debug("[Dispatcher] Context injected for #{execution.id} (mode: #{execution.mode})")
+        end
+        enriched
+      rescue
+        e ->
+          Logger.warning("[Dispatcher] ContextBuilder failed for #{execution.id}: #{inspect(e)} — using base prompt")
+          base_prompt
+      end
 
     case Ema.Executions.create_agent_session(execution.id, %{
       agent_role: packet.agent_role,
@@ -73,12 +97,17 @@ defmodule Ema.Executions.Dispatcher do
         result_text = extract_result_text(result)
         Ema.Executions.complete_agent_session(agent_session.id, result_text)
         Ema.Executions.on_execution_completed(execution.id, result_text)
+        # Record outcome for future context injection
+        OutcomeTracker.record(execution)
 
       {:error, reason} ->
         Logger.error("[Dispatcher] Local Claude failed for #{execution.id}: #{inspect(reason)}")
         Ema.Executions.complete_agent_session(agent_session.id, "FAILED: #{inspect(reason)}")
         Ema.Executions.record_event(execution.id, "failed", %{reason: inspect(reason)})
         Ema.Executions.transition(execution, "failed")
+        # Record failure outcome too
+        failed_execution = %{execution | status: "failed"}
+        OutcomeTracker.record(failed_execution)
     end
   end
 

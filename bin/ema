@@ -11,7 +11,8 @@ import argparse
 import urllib.request
 import urllib.error
 import urllib.parse
-import time
+import socket
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -65,7 +66,6 @@ class EMAClient:
                 return {}
         except urllib.error.HTTPError as e:
             raw_body = e.read().decode()
-            # Try to parse error JSON
             try:
                 err_data = json.loads(raw_body)
                 errors = err_data.get("errors", err_data)
@@ -74,23 +74,19 @@ class EMAClient:
                 if "PendingMigrationError" in raw_body:
                     die(
                         f"EMA daemon has pending migrations (HTTP {e.code}).\n"
-                        f"  → Fix: cd ~/Projects/ema/daemon && mix ecto.migrate && mix phx.server\n"
-                        f"  → Or restart the Tauri app to auto-migrate.",
+                        f"  → Fix: cd ~/Projects/ema/daemon && mix ecto.migrate && mix phx.server",
                         exit_code=2
                     )
                 if "CompileError" in raw_body:
-                    # Extract error details
-                    import re
                     match = re.search(r'CompileError\)([^<]+)', raw_body)
                     detail = match.group(1).strip() if match else "code compilation error"
                     die(
-                        f"EMA daemon has a compile error (HTTP {e.code}): {detail}\n"
+                        f"EMA daemon compile error (HTTP {e.code}): {detail}\n"
                         f"  → Fix: cd ~/Projects/ema/daemon && mix compile && mix phx.server",
                         exit_code=2
                     )
                 if "<html" in raw_body.lower():
-                    die(f"API error {e.code}: daemon returned HTML (endpoint not found or server error)\n"
-                        f"  Path: {path}", exit_code=1)
+                    die(f"API error {e.code}: endpoint not found or server error\n  Path: {path}", exit_code=1)
                 die(f"API error {e.code}: {raw_body[:200]}", exit_code=1)
         except urllib.error.URLError as e:
             die(
@@ -162,41 +158,47 @@ def fmt_priority(p):
     mapping = {1: "critical", 2: "high", 3: "medium", 4: "low", 5: "minimal"}
     return mapping.get(int(p), str(p))
 
+def slugify(name):
+    """Convert name to URL-safe slug."""
+    slug = name.lower()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)
+    slug = slug.strip('-')
+    return slug
+
 def table(rows, headers, widths=None):
-    """Print a table. rows = list of dicts or tuples, headers = list of strings."""
+    """Print a table. rows = list of lists."""
     if not rows:
         out("(no results)")
         return
     if widths is None:
-        widths = [max(len(h), max(len(str(r[i] if isinstance(r, (list,tuple)) else r.get(h.lower().replace(" ","_"), ""))) for r in rows)) for i, h in enumerate(headers)]
+        widths = []
+        for i, h in enumerate(headers):
+            col_max = max([len(str(r[i])) for r in rows] + [len(h)])
+            widths.append(col_max)
     fmt = "  ".join(f"{{:<{w}}}" for w in widths)
     out(fmt.format(*headers))
     out("  ".join("─" * w for w in widths))
     for r in rows:
-        if isinstance(r, (list, tuple)):
-            out(fmt.format(*[str(v)[:w] for v, w in zip(r, widths)]))
-        else:
-            out(fmt.format(*[str(r.get(h.lower().replace(" ","_"), ""))[:w] for h, w in zip(headers, widths)]))
+        out(fmt.format(*[str(v)[:w] for v, w in zip(r, widths)]))
 
 # ─── Command implementations ──────────────────────────────────────────────────
 
 # ── task ──────────────────────────────────────────────────────────────────────
 
 def cmd_task_create(client, args):
-    payload = {"task": {"title": args.title}}
+    # API expects flat params (not nested under "task")
+    payload = {"title": args.title, "status": args.status or "todo"}
     if args.project:
-        payload["task"]["project_id"] = args.project
+        payload["project_id"] = args.project
     if args.priority:
-        payload["task"]["priority"] = args.priority
+        payload["priority"] = args.priority
     if args.due:
-        payload["task"]["due_date"] = args.due
+        payload["due_date"] = args.due
     if args.description:
-        payload["task"]["description"] = args.description
-    if args.status:
-        payload["task"]["status"] = args.status
+        payload["description"] = args.description
 
     result = client.post("/api/tasks", payload)
-    task = result.get("task", result)
+    task = result
 
     if USE_JSON:
         out_json(task)
@@ -226,7 +228,7 @@ def cmd_task_list(client, args):
         params["limit"] = args.limit
 
     result = client.get("/api/tasks", params=params if params else None)
-    tasks = result.get("tasks", result) if isinstance(result, dict) else result
+    tasks = result.get("tasks", []) if isinstance(result, dict) else result
 
     if args.overdue:
         now = datetime.utcnow().isoformat()
@@ -256,19 +258,19 @@ def cmd_task_list(client, args):
 
 def cmd_task_get(client, args):
     result = client.get(f"/api/tasks/{args.task_id}")
-    task = result.get("task", result)
 
     if USE_JSON:
         out_json(result)
         return
 
+    task = result.get("task", result)
     out(f"\nTask: {task.get('id')}")
     out(f"  Title:    {task.get('title')}")
     out(f"  Status:   {task.get('status', '?')}")
     out(f"  Priority: {fmt_priority(task.get('priority'))}")
     out(f"  Project:  {task.get('project_id') or '—'}")
     out(f"  Due:      {task.get('due_date') or '—'}")
-    out(f"  Created:  {fmt_time(task.get('created_at'))}")
+    out(f"  Created:  {fmt_time(task.get('created_at') or task.get('inserted_at'))}")
     if task.get("description"):
         out(f"  Desc:     {task['description']}")
 
@@ -281,7 +283,6 @@ def cmd_task_get(client, args):
 
 def cmd_task_dispatch(client, args):
     """Dispatch a task — routes through OpenClaw via /api/openclaw/dispatch."""
-    # First get the task to build context
     task_result = client.get(f"/api/tasks/{args.task_id}")
     task = task_result.get("task", task_result)
 
@@ -293,19 +294,20 @@ def cmd_task_dispatch(client, args):
             out(f"  Scope: {args.scope}")
         return
 
+    objective = task.get("title", "")
+    if args.scope:
+        objective += f"\n\nScope constraint: {args.scope}"
+    if args.context:
+        objective += f"\n\nContext: {args.context}"
+
     payload = {
         "task_id": args.task_id,
-        "objective": task.get("title", ""),
+        "objective": objective,
         "mode": "implement",
     }
     if args.agent:
         payload["agent"] = args.agent
-    if args.scope:
-        payload["objective"] += f"\n\nScope constraint: {args.scope}"
-    if args.context:
-        payload["objective"] += f"\n\nContext: {args.context}"
 
-    # Try openclaw dispatch first
     try:
         result = client.post("/api/openclaw/dispatch", payload)
         if USE_JSON:
@@ -315,20 +317,17 @@ def cmd_task_dispatch(client, args):
         agent = result.get("agent") or args.agent or "auto"
         out(f"Dispatched {args.task_id} → agent: {agent} | execution: {exec_id}")
     except SystemExit:
-        # Fallback: create execution directly
         exec_payload = {
-            "execution": {
-                "objective": task.get("title", ""),
-                "mode": "implement",
-                "task_id": args.task_id,
-                "title": task.get("title", ""),
-            }
+            "objective": task.get("title", ""),
+            "mode": "implement",
+            "task_id": args.task_id,
+            "title": task.get("title", ""),
         }
         result = client.post("/api/executions", exec_payload)
         if USE_JSON:
             out_json(result)
             return
-        exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
+        exec_id = result.get("id") or "?"
         out(f"Dispatched {args.task_id} → execution: {exec_id}")
 
 
@@ -341,7 +340,7 @@ def cmd_task_status(client, args):
         return
 
     status = task.get("status", "?")
-    created = task.get("created_at")
+    created = task.get("created_at") or task.get("inserted_at")
     elapsed = ""
     if created:
         try:
@@ -359,20 +358,20 @@ def cmd_task_status(client, args):
 # ── project ───────────────────────────────────────────────────────────────────
 
 def cmd_project_create(client, args):
-    payload = {"project": {"name": args.name}}
-    if args.slug:
-        payload["project"]["slug"] = args.slug
+    # API expects flat params; slug is required by the changeset
+    slug = args.slug or slugify(args.name)
+    payload = {"name": args.name, "slug": slug}
     if args.description:
-        payload["project"]["description"] = args.description
+        payload["description"] = args.description
     if args.path:
-        payload["project"]["local_path"] = args.path
+        payload["linked_path"] = args.path  # API field is linked_path
     if args.repo:
-        payload["project"]["repo_url"] = args.repo
+        payload["repo_url"] = args.repo
     if args.client_name:
-        payload["project"]["client_name"] = args.client_name
+        payload["client_name"] = args.client_name
 
     result = client.post("/api/projects", payload)
-    proj = result.get("project", result)
+    proj = result
 
     if USE_JSON:
         out_json(proj)
@@ -383,7 +382,7 @@ def cmd_project_create(client, args):
 
 def cmd_project_list(client, args):
     result = client.get("/api/projects")
-    projects = result.get("projects", result) if isinstance(result, dict) else result
+    projects = result.get("projects", []) if isinstance(result, dict) else result
 
     if USE_JSON:
         out_json(projects)
@@ -406,23 +405,21 @@ def cmd_project_list(client, args):
 
 def cmd_project_view(client, args):
     result = client.get(f"/api/projects/{args.slug}")
-    proj = result.get("project", result)
 
     if USE_JSON:
         out_json(result)
         return
 
+    proj = result
     out(f"\nProject: {proj.get('id')}")
     out(f"  Name:    {proj.get('name')}")
     out(f"  Slug:    {proj.get('slug')}")
     out(f"  Status:  {proj.get('status','active')}")
     if proj.get("description"):
         out(f"  Desc:    {proj['description'][:80]}")
-    if proj.get("local_path") or proj.get("path"):
-        out(f"  Path:    {proj.get('local_path') or proj.get('path')}")
-    if proj.get("repo_url"):
-        out(f"  Repo:    {proj['repo_url']}")
-    out(f"  Created: {fmt_time(proj.get('created_at'))}")
+    if proj.get("linked_path"):
+        out(f"  Path:    {proj['linked_path']}")
+    out(f"  Created: {fmt_time(proj.get('created_at') or proj.get('inserted_at'))}")
 
 
 def cmd_project_context(client, args):
@@ -441,24 +438,24 @@ def cmd_project_context(client, args):
 
 
 def cmd_project_deps(client, args):
-    # Projects endpoint — show project relationships via tasks
     result = client.get(f"/api/projects/{args.slug}")
-    proj = result.get("project", result)
+    proj = result
 
     if USE_JSON:
         out_json(proj)
         return
 
     out(f"Project: {proj.get('name', args.slug)}")
-    # Dependencies not yet in API — show what we can
-    tasks_result = client.get(f"/api/projects/{args.slug}/tasks")
-    tasks = tasks_result.get("tasks", []) if isinstance(tasks_result, dict) else tasks_result
-    out(f"  Tasks: {len(tasks)}")
-    if tasks:
+    try:
+        tasks_result = client.get(f"/api/projects/{args.slug}/tasks")
+        tasks = tasks_result.get("tasks", []) if isinstance(tasks_result, dict) else tasks_result
+        out(f"  Tasks: {len(tasks)}")
         for t in tasks[:5]:
             out(f"    [{t.get('status','?')}] {t.get('title','?')[:50]}")
         if len(tasks) > 5:
             out(f"    ... and {len(tasks)-5} more")
+    except SystemExit:
+        out("  Tasks: (unavailable)")
     out("  (Full dependency graph: Phase 2)")
 
 
@@ -466,12 +463,12 @@ def cmd_project_deps(client, args):
 
 def cmd_proposal_view(client, args):
     result = client.get(f"/api/proposals/{args.proposal_id}")
-    prop = result if not isinstance(result, dict) or "id" in result else result.get("proposal", result)
 
     if USE_JSON:
-        out_json(prop)
+        out_json(result)
         return
 
+    prop = result
     out(f"\nProposal: {prop.get('id')}")
     out(f"  Title:   {prop.get('title')}")
     out(f"  Status:  {prop.get('status')}")
@@ -479,15 +476,19 @@ def cmd_proposal_view(client, args):
         out(f"  Body:\n    {prop['body'][:300]}")
     if prop.get("summary"):
         out(f"  Summary: {prop['summary'][:200]}")
-    out(f"  Created: {fmt_time(prop.get('created_at'))}")
+    out(f"  Created: {fmt_time(prop.get('created_at') or prop.get('inserted_at'))}")
 
 
 def cmd_proposal_list(client, args):
     result = client.get("/api/proposals")
-    proposals = result.get("proposals", result) if isinstance(result, dict) else result
+    proposals = result.get("proposals", []) if isinstance(result, dict) else result
 
     if args.status:
         proposals = [p for p in proposals if p.get("status") == args.status]
+    if hasattr(args, 'project') and args.project:
+        proposals = [p for p in proposals if p.get("project_id") == args.project]
+    if hasattr(args, 'limit') and args.limit:
+        proposals = proposals[:args.limit]
 
     if USE_JSON:
         out_json(proposals)
@@ -504,7 +505,7 @@ def cmd_proposal_list(client, args):
             (p.get("title") or "?")[:40],
             (p.get("project_id") or "—")[:12],
             p.get("status","?")[:10],
-            fmt_time(p.get("created_at")),
+            fmt_time(p.get("created_at") or p.get("inserted_at")),
         ])
     table(rows, ["ID", "TITLE", "PROJECT", "STATUS", "CREATED"],
           [22, 42, 14, 11, 12])
@@ -512,17 +513,15 @@ def cmd_proposal_list(client, args):
 
 def cmd_proposal_dispatch(client, args):
     """Dispatch a proposal — approve then send to OpenClaw."""
-    # First approve it
+    prop = client.get(f"/api/proposals/{args.proposal_id}")
     approve_result = client.post(f"/api/proposals/{args.proposal_id}/approve", {})
-    prop = approve_result if "id" in approve_result else approve_result.get("proposal", approve_result)
 
     if USE_JSON:
-        out_json({"approved": prop, "dispatch": None})
+        out_json({"approved": approve_result, "proposal": prop})
         return
 
     out(f"Approved {args.proposal_id} | {prop.get('title','?')}")
 
-    # Then dispatch via openclaw
     payload = {
         "proposal_id": args.proposal_id,
         "objective": prop.get("body") or prop.get("title", ""),
@@ -537,17 +536,14 @@ def cmd_proposal_dispatch(client, args):
         exec_id = result.get("execution_id") or result.get("id") or "?"
         out(f"→ Dispatched to OpenClaw | execution: {exec_id}")
     except SystemExit:
-        # Fallback: create execution directly
         exec_payload = {
-            "execution": {
-                "objective": prop.get("body") or prop.get("title", ""),
-                "proposal_id": args.proposal_id,
-                "mode": "implement",
-                "title": prop.get("title", ""),
-            }
+            "objective": prop.get("body") or prop.get("title", ""),
+            "proposal_id": args.proposal_id,
+            "mode": "implement",
+            "title": prop.get("title", ""),
         }
         result = client.post("/api/executions", exec_payload)
-        exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
+        exec_id = result.get("id") or "?"
         out(f"→ Created execution: {exec_id}")
 
 
@@ -565,7 +561,7 @@ def cmd_vault_search(client, args):
         params["after"] = args.after
 
     result = client.get("/api/vault/search", params=params)
-    notes = result.get("notes", result) if isinstance(result, dict) else result
+    notes = result.get("notes", []) if isinstance(result, dict) else result
 
     if USE_JSON:
         out_json(notes)
@@ -578,58 +574,62 @@ def cmd_vault_search(client, args):
     for n in notes:
         score = n.get("score") or n.get("relevance") or ""
         score_str = f"[{score:.2f}] " if isinstance(score, float) else ""
-        path = n.get("path") or n.get("title") or "?"
-        excerpt = (n.get("excerpt") or n.get("body") or n.get("content") or "")[:120]
+        path = n.get("file_path") or n.get("path") or n.get("title") or "?"
+        title = n.get("title") or ""
         out(f"{score_str}{path}")
-        if excerpt:
-            out(f"       {excerpt.strip()}")
+        if title and title not in path:
+            out(f"       {title}")
         out("")
 
 
-# ── status ────────────────────────────────────────────────────────────────────
+# ── health / status ───────────────────────────────────────────────────────────
 
 def _probe_daemon(client):
-    """Probe daemon health — returns (ok: bool, status: str)."""
-    # Try a lightweight connection probe via TCP, then API
-    import socket
-    host, port_str = (client.base.replace("http://", "").split(":") + ["80"])[:2]
+    """Probe daemon health — returns (ok: bool, status_str: str)."""
+    host_str = client.base.replace("http://", "")
+    parts = host_str.split(":")
+    host = parts[0]
+    port = int(parts[1]) if len(parts) > 1 else 80
     try:
-        with socket.create_connection((host, int(port_str)), timeout=3):
+        with socket.create_connection((host, port), timeout=3):
             pass
     except Exception:
         return False, "✗ unreachable"
 
-    # TCP connected — now probe API
-    for path in ["/api/vault/search?q=_probe", "/api/vault/tree", "/api/proposals"]:
+    # TCP up — probe API
+    for path in ["/api/health", "/api/proposals", "/api/tasks"]:
         try:
             client.get(path)
             return True, "✓ localhost:4488"
-        except SystemExit as e:
-            if "pending migration" in str(e).lower() or "PendingMigration" in str(e):
-                return False, "⚠ pending migration"
-            if "compile error" in str(e).lower():
-                return False, "⚠ compile error"
-            # Other errors — try next endpoint
+        except SystemExit:
             continue
-    return False, "⚠ API error (check logs)"
+    return False, "⚠ API error"
+
+
+def cmd_health_check(client, args):
+    """ema health check — alias for ema status."""
+    cmd_status(client, args)
 
 
 def cmd_status(client, args):
     daemon_ok, daemon_info = _probe_daemon(client)
 
     if USE_JSON:
-        out_json({"daemon": daemon_ok, "daemon_status": daemon_info, "host": client.base})
+        out_json({
+            "daemon": daemon_ok,
+            "daemon_status": daemon_info,
+            "host": client.base,
+        })
         return
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     out(f"╔═══════════════════════════════════════╗")
     out(f"║  EMA Status — {now}  ║")
     out(f"╠═══════════════════════════════════════╣")
     out(f"║  Daemon      {daemon_info:<26} ║")
 
-    # OpenClaw
     try:
-        oc = client.get("/api/openclaw/status")
+        client.get("/api/openclaw/status")
         oc_status = "✓ connected"
     except SystemExit:
         oc_status = "— not checked"
@@ -643,8 +643,8 @@ def cmd_status(client, args):
             tasks = tasks_r.get("tasks", [])
             pending = len([t for t in tasks if t.get("status") in ("todo","pending","created")])
             running = len([t for t in tasks if t.get("status") == "running"])
-            out(f"║  Pending tasks: {pending:<22} ║")
-            out(f"║  Running tasks: {running:<22} ║")
+            out(f"║  Pending tasks:  {pending:<21} ║")
+            out(f"║  Running tasks:  {running:<21} ║")
         except Exception:
             pass
 
@@ -659,7 +659,7 @@ def cmd_status(client, args):
         try:
             proj_r = client.get("/api/projects")
             projs = proj_r.get("projects", [])
-            out(f"║  Active projects: {len(projs):<20} ║")
+            out(f"║  Projects:       {len(projs):<21} ║")
         except Exception:
             pass
 
@@ -670,7 +670,7 @@ def cmd_status(client, args):
 
 def cmd_dispatch_status(client, args):
     result = client.get("/api/executions")
-    executions = result.get("executions", result) if isinstance(result, dict) else result
+    executions = result.get("executions", []) if isinstance(result, dict) else result
 
     if USE_JSON:
         out_json(executions)
@@ -688,7 +688,7 @@ def cmd_dispatch_status(client, args):
             (e.get("project_slug") or "—")[:12],
             (e.get("title") or e.get("objective","?"))[:35],
             e.get("status","?")[:10],
-            fmt_time(e.get("inserted_at")),
+            fmt_time(e.get("inserted_at") or e.get("created_at")),
         ])
     table(rows, ["EXEC_ID", "MODE", "PROJECT", "TASK", "STATUS", "ELAPSED"],
           [14, 11, 14, 37, 11, 12])
@@ -701,8 +701,8 @@ def cmd_dispatch_logs(client, args):
         return
     exec_obj = result if "id" in result else result.get("execution", result)
     out(f"Execution: {exec_obj.get('id')}")
-    out(f"Status: {exec_obj.get('status')}")
-    out(f"Mode: {exec_obj.get('mode')}")
+    out(f"Status:    {exec_obj.get('status')}")
+    out(f"Mode:      {exec_obj.get('mode')}")
     if exec_obj.get("objective"):
         out(f"Objective: {exec_obj['objective'][:200]}")
     meta = exec_obj.get("metadata") or {}
@@ -728,7 +728,6 @@ def cmd_sync_openclaw(client, args):
 # ─── Arg parsing ──────────────────────────────────────────────────────────────
 
 def build_parser():
-    # Shared flags parent — add_help=False so subparsers don't show duplicate help
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--host", "-H", default=None, help="Daemon URL (default: localhost:4488)")
     shared.add_argument("--json", "-j", action="store_true", help="Output raw JSON")
@@ -743,23 +742,25 @@ def build_parser():
         epilog="""
 Commands:
   ema task create|list|get|dispatch|status
-  ema project create|list|view|context|deps
+  ema project create|list|view|context|dependencies
   ema proposal list|view|dispatch
   ema vault search
   ema dispatch status|logs
+  ema health check
   ema sync openclaw
   ema status
 
 Examples:
   ema task create "Fix auth module" --project proslync
-  ema task list --status running
+  ema task list --status todo
   ema task list --json
-  ema task dispatch task_abc123 --scope "auth/ only"
+  ema task dispatch <task_id> --scope "auth/ only" --dry-run
+  ema project create "ProSlync" --path ~/Projects/proslync
   ema proposal list --status pending
-  ema proposal dispatch prop_abc123
+  ema proposal dispatch <prop_id>
   ema vault search "auth architecture"
+  ema health check
   ema status
-  ema status --json
         """
     )
 
@@ -768,7 +769,7 @@ Examples:
     sub = p.add_subparsers(dest="group", metavar="COMMAND")
 
     # ── task ──
-    task_p = sub.add_parser("task", help="Task management")
+    task_p = sub.add_parser("task", help="Task management", parents=[shared])
     task_sub = task_p.add_subparsers(dest="action", metavar="ACTION")
 
     tc = task_sub.add_parser("create", help="Create a task")
@@ -793,18 +794,18 @@ Examples:
     td.add_argument("--agent", "-a", help="Override agent")
     td.add_argument("--scope", help="Scope constraint")
     td.add_argument("--context", "-c", help="Additional context")
-    td.add_argument("--dry-run", action="store_true", help="Show what would run")
+    td.add_argument("--dry-run", action="store_true", help="Show what would run without executing")
 
     ts = task_sub.add_parser("status", help="Get task status")
     ts.add_argument("task_id", help="Task ID")
 
     # ── project ──
-    proj_p = sub.add_parser("project", help="Project management")
+    proj_p = sub.add_parser("project", help="Project management", parents=[shared])
     proj_sub = proj_p.add_subparsers(dest="action", metavar="ACTION")
 
     pc = proj_sub.add_parser("create", help="Create a project")
     pc.add_argument("name", help="Project name")
-    pc.add_argument("--slug", help="URL-safe slug")
+    pc.add_argument("--slug", help="URL-safe slug (auto-derived from name)")
     pc.add_argument("--description", help="Description")
     pc.add_argument("--path", help="Local filesystem path")
     pc.add_argument("--repo", help="GitHub repo URL")
@@ -823,7 +824,7 @@ Examples:
     pdeps.add_argument("slug", help="Project slug or ID")
 
     # ── proposal ──
-    prop_p = sub.add_parser("proposal", help="Proposal lifecycle")
+    prop_p = sub.add_parser("proposal", help="Proposal lifecycle", parents=[shared])
     prop_sub = prop_p.add_subparsers(dest="action", metavar="ACTION")
 
     prop_list = prop_sub.add_parser("list", help="List proposals")
@@ -839,7 +840,7 @@ Examples:
     prop_dispatch.add_argument("--agent", "-a", help="Target agent")
 
     # ── vault ──
-    vault_p = sub.add_parser("vault", help="Vault search and context")
+    vault_p = sub.add_parser("vault", help="Vault search and context", parents=[shared])
     vault_sub = vault_p.add_subparsers(dest="action", metavar="ACTION")
 
     vs = vault_sub.add_parser("search", help="Search the vault")
@@ -849,8 +850,13 @@ Examples:
     vs.add_argument("--after", help="Only after date (ISO8601)")
     vs.add_argument("--limit", "-n", type=int, help="Max results")
 
+    # ── health ──
+    health_p = sub.add_parser("health", help="System health", parents=[shared])
+    health_sub = health_p.add_subparsers(dest="action", metavar="ACTION")
+    health_sub.add_parser("check", help="Check EMA daemon health")
+
     # ── dispatch ──
-    disp_p = sub.add_parser("dispatch", help="Execution visibility")
+    disp_p = sub.add_parser("dispatch", help="Execution visibility", parents=[shared])
     disp_sub = disp_p.add_subparsers(dest="action", metavar="ACTION")
 
     disp_status = disp_sub.add_parser("status", help="Show execution status")
@@ -860,12 +866,12 @@ Examples:
     disp_logs.add_argument("execution_id", help="Execution ID")
 
     # ── sync ──
-    sync_p = sub.add_parser("sync", help="External service sync")
+    sync_p = sub.add_parser("sync", help="External service sync", parents=[shared])
     sync_sub = sync_p.add_subparsers(dest="action", metavar="ACTION")
     sync_sub.add_parser("openclaw", help="Check OpenClaw sync status")
 
     # ── status ──
-    sub.add_parser("status", help="System health overview")
+    sub.add_parser("status", help="System health overview", parents=[shared])
 
     return p
 
@@ -875,14 +881,12 @@ Examples:
 def main():
     global USE_JSON, QUIET
 
-    # Pre-scan argv for global flags that may appear anywhere
-    # This allows: ema task list --json  OR  ema --json task list
+    # Pre-scan argv for global flags that may appear after subcommand
     _argv = sys.argv[1:]
     _use_json = "--json" in _argv or "-j" in _argv
     _quiet = "--quiet" in _argv or "-q" in _argv
 
-    # Strip global flags from argv before full parse to avoid "unrecognized" errors
-    # when placed after subcommand
+    # Strip global flags to prevent "unrecognized" errors when after subcommand
     _clean = [a for a in _argv if a not in ("--json", "-j", "--quiet", "-q")]
     sys.argv = [sys.argv[0]] + _clean
 
@@ -891,16 +895,16 @@ def main():
 
     USE_JSON = _use_json
     QUIET = _quiet
-
-    # Restore json/quiet on args so downstream code can check hasattr
     args.json = _use_json
     args.quiet = _quiet
 
     # Resolve host
-    host = (args.host if hasattr(args, "host") and args.host
-            else CONFIG.get("host")
-            or os.environ.get("EMA_HOST")
-            or DEFAULT_HOST)
+    host = (
+        (args.host if hasattr(args, "host") and args.host else None)
+        or CONFIG.get("host")
+        or os.environ.get("EMA_HOST")
+        or DEFAULT_HOST
+    )
 
     verbose = args.verbose if hasattr(args, "verbose") else False
     client = EMAClient(host, verbose=verbose)
@@ -956,6 +960,10 @@ def main():
             parser.parse_args(["vault", "--help"])
         elif args.action == "search":
             cmd_vault_search(client, args)
+
+    elif args.group == "health":
+        if not hasattr(args, 'action') or not args.action or args.action == "check":
+            cmd_health_check(client, args)
 
     elif args.group == "dispatch":
         if not args.action:

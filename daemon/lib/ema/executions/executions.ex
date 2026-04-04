@@ -435,6 +435,11 @@ defmodule Ema.Executions do
       :ok -> :ok
       {:error, reason} -> Logger.error("[IntentFolder] append_log failed for #{slug}: #{inspect(reason)}")
     end
+
+    case Ema.Executions.IntentFolder.write_result(project_path, slug, result_summary) do
+      :ok -> :ok
+      {:error, reason} -> Logger.error("[IntentFolder] write_result failed for #{slug}: #{inspect(reason)}")
+    end
   end
   defp resolve_project_path(nil), do: nil
   defp resolve_project_path(slug) do
