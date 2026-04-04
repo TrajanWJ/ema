@@ -7,6 +7,7 @@ defmodule Ema.Tasks do
 
   import Ecto.Query
   alias Ema.Repo
+  alias Ema.Intelligence.ScopeAdvisor
   alias Ema.Tasks.{Task, Comment}
 
   def list_tasks do
@@ -90,6 +91,7 @@ defmodule Ema.Tasks do
 
   defp do_create_task(attrs) do
     id = generate_id()
+    attrs = put_scope_advice(attrs)
 
     result =
       %Task{}
@@ -144,6 +146,10 @@ defmodule Ema.Tasks do
   end
 
   def update_task(%Task{} = task, attrs) do
+    attrs =
+      attrs
+      |> put_scope_advice(task)
+
     task
     |> Task.changeset(attrs)
     |> Repo.update()
@@ -212,5 +218,55 @@ defmodule Ema.Tasks do
     timestamp = System.system_time(:millisecond) |> Integer.to_string()
     random = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "tc_#{timestamp}_#{random}"
+  end
+
+  defp put_scope_advice(attrs, task \\ nil) do
+    agent = Map.get(attrs, :agent) || Map.get(attrs, "agent") || task_agent(task)
+    domain = domain_from_attrs(attrs) || task_domain(task)
+    advice = ScopeAdvisor.check(agent, domain, Map.get(attrs, :title) || Map.get(attrs, "title"))
+
+    put_in_metadata(attrs, "scope_advice", ScopeAdvisor.to_metadata(advice))
+  end
+
+  defp put_in_metadata(attrs, key, value) do
+    metadata =
+      attrs
+      |> metadata_from_attrs()
+      |> Map.put(key, value)
+
+    case attrs do
+      %{metadata: _} = map ->
+        Map.put(map, :metadata, metadata)
+
+      %{} = map ->
+        Map.put(map, "metadata", metadata)
+    end
+  end
+
+  defp metadata_from_attrs(attrs) do
+    Map.get(attrs, :metadata) || Map.get(attrs, "metadata") || %{}
+  end
+
+  defp domain_from_attrs(attrs) do
+    metadata = metadata_from_attrs(attrs)
+
+    Map.get(attrs, :domain) ||
+      Map.get(attrs, "domain") ||
+      Map.get(metadata, "domain") ||
+      Map.get(metadata, :domain)
+  end
+
+  defp task_agent(nil), do: nil
+  defp task_agent(task), do: task.agent
+
+  defp task_domain(nil), do: nil
+
+  defp task_domain(task) do
+    metadata = task.metadata || %{}
+    Map.get(metadata, "domain") || Map.get(metadata, :domain)
+  end
+
+  defp is_binary_keyed_map?(map) do
+    Enum.all?(Map.keys(map), &is_binary/1)
   end
 end

@@ -32,7 +32,8 @@ defmodule EmaWeb.TaskController do
       project_id: params["project_id"],
       goal_id: params["goal_id"],
       responsibility_id: params["responsibility_id"],
-      parent_id: params["parent_id"]
+      parent_id: params["parent_id"],
+      agent: params["agent"]
     }
 
     force_dispatch = params["force_dispatch"] == true or params["force_dispatch"] == "true"
@@ -80,6 +81,16 @@ defmodule EmaWeb.TaskController do
     end
   end
 
+  def scope_advice(conn, %{"id" => id}) do
+    case Tasks.get_task(id) do
+      nil ->
+        {:error, :not_found}
+
+      task ->
+        json(conn, %{scope_advice: scope_advice_payload(task)})
+    end
+  end
+
   def update(conn, %{"id" => id} = params) do
     case Tasks.get_task(id) do
       nil ->
@@ -96,7 +107,8 @@ defmodule EmaWeb.TaskController do
           sort_order: params["sort_order"],
           metadata: params["metadata"],
           project_id: params["project_id"],
-          goal_id: params["goal_id"]
+          goal_id: params["goal_id"],
+          agent: params["agent"]
         }
 
         with {:ok, updated} <- Tasks.update_task(task, attrs) do
@@ -205,6 +217,7 @@ defmodule EmaWeb.TaskController do
       sort_order: task.sort_order,
       completed_at: task.completed_at,
       metadata: task.metadata,
+      scope_advice: scope_advice_payload(task),
       project_id: task.project_id,
       goal_id: task.goal_id,
       responsibility_id: task.responsibility_id,
@@ -239,4 +252,14 @@ defmodule EmaWeb.TaskController do
   end
 
   defp parse_date(date), do: date
+
+  defp scope_advice_payload(task) do
+    metadata = task.metadata || %{}
+    advice = Map.get(metadata, "scope_advice") || Map.get(metadata, :scope_advice) || %{}
+
+    %{
+      warn: Map.get(advice, "warn") || Map.get(advice, :warn) || false,
+      reason: Map.get(advice, "reason") || Map.get(advice, :reason)
+    }
+  end
 end

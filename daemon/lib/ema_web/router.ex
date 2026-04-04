@@ -72,6 +72,7 @@ defmodule EmaWeb.Router do
 
     # Projects — specific routes before resources to avoid :id shadowing
     get "/projects/:id/context", ProjectController, :context
+    get "/projects/:slug/context-fragments", ProjectController, :context_fragments
     get "/projects/:project_id/tasks", TaskController, :by_project
     resources "/projects", ProjectController, except: [:new, :edit]
 
@@ -82,6 +83,7 @@ defmodule EmaWeb.Router do
     # Tasks — specific routes before resources
     post "/tasks/:id/transition", TaskController, :transition
     post "/tasks/:id/comments", TaskController, :add_comment
+    get "/tasks/:id/scope-advice", TaskController, :scope_advice
     resources "/tasks", TaskController, except: [:new, :edit]
 
     # Proposals — specific routes before general (param :id wildcard)
@@ -259,6 +261,10 @@ defmodule EmaWeb.Router do
     post "/executions/:id/complete", ExecutionController, :complete
     get "/intents/:project_slug/:intent_slug/status", ExecutionController, :intent_status
 
+    # Reflexion memory
+    get "/reflexion/entries", ReflexionController, :index
+    post "/reflexion/entries", ReflexionController, :create
+
     # Goals
     resources "/goals", GoalController, except: [:new, :edit]
 
@@ -297,6 +303,9 @@ defmodule EmaWeb.Router do
     post "/openclaw/message", OpenClawController, :send_message
     get "/openclaw/sessions", OpenClawController, :sessions
     post "/openclaw/dispatch", OpenClawController, :dispatch
+
+    # Async dispatch — non-blocking Claude task dispatch
+    post "/dispatch/async", DispatchController, :async
 
     # Superman — Code Intelligence
     get "/superman/health", SupermanController, :health
