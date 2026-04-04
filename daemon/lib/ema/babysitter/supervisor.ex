@@ -1,7 +1,7 @@
 defmodule Ema.Babysitter.Supervisor do
   @moduledoc """
   Top-level supervisor for the Babysitter system.
-  Starts VisibilityHub, StreamTicker, and OrgController.
+  Starts VisibilityHub, StreamTicker, StreamChannels, and OrgController.
   """
 
   use Supervisor
@@ -15,6 +15,7 @@ defmodule Ema.Babysitter.Supervisor do
     children = [
       Ema.Babysitter.VisibilityHub,
       Ema.Babysitter.StreamTicker,
+      Ema.Babysitter.StreamChannels,
       Ema.Babysitter.OrgController
     ]
 
