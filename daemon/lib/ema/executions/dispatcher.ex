@@ -91,23 +91,43 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp attempt_local_claude(execution, agent_session, prompt) do
-    # 5 min timeout — delegation prompts are long and Claude needs time to read files + produce output
-    case Ema.Claude.AI.run(prompt, timeout: 300_000) do
-      {:ok, result} ->
-        result_text = extract_result_text(result)
+    # Try OpenClaw first if connected, fall back to local Claude
+    result =
+      if Ema.OpenClaw.AgentBridge.connected?() do
+        Logger.info("[Dispatcher] Routing #{execution.id} via OpenClaw agent bridge")
+        case Ema.OpenClaw.Dispatcher.dispatch(execution, timeout: 300_000) do
+          {:ok, text} -> {:ok, text}
+          {:error, :openclaw_unavailable} ->
+            Logger.info("[Dispatcher] OpenClaw unavailable, falling back to local Claude")
+            local_claude_run(prompt)
+          {:error, reason} ->
+            Logger.warning("[Dispatcher] OpenClaw failed (#{inspect(reason)}), falling back to local Claude")
+            local_claude_run(prompt)
+        end
+      else
+        local_claude_run(prompt)
+      end
+
+    case result do
+      {:ok, result_text} ->
         Ema.Executions.complete_agent_session(agent_session.id, result_text)
         Ema.Executions.on_execution_completed(execution.id, result_text)
-        # Record outcome for future context injection
         OutcomeTracker.record(execution)
 
       {:error, reason} ->
-        Logger.error("[Dispatcher] Local Claude failed for #{execution.id}: #{inspect(reason)}")
+        Logger.error("[Dispatcher] All dispatch paths failed for #{execution.id}: #{inspect(reason)}")
         Ema.Executions.complete_agent_session(agent_session.id, "FAILED: #{inspect(reason)}")
         Ema.Executions.record_event(execution.id, "failed", %{reason: inspect(reason)})
         Ema.Executions.transition(execution, "failed")
-        # Record failure outcome too
         failed_execution = %{execution | status: "failed"}
         OutcomeTracker.record(failed_execution)
+    end
+  end
+
+  defp local_claude_run(prompt) do
+    case Ema.Claude.AI.run(prompt, timeout: 300_000) do
+      {:ok, result} -> {:ok, extract_result_text(result)}
+      {:error, _} = err -> err
     end
   end
 

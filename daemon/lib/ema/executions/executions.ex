@@ -181,6 +181,7 @@ defmodule Ema.Executions do
           record_event(updated.id, "completed", %{signal: signal, result_path: result_path})
           broadcast("execution:completed", %{execution: updated, signal: signal})
           patch_intent_file(updated, result_summary)
+          Ema.Intelligence.ReflectionLoop.reflect_async(updated.id, result_summary)
         end)
     end
   end

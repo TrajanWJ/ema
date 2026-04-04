@@ -1,26 +1,55 @@
 defmodule EmaWeb.DiscordWebhookController do
   @moduledoc """
-  Receives Discord interaction webhooks (slash commands, components, etc.)
-  and forwards them to the appropriate agent's DiscordChannel GenServer.
+  Receives Discord messages from OpenClaw (or any webhook caller) and
+  routes them through EMA's Voice/Jarvis pipeline.
 
-  Note: Ema.Agents.DiscordChannel currently uses HTTP polling, not the
-  Gateway or interaction webhooks. This controller is a stub for future
-  webhook/interaction mode.
+  POST /api/discord/message
+    %{"channel_id" => "...", "user_id" => "...", "text" => "..."}
+
+  Returns 200 immediately (async processing). The response is broadcast
+  to Phoenix.PubSub topic "discord:responses" as {:response, channel_id, text}.
   """
-
   use EmaWeb, :controller
-
   require Logger
 
-  action_fallback EmaWeb.FallbackController
+  alias Ema.Discord.Bridge
 
-  def webhook(conn, params) do
-    Logger.info("DiscordWebhookController: received webhook payload")
-    Logger.debug("DiscordWebhookController: #{inspect(params)}")
+  def receive(conn, %{"channel_id" => channel_id, "user_id" => user_id, "text" => text})
+      when is_binary(channel_id) and is_binary(text) and byte_size(text) > 0 do
+    # Process async — return 200 immediately so webhook doesn't time out
+    Task.start(fn ->
+      case Bridge.receive_message(channel_id, user_id, text) do
+        {:ok, response} ->
+          Phoenix.PubSub.broadcast(
+            Ema.PubSub,
+            "discord:responses",
+            {:response, channel_id, response}
+          )
 
-    # TODO: When DiscordChannel supports interaction webhooks, forward
-    # the payload here. Discord expects a 200 response within 3 seconds.
+        {:error, reason} ->
+          Logger.error("Discord Bridge failed for channel #{channel_id}: #{inspect(reason)}")
+          Phoenix.PubSub.broadcast(
+            Ema.PubSub,
+            "discord:responses",
+            {:error, channel_id, inspect(reason)}
+          )
+      end
+    end)
 
-    json(conn, %{status: "ok"})
+    conn
+    |> put_status(:ok)
+    |> json(%{status: "processing", channel_id: channel_id})
+  end
+
+  def receive(conn, params) do
+    Logger.warning("Discord webhook missing required fields: #{inspect(Map.keys(params))}")
+
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{
+      error: "Missing required fields",
+      required: ["channel_id", "user_id", "text"],
+      received: Map.keys(params)
+    })
   end
 end

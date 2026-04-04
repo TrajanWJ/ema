@@ -420,6 +420,15 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     icon: "\u26A1",
   },
   // Monitoring & Intelligence
+  "dispatch-board": {
+    title: "Dispatch Board",
+    defaultWidth: 1100,
+    defaultHeight: 780,
+    minWidth: 860,
+    minHeight: 600,
+    accent: "#10b981",
+    icon: "\u{1F4E1}",
+  },
   "token-monitor": {
     title: "Token Monitor",
     defaultWidth: 800,

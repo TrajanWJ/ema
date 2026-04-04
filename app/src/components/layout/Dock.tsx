@@ -57,6 +57,7 @@ const DOCK_APPS = [
   { id: "gaps", icon: "\u26A0", label: "Gaps" },
   { id: "intent-map", icon: "\uD83D\uDDFA", label: "Intent Map" },
   { id: "code-health", icon: "\uD83D\uDCCA", label: "Code Health" },
+  { id: "dispatch-board", icon: "\uD83D\uDCE1", label: "Dispatch Board" },
   // Organizations & P2P
   { id: "org", icon: "\u2B21", label: "Organizations" },
 ] as const;

@@ -20,6 +20,7 @@ import { VoiceApp } from "@/components/voice/VoiceApp";
 import { GoalsApp } from "@/components/goals/GoalsApp";
 import { FocusApp } from "@/components/focus/FocusApp";
 import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
+import { DispatchBoardApp } from "@/components/dispatch-board/DispatchBoardApp";
 import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
 import { OpenClawApp } from "@/components/openclaw/OpenClawApp";
 import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
@@ -112,6 +113,8 @@ function AppContent() {
     case "git-sync":
       return <GitSyncApp />;
     case "executions":
+      case "dispatch-board":
+        return <DispatchBoardApp />;
       return <ExecutionsApp />;
     case "openclaw":
       return <OpenClawApp />;

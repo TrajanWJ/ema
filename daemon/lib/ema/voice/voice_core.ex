@@ -15,6 +15,8 @@ defmodule Ema.Voice.VoiceCore do
     :session_id,
     :channel_pid,
     :conversation,
+    mode: :tauri,
+    idle_timeout_ms: nil,
     audio_buffer: <<>>,
     state: :idle,
     last_activity: nil
@@ -64,17 +66,25 @@ defmodule Ema.Voice.VoiceCore do
   def init(opts) do
     session_id = Keyword.fetch!(opts, :session_id)
     channel_pid = Keyword.fetch!(opts, :channel_pid)
-    Process.monitor(channel_pid)
+    mode = Keyword.get(opts, :mode, :tauri)
+
+    # Discord sessions get 30min idle timeout; Tauri gets 10min
+    idle_timeout = if mode == :discord, do: :timer.minutes(30), else: @idle_timeout_ms
+
+    # Discord Bridge sends itself as channel_pid but we don't monitor it the same way
+    unless mode == :discord, do: Process.monitor(channel_pid)
 
     state = %__MODULE__{
       session_id: session_id,
       channel_pid: channel_pid,
       conversation: Conversation.new(session_id),
+      mode: mode,
+      idle_timeout_ms: idle_timeout,
       last_activity: System.monotonic_time(:millisecond)
     }
 
     schedule_idle_check()
-    Logger.info("Voice session started: #{session_id}")
+    Logger.info("Voice session started: #{session_id} (mode: #{mode})")
     {:ok, state}
   end
 
@@ -126,7 +136,8 @@ defmodule Ema.Voice.VoiceCore do
   def handle_info(:idle_check, state) do
     elapsed = now() - state.last_activity
 
-    if elapsed > @idle_timeout_ms do
+    timeout = state.idle_timeout_ms || @idle_timeout_ms
+    if elapsed > timeout do
       Logger.info("Voice session #{state.session_id} idle timeout")
       notify_channel(state, "voice:session_ended", %{reason: "idle_timeout"})
       {:stop, :normal, state}
@@ -271,6 +282,9 @@ defmodule Ema.Voice.VoiceCore do
     |> Kernel.<>("--#{boundary}--\r\n")
     |> :erlang.binary_to_list()
   end
+
+  # Discord sessions don't need TTS audio
+  defp maybe_speak(_text, %{mode: :discord}), do: :ok
 
   defp maybe_speak(text, state) do
     Task.start(fn ->

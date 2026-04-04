@@ -33,4 +33,18 @@ defmodule Ema.OpenClaw.Config do
       config -> Keyword.get(config, key, Map.get(@defaults, key))
     end
   end
+  def default_agent do
+    case Application.get_env(:ema, :openclaw) do
+      nil -> System.get_env("OPENCLAW_DEFAULT_AGENT", "main")
+      config -> Keyword.get(config, :default_agent, "main")
+    end
+  end
+
+  def timeout do
+    case Application.get_env(:ema, :openclaw) do
+      nil -> String.to_integer(System.get_env("OPENCLAW_TIMEOUT", "120")) * 1000
+      config -> Keyword.get(config, :timeout, 120) * 1000
+    end
+  end
+
 end
