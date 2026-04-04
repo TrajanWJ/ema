@@ -21,6 +21,7 @@ defmodule Ema.Proposals.Proposal do
     field :idea_score, :float
     field :prompt_quality_score, :float
     field :score_breakdown, :map, default: %{}
+    field :source_fingerprint, :string
 
     # Batch 3: Pipeline fields
     field :quality_score, :float
@@ -69,6 +70,7 @@ defmodule Ema.Proposals.Proposal do
       :idea_score,
       :prompt_quality_score,
       :score_breakdown,
+      :source_fingerprint,
       # Batch 3 fields
       :quality_score,
       :pipeline_stage,
@@ -96,6 +98,7 @@ defmodule Ema.Proposals.Proposal do
       less_than_or_equal_to: 1.0
     )
     |> maybe_validate_number(:pipeline_iteration, greater_than_or_equal_to: 1)
+    |> unique_constraint(:source_fingerprint)
   end
 
   defp maybe_validate_inclusion(changeset, field, values) do

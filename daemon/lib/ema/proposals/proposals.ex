@@ -25,6 +25,12 @@ defmodule Ema.Proposals do
     |> maybe_preload([:tags, :children])
   end
 
+  def get_proposal_by_source_fingerprint(source_fingerprint) when is_binary(source_fingerprint) do
+    Repo.get_by(Proposal, source_fingerprint: source_fingerprint)
+  end
+
+  def get_proposal_by_source_fingerprint(_), do: nil
+
   def get_proposals_for_project(project_id) do
     Proposal
     |> where([p], p.project_id == ^project_id)
@@ -41,11 +47,19 @@ defmodule Ema.Proposals do
 
   def create_proposal(attrs) do
     id = generate_id("prop")
+    attrs = Map.put(attrs, :id, id)
 
     %Proposal{}
-    |> Proposal.changeset(Map.put(attrs, :id, id))
+    |> Proposal.changeset(attrs)
     |> Repo.insert()
-    |> tap_ok(&broadcast_proposal_event("proposal_created", &1))
+    |> case do
+      {:ok, proposal} = result ->
+        broadcast_proposal_event("proposal_created", proposal)
+        result
+
+      {:error, changeset} = error ->
+        maybe_return_existing_for_duplicate_fingerprint(error, changeset, attrs)
+    end
   end
 
   def update_proposal(%Proposal{} = proposal, attrs) do
@@ -191,6 +205,32 @@ defmodule Ema.Proposals do
   end
 
   # --- Private ---
+
+  defp maybe_return_existing_for_duplicate_fingerprint(error, changeset, attrs) do
+    source_fingerprint =
+      Map.get(attrs, :source_fingerprint) || Map.get(attrs, "source_fingerprint")
+
+    cond do
+      is_nil(source_fingerprint) ->
+        error
+
+      duplicate_source_fingerprint?(changeset) ->
+        case get_proposal_by_source_fingerprint(source_fingerprint) do
+          nil -> error
+          proposal -> {:ok, proposal}
+        end
+
+      true ->
+        error
+    end
+  end
+
+  defp duplicate_source_fingerprint?(%Ecto.Changeset{errors: errors}) do
+    Enum.any?(errors, fn
+      {:source_fingerprint, {_message, metadata}} -> Keyword.get(metadata, :constraint) == :unique
+      _ -> false
+    end)
+  end
 
   defp create_redirect_seeds(proposal, redirect_note) do
     angles = ["alternative approach", "expanded scope", "minimal viable version"]

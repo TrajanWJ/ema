@@ -1,6 +1,7 @@
 defmodule Ema.ProposalsTest do
   use Ema.DataCase, async: false
   alias Ema.Proposals
+  alias Ema.Proposals.Proposal
   alias Ema.Projects
 
   # --- Helper ---
@@ -55,6 +56,16 @@ defmodule Ema.ProposalsTest do
     test "validates confidence range" do
       assert {:error, changeset} = Proposals.create_proposal(%{title: "X", confidence: 1.5})
       assert %{confidence: [_]} = errors_on(changeset)
+    end
+
+    test "returns the existing proposal when source_fingerprint already exists" do
+      attrs = %{title: "Fingerprint Test", source_fingerprint: "vault:abc123"}
+
+      assert {:ok, first} = Proposals.create_proposal(attrs)
+      assert {:ok, second} = Proposals.create_proposal(attrs)
+
+      assert first.id == second.id
+      assert Repo.aggregate(Proposal, :count, :id) == 1
     end
 
     test "accepts all optional fields" do
