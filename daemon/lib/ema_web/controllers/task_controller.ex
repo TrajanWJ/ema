@@ -41,6 +41,20 @@ defmodule EmaWeb.TaskController do
 
     case Tasks.create_task(attrs, opts) do
       {:ok, task} ->
+        # Store computed scope_advice in metadata so it's queryable from DB
+        task =
+          case scope_advice_payload(task) do
+            %{warn: true} = advice ->
+              metadata = Map.put(task.metadata || %{}, "scope_advice", %{"warn" => advice.warn, "reason" => advice.reason})
+              case Tasks.update_task(task, %{metadata: metadata}) do
+                {:ok, updated} -> updated
+                _ -> task
+              end
+
+            _ ->
+              task
+          end
+
         broadcast_task_event(task, "task_created")
 
         conn
@@ -255,11 +269,8 @@ defmodule EmaWeb.TaskController do
 
   defp scope_advice_payload(task) do
     metadata = task.metadata || %{}
-    advice = Map.get(metadata, "scope_advice") || Map.get(metadata, :scope_advice) || %{}
-
-    %{
-      warn: Map.get(advice, "warn") || Map.get(advice, :warn) || false,
-      reason: Map.get(advice, "reason") || Map.get(advice, :reason)
-    }
+    domain = Map.get(metadata, "domain") || Map.get(metadata, :domain)
+    advice = Ema.Intelligence.ScopeAdvisor.check(task.agent, domain, task.title)
+    Ema.Intelligence.ScopeAdvisor.to_metadata(advice)
   end
 end

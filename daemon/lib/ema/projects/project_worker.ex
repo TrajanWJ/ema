@@ -97,7 +97,7 @@ defmodule Ema.Projects.ProjectWorker do
           }
           {:ok, new_state}
 
-        {:error, reason} = err ->
+        {:error, reason} ->
           Logger.warning("[ProjectWorker] Failed to generate context for #{state.project_id}: #{inspect(reason)}")
           # Return error but preserve old cache if any
           {:error, reason, state}
