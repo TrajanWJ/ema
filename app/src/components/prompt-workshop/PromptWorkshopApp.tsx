@@ -1,13 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { usePromptStore } from "@/stores/prompt-store";
 import type { PromptTemplate } from "@/stores/prompt-store";
 import { APP_CONFIGS } from "@/types/workspace";
+import { doFetch } from "@/lib/api";
 
 const config = APP_CONFIGS["prompt-workshop"];
+const BASE = "http://localhost:4488/api";
 
 const CATEGORIES = ["system", "agent", "task", "custom"] as const;
 type Category = (typeof CATEGORIES)[number];
+
+type ABStatus = "WINNER" | "TESTING" | "CONTROL" | "INACTIVE";
+
+interface ABVariant {
+  id: string;
+  name: string;
+  usage_count: number;
+  success_rate: number;
+  status: ABStatus;
+}
+
+const STATUS_COLORS: Record<ABStatus, string> = {
+  WINNER: "#22c55e",
+  TESTING: "#3b82f6",
+  CONTROL: "#f59e0b",
+  INACTIVE: "#6b7280",
+};
 
 function extractVariables(body: string): string[] {
   const matches = body.match(/\{\{(\w+)\}\}/g);

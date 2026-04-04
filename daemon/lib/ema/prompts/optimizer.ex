@@ -20,15 +20,16 @@ defmodule Ema.Prompts.Optimizer do
   @seven_days 7 * 24 * 60 * 60
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: @name)
+    name = Keyword.get(opts, :name, @name)
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  def status do
-    GenServer.call(@name, :status)
+  def status(server \\ @name) do
+    GenServer.call(server, :status)
   end
 
-  def optimize do
-    GenServer.cast(@name, :optimize)
+  def optimize(server \\ @name) do
+    GenServer.cast(server, :optimize)
   end
 
   def next_run_after(now) do

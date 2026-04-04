@@ -7,7 +7,7 @@ defmodule Ema.Superman.KnowledgeGraph do
 
   @table :ema_superman_knowledge_graph
 
-  @type node :: %{
+  @type kg_node :: %{
           required(:project_id) => String.t(),
           required(:type) => String.t(),
           required(:title) => String.t(),

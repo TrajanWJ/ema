@@ -14,7 +14,7 @@ config :ema, Ema.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :ema, EmaWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 4488],
+  http: [ip: {0, 0, 0, 0}, port: 4488],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
