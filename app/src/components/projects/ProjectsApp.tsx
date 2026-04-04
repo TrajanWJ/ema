@@ -6,6 +6,7 @@ import { ProjectForm } from "./ProjectForm";
 import { useProjectsStore } from "@/stores/projects-store";
 import { useTasksStore } from "@/stores/tasks-store";
 import { useProposalsStore } from "@/stores/proposals-store";
+import { useExecutionStore } from "@/stores/execution-store";
 import { APP_CONFIGS } from "@/types/workspace";
 import type { Project } from "@/types/projects";
 
@@ -25,6 +26,7 @@ export function ProjectsApp() {
           useProjectsStore.getState().loadViaRest(),
           useTasksStore.getState().loadViaRest(),
           useProposalsStore.getState().loadViaRest(),
+          useExecutionStore.getState().loadViaRest(),
         ]);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects");

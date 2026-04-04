@@ -32,9 +32,11 @@ import { useProjectGraphStore } from "@/stores/project-graph-store";
 import { useCodeHealthStore } from "@/stores/code-health-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 import { doFetch } from "@/lib/api";
+import { ToastOverlay } from "@/components/ui/ToastOverlay";
+import { subscribeExecutionNotifications } from "@/lib/execution-notifications";
 import { invoke } from "@tauri-apps/api/core";
 
-const DAEMON_URL = "http://localhost:4488/api/settings";
+const DAEMON_URL = "http://localhost:4488/api/health";
 const PING_INTERVAL = 3000;
 const INITIAL_RETRY_DELAY = 500;
 const MAX_RETRY_DELAY = 5000;
@@ -168,6 +170,8 @@ export function Shell({ children }: ShellProps) {
           console.warn("WebSocket connection failed, using REST fallback");
         });
 
+        subscribeExecutionNotifications();
+
         await restoreWorkspace();
         break;
       } catch {
@@ -264,6 +268,7 @@ export function Shell({ children }: ShellProps) {
         <main className="flex-1 overflow-auto p-4">{children}</main>
       </div>
       <CommandBar />
+      <ToastOverlay />
     </div>
   );
 }

@@ -8,6 +8,7 @@ defmodule EmaWeb.Router do
   scope "/api", EmaWeb do
     pipe_through :api
 
+    get "/health", HealthController, :index
     get "/dashboard/today", DashboardController, :today
 
     # Organizations
@@ -218,6 +219,10 @@ defmodule EmaWeb.Router do
     post "/ralph/run", RalphController, :run_cycle
     post "/ralph/configure", RalphController, :configure
     post "/ralph/surface/:id", RalphController, :surface
+
+    # Dispatch Board — execution overview
+    get "/dispatch-board", DispatchBoardController, :index
+    get "/dispatch-board/stats", DispatchBoardController, :stats
 
     # Executions — runtime linkage object
     get "/executions", ExecutionController, :index

@@ -138,6 +138,21 @@ defmodule EmaWeb.ProjectController do
             {:error, _} -> nil
           end
 
+        active_campaign =
+          Ema.Executions.list_executions(project_slug: project.slug)
+          |> Enum.find(fn e -> e.status in ["running", "delegated", "harvesting"] end)
+          |> case do
+            nil -> nil
+            e -> %{
+              id: e.id,
+              title: e.title,
+              mode: e.mode,
+              status: e.status,
+              elapsed_seconds: DateTime.diff(DateTime.utc_now(), e.inserted_at),
+              inserted_at: e.inserted_at
+            }
+          end
+
         json(conn, %{
           project: serialize_project(project),
           context: context_content,
@@ -145,6 +160,7 @@ defmodule EmaWeb.ProjectController do
           proposals: proposals,
           tasks: tasks,
           intent_threads: intent_nodes,
+          active_campaign: active_campaign,
           stats: %{
             total_executions: length(executions),
             completed_executions: Enum.count(executions, &(&1.status == "completed")),

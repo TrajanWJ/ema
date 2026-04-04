@@ -8,7 +8,12 @@ export type { Channel };
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = new Socket(DAEMON_URL, { params: {} });
+    socket = new Socket(DAEMON_URL, {
+      params: {},
+      // Reconnect with exponential backoff — handles cold-start race where
+      // Tauri opens the webview before the Phoenix daemon is fully ready.
+      reconnectAfterMs: (tries: number) => [500, 1000, 2000, 3000, 5000][Math.min(tries - 1, 4)],
+    });
     socket.connect();
   }
   return socket;
