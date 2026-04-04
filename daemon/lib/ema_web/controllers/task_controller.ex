@@ -44,8 +44,8 @@ defmodule EmaWeb.TaskController do
         # Store computed scope_advice in metadata so it's queryable from DB
         task =
           case scope_advice_payload(task) do
-            %{warn: true} = advice ->
-              metadata = Map.put(task.metadata || %{}, "scope_advice", %{"warn" => advice.warn, "reason" => advice.reason})
+            %{"warn" => true} = advice ->
+              metadata = Map.put(task.metadata || %{}, "scope_advice", advice)
               case Tasks.update_task(task, %{metadata: metadata}) do
                 {:ok, updated} -> updated
                 _ -> task
