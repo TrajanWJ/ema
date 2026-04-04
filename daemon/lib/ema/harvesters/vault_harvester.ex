@@ -28,7 +28,7 @@ defmodule Ema.Harvesters.VaultHarvester do
 
   @impl Ema.Harvesters.Base
   def harvest(_context) do
-    vault_path = System.get_env("EMA_VAULT_PATH", Path.expand("~/vault"))
+    vault_path = Application.get_env(:ema, :vault_path) || System.get_env("EMA_VAULT_PATH", Path.expand("~/vault"))
 
     case File.stat(vault_path) do
       {:error, reason} ->
@@ -105,16 +105,15 @@ defmodule Ema.Harvesters.VaultHarvester do
 
   defp create_seed(note_title, rel_path, type, text) do
     title = "#{label_for(type)}: #{String.slice(text, 0, 80)}"
-    body = "From vault note: **#{note_title}** (`#{rel_path}`)\n\n> #{text}\n\nType: `#{type}`"
+    body = "From vault note: **#{note_title}** (`#{rel_path}`)\n\nSource: vault_harvester (#{type})\n\n> #{text}"
+    summary = "[vault_#{type}] #{text}"
 
     case Proposals.create_proposal(%{
       title: title,
       body: body,
-      summary: text,
-      source: "vault_harvester",
-      status: "pending",
-      confidence: 0.5,
-      proposal_type: "vault_#{type}"
+      summary: summary,
+      status: "queued",
+      confidence: 0.5
     }) do
       {:ok, _} -> :ok
       _ -> :error

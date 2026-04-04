@@ -441,6 +441,12 @@ defmodule EmaWeb.Router do
     post("/integrations/github/connect", IntegrationsController, :github_connect)
     post("/integrations/slack/connect", IntegrationsController, :slack_connect)
 
+    # Babysitter — system observability and Discord stream-of-consciousness
+    get("/babysitter/state", BabysitterController, :state)
+    post("/babysitter/config", BabysitterController, :config)
+    post("/babysitter/nudge", BabysitterController, :nudge)
+    post("/babysitter/tick", BabysitterController, :tick)
+
     # Webhooks
     post("/webhooks/github", WebhookController, :github)
     post("/webhooks/slack/commands", WebhookController, :slack_command)
