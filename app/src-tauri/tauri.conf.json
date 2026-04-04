@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "ema",
-  "version": "0.1.0",
-  "identifier": "org.ema.app",
+  "productName": "EMA",
+  "version": "0.2.0",
+  "identifier": "app.ema.executive",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -51,6 +51,8 @@
       "icons/icon.icns",
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "shortDescription": "Executive Memory Assistant",
+    "longDescription": "EMA is a local-first executive assistant that helps you manage context, memory, and workflows across multiple AI models. Runs entirely on your own hardware with optional multi-node mesh distribution."
   }
 }

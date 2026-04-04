@@ -117,6 +117,7 @@ defmodule Ema.Projects do
     %{
       project: %{
         id: project.id,
+        slug: project.slug,
         name: project.name,
         status: project.status,
         description: project.description
@@ -139,12 +140,18 @@ defmodule Ema.Projects do
           end)
       },
       campaigns: nil,
+      active_campaign: nil,
+      intent_threads: [],
       executions: %{
         recent:
           Enum.map(recent_execs, fn e ->
             %{id: e.id, status: e.status, started_at: e.inserted_at, completed_at: e.completed_at}
           end),
         success_rate: Float.round(success_rate, 2)
+      },
+      stats: %{
+        total_executions: length(all_execs),
+        active_tasks: length(Map.get(task_by_status, "in_progress", []))
       },
       vault: %{
         note_count: note_count,

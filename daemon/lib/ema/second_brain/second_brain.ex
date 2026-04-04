@@ -6,7 +6,22 @@ defmodule Ema.SecondBrain do
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.SecondBrain.{Note, Link}
+  alias Ema.SecondBrain.{Note, Link, Indexer}
+
+  # --- Full-Text Search ---
+
+  @doc """
+  Full-text search across vault notes using FTS5.
+
+  Returns `{:ok, results}` where each result has `:note`, `:rank`, `:snippet`.
+
+  ## Options
+    - `:limit` — max results (default 20)
+    - `:space` — filter to a specific space
+  """
+  def search_brain(query, opts \\ []) do
+    Indexer.search(query, opts)
+  end
 
   # --- Notes CRUD ---
 
@@ -49,6 +64,7 @@ defmodule Ema.SecondBrain do
         end
 
         Phoenix.PubSub.broadcast(Ema.PubSub, "vault:changes", {:note_created, note})
+        Task.start(fn -> Indexer.index_note(note) end)
         {:ok, note}
 
       error ->
@@ -82,6 +98,7 @@ defmodule Ema.SecondBrain do
             end
 
             Phoenix.PubSub.broadcast(Ema.PubSub, "vault:changes", {:note_updated, updated})
+            Task.start(fn -> Indexer.index_note(updated) end)
             {:ok, updated}
 
           error ->
@@ -102,6 +119,7 @@ defmodule Ema.SecondBrain do
           {:ok, deleted} ->
             File.rm(full_path)
             Phoenix.PubSub.broadcast(Ema.PubSub, "vault:changes", {:note_deleted, deleted})
+            Task.start(fn -> Indexer.remove_note(deleted.id) end)
             {:ok, deleted}
 
           error ->

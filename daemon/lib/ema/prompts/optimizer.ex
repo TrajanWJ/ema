@@ -35,7 +35,7 @@ defmodule Ema.Prompts.Optimizer do
   def next_run_after(now) do
     now = DateTime.truncate(now, :second)
     current_date = DateTime.to_date(now)
-    days_until = rem(7 - Date.day_of_week(current_date, :sunday), 7)
+    days_until = rem(7 - Date.day_of_week(current_date), 7)
     candidate_date = Date.add(current_date, days_until)
     candidate = DateTime.new!(candidate_date, ~T[02:00:00], "Etc/UTC")
 

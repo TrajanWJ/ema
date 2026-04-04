@@ -132,9 +132,20 @@ defmodule EmaWeb.SupermanController do
 
   # GET /superman/context/:project_slug — legacy, returns raw nodes from KnowledgeGraph
   def context(conn, %{"project_slug" => project_slug}) do
+    nodes =
+      project_slug
+      |> Ema.Superman.KnowledgeGraph.context_for()
+      |> Enum.map(fn node ->
+        Map.new(node, fn {k, v} ->
+          key = if is_atom(k), do: Atom.to_string(k), else: k
+          val = if is_struct(v, DateTime), do: DateTime.to_iso8601(v), else: v
+          {key, val}
+        end)
+      end)
+
     json(conn, %{
       project_slug: project_slug,
-      nodes: Superman.context_for(project_slug)
+      nodes: nodes
     })
   end
 

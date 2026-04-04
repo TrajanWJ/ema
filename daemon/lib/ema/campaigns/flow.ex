@@ -25,7 +25,7 @@ defmodule Ema.Campaigns.Flow do
 
   @valid_transitions %{
     "forming"    => ~w(developing done),
-    "developing" => ~w(testing forming done),
+    "developing" => ~w(testing forming),
     "testing"    => ~w(done developing),
     "done"       => []
   }

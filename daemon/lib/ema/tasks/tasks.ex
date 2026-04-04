@@ -242,12 +242,12 @@ defmodule Ema.Tasks do
       |> metadata_from_attrs()
       |> Map.put(key, value)
 
-    case attrs do
-      %{metadata: _} = map ->
-        Map.put(map, :metadata, metadata)
+    uses_atom_keys = attrs |> Map.keys() |> Enum.any?(&is_atom/1)
 
-      %{} = map ->
-        Map.put(map, "metadata", metadata)
+    if uses_atom_keys do
+      Map.put(attrs, :metadata, metadata)
+    else
+      Map.put(attrs, "metadata", metadata)
     end
   end
 
