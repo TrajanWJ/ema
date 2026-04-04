@@ -8,11 +8,11 @@ defmodule Ema.Intelligence.ReflexionEntry do
   @foreign_key_type :binary_id
 
   schema "reflexion_entries" do
-    field :agent, :string
-    field :domain, :string
-    field :project_slug, :string
-    field :lesson, :string
-    field :outcome_status, :string
+    field(:agent, :string)
+    field(:domain, :string)
+    field(:project_slug, :string)
+    field(:lesson, :string)
+    field(:outcome_status, :string)
 
     timestamps(updated_at: false, type: :utc_datetime)
   end

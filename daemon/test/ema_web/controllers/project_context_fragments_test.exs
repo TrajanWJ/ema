@@ -27,8 +27,9 @@ defmodule EmaWeb.ProjectContextFragmentsTest do
     project: project
   } do
     conn = get(conn, "/api/projects/#{project.slug}/context-fragments")
+    slug = project.slug
 
-    assert %{"project_slug" => ^project.slug, "fragments" => [fragment]} = json_response(conn, 200)
+    assert %{"project_slug" => ^slug, "fragments" => [fragment]} = json_response(conn, 200)
     assert fragment["file_path"] == "lib/ema_web/controllers/project_controller.ex"
     assert fragment["fragment_type"] == "code"
   end

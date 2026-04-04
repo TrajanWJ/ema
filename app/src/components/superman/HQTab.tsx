@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
-import { useExecutionStore } from "@/stores/execution-store";
-import type { Execution } from "@/types/executions";
+import { useEffect, useMemo } from "react";
+import { GlassSelect } from "@/components/ui/GlassSelect";
+import { useProjectStore } from "@/stores/project-store";
+import { useProjectsStore } from "@/stores/projects-store";
 
 const STAT_COLORS = ["#6b95f0", "#eab308", "#22C55E", "#ef4444"];
+const TASK_STATUS_COLORS: Record<string, string> = {
+  todo: "#6b95f0",
+  in_progress: "#22C55E",
+  blocked: "#ef4444",
+  in_review: "#eab308",
+  proposed: "#94a3b8",
+};
+const PROPOSAL_STATUS_COLORS: Record<string, string> = {
+  queued: "#94a3b8",
+  reviewing: "#eab308",
+  approved: "#22C55E",
+  redirected: "#f97316",
+  killed: "#ef4444",
+  generating: "#6b95f0",
+  failed: "#ef4444",
+};
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -22,62 +39,98 @@ function isThisWeek(iso: string): boolean {
 }
 
 export function HQTab() {
-  const [ready, setReady] = useState(false);
-  const executions = useExecutionStore((s) => s.executions);
-  const loading = useExecutionStore((s) => s.loading);
-  const approve = useExecutionStore((s) => s.approve);
+  const projects = useProjectsStore((s) => s.projects);
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const context = useProjectStore((s) => s.context);
+  const loadingContext = useProjectStore((s) => s.loadingContext);
+  const contextError = useProjectStore((s) => s.contextError);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
+  const loadProjectContext = useProjectStore((s) => s.loadProjectContext);
+  const connectProjectChannel = useProjectStore((s) => s.connectProjectChannel);
+  const disconnectProjectChannel = useProjectStore((s) => s.disconnectProjectChannel);
+
+  const projectOptions = useMemo(
+    () =>
+      projects.map((project) => ({
+        value: project.slug,
+        label: `${project.icon ?? "▪"} ${project.name}`,
+      })),
+    [projects],
+  );
 
   useEffect(() => {
-    async function init() {
-      await useExecutionStore.getState().loadViaRest().catch(() => {});
-      setReady(true);
-      useExecutionStore.getState().connect().catch(() => {});
+    if (projects.length === 0 || currentProject) return;
+    const preferred = projects.find((project) => project.status === "active")
+      ?? projects.find((project) => project.status === "incubating")
+      ?? projects[0];
+    if (preferred) {
+      setCurrentProject(preferred.slug);
     }
-    init();
-  }, []);
+  }, [currentProject, projects, setCurrentProject]);
 
-  if (!ready) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>Loading...</span>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!currentProject) return;
+    void loadProjectContext(currentProject);
+    void connectProjectChannel(currentProject).catch(() => {});
+  }, [connectProjectChannel, currentProject, loadProjectContext]);
 
-  const intentSlugs = new Set(executions.filter((e) => e.intent_slug).map((e) => e.intent_slug));
-  const totalIntents = intentSlugs.size;
-  const inProgress = executions.filter((e) => e.status === "running" || e.status === "approved").length;
-  const completedThisWeek = executions.filter((e) => e.status === "completed" && e.completed_at && isThisWeek(e.completed_at)).length;
-  const blocked = executions.filter((e) => e.status === "failed").length;
+  useEffect(() => () => {
+    disconnectProjectChannel();
+  }, [disconnectProjectChannel]);
 
-  const needsApproval = executions.filter(
-    (e) => (e.status === "created" || e.status === "awaiting_approval") && e.requires_approval,
-  );
+  const activeTasks = context?.active_tasks ?? [];
+  const recentProposals = context?.recent_proposals ?? [];
+  const activeCampaign = context?.active_campaign;
+  const lastExecution = context?.last_execution;
 
-  const activeRuns = executions.filter(
-    (e) => e.status === "running" || e.status === "approved",
-  );
-
-  const recentCompleted = executions
-    .filter((e) => e.status === "completed")
-    .sort((a, b) => new Date(b.completed_at ?? b.updated_at).getTime() - new Date(a.completed_at ?? a.updated_at).getTime())
-    .slice(0, 5);
+  const inProgress = activeTasks.filter((task) => task.status === "in_progress").length;
+  const blocked = activeTasks.filter((task) => task.status === "blocked").length;
+  const approvedProposals = recentProposals.filter((proposal) => proposal.status === "approved").length;
+  const completedThisWeek =
+    lastExecution?.completed_at && isThisWeek(lastExecution.completed_at) ? 1 : 0;
 
   const stats = [
-    { label: "Total Intents", value: totalIntents },
+    { label: "Active Tasks", value: activeTasks.length },
     { label: "In Progress", value: inProgress },
-    { label: "Completed (7d)", value: completedThisWeek },
-    { label: "Blocked", value: blocked },
+    { label: "Approved Props", value: approvedProposals },
+    { label: "Blocked", value: blocked + (lastExecution?.status === "failed" ? 1 : 0) },
   ];
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="text-[0.8rem] font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
-        Command HQ
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[0.8rem] font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
+          Command HQ
+        </div>
+        <div className="w-56 max-w-full">
+          <GlassSelect
+            value={currentProject ?? ""}
+            onChange={(slug) => {
+              setCurrentProject(slug);
+              void loadProjectContext(slug);
+              void connectProjectChannel(slug).catch(() => {});
+            }}
+            options={projectOptions}
+            placeholder="Select project..."
+            className="w-full"
+            size="sm"
+          />
+        </div>
       </div>
 
-      {/* Stat cards */}
+      {!currentProject ? (
+        <EmptyState text="No projects available" />
+      ) : loadingContext && !context ? (
+        <LoadingSkeleton />
+      ) : contextError ? (
+        <ErrorState
+          message={contextError}
+          onRetry={() => {
+            void loadProjectContext(currentProject);
+          }}
+        />
+      ) : (
+        <>
       <div className="grid grid-cols-4 gap-2">
         {stats.map((stat, i) => (
           <div
@@ -95,38 +148,45 @@ export function HQTab() {
         ))}
       </div>
 
-      {/* Needs Approval */}
-      <Section title="Needs Approval" count={needsApproval.length} color="#eab308">
-        {needsApproval.length === 0 ? (
-          <EmptyState text="Nothing pending approval" />
+      <div className="grid grid-cols-2 gap-4">
+        <Section title="Active Campaign" count={activeCampaign ? 1 : 0} color="#eab308">
+          {activeCampaign ? (
+            <CampaignCard campaign={activeCampaign} />
+          ) : (
+            <EmptyState text="No active campaign" />
+          )}
+        </Section>
+
+        <Section title="Last Execution" count={lastExecution ? 1 : 0} color="#22C55E">
+          {lastExecution ? (
+            <ExecutionCard execution={lastExecution} />
+          ) : (
+            <EmptyState text="No execution history" />
+          )}
+        </Section>
+      </div>
+
+      <Section title="Active Tasks" count={activeTasks.length} color="#6b95f0">
+        {activeTasks.length === 0 ? (
+          <EmptyState text="No active tasks" />
         ) : (
-          needsApproval.map((exec) => (
-            <ApprovalRow key={exec.id} execution={exec} onApprove={() => approve(exec.id)} loading={loading} />
+          activeTasks.map((task, index) => (
+            <TaskRow key={task.id ?? `${task.title}-${index}`} task={task} />
           ))
         )}
       </Section>
 
-      {/* Active Runs */}
-      <Section title="Active Runs" count={activeRuns.length} color="#6b95f0">
-        {activeRuns.length === 0 ? (
-          <EmptyState text="No active executions" />
+      <Section title="Recent Proposals" count={recentProposals.length} color="#ef4444">
+        {recentProposals.length === 0 ? (
+          <EmptyState text="No recent proposals" />
         ) : (
-          activeRuns.map((exec) => (
-            <ActiveRow key={exec.id} execution={exec} />
+          recentProposals.map((proposal, index) => (
+            <ProposalRow key={proposal.id ?? `${proposal.title}-${index}`} proposal={proposal} />
           ))
         )}
       </Section>
-
-      {/* Recently Completed */}
-      <Section title="Recently Completed" count={recentCompleted.length} color="#22C55E">
-        {recentCompleted.length === 0 ? (
-          <EmptyState text="No recent completions" />
-        ) : (
-          recentCompleted.map((exec) => (
-            <CompletedRow key={exec.id} execution={exec} />
-          ))
-        )}
-      </Section>
+        </>
+      )}
     </div>
   );
 }
@@ -171,93 +231,212 @@ function EmptyState({ text }: { readonly text: string }) {
   );
 }
 
-function ModeBadge({ mode }: { readonly mode: string }) {
-  const colors: Record<string, string> = {
-    research: "#a78bfa",
-    outline: "#6b95f0",
-    implement: "#22C55E",
-    review: "#5eead4",
-    harvest: "#f59e0b",
-    refactor: "#f43f5e",
-  };
-  const color = colors[mode] ?? "#6b7280";
+function LoadingSkeleton() {
   return (
-    <span
-      className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
-      style={{ background: `${color}15`, color }}
-    >
-      {mode}
-    </span>
+    <div className="flex flex-col gap-4 animate-pulse">
+      <div className="grid grid-cols-4 gap-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg p-3"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <div className="h-5 rounded mb-2" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="h-3 rounded w-2/3" style={{ background: "rgba(255,255,255,0.05)" }} />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg p-4"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <div className="h-4 rounded w-1/3 mb-3" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="h-3 rounded mb-2" style={{ background: "rgba(255,255,255,0.06)" }} />
+            <div className="h-3 rounded w-5/6" style={{ background: "rgba(255,255,255,0.05)" }} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function ApprovalRow({
-  execution,
-  onApprove,
-  loading,
+function ErrorState({
+  message,
+  onRetry,
 }: {
-  readonly execution: Execution;
-  readonly onApprove: () => void;
-  readonly loading: boolean;
+  readonly message: string;
+  readonly onRetry: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <ModeBadge mode={execution.mode} />
-      <span className="text-[0.7rem] flex-1 truncate" style={{ color: "var(--pn-text-secondary)" }}>
-        {execution.intent_slug ?? execution.title}
-      </span>
-      <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
-        {relativeTime(execution.inserted_at)}
-      </span>
+    <div className="rounded-lg px-4 py-3 flex items-center justify-between gap-3" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)" }}>
+      <span className="text-[0.7rem]" style={{ color: "#fca5a5" }}>{message}</span>
       <button
-        onClick={onApprove}
-        disabled={loading}
-        className="px-2.5 py-1 rounded text-[0.6rem] font-mono transition-all hover:brightness-110 shrink-0"
-        style={{ background: "rgba(34,197,94,0.15)", color: "#22C55E", border: "1px solid rgba(34,197,94,0.2)" }}
+        type="button"
+        onClick={onRetry}
+        className="px-2.5 py-1 rounded text-[0.6rem] font-mono shrink-0"
+        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.82)", border: "1px solid rgba(255,255,255,0.1)" }}
       >
-        Approve
+        Retry
       </button>
     </div>
   );
 }
 
-function ActiveRow({ execution }: { readonly execution: Execution }) {
+function StatusBadge({
+  value,
+  colors,
+}: {
+  readonly value: string | null | undefined;
+  readonly colors: Record<string, string>;
+}) {
+  const label = value ? value.replaceAll("_", " ") : "unknown";
+  const color = value ? colors[value] ?? "#94a3b8" : "#94a3b8";
   return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <ModeBadge mode={execution.mode} />
-      <span className="text-[0.7rem] flex-1 truncate" style={{ color: "var(--pn-text-secondary)" }}>
-        {execution.intent_slug ?? execution.title}
-      </span>
-      <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
-        {relativeTime(execution.inserted_at)}
-      </span>
-      {/* Pulsing indicator */}
-      <span
-        className="w-2 h-2 rounded-full shrink-0 animate-pulse"
-        style={{ background: "#6b95f0", boxShadow: "0 0 8px rgba(107,149,240,0.5)" }}
-      />
+    <span className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0" style={{ background: `${color}15`, color }}>
+      {label}
+    </span>
+  );
+}
+
+function CampaignCard({
+  campaign,
+}: {
+  readonly campaign: Record<string, unknown>;
+}) {
+  const title = firstString(campaign.title, campaign.name, campaign.channel) ?? "Campaign";
+  const summary = firstString(campaign.summary, campaign.objective);
+  const status = firstString(campaign.status);
+
+  return (
+    <div className="px-3 py-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[0.75rem] font-medium truncate" style={{ color: "var(--pn-text-primary)" }}>
+          {title}
+        </span>
+        <StatusBadge value={status} colors={PROPOSAL_STATUS_COLORS} />
+      </div>
+      {summary && (
+        <div className="text-[0.65rem] leading-relaxed" style={{ color: "var(--pn-text-secondary)" }}>
+          {summary}
+        </div>
+      )}
     </div>
   );
 }
 
-function CompletedRow({ execution }: { readonly execution: Execution }) {
+function ExecutionCard({
+  execution,
+}: {
+  readonly execution: Record<string, unknown>;
+}) {
+  const title = firstString(execution.title) ?? "Execution";
+  const status = firstString(execution.status);
+  const mode = firstString(execution.mode);
+  const at = firstString(execution.completed_at, execution.updated_at, execution.inserted_at);
+  const result = firstString(execution.result_path);
+
+  return (
+    <div className="px-3 py-3 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <StatusBadge value={status} colors={{ completed: "#22C55E", failed: "#ef4444", running: "#6b95f0" }} />
+        {mode && <span className="text-[0.55rem] font-mono uppercase" style={{ color: "var(--pn-text-muted)" }}>{mode}</span>}
+      </div>
+      <div className="text-[0.75rem] font-medium" style={{ color: "var(--pn-text-primary)" }}>{title}</div>
+      {at && <div className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>{relativeTime(at)}</div>}
+      {result && (
+        <div className="text-[0.6rem] font-mono truncate" style={{ color: "#5eead4" }}>
+          {result}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({
+  task,
+}: {
+  readonly task: Record<string, unknown>;
+}) {
+  const title = firstString(task.title) ?? "Untitled task";
+  const status = firstString(task.status);
+  const agent = firstString(task.agent);
+  const dueDate = firstString(task.due_date);
+  const priority = task.priority;
+
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      <ModeBadge mode={execution.mode} />
+      <StatusBadge value={status} colors={TASK_STATUS_COLORS} />
       <span className="text-[0.7rem] flex-1 truncate" style={{ color: "var(--pn-text-secondary)" }}>
-        {execution.intent_slug ?? execution.title}
+        {title}
       </span>
-      <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
-        {relativeTime(execution.completed_at ?? execution.updated_at)}
-      </span>
-      {execution.result_path && (
-        <span
-          className="text-[0.5rem] font-mono px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: "rgba(94,234,212,0.1)", color: "#5eead4" }}
-        >
-          result
+      {typeof priority === "number" && (
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
+          P{priority}
         </span>
       )}
+      {agent && (
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "#5eead4" }}>
+          {agent}
+        </span>
+      )}
+      {dueDate && (
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
+          {relativeTime(dueDate)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ProposalRow({
+  proposal,
+}: {
+  readonly proposal: Record<string, unknown>;
+}) {
+  const title = firstString(proposal.title) ?? "Untitled proposal";
+  const status = firstString(proposal.status);
+  const summary = firstString(proposal.summary);
+  const confidence = typeof proposal.confidence === "number" ? proposal.confidence : null;
+  const at = firstString(proposal.updated_at, proposal.created_at);
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2">
+      <StatusBadge value={status} colors={PROPOSAL_STATUS_COLORS} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[0.7rem] truncate" style={{ color: "var(--pn-text-secondary)" }}>
+          {title}
+        </div>
+        {summary && (
+          <div className="text-[0.6rem] truncate" style={{ color: "var(--pn-text-muted)" }}>
+            {summary}
+          </div>
+        )}
+      </div>
+      {confidence !== null && (
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "#eab308" }}>
+          {(confidence * 100).toFixed(0)}%
+        </span>
+      )}
+      {at && (
+        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
+          {relativeTime(at)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
     </div>
   );
 }

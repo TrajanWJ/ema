@@ -3,7 +3,7 @@ defmodule EmaWeb.ReflexionController do
 
   alias Ema.Intelligence.ReflexionStore
 
-  action_fallback EmaWeb.FallbackController
+  action_fallback(EmaWeb.FallbackController)
 
   def index(conn, params) do
     opts =

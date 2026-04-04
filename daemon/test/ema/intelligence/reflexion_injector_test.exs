@@ -7,8 +7,12 @@ defmodule Ema.Intelligence.ReflexionInjectorTest do
     assert {:ok, _} = ReflexionStore.record("claude", "backend", "ema", "Older lesson", "success")
     assert {:ok, _} = ReflexionStore.record("claude", "backend", "ema", "Second lesson", "failed")
     assert {:ok, _} = ReflexionStore.record("claude", "backend", "ema", "Third lesson", "success")
-    assert {:ok, _} = ReflexionStore.record("claude", "backend", "ema", "Newest lesson", "success")
-    assert {:ok, _} = ReflexionStore.record("claude", "frontend", "ema", "Wrong domain", "success")
+
+    assert {:ok, _} =
+             ReflexionStore.record("claude", "backend", "ema", "Newest lesson", "success")
+
+    assert {:ok, _} =
+             ReflexionStore.record("claude", "frontend", "ema", "Wrong domain", "success")
 
     prefix = ReflexionInjector.build_prefix("claude", "backend", "ema")
 

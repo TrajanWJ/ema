@@ -24,8 +24,11 @@ defmodule EmaWeb.ReflexionControllerTest do
 
   describe "GET /api/reflexion/entries" do
     test "lists recent entries filtered by agent and domain", %{conn: conn} do
-      assert {:ok, _} = ReflexionStore.record("claude", "backend", "ema", "Backend lesson", "success")
-      assert {:ok, _} = ReflexionStore.record("claude", "frontend", "ema", "Frontend lesson", "success")
+      assert {:ok, _} =
+               ReflexionStore.record("claude", "backend", "ema", "Backend lesson", "success")
+
+      assert {:ok, _} =
+               ReflexionStore.record("claude", "frontend", "ema", "Frontend lesson", "success")
 
       conn = get(conn, "/api/reflexion/entries?agent=claude&domain=backend")
 

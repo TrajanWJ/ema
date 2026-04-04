@@ -17,7 +17,10 @@ defmodule Ema.Intelligence.ContextIndexer do
   end
 
   def reindex_project(project) do
-    GenServer.call(__MODULE__, {:reindex_project, project}, :infinity)
+    case Process.whereis(__MODULE__) do
+      nil -> index_project(project)
+      _pid -> GenServer.call(__MODULE__, {:reindex_project, project}, :infinity)
+    end
   end
 
   @impl true

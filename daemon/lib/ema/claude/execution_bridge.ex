@@ -42,7 +42,10 @@ defmodule Ema.Claude.ExecutionBridge do
     enriched_prompt = prepend_reflexion(prompt, opts)
 
     if at_capacity?() do
-      Logger.warning("[ExecutionBridge] At capacity (#{@max_concurrent} concurrent). Rejecting #{execution_id}.")
+      Logger.warning(
+        "[ExecutionBridge] At capacity (#{@max_concurrent} concurrent). Rejecting #{execution_id}."
+      )
+
       {:error, :at_capacity}
     else
       bridge_opts = [
@@ -223,10 +226,16 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
     lesson = extract_lesson(summary)
 
     case ReflexionStore.record(state.agent, state.domain, state.project_slug, lesson, "success") do
-      {:ok, _} -> :ok
-      {:error, :empty_lesson} -> :ok
+      {:ok, _} ->
+        :ok
+
+      {:error, :empty_lesson} ->
+        :ok
+
       {:error, reason} ->
-        Logger.warning("[ExecutionBridge.Worker] Failed to store reflexion lesson: #{inspect(reason)}")
+        Logger.warning(
+          "[ExecutionBridge.Worker] Failed to store reflexion lesson: #{inspect(reason)}"
+        )
     end
   end
 
@@ -239,10 +248,16 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
       end
 
     case ReflexionStore.record(state.agent, state.domain, state.project_slug, lesson, "failed") do
-      {:ok, _} -> :ok
-      {:error, :empty_lesson} -> :ok
+      {:ok, _} ->
+        :ok
+
+      {:error, :empty_lesson} ->
+        :ok
+
       {:error, error} ->
-        Logger.warning("[ExecutionBridge.Worker] Failed to store failed reflexion lesson: #{inspect(error)}")
+        Logger.warning(
+          "[ExecutionBridge.Worker] Failed to store failed reflexion lesson: #{inspect(error)}"
+        )
     end
   end
 

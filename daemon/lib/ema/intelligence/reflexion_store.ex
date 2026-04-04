@@ -7,7 +7,8 @@ defmodule Ema.Intelligence.ReflexionStore do
   alias Ema.Repo
 
   def record(agent, domain, project_slug, lesson, status)
-      when is_binary(agent) and is_binary(domain) and is_binary(project_slug) and is_binary(status) do
+      when is_binary(agent) and is_binary(domain) and is_binary(project_slug) and
+             is_binary(status) do
     lesson = normalize_lesson(lesson)
 
     if lesson == "" do
