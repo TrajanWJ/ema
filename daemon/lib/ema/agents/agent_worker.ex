@@ -53,13 +53,12 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   def dispatch_to_domain(agent_slug, user_message, context \\ %{}) do
-    requested_keys =
-      context
-      |> requested_context_keys()
-      |> Kernel.++(tool_context_keys(agent_slug))
-      |> Enum.uniq()
-
     with {:ok, agent} <- fetch_agent(agent_slug),
+         requested_keys <-
+           context
+           |> requested_context_keys()
+           |> Kernel.++(tool_context_keys(agent))
+           |> Enum.uniq(),
          {:ok, system_prompt} <- load_system_prompt(agent),
          {:ok, injected_context} <-
            ContextInjector.build_context(
@@ -131,17 +130,11 @@ defmodule Ema.Agents.AgentWorker do
     end
   end
 
-  defp tool_context_keys(agent_slug) do
-    case Agents.get_agent_by_slug(agent_slug) do
-      nil ->
-        []
-
-      agent ->
-        agent.tools
-        |> List.wrap()
-        |> Enum.map(&tool_to_context_key/1)
-        |> Enum.reject(&is_nil/1)
-    end
+  defp tool_context_keys(agent) do
+    agent.tools
+    |> List.wrap()
+    |> Enum.map(&tool_to_context_key/1)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp tool_to_context_key("goal_context"), do: :goals

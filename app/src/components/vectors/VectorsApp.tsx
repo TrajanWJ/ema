@@ -20,13 +20,13 @@ export function VectorsApp() {
   const search = () => {
     if (!query.trim()) return;
     setSearching(true);
-    api.get<VectorResult[]>(`/vectors/search?q=${encodeURIComponent(query)}`)
+    api.get<VectorResult[]>(`/vectors/query?q=${encodeURIComponent(query)}`)
       .then(setResults).catch(() => []).finally(() => setSearching(false));
   };
 
   const reindex = () => {
     setReindexing(true);
-    api.post("/vectors/index", {}).finally(() => setReindexing(false));
+    api.post("/vectors/reindex", {}).finally(() => setReindexing(false));
   };
 
   return (

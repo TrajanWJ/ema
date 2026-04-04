@@ -39,11 +39,11 @@ export function CampaignsApp() {
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{selected.name}</div>
               <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 16 }}>{selected.goal}</div>
               <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-                <button onClick={() => api.post(`/campaigns/${selected.id}/start`, {}).then(() => { setSelected({ ...selected, status: "active" }); })}
+                <button onClick={() => api.post(`/campaigns/${selected.id}/advance`, {}).then(() => { setSelected({ ...selected, status: "active" }); })}
                   style={{ padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer", background: "rgba(34,197,94,0.2)", color: "#86efac", fontSize: 12 }}>
                   Start
                 </button>
-                <button onClick={() => api.post(`/campaigns/${selected.id}/pause`, {}).then(() => { setSelected({ ...selected, status: "paused" }); })}
+                <button onClick={() => api.post(`/campaigns/${selected.id}/advance`, {}).then(() => { setSelected({ ...selected, status: "paused" }); })}
                   style={{ padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer", background: "rgba(245,158,11,0.2)", color: "#fde68a", fontSize: 12 }}>
                   Pause
                 </button>
