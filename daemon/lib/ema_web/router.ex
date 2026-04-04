@@ -446,6 +446,11 @@ defmodule EmaWeb.Router do
     post("/babysitter/config", BabysitterController, :config)
     post("/babysitter/nudge", BabysitterController, :nudge)
     post("/babysitter/tick", BabysitterController, :tick)
+    
+    # Feedback stream — Discord delivery + EMA internal visibility
+    get("/feedback", FeedbackController, :index)
+    get("/feedback/status", FeedbackController, :status)
+    post("/feedback/emit", FeedbackController, :emit)
 
     # Webhooks
     post("/webhooks/github", WebhookController, :github)

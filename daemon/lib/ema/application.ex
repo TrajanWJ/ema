@@ -17,6 +17,8 @@ defmodule Ema.Application do
         {Phoenix.PubSub, name: Ema.PubSub},
         # Babysitter — system observability and Discord stream-of-consciousness
         Ema.Babysitter.Supervisor,
+        # Feedback layer — Discord delivery consumers + EMA internal visibility
+        Ema.Feedback.Supervisor,
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         {Task.Supervisor, name: Ema.TaskSupervisor},
@@ -195,7 +197,7 @@ defmodule Ema.Application do
 
   defp maybe_start_voice do
     if Application.get_env(:ema, :start_voice, true) do
-      [Ema.Voice.Supervisor]
+      [Ema.Voice.Supervisor, Ema.Discord.Bridge]
     else
       []
     end
