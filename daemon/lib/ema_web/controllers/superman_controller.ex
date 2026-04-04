@@ -130,10 +130,27 @@ defmodule EmaWeb.SupermanController do
     end
   end
 
+  # GET /superman/context/:project_slug — legacy, returns raw nodes from KnowledgeGraph
   def context(conn, %{"project_slug" => project_slug}) do
     json(conn, %{
       project_slug: project_slug,
       nodes: Superman.context_for(project_slug)
     })
+  end
+
+  # POST /superman/context — Week 7 fallback: returns formatted context string
+  # Body: %{project_id: "..."}
+  # Returns: %{context: "...", source: "file" | "db" | "graph"}
+  def context_post(conn, %{"project_id" => project_id}) do
+    case Superman.context_for_with_source(project_id) do
+      {:ok, context, source} ->
+        json(conn, %{context: context, source: source})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "project not found"})
+
+      {:error, reason} ->
+        conn |> put_status(500) |> json(%{error: inspect(reason)})
+    end
   end
 end
