@@ -6,6 +6,7 @@ import { useExecutionStore } from "@/stores/execution-store";
 import { APP_CONFIGS } from "@/types/workspace";
 import type { Execution, ExecutionStatus, ExecutionMode, ExecutionEvent } from "@/types/executions";
 import { api } from "@/lib/api";
+import { ExecutionDiff } from "@/components/executions/ExecutionDiff";
 
 const config = APP_CONFIGS["executions"];
 
@@ -483,6 +484,13 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
 }) {
   const color = STATUS_COLORS[execution.status] || "#6b7280";
   const icon = MODE_ICONS[execution.mode] || "\u26A1";
+  const [activeTab, setActiveTab] = useState<"log" | "diff" | "details">("log");
+
+  const tabs: Array<{ id: "log" | "diff" | "details"; label: string }> = [
+    { id: "log", label: "Log" },
+    { id: "diff", label: "Diff" },
+    { id: "details", label: "Details" },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -507,39 +515,6 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
         }}>
           {execution.mode}
         </span>
-      </div>
-
-      {/* Objective */}
-      {execution.objective && (
-        <div style={{ fontSize: 12, lineHeight: 1.6, color: "var(--pn-text-secondary)" }}>
-          {execution.objective}
-        </div>
-      )}
-
-      {/* Metadata */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
-        {execution.project_slug && (
-          <div>
-            <span style={{ color: "var(--pn-text-muted)" }}>Project: </span>
-            <span style={{ color: "var(--pn-text-secondary)", fontFamily: "monospace" }}>{execution.project_slug}</span>
-          </div>
-        )}
-        {execution.intent_slug && (
-          <div>
-            <span style={{ color: "var(--pn-text-muted)" }}>Intent: </span>
-            <span style={{ color: "var(--pn-text-secondary)", fontFamily: "monospace" }}>{execution.intent_slug}</span>
-          </div>
-        )}
-        <div>
-          <span style={{ color: "var(--pn-text-muted)" }}>Created: </span>
-          <span style={{ color: "var(--pn-text-secondary)" }}>{formatAge(execution.inserted_at)}</span>
-        </div>
-        {execution.completed_at && (
-          <div>
-            <span style={{ color: "var(--pn-text-muted)" }}>Completed: </span>
-            <span style={{ color: "var(--pn-text-secondary)" }}>{formatAge(execution.completed_at)}</span>
-          </div>
-        )}
       </div>
 
       {/* Actions */}
@@ -572,67 +547,125 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
         )}
       </div>
 
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 4 }}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: "4px 12px",
+              borderRadius: "6px 6px 0 0",
+              background: activeTab === tab.id ? "rgba(99,102,241,0.2)" : "transparent",
+              color: activeTab === tab.id ? "#818cf8" : "var(--pn-text-muted)",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: activeTab === tab.id ? 600 : 400,
+              borderBottom: activeTab === tab.id ? "2px solid #818cf8" : "2px solid transparent",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Live Output Stream */}
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: "var(--pn-text-secondary)", marginBottom: 8 }}>
-          Live Output
-        </div>
+      {/* Tab content */}
+      {activeTab === "log" && (
         <ExecutionLog
           executionId={execution.id}
           isRunning={execution.status === "running"}
         />
-      </div>
+      )}
 
-      {/* Events timeline */}
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: "var(--pn-text-secondary)", marginBottom: 8 }}>
-          Events
-        </div>
-        {loadingEvents ? (
-          <div style={{ fontSize: 11, color: "var(--pn-text-muted)", textAlign: "center", padding: 16 }}>
-            Loading events...
-          </div>
-        ) : events.length === 0 ? (
-          <div style={{ fontSize: 11, color: "var(--pn-text-muted)", textAlign: "center", padding: 16 }}>
-            No events recorded
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {events.map((ev) => (
-              <div
-                key={ev.id}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 8,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  background: "rgba(255,255,255,0.03)",
-                }}
-              >
-                <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: "#818cf8", marginTop: 4, flexShrink: 0,
-                }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "var(--pn-text-secondary)" }}>
-                    {ev.type.replace(/_/g, " ")}
-                  </div>
-                  {ev.actor_kind && (
-                    <span style={{ fontSize: 10, color: "var(--pn-text-muted)", fontFamily: "monospace" }}>
-                      {ev.actor_kind}
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize: 10, color: "var(--pn-text-muted)", flexShrink: 0 }}>
-                  {formatAge(ev.at)}
-                </span>
+      {activeTab === "diff" && (
+        <ExecutionDiff executionId={execution.id} />
+      )}
+
+      {activeTab === "details" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {execution.objective && (
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: "var(--pn-text-secondary)" }}>
+              {execution.objective}
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
+            {execution.project_slug && (
+              <div>
+                <span style={{ color: "var(--pn-text-muted)" }}>Project: </span>
+                <span style={{ color: "var(--pn-text-secondary)", fontFamily: "monospace" }}>{execution.project_slug}</span>
               </div>
-            ))}
+            )}
+            {execution.intent_slug && (
+              <div>
+                <span style={{ color: "var(--pn-text-muted)" }}>Intent: </span>
+                <span style={{ color: "var(--pn-text-secondary)", fontFamily: "monospace" }}>{execution.intent_slug}</span>
+              </div>
+            )}
+            <div>
+              <span style={{ color: "var(--pn-text-muted)" }}>Created: </span>
+              <span style={{ color: "var(--pn-text-secondary)" }}>{formatAge(execution.inserted_at)}</span>
+            </div>
+            {execution.completed_at && (
+              <div>
+                <span style={{ color: "var(--pn-text-muted)" }}>Completed: </span>
+                <span style={{ color: "var(--pn-text-secondary)" }}>{formatAge(execution.completed_at)}</span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Events timeline */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: "var(--pn-text-secondary)", marginBottom: 8 }}>
+              Events
+            </div>
+            {loadingEvents ? (
+              <div style={{ fontSize: 11, color: "var(--pn-text-muted)", textAlign: "center", padding: 16 }}>
+                Loading events...
+              </div>
+            ) : events.length === 0 ? (
+              <div style={{ fontSize: 11, color: "var(--pn-text-muted)", textAlign: "center", padding: 16 }}>
+                No events recorded
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {events.map((ev) => (
+                  <div
+                    key={ev.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      background: "rgba(255,255,255,0.03)",
+                    }}
+                  >
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "#818cf8", marginTop: 4, flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, color: "var(--pn-text-secondary)" }}>
+                        {ev.type.replace(/_/g, " ")}
+                      </div>
+                      {ev.actor_kind && (
+                        <span style={{ fontSize: 10, color: "var(--pn-text-muted)", fontFamily: "monospace" }}>
+                          {ev.actor_kind}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 10, color: "var(--pn-text-muted)", flexShrink: 0 }}>
+                      {formatAge(ev.at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

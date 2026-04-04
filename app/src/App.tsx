@@ -61,6 +61,27 @@ import { GapInboxApp } from "@/components/gaps/GapInboxApp";
 import { IntentMapApp } from "@/components/intent/IntentMapApp";
 import { CodeHealthDashboard } from "@/components/superman/CodeHealthDashboard";
 import { ProjectGraphApp } from "@/components/project-graph/ProjectGraphApp";
+// Wave2 B1: newly wired apps
+import { SupermanApp } from "@/components/superman/SupermanApp";
+import QualityApp from "@/components/quality/QualityApp";
+import { WikiApp } from "@/components/wiki/WikiApp";
+import OrchestrationApp from "@/components/orchestration/OrchestrationApp";
+import { SessionsApp } from "@/components/sessions/SessionsApp";
+import { ContextApp } from "@/components/context/ContextApp";
+// Wave2 B2: temporal
+import { TemporalApp } from "@/components/temporal/TemporalApp";
+// Wave2 B3: campaigns, notes, mcp, vectors
+import { CampaignsApp } from "@/components/campaigns/CampaignsApp";
+import { NotesApp } from "@/components/notes/NotesApp";
+import { MCPApp } from "@/components/mcp/MCPApp";
+import { VectorsApp } from "@/components/vectors/VectorsApp";
+// Wave2 B4: harvesters, persistence
+import { HarvestersApp } from "@/components/harvesters/HarvestersApp";
+import { PersistenceApp } from "@/components/persistence/PersistenceApp";
+// Wave2 B5: build-it, briefing
+import { BuildItApp } from "@/components/build-it/BuildItApp";
+import { BriefingApp } from "@/components/briefing/BriefingApp";
+
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
 import { OutcomeDashboard } from "@/components/outcome-dashboard/OutcomeDashboard";
@@ -192,6 +213,42 @@ function AppContent() {
       return <CodeHealthDashboard />;
     case "outcome-dashboard":
       return <OutcomeDashboard />;
+    // Wave2 B1
+    case "superman":
+      return <SupermanApp />;
+    case "quality":
+      return <QualityApp />;
+    case "wiki":
+      return <WikiApp />;
+    case "orchestration":
+      return <OrchestrationApp />;
+    case "sessions":
+      return <SessionsApp />;
+    case "context":
+      return <ContextApp />;
+    // Wave2 B2
+    case "temporal":
+      return <TemporalApp />;
+    // Wave2 B3
+    case "campaigns":
+      return <CampaignsApp />;
+    case "notes":
+      return <NotesApp />;
+    case "mcp":
+      return <MCPApp />;
+    case "vectors":
+      return <VectorsApp />;
+    // Wave2 B4
+    case "harvesters":
+      return <HarvestersApp />;
+    case "persistence":
+      return <PersistenceApp />;
+    // Wave2 B5
+    case "build-it":
+      return <BuildItApp />;
+    case "briefing":
+      return <BriefingApp />;
+
     default:
       return (
         <Shell>

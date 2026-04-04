@@ -64,6 +64,22 @@ const NEW_APPS = [
   { id: "intent-map", name: "Intent Map", status: "project intent" },
   { id: "code-health", name: "Code Health", status: "project health" },
   { id: "project-graph", name: "Project Graph", status: "knowledge graph" },
+  // Wave2 apps
+  { id: "build-it", name: "Build It", status: "turn ideas into execution" },
+  { id: "briefing", name: "Daily Brief", status: "morning summary" },
+  { id: "superman", name: "Superman", status: "code intelligence" },
+  { id: "sessions", name: "Sessions", status: "agent sessions" },
+  { id: "context", name: "Context", status: "crystallized context" },
+  { id: "temporal", name: "Rhythm", status: "energy & timing" },
+  { id: "campaigns", name: "Campaigns", status: "multi-execution runs" },
+  { id: "notes", name: "Notes", status: "quick notes" },
+  { id: "mcp", name: "MCP", status: "tool integrations" },
+  { id: "vectors", name: "Vectors", status: "knowledge search" },
+  { id: "harvesters", name: "Harvesters", status: "data ingest" },
+  { id: "persistence", name: "DB", status: "database stats" },
+  { id: "wiki", name: "Wiki", status: "knowledge wiki" },
+  { id: "orchestration", name: "Orchestration", status: "agent coordination" },
+  { id: "quality", name: "Quality", status: "code quality" },
 ] as const;
 
 export function Launchpad() {

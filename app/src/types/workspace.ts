@@ -512,5 +512,21 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#2dd4a8",
     icon: "\u{1F4CA}",
   },
+  // Wave2 apps
+  "superman": { title: "Superman", defaultWidth: 1100, defaultHeight: 750, minWidth: 900, minHeight: 600, accent: "#a78bfa", icon: "⚡" },
+  "quality": { title: "Quality", defaultWidth: 900, defaultHeight: 700, minWidth: 700, minHeight: 500, accent: "#34d399", icon: "✓" },
+  "wiki": { title: "Wiki", defaultWidth: 1000, defaultHeight: 750, minWidth: 800, minHeight: 600, accent: "#60a5fa", icon: "📖" },
+  "orchestration": { title: "Orchestration", defaultWidth: 900, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#ec4899", icon: "⚙" },
+  "sessions": { title: "Sessions", defaultWidth: 950, defaultHeight: 700, minWidth: 700, minHeight: 500, accent: "#06b6d4", icon: "◈" },
+  "context": { title: "Context", defaultWidth: 850, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#8b5cf6", icon: "◎" },
+  "temporal": { title: "Rhythm", defaultWidth: 800, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#f97316", icon: "⏱" },
+  "campaigns": { title: "Campaigns", defaultWidth: 950, defaultHeight: 700, minWidth: 800, minHeight: 500, accent: "#8b5cf6", icon: "🎯" },
+  "notes": { title: "Notes", defaultWidth: 800, defaultHeight: 650, minWidth: 600, minHeight: 500, accent: "#fbbf24", icon: "✎" },
+  "mcp": { title: "MCP Tools", defaultWidth: 900, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#06b6d4", icon: "⬡" },
+  "vectors": { title: "Knowledge Search", defaultWidth: 850, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#a78bfa", icon: "⊛" },
+  "harvesters": { title: "Harvesters", defaultWidth: 850, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#10b981", icon: "⬇" },
+  "persistence": { title: "Persistence", defaultWidth: 800, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#6366f1", icon: "◫" },
+  "build-it": { title: "Build It", defaultWidth: 750, defaultHeight: 650, minWidth: 600, minHeight: 500, accent: "#f59e0b", icon: "🔨" },
+  "briefing": { title: "Daily Brief", defaultWidth: 750, defaultHeight: 700, minWidth: 600, minHeight: 600, accent: "#6366f1", icon: "📋" },
 } as const;
 
