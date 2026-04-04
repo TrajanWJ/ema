@@ -71,7 +71,7 @@ defmodule EmaWeb.Router do
     post "/sessions/:id/link", SessionController, :link
 
     # Projects — specific routes before resources to avoid :id shadowing
-    get "/projects/:slug/context", ProjectController, :context
+    get "/projects/:id/context", ProjectController, :context
     get "/projects/:project_id/tasks", TaskController, :by_project
     resources "/projects", ProjectController, except: [:new, :edit]
 

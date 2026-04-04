@@ -85,90 +85,30 @@ defmodule EmaWeb.ProjectController do
     end
   end
 
-  def context(conn, %{"slug" => slug}) do
-    case Projects.get_project_by_slug(slug) do
+  @doc """
+  GET /api/projects/:id/context
+
+  Returns a full project context bundle:
+    - project record
+    - tasks (linked by project_id)
+    - proposals (linked by project_id)
+    - executions (linked by project_slug, latest 10)
+    - campaign (latest Campaign record — no project FK yet)
+
+  Supports both id and slug as the :id path param (tries id first).
+  """
+  def context(conn, %{"id" => id_or_slug}) do
+    project =
+      Projects.get_project(id_or_slug) ||
+        Projects.get_project_by_slug(id_or_slug)
+
+    case project do
       nil ->
         {:error, :not_found}
 
       project ->
-        # Assemble full context: project + executions + proposals + tasks + intent
-        executions =
-          Ema.Executions.list_executions(project_slug: project.slug)
-          |> Enum.take(10)
-          |> Enum.map(fn e ->
-            %{id: e.id, title: e.title, mode: e.mode, status: e.status,
-              completed_at: e.completed_at, inserted_at: e.inserted_at}
-          end)
-
-        proposals =
-          Ema.Proposals.list_proposals(project_id: project.id)
-          |> Enum.take(10)
-          |> Enum.map(fn p ->
-            %{id: p.id, title: p.title, status: p.status,
-              confidence: p.confidence, inserted_at: p.inserted_at}
-          end)
-
-        tasks =
-          Ema.Tasks.list_tasks()
-          |> Enum.filter(fn t -> t.project_id == project.id end)
-          |> Enum.take(20)
-          |> Enum.map(fn t ->
-            %{id: t.id, title: t.title, status: t.status,
-              priority: t.priority, inserted_at: t.inserted_at}
-          end)
-
-        intent_nodes =
-          Ema.Intelligence.IntentMap.list_nodes(project_id: project.id)
-          |> Enum.map(fn n ->
-            %{id: n.id, title: n.title, status: n.status, level: n.level}
-          end)
-
-        # Context document (if exists)
-        context_path =
-          Path.join([
-            System.get_env("HOME", "~"),
-            ".local/share/ema/projects",
-            project.slug,
-            "context.md"
-          ])
-
-        context_content =
-          case File.read(context_path) do
-            {:ok, content} -> content
-            {:error, _} -> nil
-          end
-
-        active_campaign =
-          Ema.Executions.list_executions(project_slug: project.slug)
-          |> Enum.find(fn e -> e.status in ["running", "delegated", "harvesting"] end)
-          |> case do
-            nil -> nil
-            e -> %{
-              id: e.id,
-              title: e.title,
-              mode: e.mode,
-              status: e.status,
-              elapsed_seconds: DateTime.diff(DateTime.utc_now(), e.inserted_at),
-              inserted_at: e.inserted_at
-            }
-          end
-
-        json(conn, %{
-          project: serialize_project(project),
-          context: context_content,
-          executions: executions,
-          proposals: proposals,
-          tasks: tasks,
-          intent_threads: intent_nodes,
-          active_campaign: active_campaign,
-          stats: %{
-            total_executions: length(executions),
-            completed_executions: Enum.count(executions, &(&1.status == "completed")),
-            open_proposals: Enum.count(proposals, &(&1.status in ["queued", "reviewing"])),
-            active_tasks: Enum.count(tasks, &(&1.status in ["todo", "in_progress"])),
-            intent_nodes: length(intent_nodes)
-          }
-        })
+        context_data = Projects.get_context(project.id)
+        json(conn, context_data)
     end
   end
 
