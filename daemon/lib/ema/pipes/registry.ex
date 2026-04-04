@@ -406,7 +406,24 @@ defmodule Ema.Pipes.Registry do
         label: "Rebuild Project Context",
         description: "Force context document rebuild",
         schema: %{project_id: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          project_id = payload["project_id"] || payload[:project_id]
+
+          case safe_apply(Ema.Projects, :get_project, [project_id]) do
+            {:ok, nil} ->
+              {:error, :not_found}
+
+            {:ok, project} ->
+              # Rebuild context by re-fetching all fragments; this triggers
+              # ContextIndexer to re-derive and store updated embeddings.
+              ctx = Ema.Projects.get_context(project.id)
+              Phoenix.PubSub.broadcast(Ema.PubSub, "projects:context", {:context_rebuilt, project_id, ctx})
+              {:ok, %{project_id: project_id, rebuilt: true}}
+
+            error ->
+              error
+          end
+        end
       },
 
       # Responsibilities
@@ -430,7 +447,40 @@ defmodule Ema.Pipes.Registry do
         label: "Create Project Vault Space",
         description: "Bootstrap vault directory for new project",
         schema: %{project_id: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          project_id = payload["project_id"] || payload[:project_id]
+
+          case safe_apply(Ema.Projects, :get_project, [project_id]) do
+            {:ok, nil} ->
+              {:error, :not_found}
+
+            {:ok, project} ->
+              vault_root = Ema.SecondBrain.vault_root()
+              slug = project.slug || project_id
+              project_dir = Path.join([vault_root, "projects", slug])
+              subdirs = ["specs", "decisions", "notes", "context"]
+
+              results =
+                [project_dir | Enum.map(subdirs, &Path.join(project_dir, &1))]
+                |> Enum.map(fn dir ->
+                  case File.mkdir_p(dir) do
+                    :ok -> {:ok, dir}
+                    {:error, reason} -> {:error, {dir, reason}}
+                  end
+                end)
+
+              errors = Enum.filter(results, &match?({:error, _}, &1))
+
+              if Enum.empty?(errors) do
+                {:ok, %{project_id: project_id, vault_path: project_dir, dirs_created: length(results)}}
+              else
+                {:error, {:partial, errors}}
+              end
+
+            error ->
+              error
+          end
+        end
       },
       %Action{
         id: "vault:create_note",
@@ -458,7 +508,29 @@ defmodule Ema.Pipes.Registry do
         label: "Desktop Notification",
         description: "Send a desktop notification",
         schema: %{title: :string, body: :string},
-        execute: &noop_action/1
+        execute: fn payload ->
+          title = payload["title"] || payload[:title] || "EMA"
+          body  = payload["body"]  || payload[:body]  || payload["message"] || payload[:message] || ""
+          urgency = payload["urgency"] || payload[:urgency] || "normal"
+          require Logger
+
+          # Attempt notify-send (Linux), fall back to a log entry
+          case System.find_executable("notify-send") do
+            nil ->
+              Logger.info("[notify:desktop] #{title}: #{body}")
+              {:ok, :logged}
+
+            bin ->
+              {output, exit_code} = System.cmd(bin, ["--urgency=#{urgency}", title, body], stderr_to_stdout: true)
+
+              if exit_code == 0 do
+                {:ok, :sent}
+              else
+                Logger.warning("[notify:desktop] notify-send failed (#{exit_code}): #{output}")
+                {:ok, :fallback_logged}
+              end
+          end
+        end
       },
       %Action{
         id: "notify:log",
