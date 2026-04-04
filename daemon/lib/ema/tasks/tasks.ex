@@ -98,6 +98,23 @@ defmodule Ema.Tasks do
 
     case result do
       {:ok, task} ->
+        # Auto-route if no agent specified
+        task =
+          if is_nil(task.agent) do
+            routing = Ema.Routing.IntentRouter.route(task)
+
+            case update_task(task, %{
+                   agent: routing.recommended_agent,
+                   intent: to_string(routing.intent),
+                   intent_confidence: to_string(routing.confidence)
+                 }) do
+              {:ok, updated} -> updated
+              _ -> task
+            end
+          else
+            task
+          end
+
         Ema.Pipes.EventBus.broadcast_event("tasks:created", %{
           task_id: task.id,
           title: task.title,
@@ -122,8 +139,7 @@ defmodule Ema.Tasks do
         description: entry.description,
         attrs: entry.attrs
       })
-      File.write!(path, line <> "
-", [:append])
+      File.write!(path, line <> "\n", [:append])
     end
   end
 

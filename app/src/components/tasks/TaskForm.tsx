@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTasksStore } from "@/stores/tasks-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { GlassSelect } from "@/components/ui/GlassSelect";
+import { api } from "@/lib/api";
 
 interface TaskFormProps {
   readonly onClose: () => void;
@@ -16,6 +17,22 @@ const EFFORT_OPTIONS = [
   { value: "xl", label: "XL" },
 ] as const;
 
+const AGENT_EMOJI: Record<string, string> = {
+  researcher: "🔬",
+  coder: "💻",
+  "vault-keeper": "📚",
+  "devils-advocate": "😈",
+  security: "🛡️",
+  ops: "⚙️",
+};
+
+interface RoutingResult {
+  intent: string;
+  recommended_agent: string;
+  confidence: string;
+  reasoning: string;
+}
+
 interface DeliberationState {
   pending: boolean;
   keywords: string[];
@@ -29,19 +46,45 @@ export function TaskForm({ onClose }: TaskFormProps) {
   const [projectId, setProjectId] = useState("");
   const [effort, setEffort] = useState("");
   const [deliberation, setDeliberation] = useState<DeliberationState | null>(null);
+  const [routing, setRouting] = useState<RoutingResult | null>(null);
+  const [agentOverride, setAgentOverride] = useState<string>("");
   const createTask = useTasksStore((s) => s.createTask);
   const projects = useProjectsStore((s) => s.projects);
+
+  // Debounced routing preview
+  useEffect(() => {
+    if (description.length < 10) {
+      setRouting(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api.post<RoutingResult>("/routing/classify", { description });
+        setRouting(r);
+        if (!agentOverride) {
+          setAgentOverride(r.recommended_agent);
+        }
+      } catch {
+        // silently ignore classify errors
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [description]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const resolvedAgent = agentOverride || routing?.recommended_agent || null;
     const data = {
       title: title.trim(),
       description: description.trim() || null,
       priority,
       project_id: projectId || null,
       effort: effort || null,
+      agent: resolvedAgent,
+      intent_overridden:
+        agentOverride !== "" && agentOverride !== routing?.recommended_agent,
     };
 
     const result = await createTask(data);
@@ -59,8 +102,6 @@ export function TaskForm({ onClose }: TaskFormProps) {
   }
 
   async function handleGenerateProposal() {
-    // Call the proposal generation endpoint — for now navigate to proposals
-    // and close. The full integration would call POST /api/seeds with the task context.
     setDeliberation(null);
     onClose();
   }
@@ -75,6 +116,17 @@ export function TaskForm({ onClose }: TaskFormProps) {
   function handleCancelDeliberation() {
     setDeliberation(null);
   }
+
+  const routingBorderColor =
+    routing?.confidence === "high"
+      ? "rgba(34, 197, 94, 0.2)"
+      : "rgba(245, 158, 11, 0.2)";
+  const routingBg =
+    routing?.confidence === "high"
+      ? "rgba(34, 197, 94, 0.08)"
+      : "rgba(245, 158, 11, 0.08)";
+  const routingTextColor =
+    routing?.confidence === "high" ? "#22c55e" : "#f59e0b";
 
   return (
     <>
@@ -122,6 +174,51 @@ export function TaskForm({ onClose }: TaskFormProps) {
             }}
             placeholder="What needs to be done?"
           />
+
+          {routing && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "6px 10px",
+                borderRadius: 6,
+                marginTop: 4,
+                background: routingBg,
+                border: `1px solid ${routingBorderColor}`,
+              }}
+            >
+              <span style={{ fontSize: 11, color: routingTextColor }}>
+                {String.fromCodePoint(0x2192)}{" "}
+                {AGENT_EMOJI[routing.recommended_agent] ?? "🤖"}{" "}
+                {routing.recommended_agent}{" "}
+                <span style={{ opacity: 0.7 }}>
+                  ({routing.confidence} confidence)
+                </span>
+              </span>
+              <select
+                value={agentOverride}
+                onChange={(e) => setAgentOverride(e.target.value)}
+                style={{
+                  fontSize: 10,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 4,
+                  color: "var(--pn-text-secondary)",
+                  padding: "2px 4px",
+                  cursor: "pointer",
+                }}
+              >
+                {Object.entries(AGENT_EMOJI).map(([agent, emoji]) => (
+                  <option key={agent} value={agent}>
+                    {emoji} {agent}
+                  </option>
+                ))}
+                <option value="">auto</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3">
@@ -206,7 +303,6 @@ export function TaskForm({ onClose }: TaskFormProps) {
         </div>
       </form>
 
-      {/* Deliberation Gate Modal */}
       {deliberation?.pending && (
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
@@ -230,7 +326,10 @@ export function TaskForm({ onClose }: TaskFormProps) {
               </h3>
             </div>
 
-            <p className="text-[0.7rem] leading-relaxed" style={{ color: "var(--pn-text-secondary)" }}>
+            <p
+              className="text-[0.7rem] leading-relaxed"
+              style={{ color: "var(--pn-text-secondary)" }}
+            >
               This task looks structural (
               <span style={{ color: "#fbbf24", fontFamily: "monospace" }}>
                 {deliberation.keywords.join(", ")}

@@ -12,7 +12,10 @@ defmodule Ema.Harvesters.Supervisor do
         [
           {Task.Supervisor, name: Ema.Harvesters.TaskSupervisor},
           Ema.Harvesters.GitHarvester,
-          Ema.Harvesters.SessionHarvester
+          Ema.Harvesters.SessionHarvester,
+          Ema.Harvesters.VaultHarvester,
+          Ema.Harvesters.UsageHarvester,
+          Ema.Harvesters.BrainDumpHarvester
         ]
       else
         [{Task.Supervisor, name: Ema.Harvesters.TaskSupervisor}]

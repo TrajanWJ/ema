@@ -104,4 +104,177 @@ defmodule Ema.Campaigns do
     {:ok, dt, _} = DateTime.from_iso8601(iso_string)
     dt
   end
+
+  # ---------------------------------------------------------------------------
+  # Campaign Templates (new system — separate from Flow state machine)
+  # ---------------------------------------------------------------------------
+
+  alias Ema.Campaigns.Campaign
+  alias Ema.Campaigns.CampaignRun
+
+  def list_campaigns do
+    Campaign
+    |> order_by(desc: :inserted_at)
+    |> Repo.all()
+  end
+
+  def get_campaign(id), do: Repo.get(Campaign, id)
+  def get_campaign!(id), do: Repo.get!(Campaign, id)
+
+  def create_campaign(attrs) do
+    %Campaign{}
+    |> Campaign.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_campaign(%Campaign{} = campaign, attrs) do
+    campaign
+    |> Campaign.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_campaign(%Campaign{} = campaign) do
+    Repo.delete(campaign)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Campaign Runs
+  # ---------------------------------------------------------------------------
+
+  def list_runs_for_campaign(campaign_id) do
+    CampaignRun
+    |> where([r], r.campaign_id == ^campaign_id)
+    |> order_by(desc: :inserted_at)
+    |> Repo.all()
+  end
+
+  def get_run(id), do: Repo.get(CampaignRun, id)
+  def get_run!(id), do: Repo.get!(CampaignRun, id)
+
+  def start_run(campaign_id, run_name \\ nil) do
+    campaign = get_campaign!(campaign_id)
+
+    run_number = campaign.run_count + 1
+    name = run_name || "#{campaign.name} run ##{run_number}"
+
+    step_statuses =
+      campaign.steps
+      |> Enum.map(fn step -> {step["id"], %{"status" => "pending", "result" => nil}} end)
+      |> Map.new()
+
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    with {:ok, run} <-
+           Repo.insert(
+             CampaignRun.changeset(%CampaignRun{}, %{
+               campaign_id: campaign_id,
+               name: name,
+               status: "running",
+               step_statuses: step_statuses,
+               started_at: now
+             })
+           ),
+         {:ok, _campaign} <- update_campaign(campaign, %{run_count: run_number}) do
+      initial_steps =
+        Enum.filter(campaign.steps, fn step ->
+          deps = step["dependencies"] || []
+          deps == []
+        end)
+
+      Enum.each(initial_steps, &dispatch_step(&1, run, campaign))
+
+      Phoenix.PubSub.broadcast(Ema.PubSub, "campaigns:runs", {:run_started, run})
+      {:ok, run}
+    end
+  end
+
+  def step_completed(run_id, step_id, result) do
+    run = get_run!(run_id)
+    campaign = get_campaign!(run.campaign_id)
+
+    updated_statuses =
+      Map.update(run.step_statuses, step_id, %{}, fn s ->
+        Map.merge(s, %{"status" => "completed", "result" => result})
+      end)
+
+    {:ok, run} =
+      run
+      |> CampaignRun.changeset(%{step_statuses: updated_statuses})
+      |> Repo.update()
+
+    next_steps = find_ready_steps(campaign.steps, step_id, updated_statuses)
+    Enum.each(next_steps, &dispatch_step(&1, run, campaign))
+
+    if all_steps_done?(updated_statuses) do
+      complete_run(run)
+    else
+      {:ok, run}
+    end
+  end
+
+  defp dispatch_step(step, run, _campaign) do
+    updated_statuses =
+      Map.update(run.step_statuses, step["id"], %{}, fn s ->
+        Map.put(s, "status", "running")
+      end)
+
+    {:ok, updated_run} =
+      run
+      |> CampaignRun.changeset(%{step_statuses: updated_statuses})
+      |> Repo.update()
+
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "campaigns:runs",
+      {:step_started, updated_run, step["id"]}
+    )
+
+    Task.start(fn ->
+      Process.sleep(1_000)
+      step_completed(run.id, step["id"], "Step '#{step["label"]}' completed (mock)")
+    end)
+  end
+
+  defp find_ready_steps(steps, completed_step_id, updated_statuses) do
+    Enum.filter(steps, fn step ->
+      deps = step["dependencies"] || []
+      has_dep = Enum.member?(deps, completed_step_id)
+
+      if has_dep do
+        all_deps_done =
+          Enum.all?(deps, fn dep_id ->
+            get_in(updated_statuses, [dep_id, "status"]) == "completed"
+          end)
+
+        step_not_started = get_in(updated_statuses, [step["id"], "status"]) == "pending"
+        all_deps_done && step_not_started
+      else
+        false
+      end
+    end)
+  end
+
+  defp all_steps_done?(step_statuses) do
+    Enum.all?(step_statuses, fn {_id, s} ->
+      s["status"] in ["completed", "failed"]
+    end)
+  end
+
+  defp complete_run(run) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    result =
+      run
+      |> CampaignRun.changeset(%{status: "completed", completed_at: now})
+      |> Repo.update()
+
+    case result do
+      {:ok, r} ->
+        Phoenix.PubSub.broadcast(Ema.PubSub, "campaigns:runs", {:run_completed, r})
+        {:ok, r}
+
+      error ->
+        error
+    end
+  end
 end

@@ -102,7 +102,10 @@ defmodule Ema.Application do
 
   defp maybe_start_bridge do
     if Application.get_env(:ema, :ai_backend) == :bridge do
-      [Ema.Claude.BridgeSupervisor]
+      [
+        Ema.Claude.BridgeSupervisor,
+        {DynamicSupervisor, name: Ema.Claude.ExecutionSupervisor, strategy: :one_for_one}
+      ]
     else
       []
     end

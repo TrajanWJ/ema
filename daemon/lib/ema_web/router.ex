@@ -75,6 +75,10 @@ defmodule EmaWeb.Router do
     get "/projects/:project_id/tasks", TaskController, :by_project
     resources "/projects", ProjectController, except: [:new, :edit]
 
+    # Routing / Intent Classification
+    post "/routing/classify", RoutingController, :classify
+    get "/routing/stats", RoutingController, :stats
+
     # Tasks — specific routes before resources
     post "/tasks/:id/transition", TaskController, :transition
     post "/tasks/:id/comments", TaskController, :add_comment
@@ -119,6 +123,12 @@ defmodule EmaWeb.Router do
     get "/vault/graph/typed-neighbors/:id", VaultController, :typed_neighbors
     get "/vault/graph/orphans", VaultController, :orphans
 
+    # Obsidian Vault Bridge
+    get "/obsidian/notes", ObsidianVaultController, :index
+    get "/obsidian/search", ObsidianVaultController, :search
+    get "/obsidian/notes/*path", ObsidianVaultController, :show
+    post "/obsidian/notes", ObsidianVaultController, :create
+
     # Pipes — specific routes before resources to avoid :id shadowing
     get "/pipes/system", PipeController, :system_pipes
     get "/pipes/catalog", PipeController, :catalog
@@ -143,11 +153,17 @@ defmodule EmaWeb.Router do
     delete "/agents/:slug/channels/:id", AgentChannelController, :delete
     post "/agents/:slug/channels/:id/test", AgentChannelController, :test_connection
 
-    # Campaigns
+    # Campaigns (templates + runs)
     get "/campaigns", CampaignController, :index
     post "/campaigns", CampaignController, :create
     get "/campaigns/:id", CampaignController, :show
+    put "/campaigns/:id", CampaignController, :update
+    delete "/campaigns/:id", CampaignController, :delete
+    post "/campaigns/:id/run", CampaignController, :start_run
+    get "/campaigns/:id/runs", CampaignController, :list_runs
     post "/campaigns/:id/advance", CampaignController, :advance
+    # Campaign run detail
+    get "/campaign-runs/:id", CampaignController, :show_run
 
     # Notes
     resources "/notes", NotesController, except: [:new, :edit]

@@ -11,6 +11,10 @@ export interface Task {
   readonly project_id: string | null;
   readonly parent_id: string | null;
   readonly completed_at: string | null;
+  readonly agent: string | null;
+  readonly intent: string | null;
+  readonly intent_confidence: string | null;
+  readonly intent_overridden: boolean | null;
   readonly created_at: string;
 }
 

@@ -18,6 +18,12 @@ defmodule Ema.Tasks.Task do
     field :completed_at, :utc_datetime
     field :metadata, :map, default: %{}
 
+    # Intent Router fields
+    field :agent, :string
+    field :intent, :string
+    field :intent_confidence, :string
+    field :intent_overridden, :boolean, default: false
+
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :goal, Ema.Goals.Goal, type: :string
     belongs_to :parent, __MODULE__, type: :string
@@ -75,7 +81,11 @@ defmodule Ema.Tasks.Task do
       :project_id,
       :goal_id,
       :responsibility_id,
-      :parent_id
+      :parent_id,
+      :agent,
+      :intent,
+      :intent_confidence,
+      :intent_overridden
     ])
     |> validate_required([:id, :title])
     |> validate_inclusion(:status, @valid_statuses)

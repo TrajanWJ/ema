@@ -209,6 +209,10 @@ defmodule EmaWeb.TaskController do
       goal_id: task.goal_id,
       responsibility_id: task.responsibility_id,
       parent_id: task.parent_id,
+      agent: task.agent,
+      intent: task.intent,
+      intent_confidence: task.intent_confidence,
+      intent_overridden: task.intent_overridden,
       created_at: task.inserted_at,
       updated_at: task.updated_at
     }

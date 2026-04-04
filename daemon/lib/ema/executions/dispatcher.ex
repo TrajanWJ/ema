@@ -20,6 +20,7 @@ defmodule Ema.Executions.Dispatcher do
   alias Ema.Executions.Router
   alias Ema.Intelligence.ContextBuilder
   alias Ema.Intelligence.OutcomeTracker
+  alias Ema.Vault.VaultBridge
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -282,8 +283,9 @@ defmodule Ema.Executions.Dispatcher do
     """
   end
   defp capture_and_store_diff(execution) do
-    case capture_git_diff(execution) do
-      {:ok, nil} -> :ok
+    diff = case capture_git_diff(execution) do
+      {:ok, nil} ->
+        nil
       {:ok, diff} ->
         execution
         |> Ema.Executions.Execution.changeset(%{git_diff: diff})
@@ -294,8 +296,11 @@ defmodule Ema.Executions.Dispatcher do
           {:error, reason} ->
             Logger.warning("[Dispatcher] Failed to store git diff for #{execution.id}: #{inspect(reason)}")
         end
-      _ -> :ok
+      _ ->
+        nil
     end
+    VaultBridge.on_execution_completed(execution, diff)
+    :ok
   end
 
   defp capture_git_diff(execution) do
