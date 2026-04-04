@@ -5,7 +5,7 @@ defmodule Ema.Repo.Migrations.MigrateCampaignStatuses do
     execute "UPDATE campaigns SET status = 'forming' WHERE status = 'draft'"
     execute "UPDATE campaigns SET status = 'running' WHERE status = 'active'"
 
-    # SQLite doesn't support add_if_not_exists with references — use plain add
+    # SQLite doesn't support add with references — use plain add
     alter table(:campaigns) do
       add :project_id, :binary_id, null: true
     end

@@ -48,6 +48,8 @@ defmodule Ema.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
+      {:libcluster, "~> 3.3"},
+      {:delta_crdt, "~> 0.6"},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
       {:fuse, "~> 2.5"},

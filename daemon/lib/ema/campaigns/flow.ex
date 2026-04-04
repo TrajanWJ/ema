@@ -6,10 +6,10 @@ defmodule Ema.Campaigns.Flow do
     Forming → Ready → Running → Completed (sink: Archived)
 
   Valid transitions:
-    forming   → ready, archived
-    ready     → running, archived
-    running   → completed, forming, archived
-    completed → archived
+    forming    → developing, done (abandoned)
+    developing → testing, forming (rethink), done (abandoned)
+    testing    → done, developing (back)
+    done       → (terminal)
     archived  → (terminal)
 
   Each state records when it was entered and optional metadata.
@@ -21,14 +21,13 @@ defmodule Ema.Campaigns.Flow do
 
   @primary_key {:id, :string, autogenerate: false}
 
-  @states ~w(forming ready running completed archived)
+  @states ~w(forming developing testing done)
 
   @valid_transitions %{
-    "forming"   => ~w(ready archived),
-    "ready"     => ~w(running archived),
-    "running"   => ~w(completed forming archived),
-    "completed" => ~w(archived),
-    "archived"  => []
+    "forming"    => ~w(developing done),
+    "developing" => ~w(testing forming done),
+    "testing"    => ~w(done developing),
+    "done"       => []
   }
 
   schema "campaign_flows" do

@@ -18,7 +18,7 @@ defmodule Ema.Repo.Migrations.AddProposalPipelineFields do
   use Ecto.Migration
 
   def change do
-    # SQLite doesn't support add_if_not_exists in ALTER TABLE.
+    # SQLite doesn't support add in ALTER TABLE.
     # Use raw SQL with IF NOT EXISTS pattern via execute.
     execute(
       "ALTER TABLE proposals ADD COLUMN quality_score REAL",
