@@ -93,6 +93,14 @@ defmodule Ema.Application do
       Ema.Agents.OpenClawSync.sync()
     end)
 
+    # Populate SecondBrain FTS index on every boot (async, non-blocking)
+    if Application.get_env(:ema, :start_second_brain, true) do
+      Task.start(fn ->
+        Process.sleep(3_000)
+        Ema.SecondBrain.Indexer.reindex_all()
+      end)
+    end
+
     result
   end
 
