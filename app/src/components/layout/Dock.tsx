@@ -60,6 +60,8 @@ const DOCK_APPS = [
   { id: "dispatch-board", icon: "\uD83D\uDCE1", label: "Dispatch Board" },
   // Organizations & P2P
   { id: "org", icon: "\u2B21", label: "Organizations" },
+  // Learning Loop
+  { id: "outcome-dashboard", icon: "📊", label: "Outcome Dashboard" },
 ] as const;
 
 export function Dock() {

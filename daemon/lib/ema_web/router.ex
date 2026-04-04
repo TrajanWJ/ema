@@ -396,6 +396,10 @@ defmodule EmaWeb.Router do
     get "/team-pulse/agents", TeamPulseController, :agents
     get "/team-pulse/velocity", TeamPulseController, :velocity
 
+    # Metrics
+    get "/metrics/summary", MetricsController, :summary
+    get "/metrics/by_domain", MetricsController, :by_domain
+
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook
     post "/webhooks/discord", DiscordWebhookController, :webhook

@@ -503,5 +503,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#22C55E",
     icon: "\u{1F4CA}",
   },
+  "outcome-dashboard": {
+    title: "Outcome Dashboard",
+    defaultWidth: 1100,
+    defaultHeight: 780,
+    minWidth: 900,
+    minHeight: 620,
+    accent: "#2dd4a8",
+    icon: "\u{1F4CA}",
+  },
 } as const;
 

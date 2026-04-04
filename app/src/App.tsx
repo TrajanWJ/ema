@@ -63,6 +63,7 @@ import { CodeHealthDashboard } from "@/components/superman/CodeHealthDashboard";
 import { ProjectGraphApp } from "@/components/project-graph/ProjectGraphApp";
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
+import { OutcomeDashboard } from "@/components/outcome-dashboard/OutcomeDashboard";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -189,6 +190,8 @@ function AppContent() {
       return <ProjectGraphApp />;
     case "code-health":
       return <CodeHealthDashboard />;
+    case "outcome-dashboard":
+      return <OutcomeDashboard />;
     default:
       return (
         <Shell>
