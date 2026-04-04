@@ -386,4 +386,10 @@ defmodule Ema.Claude.Bridge do
     rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "bridge_#{ts}_#{rand}"
   end
+
+  defp generate_task_id do
+    ts = System.system_time(:millisecond) |> Integer.to_string()
+    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+    "ctask_#{ts}_#{rand}"
+  end
 end

@@ -2,7 +2,8 @@ defmodule Ema.Intelligence.OutcomeTracker do
   @moduledoc """
   Records every agent task outcome for performance and fitness tracking.
 
-  Writes to a JSON file at `@ema_tracker_path` (defaults to ~/.local/share/ema/outcome-tracker.json).
+  Writes to a JSON file at the configured tracker path
+  (defaults to ~/.local/share/ema/outcome-tracker.json).
   Keeps the last 500 entries. Safe to call from any process — uses a GenServer for serialized writes.
 
   Entry format:
@@ -12,11 +13,6 @@ defmodule Ema.Intelligence.OutcomeTracker do
   use GenServer
   require Logger
 
-  @ema_tracker_path Application.compile_env(
-                      :ema,
-                      :ema_tracker_path,
-                      Path.expand("~/.local/share/ema/outcome-tracker.json")
-                    )
   @max_entries 500
 
   # ── Public API ───────────────────────────────────────────────────────────────
@@ -40,6 +36,13 @@ defmodule Ema.Intelligence.OutcomeTracker do
   end
 
   @doc """
+  Return the N most recent outcomes for a given agent and domain pair.
+  """
+  def recent_for_domain(agent, domain, n) do
+    GenServer.call(__MODULE__, {:recent_for_agent_domain, agent, domain, n})
+  end
+
+  @doc """
   Return the raw list of all stored outcomes (newest first).
   """
   def all do
@@ -50,7 +53,7 @@ defmodule Ema.Intelligence.OutcomeTracker do
 
   @impl true
   def init(_opts) do
-    Logger.info("[Intelligence.OutcomeTracker] started — tracker: #{@ema_tracker_path}")
+    Logger.info("[Intelligence.OutcomeTracker] started — tracker: #{tracker_path()}")
     ensure_tracker_dir()
     {:ok, %{}}
   end
@@ -66,6 +69,18 @@ defmodule Ema.Intelligence.OutcomeTracker do
     result =
       read_tracker()
       |> Enum.filter(&(&1["domain"] == domain or &1["mode"] == domain))
+      |> Enum.take(n)
+
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:recent_for_agent_domain, agent, domain, n}, _from, state) do
+    result =
+      read_tracker()
+      |> Enum.filter(fn entry ->
+        entry["agent"] == agent and (entry["domain"] == domain or entry["mode"] == domain)
+      end)
       |> Enum.take(n)
 
     {:reply, result, state}
@@ -98,7 +113,7 @@ defmodule Ema.Intelligence.OutcomeTracker do
 
     case Jason.encode(updated, pretty: true) do
       {:ok, json} ->
-        case File.write(@ema_tracker_path, json) do
+        case File.write(tracker_path(), json) do
           :ok ->
             Logger.debug("[OutcomeTracker] Recorded outcome for #{execution.id}")
 
@@ -125,7 +140,7 @@ defmodule Ema.Intelligence.OutcomeTracker do
   end
 
   defp read_tracker do
-    case File.read(@ema_tracker_path) do
+    case File.read(tracker_path()) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, list} when is_list(list) -> list
@@ -138,11 +153,19 @@ defmodule Ema.Intelligence.OutcomeTracker do
   end
 
   defp ensure_tracker_dir do
-    dir = Path.dirname(@ema_tracker_path)
+    dir = Path.dirname(tracker_path())
 
     case File.mkdir_p(dir) do
       :ok -> :ok
       {:error, reason} -> Logger.warning("[OutcomeTracker] Could not create dir #{dir}: #{inspect(reason)}")
     end
+  end
+
+  defp tracker_path do
+    Application.get_env(
+      :ema,
+      :ema_tracker_path,
+      Path.expand("~/.local/share/ema/outcome-tracker.json")
+    )
   end
 end

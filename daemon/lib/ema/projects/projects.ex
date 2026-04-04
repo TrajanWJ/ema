@@ -6,6 +6,7 @@ defmodule Ema.Projects do
 
   import Ecto.Query
   alias Ema.Repo
+  alias Ema.Intelligence.ContextStore
   alias Ema.Projects.Project
 
   def list_projects do
@@ -60,6 +61,10 @@ defmodule Ema.Projects do
       nil -> nil
       project -> build_context(project)
     end
+  end
+
+  def list_context_fragments(project_slug, opts \\ []) do
+    ContextStore.list_fragments(project_slug, opts)
   end
 
   defp build_context(project) do

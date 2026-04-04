@@ -45,12 +45,14 @@ defmodule Ema.ProposalEngine.Generator do
       end
 
     gap_context = build_gap_context(seed)
+    relevant_code_context = build_relevant_code_context(project, seed)
 
     prompt =
       Ema.Claude.ContextManager.build_prompt(seed,
         project: project,
         stage: :generator,
-        gap_context: gap_context
+        gap_context: gap_context,
+        relevant_code_context: relevant_code_context
       )
 
     case Ema.Claude.AI.run(prompt) do
@@ -123,6 +125,17 @@ defmodule Ema.ProposalEngine.Generator do
   rescue
     _ -> nil
   end
+
+  defp build_relevant_code_context(%Ema.Projects.Project{slug: slug}, seed) do
+    task_title =
+      seed.name
+      |> to_string()
+      |> String.trim()
+
+    Ema.Intelligence.ContextFetcher.fetch(slug, task_title)
+  end
+
+  defp build_relevant_code_context(_, _), do: nil
 
   defp create_proposal_from_result(seed, result) do
     attrs = %{

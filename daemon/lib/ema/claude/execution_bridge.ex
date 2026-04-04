@@ -18,6 +18,8 @@ defmodule Ema.Claude.ExecutionBridge do
 
   require Logger
 
+  alias Ema.Intelligence.ReflexionInjector
+
   @max_concurrent 10
   @supervisor Ema.Claude.ExecutionSupervisor
 
@@ -37,6 +39,7 @@ defmodule Ema.Claude.ExecutionBridge do
   """
   def dispatch_async(prompt, opts \\ []) when is_binary(prompt) do
     execution_id = Keyword.get(opts, :execution_id, generate_id("exec"))
+    enriched_prompt = prepend_reflexion(prompt, opts)
 
     if at_capacity?() do
       Logger.warning("[ExecutionBridge] At capacity (#{@max_concurrent} concurrent). Rejecting #{execution_id}.")
@@ -46,13 +49,16 @@ defmodule Ema.Claude.ExecutionBridge do
         execution_id: execution_id,
         project_path: Keyword.get(opts, :project_path, System.get_env("HOME")),
         model: Keyword.get(opts, :model, "sonnet"),
-        proposal_id: Keyword.get(opts, :proposal_id)
+        proposal_id: Keyword.get(opts, :proposal_id),
+        agent: Keyword.get(opts, :agent, "claude"),
+        domain: Keyword.get(opts, :domain, "general"),
+        project_slug: Keyword.get(opts, :project_slug, "default")
       ]
 
       case DynamicSupervisor.start_child(@supervisor, {__MODULE__.Worker, bridge_opts}) do
         {:ok, pid} ->
           Task.start(fn ->
-            __MODULE__.Worker.run(pid, prompt)
+            __MODULE__.Worker.run(pid, enriched_prompt)
           end)
 
           broadcast(execution_id, :execution_started, %{
@@ -130,6 +136,21 @@ defmodule Ema.Claude.ExecutionBridge do
     rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "#{prefix}_#{ts}_#{rand}"
   end
+
+  defp prepend_reflexion(prompt, opts) do
+    prefix =
+      ReflexionInjector.build_prefix(
+        Keyword.get(opts, :agent, "claude"),
+        Keyword.get(opts, :domain, "general"),
+        Keyword.get(opts, :project_slug, "default")
+      )
+
+    prefix <> prompt
+  rescue
+    error ->
+      Logger.warning("[ExecutionBridge] Reflexion injection failed: #{inspect(error)}")
+      prompt
+  end
 end
 
 defmodule Ema.Claude.ExecutionBridge.Worker do
@@ -140,6 +161,8 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
 
   use GenServer
   require Logger
+
+  alias Ema.Intelligence.ReflexionStore
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
@@ -155,7 +178,10 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
       execution_id: Keyword.fetch!(opts, :execution_id),
       project_path: Keyword.get(opts, :project_path, System.get_env("HOME")),
       model: Keyword.get(opts, :model, "sonnet"),
-      proposal_id: Keyword.get(opts, :proposal_id)
+      proposal_id: Keyword.get(opts, :proposal_id),
+      agent: Keyword.get(opts, :agent, "claude"),
+      domain: Keyword.get(opts, :domain, "general"),
+      project_slug: Keyword.get(opts, :project_slug, "default")
     }
 
     {:ok, state}
@@ -168,8 +194,12 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
     result =
       Ema.Claude.Bridge.run(prompt,
         model: state.model,
-        proposal_id: state.proposal_id
+        proposal_id: state.proposal_id,
+        agent_id: state.agent,
+        task_type: state.domain
       )
+
+    record_reflexion(state, result)
 
     event_type = if match?({:ok, _}, result), do: :done, else: :error
 
@@ -186,5 +216,70 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
     )
 
     {:reply, result, state}
+  end
+
+  defp record_reflexion(state, {:ok, data}) do
+    summary = extract_result_summary(data)
+    lesson = extract_lesson(summary)
+
+    case ReflexionStore.record(state.agent, state.domain, state.project_slug, lesson, "success") do
+      {:ok, _} -> :ok
+      {:error, :empty_lesson} -> :ok
+      {:error, reason} ->
+        Logger.warning("[ExecutionBridge.Worker] Failed to store reflexion lesson: #{inspect(reason)}")
+    end
+  end
+
+  defp record_reflexion(state, {:error, reason}) do
+    lesson =
+      case reason do
+        %{message: message} when is_binary(message) -> message
+        message when is_binary(message) -> message
+        _ -> inspect(reason)
+      end
+
+    case ReflexionStore.record(state.agent, state.domain, state.project_slug, lesson, "failed") do
+      {:ok, _} -> :ok
+      {:error, :empty_lesson} -> :ok
+      {:error, error} ->
+        Logger.warning("[ExecutionBridge.Worker] Failed to store failed reflexion lesson: #{inspect(error)}")
+    end
+  end
+
+  defp extract_result_summary(%{"summary" => summary}) when is_binary(summary), do: summary
+  defp extract_result_summary(%{"result" => result}) when is_binary(result), do: result
+  defp extract_result_summary(%{summary: summary}) when is_binary(summary), do: summary
+  defp extract_result_summary(%{result: result}) when is_binary(result), do: result
+  defp extract_result_summary(result) when is_binary(result), do: result
+  defp extract_result_summary(result), do: inspect(result)
+
+  defp extract_lesson(summary) do
+    cleaned =
+      summary
+      |> String.replace(~r/```.*?```/s, "")
+      |> String.split("\n")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    lesson_line =
+      Enum.find_value(cleaned, fn line ->
+        case Regex.run(~r/^(?:[-*]\s*)?(?:key\s+)?lessons?\s*(?:learned)?\s*:\s*(.+)$/i, line) do
+          [_, lesson] -> normalize_line(lesson)
+          _ -> nil
+        end
+      end) || Enum.find_value(cleaned, &normalize_line/1) || ""
+
+    String.slice(lesson_line, 0, 2_000)
+  end
+
+  defp normalize_line(line) do
+    normalized =
+      line
+      |> String.replace_prefix("- ", "")
+      |> String.replace_prefix("* ", "")
+      |> String.replace_prefix("# ", "")
+      |> String.trim()
+
+    if normalized == "", do: nil, else: normalized
   end
 end

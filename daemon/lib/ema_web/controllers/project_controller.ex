@@ -112,6 +112,21 @@ defmodule EmaWeb.ProjectController do
     end
   end
 
+  def context_fragments(conn, %{"slug" => slug}) do
+    case Projects.get_project_by_slug(slug) do
+      nil ->
+        {:error, :not_found}
+
+      _project ->
+        fragments =
+          slug
+          |> Projects.list_context_fragments()
+          |> Enum.map(&serialize_context_fragment/1)
+
+        json(conn, %{project_slug: slug, fragments: fragments})
+    end
+  end
+
   defp serialize_project(project) do
     %{
       id: project.id,
@@ -128,6 +143,18 @@ defmodule EmaWeb.ProjectController do
       source_proposal_id: project.source_proposal_id,
       created_at: project.inserted_at,
       updated_at: project.updated_at
+    }
+  end
+
+  defp serialize_context_fragment(fragment) do
+    %{
+      id: fragment.id,
+      project_slug: fragment.project_slug,
+      fragment_type: fragment.fragment_type,
+      content: fragment.content,
+      file_path: fragment.file_path,
+      relevance_score: fragment.relevance_score,
+      inserted_at: fragment.inserted_at
     }
   end
 end

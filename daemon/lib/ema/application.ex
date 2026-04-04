@@ -36,6 +36,7 @@ defmodule Ema.Application do
         Ema.Intelligence.CostForecaster,
         Ema.Intelligence.SessionMemoryWatcher,
         Ema.Intelligence.GapScanner,
+        Ema.Intelligence.ContextIndexer,
         Ema.Intelligence.AgentSupervisor,
         Ema.Campaigns.CampaignManager,
         # CLI Manager — process registry and supervisor for session runners

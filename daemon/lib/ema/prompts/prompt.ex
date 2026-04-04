@@ -9,6 +9,9 @@ defmodule Ema.Prompts.Prompt do
                      (e.g. "proposal_generator", "context_builder", "debate_refiner")
     content        - the prompt body (text)
     a_b_test_group - optional group label for A/B testing ("control", "variant_a", etc.)
+    status         - lifecycle state ("active", "testing", "archived")
+    parent_prompt_id - original source prompt when this entry is a derived variant
+    control_prompt_id - control prompt under test for A/B variants
     metrics        - map of outcome signals (usage_count, success_rate, avg_score, etc.)
   """
 
@@ -18,21 +21,37 @@ defmodule Ema.Prompts.Prompt do
   @primary_key {:id, :string, autogenerate: false}
 
   schema "prompts" do
-    field :version,        :integer, default: 1
-    field :kind,           :string
-    field :content,        :string
-    field :a_b_test_group, :string
-    field :metrics,        :map,    default: %{}
+    field :version,           :integer, default: 1
+    field :kind,              :string
+    field :content,           :string
+    field :a_b_test_group,    :string
+    field :status,            :string, default: "active"
+    field :parent_prompt_id,  :string
+    field :control_prompt_id, :string
+    field :metrics,           :map, default: %{}
+    field :optimizer_metadata, :map, default: %{}
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(prompt, attrs) do
     prompt
-    |> cast(attrs, [:id, :version, :kind, :content, :a_b_test_group, :metrics])
+    |> cast(attrs, [
+      :id,
+      :version,
+      :kind,
+      :content,
+      :a_b_test_group,
+      :status,
+      :parent_prompt_id,
+      :control_prompt_id,
+      :metrics,
+      :optimizer_metadata
+    ])
     |> validate_required([:id, :kind, :content])
     |> validate_number(:version, greater_than: 0)
     |> validate_length(:kind, min: 1, max: 128)
     |> validate_length(:content, min: 1)
+    |> validate_inclusion(:status, ["active", "testing", "archived"])
   end
 end

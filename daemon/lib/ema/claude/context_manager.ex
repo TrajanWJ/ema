@@ -28,11 +28,13 @@ defmodule Ema.Claude.ContextManager do
   def build_prompt(seed, opts \\ []) do
     project = Keyword.get(opts, :project)
     stage = Keyword.get(opts, :stage, :generator)
+    relevant_code_context = Keyword.get(opts, :relevant_code_context)
 
     context = %{
       project_context: project && build_project_context(project),
       recent_proposals: build_recent_proposals(project, stage),
-      active_tasks: build_active_tasks(project)
+      active_tasks: build_active_tasks(project),
+      relevant_code_context: relevant_code_context
     }
 
     assemble(seed.prompt_template, context, stage)
@@ -102,7 +104,7 @@ defmodule Ema.Claude.ContextManager do
       context
       |> Enum.reject(fn {_k, v} -> is_nil(v) or v == [] end)
       |> Enum.map_join("\n\n", fn {key, value} ->
-        "## #{format_key(key)}\n#{format_value(value)}"
+        format_section(key, value)
       end)
 
     """
@@ -137,6 +139,14 @@ defmodule Ema.Claude.ContextManager do
     key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
   end
 
+  defp format_section(:relevant_code_context, value) do
+    "Relevant code context:\n#{format_value(value)}"
+  end
+
+  defp format_section(key, value) do
+    "## #{format_key(key)}\n#{format_value(value)}"
+  end
+
   defp format_value(value) when is_list(value) do
     value
     |> Enum.map_join("\n", fn item ->
@@ -155,7 +165,10 @@ defmodule Ema.Claude.ContextManager do
     "Project: #{name} (#{ctx.status})\n#{ctx.description || ""}"
   end
 
-  defp format_value(value) when is_binary(value), do: value
+  defp format_value(value) when is_binary(value) do
+    String.replace_prefix(value, "Relevant code context:\n", "")
+  end
+
   defp format_value(value), do: inspect(value)
 
   # ── MCP Resource Layer (new in Batch 2) ───────────────────────────────────

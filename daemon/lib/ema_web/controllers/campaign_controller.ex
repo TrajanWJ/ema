@@ -104,6 +104,19 @@ defmodule EmaWeb.CampaignController do
   # Legacy flow system
   # ---------------------------------------------------------------------------
 
+  def advance(conn, %{"id" => id, "status" => new_status}) do
+    case Campaigns.transition_campaign_by_id(id, new_status) do
+      {:ok, campaign} ->
+        json(conn, %{ok: true, campaign: campaign_json(campaign)})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      {:error, reason} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: reason})
+    end
+  end
+
   def advance(conn, %{"id" => id} = params) do
     metadata = Map.get(params, "metadata", %{})
 
