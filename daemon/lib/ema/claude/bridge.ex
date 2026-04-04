@@ -100,6 +100,66 @@ defmodule Ema.Claude.Bridge do
   end
 
   @doc """
+  Non-blocking Bridge dispatch with caller_pid OR callback support.
+
+  Canonical async API (Week 7 B3). Returns `{:ok, task_id}` immediately.
+  Result is delivered in two ways:
+    1. PubSub broadcast to `"claude:task:<task_id>"` as `{:done, task_id, result}`
+    2. If `callback_or_pid` is a function/1: called with the result
+    3. If `callback_or_pid` is a pid: `send(pid, {:bridge_result, task_id, result})`
+
+  ## Options
+    Same as `run/2` — :model, :timeout, :proposal_id, :agent_id, :task_type
+
+  ## Examples
+
+      # Fire-and-forget with PubSub result
+      {:ok, task_id} = Bridge.run_async("summarize this", [model: "haiku"])
+      Phoenix.PubSub.subscribe(Ema.PubSub, "claude:task:" <> task_id)
+      # receive {:done, ^task_id, result} -> ...
+
+      # Callback style
+      {:ok, _task_id} = Bridge.run_async("parse this", [], fn
+        {:ok, result} -> handle_result(result)
+        {:error, reason} -> Logger.error("AI failed: " <> inspect(reason))
+      end)
+
+      # Caller PID (message-passing)
+      {:ok, task_id} = Bridge.run_async("analyze this", [], self())
+      # receive {:bridge_result, ^task_id, {:ok, result}} -> ...
+  """
+  @spec run_async(String.t(), keyword(), (any() -> any()) | pid() | nil) :: {:ok, String.t()}
+  def run_async(prompt, opts \\ [], callback_or_pid \\ nil)
+      when is_binary(prompt) and is_list(opts) do
+    task_id = generate_task_id()
+
+    Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+      result = run(prompt, opts)
+
+      # 1. Always broadcast via PubSub
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "claude:task:#{task_id}",
+        {:done, task_id, result}
+      )
+
+      # 2. Deliver via callback or pid if provided
+      case callback_or_pid do
+        nil ->
+          :ok
+
+        f when is_function(f, 1) ->
+          f.(result)
+
+        pid when is_pid(pid) ->
+          send(pid, {:bridge_result, task_id, result})
+      end
+    end)
+
+    {:ok, task_id}
+  end
+
+  @doc """
   Send a prompt and stream events to a callback function.
   The callback receives tagged tuples from StreamParser.
   Returns immediately; events arrive asynchronously.
@@ -111,7 +171,7 @@ defmodule Ema.Claude.Bridge do
   @doc """
   Send a follow-up message in multi-turn mode.
   """
-  def send(pid, message) do
+  def send_message(pid, message) do
     GenServer.cast(pid, {:send, message})
   end
 
