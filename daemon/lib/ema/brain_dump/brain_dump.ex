@@ -133,6 +133,141 @@ defmodule Ema.BrainDump do
     end
   end
 
+  # --- Project linkage ---
+
+  @doc """
+  Link a brain dump item to an existing project.
+
+  Sets `project_id` on the item. Returns `{:ok, item}` or `{:error, reason}`.
+  """
+  def link_to_project(brain_dump_id, project_id) do
+    case get_item(brain_dump_id) do
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        item
+        |> Item.link_changeset(%{project_id: project_id})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Seed a new Project from the content of a brain dump item using Claude.
+
+  Asks Claude to derive a project name, slug, and description from the dump
+  content, creates the project, then links the brain dump item to it.
+
+  Returns `{:ok, project}` or `{:error, reason}`.
+  """
+  def seed_project_from_dump(brain_dump_id) do
+    require Logger
+
+    case get_item(brain_dump_id) do
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        prompt = build_project_seed_prompt(item.content)
+
+        case Ema.Claude.Bridge.run(prompt, task_type: "brain_dump_seed", agent_id: "brain_dump") do
+          {:ok, result} ->
+            text = extract_text_result(result)
+
+            with {:ok, project_attrs} <- parse_project_from_response(text),
+                 {:ok, project} <- Ema.Projects.create_project(project_attrs) do
+              case link_to_project(brain_dump_id, project.id) do
+                {:ok, _} ->
+                  :ok
+
+                {:error, reason} ->
+                  Logger.warning(
+                    "BrainDump.seed_project_from_dump: failed to link item #{brain_dump_id} " <>
+                      "to project #{project.id}: #{inspect(reason)}"
+                  )
+              end
+
+              Ema.Pipes.EventBus.broadcast_event("brain_dump:project_seeded", %{
+                item_id: brain_dump_id,
+                project_id: project.id
+              })
+
+              {:ok, project}
+            else
+              {:error, reason} ->
+                Logger.warning(
+                  "BrainDump.seed_project_from_dump: project creation failed: #{inspect(reason)}"
+                )
+
+                {:error, reason}
+            end
+
+          {:error, reason} ->
+            Logger.warning(
+              "BrainDump.seed_project_from_dump: Claude call failed: #{inspect(reason)}"
+            )
+
+            {:error, reason}
+        end
+    end
+  end
+
+  # --- Private helpers ---
+
+  defp build_project_seed_prompt(content) do
+    """
+    You are EMA, an AI chief of staff. A user has submitted the following brain dump idea:
+
+    ---
+    #{content}
+    ---
+
+    Based on this, generate a project definition. Respond with ONLY valid JSON in this exact format:
+
+    {
+      "name": "Project Name",
+      "slug": "project-slug",
+      "description": "One or two sentence description of what this project is about."
+    }
+
+    Rules:
+    - slug must be lowercase alphanumeric with hyphens only, max 40 chars
+    - name should be concise (2-5 words)
+    - description should capture the core intent
+    - No extra text, only the JSON object
+    """
+  end
+
+  defp extract_text_result(%{"content" => content}) when is_binary(content), do: content
+  defp extract_text_result(%{content: content}) when is_binary(content), do: content
+  defp extract_text_result(result) when is_binary(result), do: result
+  defp extract_text_result(result), do: inspect(result)
+
+  defp parse_project_from_response(text) do
+    json_str =
+      case Regex.run(~r/```(?:json)?\s*(\{.*?\})\s*```/ms, text, capture: :all_but_first) do
+        [json] ->
+          json
+
+        _ ->
+          case Regex.run(~r/(\{[^{}]+\})/ms, text, capture: :all_but_first) do
+            [json] -> json
+            _ -> text
+          end
+      end
+
+    case Jason.decode(String.trim(json_str)) do
+      {:ok, %{"name" => name, "slug" => slug, "description" => description}} ->
+        {:ok, %{name: name, slug: slug, description: description, status: "incubating"}}
+
+      {:ok, _} ->
+        {:error, :invalid_project_json}
+
+      {:error, reason} ->
+        {:error, {:json_parse_error, reason}}
+    end
+  end
+
   defp generate_id do
     timestamp = System.system_time(:millisecond) |> Integer.to_string()
     random = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)

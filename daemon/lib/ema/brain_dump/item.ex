@@ -32,4 +32,10 @@ defmodule Ema.BrainDump.Item do
     |> validate_required([:processed, :action])
     |> validate_inclusion(:action, @valid_actions)
   end
+
+  @doc "Cast project_id onto an existing item."
+  def link_changeset(item, attrs) do
+    item
+    |> cast(attrs, [:project_id])
+  end
 end
