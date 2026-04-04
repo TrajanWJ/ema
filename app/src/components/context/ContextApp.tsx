@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["context"];
 
 type Tab = "summary" | "sessions" | "crystallize";
 
@@ -24,7 +27,7 @@ export function ContextApp() {
   const tabs: Tab[] = ["summary", "sessions", "crystallize"];
 
   return (
-    <AppWindowChrome appId="context" title="Context">
+    <AppWindowChrome appId="context" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         <div style={{ display: "flex", gap: 2, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           {tabs.map((t) => (

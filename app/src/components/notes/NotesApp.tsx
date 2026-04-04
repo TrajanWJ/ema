@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["notes"];
 
 interface Note { id: string; title: string; content: string; updated_at: string; }
 
@@ -36,7 +39,7 @@ export function NotesApp() {
   };
 
   return (
-    <AppWindowChrome appId="notes" title="Notes">
+    <AppWindowChrome appId="notes" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
         <div style={{ width: 260, borderRight: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 6 }}>

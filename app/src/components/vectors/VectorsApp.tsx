@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const vectorsConfig = APP_CONFIGS["vectors"];
 
 interface VectorResult { id: string; title: string; snippet: string; score: number; source_type: string; }
 interface VectorStats { total_documents: number; index_size_mb: number; last_updated: string; }
@@ -30,7 +33,7 @@ export function VectorsApp() {
   };
 
   return (
-    <AppWindowChrome appId="vectors" title="Knowledge Search">
+    <AppWindowChrome appId="vectors" title={vectorsConfig.title} icon={vectorsConfig.icon} accent={vectorsConfig.accent}>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         <div style={{ display: "flex", gap: 2, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           {(["search", "stats"] as const).map((t) => (

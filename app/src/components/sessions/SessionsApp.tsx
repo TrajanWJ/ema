@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { useSessionsStore } from "@/stores/sessions-store";
 
+const cfg = APP_CONFIGS["sessions"];
+
 export function SessionsApp() {
-  const { sessions, loadSessions, selectedSessionId, selectSession } = useSessionsStore();
+  const { sessions, loadViaRest, selectedSessionId, selectSession } = useSessionsStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadSessions?.().finally(() => setLoading(false));
-  }, [loadSessions]);
+    loadViaRest?.().finally(() => setLoading(false));
+  }, [loadViaRest]);
 
   const selected = sessions.find((s) => s.id === selectedSessionId) ?? null;
   const activeCount = sessions.filter((s) => s.status === "running").length;
 
   return (
-    <AppWindowChrome appId="sessions" title="Sessions">
+    <AppWindowChrome appId="sessions" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         {/* Summary bar */}
         <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 24, fontSize: 13 }}>
@@ -47,7 +50,7 @@ export function SessionsApp() {
                 }} />
                 <div style={{ flex: 1, overflow: "hidden" }}>
                   <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {s.agent_id ?? s.id}
+                    {s.session_id ?? s.id}
                   </div>
                   <div style={{ fontSize: 11, opacity: 0.5 }}>{s.model}</div>
                 </div>
@@ -63,7 +66,7 @@ export function SessionsApp() {
               <div>
                 <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{selected.agent_id ?? selected.id}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{selected.session_id ?? selected.id}</div>
                     <div style={{ fontSize: 12, opacity: 0.5 }}>Model: {selected.model} · Status: {selected.status}</div>
                   </div>
                   <button

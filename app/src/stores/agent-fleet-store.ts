@@ -65,7 +65,7 @@ export const useAgentFleetStore = create<AgentFleetState>((set) => ({
       const res = await api.get<{ agents?: FleetAgent[]; data?: FleetAgent[] }>("/agents");
       const raw = res.agents ?? res.data ?? [];
       // Map agent controller response to fleet format
-      const agents: FleetAgent[] = raw.map((a: Record<string, unknown>) => ({
+      const agents: FleetAgent[] = raw.map((a) => ({
         id: (a.id as string) ?? "",
         name: (a.name as string) ?? (a.slug as string) ?? "unknown",
         slug: (a.slug as string) ?? "",
@@ -73,7 +73,7 @@ export const useAgentFleetStore = create<AgentFleetState>((set) => ({
         current_task: (a.current_task as string | null) ?? null,
         runtime_seconds: (a.runtime_seconds as number) ?? 0,
         token_count: (a.token_count as number) ?? 0,
-        project: (a.project as string | null) ?? (a.project_id as string | null) ?? null,
+        project: (a.project as string | null) ?? null,
         trust_score: (a.trust_score as TrustScore | null) ?? null,
         description: (a.description as string | null) ?? null,
         model: (a.model as string | null) ?? null,

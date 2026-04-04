@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["harvesters"];
 
 interface Harvester { name: string; last_run_at: string | null; status: string; items_count: number; }
 interface HarvestItem { id: string; harvester: string; title: string; created_at: string; }
@@ -26,7 +29,7 @@ export function HarvestersApp() {
   };
 
   return (
-    <AppWindowChrome appId="harvesters" title="Harvesters">
+    <AppWindowChrome appId="harvesters" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
           {loading && <div style={{ opacity: 0.5, fontSize: 13 }}>Loading…</div>}

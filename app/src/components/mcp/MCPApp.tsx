@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["mcp"];
 
 interface MCPTool { name: string; description: string; input_schema?: Record<string, unknown>; }
 
@@ -28,7 +31,7 @@ export function MCPApp() {
   };
 
   return (
-    <AppWindowChrome appId="mcp" title="MCP Tools">
+    <AppWindowChrome appId="mcp" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
         <div style={{ width: 260, borderRight: "1px solid rgba(255,255,255,0.08)", overflowY: "auto" }}>
           {loading && <div style={{ padding: 16, opacity: 0.5, fontSize: 13 }}>Loading tools…</div>}

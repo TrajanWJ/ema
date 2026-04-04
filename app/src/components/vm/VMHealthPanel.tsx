@@ -59,13 +59,12 @@ interface Container {
 function getContainerHealth(container: Container): { color: string; bg: string; label: string } {
   const state = container.state ?? container.State ?? "unknown";
   const health = container.health ?? "";
-  const running = state === "running";
 
-  if (!running || state === "exited" || state === "dead") {
+  if (state !== "running") {
     return { color: "#EF4444", bg: "rgba(239,68,68,0.15)", label: "stopped" };
   }
-  if (health === "unhealthy" || state === "restarting") {
-    return { color: "#f59e0b", bg: "rgba(245,158,11,0.15)", label: health || state };
+  if (health === "unhealthy") {
+    return { color: "#f59e0b", bg: "rgba(245,158,11,0.15)", label: health };
   }
   return { color: "#22C55E", bg: "rgba(34,197,94,0.15)", label: health || "running" };
 }

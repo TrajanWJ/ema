@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["briefing"];
 
 interface Today { one_thing: string | null; date: string; }
 interface TemporalCtx { time_of_day: string; estimated_energy: number; recommended_task_type: string; }
@@ -46,7 +49,7 @@ export function BriefingApp() {
   );
 
   return (
-    <AppWindowChrome appId="briefing" title="Daily Brief">
+    <AppWindowChrome appId="briefing" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ padding: "16px 20px", overflowY: "auto", height: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>

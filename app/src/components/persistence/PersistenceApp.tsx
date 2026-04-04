@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["persistence"];
 
 interface DBTable { name: string; row_count: number; size_mb: number; }
 interface DBStats { tables: DBTable[]; total_size_mb: number; last_backup_at: string | null; }
@@ -24,7 +27,7 @@ export function PersistenceApp() {
   };
 
   return (
-    <AppWindowChrome appId="persistence" title="Persistence">
+    <AppWindowChrome appId="persistence" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
         {loading && <div style={{ opacity: 0.5, fontSize: 13 }}>Loading…</div>}
         {stats && (

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
+
+const cfg = APP_CONFIGS["build-it"];
 
 type Step = 1 | 2 | 3;
 interface TaskItem { id: string; mode: string; description: string; }
@@ -54,7 +57,7 @@ export function BuildItApp() {
   const modeColor = (m: string) => m === "research" ? "#60a5fa" : m === "implement" ? "#a78bfa" : "#34d399";
 
   return (
-    <AppWindowChrome appId="build-it" title="Build It">
+    <AppWindowChrome appId="build-it" title={cfg.title} icon={cfg.icon} accent={cfg.accent}>
       <div style={{ padding: 24, overflowY: "auto", height: "100%", maxWidth: 600, margin: "0 auto" }}>
         {/* Steps */}
         <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
