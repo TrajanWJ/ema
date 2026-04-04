@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { NativeSelect } from "@/components/ui/NativeSelect";
@@ -418,6 +418,62 @@ function ExecutionCard({ execution, selected, onSelect, onApprove, onCancel }: {
   );
 }
 
+
+function ExecutionLog({ executionId, isRunning }: { readonly executionId: string; readonly isRunning: boolean }) {
+  const [lines, setLines] = useState<string[]>([]);
+  const { subscribeToStream } = useExecutionStore();
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    setLines([]);
+    const unsubscribe = subscribeToStream(executionId, (chunk) => {
+      const newLines = chunk.split("\n").filter((l) => l.trim().length > 0);
+      setLines((prev) => [...prev, ...newLines].slice(-500));
+    });
+    return unsubscribe;
+  }, [executionId, isRunning, subscribeToStream]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [lines]);
+
+  if (!isRunning) {
+    return (
+      <div style={{ fontSize: 11, color: "var(--pn-text-muted)", fontStyle: "italic", padding: "8px 0" }}>
+        Live stream not available — execution not running
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        fontFamily: "JetBrains Mono, monospace",
+        fontSize: 11,
+        background: "rgba(0,0,0,0.5)",
+        color: "#4ade80",
+        padding: "10px 12px",
+        borderRadius: 8,
+        height: 200,
+        overflowY: "auto",
+        border: "1px solid rgba(74,222,128,0.15)",
+      }}
+    >
+      {lines.length === 0 ? (
+        <span style={{ color: "rgba(74,222,128,0.5)" }}>Waiting for output...</span>
+      ) : (
+        lines.map((line, i) => (
+          <div key={i} style={{ lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+            {line}
+          </div>
+        ))
+      )}
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
 function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel }: {
   readonly execution: Execution;
   readonly events: readonly ExecutionEvent[];
@@ -514,6 +570,18 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
             Cancel
           </button>
         )}
+      </div>
+
+
+      {/* Live Output Stream */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 500, color: "var(--pn-text-secondary)", marginBottom: 8 }}>
+          Live Output
+        </div>
+        <ExecutionLog
+          executionId={execution.id}
+          isRunning={execution.status === "running"}
+        />
       </div>
 
       {/* Events timeline */}

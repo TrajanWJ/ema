@@ -15,13 +15,24 @@ defmodule EmaWeb.ExecutionChannel do
     {:ok, %{executions: executions}, socket}
   end
 
-  def join("executions:" <> id, _payload, socket) do
-    case Executions.get_execution(id) do
-      nil -> {:error, %{reason: "not_found"}}
-      execution ->
-        events = Executions.list_events(id) |> Enum.map(&serialize_event/1)
-        sessions = Executions.list_agent_sessions(id) |> Enum.map(&serialize_session/1)
-        {:ok, %{execution: serialize(execution), events: events, sessions: sessions}, socket}
+  def join("executions:" <> rest, _payload, socket) do
+    case String.split(rest, ":") do
+      [execution_id, "stream"] ->
+        # Subscribe to live stream output for this execution
+        Phoenix.PubSub.subscribe(Ema.PubSub, "executions:#{execution_id}:stream")
+        {:ok, %{streaming: true}, assign(socket, :stream_execution_id, execution_id)}
+
+      [execution_id] ->
+        case Executions.get_execution(execution_id) do
+          nil -> {:error, %{reason: "not_found"}}
+          execution ->
+            events = Executions.list_events(execution_id) |> Enum.map(&serialize_event/1)
+            sessions = Executions.list_agent_sessions(execution_id) |> Enum.map(&serialize_session/1)
+            {:ok, %{execution: serialize(execution), events: events, sessions: sessions}, socket}
+        end
+
+      _ ->
+        {:error, %{reason: "invalid_topic"}}
     end
   end
 
@@ -44,6 +55,12 @@ defmodule EmaWeb.ExecutionChannel do
 
   def handle_info({"execution:updated", %Ema.Executions.Execution{} = execution}, socket) do
     push(socket, "execution_updated", %{execution: serialize(execution)})
+    {:noreply, socket}
+  end
+
+  # Relay live stream chunks to subscribed WebSocket clients
+  def handle_info({:stream_chunk, %{execution_id: execution_id, chunk: chunk, timestamp: ts}}, socket) do
+    push(socket, "stream_chunk", %{execution_id: execution_id, chunk: chunk, timestamp: ts})
     {:noreply, socket}
   end
 

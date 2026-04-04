@@ -99,13 +99,13 @@ defmodule Ema.Executions.Dispatcher do
           {:ok, text} -> {:ok, text}
           {:error, :openclaw_unavailable} ->
             Logger.info("[Dispatcher] OpenClaw unavailable, falling back to local Claude")
-            local_claude_run(prompt)
+            local_claude_run(execution, prompt)
           {:error, reason} ->
             Logger.warning("[Dispatcher] OpenClaw failed (#{inspect(reason)}), falling back to local Claude")
-            local_claude_run(prompt)
+            local_claude_run(execution, prompt)
         end
       else
-        local_claude_run(prompt)
+        local_claude_run(execution, prompt)
       end
 
     case result do
@@ -124,10 +124,80 @@ defmodule Ema.Executions.Dispatcher do
     end
   end
 
-  defp local_claude_run(prompt) do
-    case Ema.Claude.AI.run(prompt, timeout: 300_000) do
-      {:ok, result} -> {:ok, extract_result_text(result)}
-      {:error, _} = err -> err
+  defp local_claude_run(execution, prompt) do
+    execution_id = execution.id
+
+    # Attempt streaming via Bridge — broadcasts live output chunks to PubSub.
+    # Falls back to AI.run (Runner) if Bridge module is not loaded.
+    if Code.ensure_loaded?(Ema.Claude.Bridge) do
+      project_path =
+        case Ema.Projects.get_project(execution.project_slug) do
+          nil -> File.cwd!()
+          project -> project.path || File.cwd!()
+        end
+
+      {:ok, bridge} =
+        Ema.Claude.Bridge.start_link(
+          project_path: project_path,
+          session_id: "exec_#{execution_id}"
+        )
+
+      result_ref = make_ref()
+      parent = self()
+
+      Ema.Claude.Bridge.stream(bridge, prompt, fn event ->
+        case event do
+          {:text, text} ->
+            Phoenix.PubSub.broadcast(
+              Ema.PubSub,
+              "executions:#{execution_id}:stream",
+              {:stream_chunk, %{execution_id: execution_id, chunk: text, timestamp: System.system_time(:millisecond)}}
+            )
+
+          {:result, data} ->
+            send(parent, {result_ref, {:ok, data}})
+
+          {:exit, %{status: 0}} ->
+            send(parent, {result_ref, {:exit_ok, nil}})
+
+          {:exit, data} ->
+            send(parent, {result_ref, {:error, data}})
+
+          {:error, data} ->
+            send(parent, {result_ref, {:error, data}})
+
+          _ ->
+            :ok
+        end
+      end)
+
+      receive do
+        {^result_ref, {:ok, result}} ->
+          Ema.Claude.Bridge.stop(bridge)
+          {:ok, extract_result_text(result)}
+
+        {^result_ref, {:exit_ok, _}} ->
+          # Exit 0 without a result event — fallback to runner for the final parsed result
+          Ema.Claude.Bridge.stop(bridge)
+          case Ema.Claude.AI.run(prompt, timeout: 300_000) do
+            {:ok, result} -> {:ok, extract_result_text(result)}
+            {:error, _} = err -> err
+          end
+
+        {^result_ref, {:error, reason}} ->
+          Ema.Claude.Bridge.stop(bridge)
+          {:error, reason}
+      after
+        300_000 ->
+          Ema.Claude.Bridge.stop(bridge)
+          {:error, :timeout}
+      end
+    else
+      Logger.info("[Dispatcher] Bridge not available for #{execution_id}, using Runner")
+      case Ema.Claude.AI.run(prompt, timeout: 300_000) do
+        {:ok, result} -> {:ok, extract_result_text(result)}
+        {:error, _} = err -> err
+      end
     end
   end
 
@@ -211,3 +281,4 @@ defmodule Ema.Executions.Dispatcher do
     """
   end
 end
+

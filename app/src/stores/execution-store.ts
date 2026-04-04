@@ -12,6 +12,7 @@ interface ExecutionState {
   channel: Channel | null;
   statusFilter: string | null;
   modeFilter: string | null;
+  streamChannels: Record<string, Channel>;
 
   setStatusFilter: (s: string | null) => void;
   setModeFilter: (m: string | null) => void;
@@ -22,6 +23,7 @@ interface ExecutionState {
   cancel: (id: string) => Promise<void>;
   complete: (id: string, resultSummary?: string) => Promise<void>;
   create: (data: Partial<Execution> & { title: string }) => Promise<Execution>;
+  subscribeToStream: (executionId: string, onChunk: (chunk: string) => void) => () => void;
 
   filteredExecutions: () => readonly Execution[];
 }
@@ -34,6 +36,7 @@ export const useExecutionStore = create<ExecutionState>((set, get) => ({
   channel: null,
   statusFilter: null,
   modeFilter: null,
+  streamChannels: {},
 
   setStatusFilter(s) { set({ statusFilter: s }); },
   setModeFilter(m) { set({ modeFilter: m }); },
@@ -113,5 +116,38 @@ export const useExecutionStore = create<ExecutionState>((set, get) => ({
     const result = await api.post<{ execution: Execution }>("/executions", data);
     set((state) => ({ executions: [result.execution, ...state.executions] }));
     return result.execution;
+  },
+
+  subscribeToStream(executionId, onChunk) {
+    let cleanedUp = false;
+    let ch: Channel | null = null;
+
+    joinChannel(`executions:${executionId}:stream`)
+      .then(({ channel }) => {
+        if (cleanedUp) {
+          channel.leave();
+          return;
+        }
+        ch = channel;
+        set((state) => ({
+          streamChannels: { ...state.streamChannels, [executionId]: channel },
+        }));
+        channel.on("stream_chunk", ({ chunk }: { chunk: string }) => {
+          if (!cleanedUp) onChunk(chunk);
+        });
+      })
+      .catch(() => {
+        // Streaming not available — graceful degradation
+      });
+
+    return () => {
+      cleanedUp = true;
+      ch?.leave();
+      set((state) => {
+        const next = { ...state.streamChannels };
+        delete next[executionId];
+        return { streamChannels: next };
+      });
+    };
   },
 }));
