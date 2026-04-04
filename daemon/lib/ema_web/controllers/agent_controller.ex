@@ -1,8 +1,9 @@
 defmodule EmaWeb.AgentController do
   use EmaWeb, :controller
+  require Logger
 
   alias Ema.Agents
-  alias Ema.Agents.ApiChannel
+  alias Ema.Agents.AgentWorker
   alias Ema.Intelligence.TrustScorer
 
   action_fallback EmaWeb.FallbackController
@@ -101,33 +102,24 @@ defmodule EmaWeb.AgentController do
   end
 
   def chat(conn, %{"slug" => slug} = params) do
-    message = params["message"]
-    conversation_id = params["conversation_id"]
+    message = params["message"] || params["prompt"] || ""
+    context = Map.get(params, "context", %{})
 
-    opts =
-      [conversation_id: conversation_id]
-      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-
-    case ApiChannel.chat(slug, message, opts) do
-      {:ok, result} ->
-        json(conn, %{
-          reply: result.reply,
-          conversation_id: result.conversation_id,
-          tool_calls: result.tool_calls
-        })
+    case AgentWorker.dispatch_to_domain(slug, message, context) do
+      {:ok, response} ->
+        json(conn, %{ok: true, response: response, agent: slug})
 
       {:error, :agent_not_found} ->
-        {:error, :not_found}
-
-      {:error, :agent_inactive} ->
         conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "agent_inactive", message: "Agent is not active"})
+        |> put_status(:not_found)
+        |> json(%{error: "Agent not found: #{slug}"})
 
       {:error, reason} ->
+        Logger.warning("[AgentController] chat failed for #{slug}: #{inspect(reason)}")
+
         conn
         |> put_status(:internal_server_error)
-        |> json(%{error: "chat_failed", message: inspect(reason)})
+        |> json(%{error: "Agent dispatch failed", detail: inspect(reason)})
     end
   end
 

@@ -67,6 +67,38 @@ defmodule EmaWeb.ExecutionController do
     end)})
   end
 
+
+  def diff(conn, %{"id" => id}) do
+    case Ema.Executions.get_execution(id) do
+      nil ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+      execution ->
+        {files_changed, lines_added, lines_removed} = parse_diff_stats(execution.git_diff)
+        json(conn, %{
+          execution_id: id,
+          git_diff: execution.git_diff,
+          files_changed: files_changed,
+          lines_added: lines_added,
+          lines_removed: lines_removed
+        })
+    end
+  end
+
+  defp parse_diff_stats(nil), do: {0, 0, 0}
+  defp parse_diff_stats(diff) do
+    lines = String.split(diff, "\n")
+    files_changed = Enum.count(lines, &String.starts_with?(&1, "diff --git"))
+    lines_added =
+      lines
+      |> Enum.filter(&(String.starts_with?(&1, "+") and not String.starts_with?(&1, "+++")))
+      |> length()
+    lines_removed =
+      lines
+      |> Enum.filter(&(String.starts_with?(&1, "-") and not String.starts_with?(&1, "---")))
+      |> length()
+    {files_changed, lines_added, lines_removed}
+  end
+
   defp serialize(e) do
     %{
       id: e.id, title: e.title, objective: e.objective,

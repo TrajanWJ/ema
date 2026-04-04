@@ -88,6 +88,7 @@ defmodule EmaWeb.Router do
     post "/proposals/generate", ProposalController, :generate
     get "/proposals/pipelines", ProposalController, :pipelines
     get "/proposals/budget", ProposalController, :budget
+    get "/proposals/compare", ProposalController, :compare
     get "/proposals/:id", ProposalController, :show
     get "/proposals/:id/cost", ProposalController, :cost
     post "/proposals/:id/approve", ProposalController, :approve
@@ -141,6 +142,12 @@ defmodule EmaWeb.Router do
     put "/agents/:slug/channels/:id", AgentChannelController, :update
     delete "/agents/:slug/channels/:id", AgentChannelController, :delete
     post "/agents/:slug/channels/:id/test", AgentChannelController, :test_connection
+
+    # Campaigns
+    get "/campaigns", CampaignController, :index
+    post "/campaigns", CampaignController, :create
+    get "/campaigns/:id", CampaignController, :show
+    post "/campaigns/:id/advance", CampaignController, :advance
 
     # Notes
     resources "/notes", NotesController, except: [:new, :edit]
@@ -232,6 +239,7 @@ defmodule EmaWeb.Router do
     post "/executions/:id/cancel", ExecutionController, :cancel
     get "/executions/:id/events", ExecutionController, :events
     get "/executions/:id/agent-sessions", ExecutionController, :agent_sessions
+    get "/executions/:id/diff", ExecutionController, :diff
     post "/executions/:id/complete", ExecutionController, :complete
     get "/intents/:project_slug/:intent_slug/status", ExecutionController, :intent_status
 

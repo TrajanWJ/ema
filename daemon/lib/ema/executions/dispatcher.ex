@@ -113,6 +113,7 @@ defmodule Ema.Executions.Dispatcher do
         Ema.Executions.complete_agent_session(agent_session.id, result_text)
         Ema.Executions.on_execution_completed(execution.id, result_text)
         OutcomeTracker.record(execution)
+        capture_and_store_diff(execution)
 
       {:error, reason} ->
         Logger.error("[Dispatcher] All dispatch paths failed for #{execution.id}: #{inspect(reason)}")
@@ -280,5 +281,48 @@ defmodule Ema.Executions.Dispatcher do
     Begin. Read the specified files, complete the objective, write outputs to specified paths.
     """
   end
+  defp capture_and_store_diff(execution) do
+    case capture_git_diff(execution) do
+      {:ok, nil} -> :ok
+      {:ok, diff} ->
+        execution
+        |> Ema.Executions.Execution.changeset(%{git_diff: diff})
+        |> Ema.Repo.update()
+        |> case do
+          {:ok, _} ->
+            Logger.info("[Dispatcher] Stored git diff for #{execution.id} (#{byte_size(diff)} bytes)")
+          {:error, reason} ->
+            Logger.warning("[Dispatcher] Failed to store git diff for #{execution.id}: #{inspect(reason)}")
+        end
+      _ -> :ok
+    end
+  end
+
+  defp capture_git_diff(execution) do
+    project_path = get_project_path(execution.project_slug)
+    case project_path do
+      nil -> {:ok, nil}
+      path ->
+        case System.cmd("git", ["diff", "HEAD~1", "HEAD", "--stat", "--patch"],
+                        cd: path, stderr_to_stdout: true) do
+          {output, 0} when byte_size(output) > 0 -> {:ok, output}
+          _ ->
+            case System.cmd("git", ["diff", "--stat", "--patch"], cd: path, stderr_to_stdout: true) do
+              {output2, _} when byte_size(output2) > 0 -> {:ok, output2}
+              _ -> {:ok, nil}
+            end
+        end
+    end
+  end
+
+  defp get_project_path(project_slug) do
+    paths = [
+      "/home/trajan/Projects/#{project_slug}",
+      "/home/trajan/Desktop/Coding/#{project_slug}",
+      "/home/trajan/#{project_slug}"
+    ]
+    Enum.find(paths, &File.dir?/1)
+  end
+
 end
 

@@ -160,6 +160,19 @@ defmodule EmaWeb.ProposalController do
     })
   end
 
+  @doc """
+  GET /api/proposals/compare?ids[]=id1&ids[]=id2
+  Compare multiple proposals by IDs.
+  """
+  def compare(conn, %{"ids" => ids}) when is_list(ids) do
+    proposals = Proposals.compare_proposals(ids) |> Enum.map(&serialize_proposal/1)
+    json(conn, %{proposals: proposals})
+  end
+
+  def compare(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "ids parameter required"})
+  end
+
   # ── Private helpers ────────────────────────────────────────────────────────
 
   defp fetch_seed(nil), do: {:error, :bad_request}

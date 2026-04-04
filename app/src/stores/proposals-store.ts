@@ -28,6 +28,10 @@ interface ProposalsState {
   runSeedNow: (id: string) => Promise<void>;
   streamingStatus: Record<string, "idle" | "generating" | "refining" | "reviewing">;
   setStreamingStatus: (id: string, status: "idle" | "generating" | "refining" | "reviewing") => void;
+  selectedForComparison: string[];
+  toggleComparisonSelection: (id: string) => void;
+  clearComparisonSelection: () => void;
+  compareProposals: (ids: string[]) => Promise<Proposal[]>;
 }
 
 export const useProposalsStore = create<ProposalsState>((set) => ({
@@ -41,6 +45,7 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
   sortDir: "desc",
   filterMinScore: 0,
   streamingStatus: {} as Record<string, "idle" | "generating" | "refining" | "reviewing">,
+  selectedForComparison: [],
 
   setSortKey(key) {
     set({ sortKey: key });
@@ -58,6 +63,27 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
     set((state) => ({
       streamingStatus: { ...state.streamingStatus, [id]: status },
     }));
+  },
+
+  toggleComparisonSelection(id) {
+    set((state) => {
+      const selected = state.selectedForComparison;
+      if (selected.includes(id)) {
+        return { selectedForComparison: selected.filter((s) => s !== id) };
+      }
+      if (selected.length >= 3) return state;
+      return { selectedForComparison: [...selected, id] };
+    });
+  },
+
+  clearComparisonSelection() {
+    set({ selectedForComparison: [] });
+  },
+
+  async compareProposals(ids) {
+    const params = ids.map((id) => `ids[]=${id}`).join("&");
+    const data = await api.get<{ proposals: Proposal[] }>(`/proposals/compare?${params}`);
+    return data.proposals;
   },
 
   async loadViaRest() {

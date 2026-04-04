@@ -10,6 +10,7 @@ defmodule Ema.Agents.AgentWorker do
   alias Ema.Agents
   alias Ema.Claude.Bridge
   alias Ema.Claude.Adapters.OpenClaw, as: OpenClawAdapter
+  alias Ema.Claude.ContextInjector
 
   # --- Public API ---
 
@@ -51,6 +52,35 @@ defmodule Ema.Agents.AgentWorker do
     GenServer.call(via(agent_id), :get_state)
   end
 
+  def dispatch_to_domain(agent_slug, user_message, context \\ %{}) do
+    requested_keys =
+      context
+      |> requested_context_keys()
+      |> Kernel.++(tool_context_keys(agent_slug))
+      |> Enum.uniq()
+
+    with {:ok, agent} <- fetch_agent(agent_slug),
+         {:ok, system_prompt} <- load_system_prompt(agent),
+         {:ok, injected_context} <-
+           ContextInjector.build_context(
+             %{type: :domain_request, agent: agent_slug, message: user_message},
+             requested_keys
+           ),
+         full_prompt <- build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context)),
+         {:ok, response} <-
+           Bridge.run(
+             full_prompt,
+             model: agent.model,
+             max_tokens: agent.max_tokens,
+             temperature: agent.temperature,
+             session_id: "domain-#{agent_slug}",
+             agent_id: agent.id,
+             task_type: "domain_dispatch"
+           ) do
+      {:ok, extract_bridge_text(response)}
+    end
+  end
+
   @doc "Check if this agent should autonomously respond to a message based on personality/config."
   def should_respond?(agent_id, message_content, channel_type) do
     case Registry.lookup(Ema.Agents.Registry, {:worker, agent_id}) do
@@ -79,6 +109,82 @@ defmodule Ema.Agents.AgentWorker do
   defp via(agent_id) do
     {:via, Registry, {Ema.Agents.Registry, {:worker, agent_id}}}
   end
+
+  defp fetch_agent(slug) do
+    case Agents.get_agent_by_slug(slug) do
+      nil -> {:error, :agent_not_found}
+      agent -> {:ok, agent}
+    end
+  end
+
+  defp load_system_prompt(%{script_path: nil}), do: {:ok, ""}
+
+  defp load_system_prompt(%{script_path: path}) do
+    full_path =
+      path
+      |> String.replace_prefix("priv/", "")
+      |> then(&Path.join(:code.priv_dir(:ema), &1))
+
+    case File.read(full_path) do
+      {:ok, content} -> {:ok, content}
+      {:error, _reason} -> {:ok, ""}
+    end
+  end
+
+  defp tool_context_keys(agent_slug) do
+    case Agents.get_agent_by_slug(agent_slug) do
+      nil ->
+        []
+
+      agent ->
+        agent.tools
+        |> List.wrap()
+        |> Enum.map(&tool_to_context_key/1)
+        |> Enum.reject(&is_nil/1)
+    end
+  end
+
+  defp tool_to_context_key("goal_context"), do: :goals
+  defp tool_to_context_key("project_context"), do: :project
+  defp tool_to_context_key("task_context"), do: :tasks
+  defp tool_to_context_key("vault_read"), do: :vault
+  defp tool_to_context_key("context_summary"), do: :proposals
+  defp tool_to_context_key(_tool), do: nil
+
+  defp requested_context_keys(context) when is_map(context) do
+    context
+    |> Map.keys()
+    |> Enum.map(fn
+      key when is_atom(key) -> key
+      "project" -> :project
+      "goals" -> :goals
+      "tasks" -> :tasks
+      "vault" -> :vault
+      "energy" -> :energy
+      "proposals" -> :proposals
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp build_domain_prompt(system_prompt, user_message, context) do
+    """
+    #{system_prompt}
+
+    ## Current Context
+    #{inspect(context, pretty: true, limit: :infinity)}
+
+    ## User Request
+    #{user_message}
+    """
+  end
+
+  defp extract_bridge_text(%{"result" => result}) when is_binary(result), do: result
+  defp extract_bridge_text(%{"content" => result}) when is_binary(result), do: result
+  defp extract_bridge_text(%{text: result}) when is_binary(result), do: result
+  defp extract_bridge_text(%{"text" => result}) when is_binary(result), do: result
+  defp extract_bridge_text(result) when is_binary(result), do: result
+  defp extract_bridge_text(result), do: inspect(result)
 
   # --- Callbacks ---
 

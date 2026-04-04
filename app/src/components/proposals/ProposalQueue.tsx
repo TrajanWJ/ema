@@ -1,8 +1,9 @@
-import { useMemo } from "react";
-import { useProposalsStore } from "@/stores/proposals-store";
-import { ProposalCard } from "./ProposalCard";
-import { GlassSelect } from "@/components/ui/GlassSelect";
-import type { Proposal, ProposalSortKey } from "@/types/proposals";
+import { useMemo, useState } from 'react';
+import { useProposalsStore } from '@/stores/proposals-store';
+import { ProposalCard } from './ProposalCard';
+import { ProposalComparison } from './ProposalComparison';
+import { GlassSelect } from '@/components/ui/GlassSelect';
+import type { Proposal, ProposalSortKey } from '@/types/proposals';
 
 function combinedRank(p: Proposal): number {
   const idea = p.idea_score ?? 0;
@@ -12,25 +13,25 @@ function combinedRank(p: Proposal): number {
 
 function getSortValue(p: Proposal, key: ProposalSortKey): number {
   switch (key) {
-    case "idea_score":
+    case 'idea_score':
       return p.idea_score ?? 0;
-    case "prompt_quality_score":
+    case 'prompt_quality_score':
       return p.prompt_quality_score ?? 0;
-    case "combined_rank":
+    case 'combined_rank':
       return combinedRank(p);
-    case "confidence":
+    case 'confidence':
       return p.confidence ?? 0;
-    case "created_at":
+    case 'created_at':
       return new Date(p.created_at).getTime();
   }
 }
 
 const SORT_OPTIONS: readonly { readonly value: ProposalSortKey; readonly label: string }[] = [
-  { value: "combined_rank", label: "Rank" },
-  { value: "idea_score", label: "Idea Score" },
-  { value: "prompt_quality_score", label: "Prompt Quality" },
-  { value: "confidence", label: "Confidence" },
-  { value: "created_at", label: "Date" },
+  { value: 'combined_rank', label: 'Rank' },
+  { value: 'idea_score', label: 'Idea Score' },
+  { value: 'prompt_quality_score', label: 'Prompt Quality' },
+  { value: 'confidence', label: 'Confidence' },
+  { value: 'created_at', label: 'Date' },
 ];
 
 export function ProposalQueue() {
@@ -41,10 +42,18 @@ export function ProposalQueue() {
   const setSortKey = useProposalsStore((s) => s.setSortKey);
   const setSortDir = useProposalsStore((s) => s.setSortDir);
   const setFilterMinScore = useProposalsStore((s) => s.setFilterMinScore);
+  const selectedForComparison = useProposalsStore((s) => s.selectedForComparison);
+  const toggleComparisonSelection = useProposalsStore((s) => s.toggleComparisonSelection);
+  const clearComparisonSelection = useProposalsStore((s) => s.clearComparisonSelection);
+  const compareProposals = useProposalsStore((s) => s.compareProposals);
+
+  const [comparing, setComparing] = useState(false);
+  const [comparisonProposals, setComparisonProposals] = useState<Proposal[]>([]);
+  const [loadingCompare, setLoadingCompare] = useState(false);
 
   const sorted = useMemo(() => {
     const queued = proposals.filter(
-      (p) => p.status === "queued" || p.status === "reviewing"
+      (p) => p.status === 'queued' || p.status === 'reviewing'
     );
 
     const filtered =
@@ -55,21 +64,43 @@ export function ProposalQueue() {
     return [...filtered].sort((a, b) => {
       const va = getSortValue(a, sortKey);
       const vb = getSortValue(b, sortKey);
-      return sortDir === "desc" ? vb - va : va - vb;
+      return sortDir === 'desc' ? vb - va : va - vb;
     });
   }, [proposals, sortKey, sortDir, filterMinScore]);
+
+  async function handleCompare() {
+    if (selectedForComparison.length < 2) return;
+    setLoadingCompare(true);
+    try {
+      const fetched = await compareProposals(selectedForComparison);
+      setComparisonProposals(fetched);
+      setComparing(true);
+    } finally {
+      setLoadingCompare(false);
+    }
+  }
+
+  function handleBack() {
+    setComparing(false);
+    setComparisonProposals([]);
+    clearComparisonSelection();
+  }
+
+  if (comparing) {
+    return <ProposalComparison proposals={comparisonProposals} onBack={handleBack} />;
+  }
 
   return (
     <div className="flex flex-col gap-2">
       {/* Sort & Filter Controls */}
       <div
-        className="flex items-center gap-3 px-1 py-2"
-        style={{ borderBottom: "1px solid var(--pn-border-subtle)" }}
+        className="flex items-center gap-3 px-1 py-2 flex-wrap"
+        style={{ borderBottom: '1px solid var(--pn-border-subtle)' }}
       >
         <div className="flex items-center gap-1.5">
           <span
             className="text-[0.6rem] uppercase tracking-wider"
-            style={{ color: "var(--pn-text-muted)" }}
+            style={{ color: 'var(--pn-text-muted)' }}
           >
             Sort
           </span>
@@ -80,23 +111,23 @@ export function ProposalQueue() {
             size="sm"
           />
           <button
-            onClick={() => setSortDir(sortDir === "desc" ? "asc" : "desc")}
+            onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
             className="text-[0.7rem] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80"
             style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--pn-border-default)",
-              color: "var(--pn-text-secondary)",
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid var(--pn-border-default)',
+              color: 'var(--pn-text-secondary)',
             }}
-            title={sortDir === "desc" ? "Descending" : "Ascending"}
+            title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
           >
-            {sortDir === "desc" ? "↓" : "↑"}
+            {sortDir === 'desc' ? '↓' : '↑'}
           </button>
         </div>
 
         <div className="flex items-center gap-1.5">
           <span
             className="text-[0.6rem] uppercase tracking-wider"
-            style={{ color: "var(--pn-text-muted)" }}
+            style={{ color: 'var(--pn-text-muted)' }}
           >
             Min Score
           </span>
@@ -111,34 +142,83 @@ export function ProposalQueue() {
           />
           <span
             className="text-[0.6rem] w-4 text-right"
-            style={{ color: "var(--pn-text-secondary)" }}
+            style={{ color: 'var(--pn-text-secondary)' }}
           >
-            {filterMinScore > 0 ? filterMinScore.toFixed(1) : "—"}
+            {filterMinScore > 0 ? filterMinScore.toFixed(1) : '—'}
           </span>
         </div>
 
-        <span
-          className="text-[0.6rem] ml-auto"
-          style={{ color: "var(--pn-text-muted)" }}
-        >
-          {sorted.length} proposal{sorted.length !== 1 ? "s" : ""}
-        </span>
+        {/* Compare controls */}
+        {selectedForComparison.length > 0 ? (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[0.6rem]" style={{ color: 'var(--pn-text-muted)' }}>
+              {selectedForComparison.length} selected
+            </span>
+            <button
+              onClick={handleCompare}
+              disabled={selectedForComparison.length < 2 || loadingCompare}
+              className="text-[0.65rem] font-medium px-2 py-1 rounded transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{
+                background: 'rgba(99,102,241,0.15)',
+                border: '1px solid rgba(99,102,241,0.3)',
+                color: '#818cf8',
+              }}
+            >
+              {loadingCompare ? 'Loading...' : 'Compare Selected'}
+            </button>
+            <button
+              onClick={clearComparisonSelection}
+              className="text-[0.6rem] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid var(--pn-border-subtle)',
+                color: 'var(--pn-text-muted)',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <span
+            className="text-[0.6rem] ml-auto"
+            style={{ color: 'var(--pn-text-muted)' }}
+          >
+            {sorted.length} proposal{sorted.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {sorted.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <span
             className="text-[0.75rem]"
-            style={{ color: "var(--pn-text-muted)" }}
+            style={{ color: 'var(--pn-text-muted)' }}
           >
             {filterMinScore > 0
-              ? "No proposals above minimum score"
-              : "No proposals in queue"}
+              ? 'No proposals above minimum score'
+              : 'No proposals in queue'}
           </span>
         </div>
       ) : (
         sorted.map((proposal) => (
-          <ProposalCard key={proposal.id} proposal={proposal} />
+          <div key={proposal.id} className="flex items-start gap-2">
+            <label className="flex items-center pt-3 pl-1 shrink-0 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedForComparison.includes(proposal.id)}
+                onChange={() => toggleComparisonSelection(proposal.id)}
+                disabled={
+                  !selectedForComparison.includes(proposal.id) &&
+                  selectedForComparison.length >= 3
+                }
+                className="w-3 h-3 accent-indigo-400 cursor-pointer"
+                title="Select for comparison"
+              />
+            </label>
+            <div className="flex-1 min-w-0">
+              <ProposalCard proposal={proposal} />
+            </div>
+          </div>
         ))
       )}
     </div>

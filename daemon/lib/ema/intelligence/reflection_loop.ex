@@ -37,9 +37,27 @@ defmodule Ema.Intelligence.ReflectionLoop do
       })
     end
 
+    Ema.Intelligence.SignalProcessor.record(%{
+      source: "reflection_loop",
+      agent_id: effective_agent,
+      task_type: :reflection,
+      outcome: normalize_reflection_outcome(outcome),
+      duration_ms: duration_ms,
+      metadata: %{execution_id: execution_id}
+    })
+
     {:ok, %{outcome: outcome, agent: effective_agent, duration_ms: duration_ms}}
   rescue
     e ->
+      Ema.Intelligence.SignalProcessor.record(%{
+        source: "reflection_loop",
+        agent_id: agent_id || "local_claude",
+        task_type: :reflection,
+        outcome: :failure,
+        duration_ms: 0,
+        metadata: %{execution_id: execution_id, error: Exception.message(e)}
+      })
+
       Logger.warning("[ReflectionLoop] Error on #{execution_id}: #{Exception.message(e)}")
       {:error, :reflection_failed}
   end
@@ -77,4 +95,7 @@ defmodule Ema.Intelligence.ReflectionLoop do
 
     %{mode: mode, top_words: words}
   end
+
+  defp normalize_reflection_outcome(:failure), do: :failure
+  defp normalize_reflection_outcome(_outcome), do: :success
 end

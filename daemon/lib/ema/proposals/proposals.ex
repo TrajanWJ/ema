@@ -25,6 +25,20 @@ defmodule Ema.Proposals do
     |> maybe_preload([:tags, :children])
   end
 
+  def get_proposals_for_project(project_id) do
+    Proposal
+    |> where([p], p.project_id == ^project_id)
+    |> order_by(desc: :inserted_at)
+    |> Repo.all()
+  end
+
+  def compare_proposals(proposal_ids) when is_list(proposal_ids) do
+    Proposal
+    |> where([p], p.id in ^proposal_ids)
+    |> preload([:tags])
+    |> Repo.all()
+  end
+
   def create_proposal(attrs) do
     id = generate_id("prop")
 

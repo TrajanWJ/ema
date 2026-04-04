@@ -18,6 +18,7 @@ defmodule Ema.Executions.Execution do
     field :brain_dump_item_id, :string
     field :metadata,           :map, default: %{}
     field :completed_at,       :utc_datetime
+    field :git_diff,           :string
 
     belongs_to :proposal, Ema.Proposals.Proposal, type: :string
     belongs_to :task,     Ema.Tasks.Task,          type: :string
@@ -37,7 +38,7 @@ defmodule Ema.Executions.Execution do
       :id, :project_slug, :intent_slug, :title, :objective, :mode, :status,
       :requires_approval, :intent_path, :result_path, :agent_session_id,
       :brain_dump_item_id, :proposal_id, :task_id, :session_id,
-      :metadata, :completed_at
+      :metadata, :completed_at, :git_diff
     ])
     |> validate_required([:id, :title, :mode, :status])
     |> validate_inclusion(:mode, @valid_modes)
