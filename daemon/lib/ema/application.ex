@@ -54,6 +54,7 @@ defmodule Ema.Application do
         maybe_start_orchestration() ++
         maybe_start_bridge() ++
         maybe_start_claude_sessions() ++
+        maybe_start_cluster() ++
         maybe_start_canvas() ++
         maybe_start_superman() ++
         maybe_start_second_brain() ++
@@ -251,6 +252,15 @@ defmodule Ema.Application do
   defp maybe_start_orchestration do
     if Application.get_env(:ema, :start_orchestration, true) do
       [Ema.Orchestration.Supervisor]
+    else
+      []
+    end
+  end
+
+
+  defp maybe_start_cluster do
+    if Application.get_env(:ema, :start_cluster, false) do
+      [Ema.Claude.NodeCoordinator]
     else
       []
     end
