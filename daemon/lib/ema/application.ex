@@ -45,6 +45,9 @@ defmodule Ema.Application do
         {Ema.Intelligence.PromptVariantStore, []},
         Ema.Intelligence.VaultLearner,
         Ema.Campaigns.CampaignManager,
+        # Projects — per-project worker registry and DynamicSupervisor for context caching
+        {Registry, keys: :unique, name: Ema.Projects.WorkerRegistry},
+        {DynamicSupervisor, name: Ema.Projects.ProjectWorkerSupervisor, strategy: :one_for_one},
         # CLI Manager — process registry and supervisor for session runners
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}

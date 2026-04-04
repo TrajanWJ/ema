@@ -578,6 +578,94 @@ defmodule Ema.Pipes.Registry do
           }
           Ema.Pipes.Actions.ClaudeAction.execute(payload, config)
         end
+      },
+
+      # Vault Search
+      %Action{
+        id: "vault:search",
+        context: "vault",
+        action_id: "vault:search",
+        label: "Search Vault",
+        description: "Full-text search the second brain / vault",
+        schema: %{query_template: :string, limit: :integer, space: :string},
+        execute: fn payload ->
+          config = %{
+            "query_template" => payload["query_template"] || "{{content}}",
+            "limit" => payload["limit"] || 10,
+            "space" => payload["space"]
+          }
+          Ema.Pipes.Actions.VaultSearchAction.execute(payload, config)
+        end
+      },
+
+      # HTTP Request
+      %Action{
+        id: "http:request",
+        context: "http",
+        action_id: "http:request",
+        label: "HTTP Request",
+        description: "Make an outbound HTTP request",
+        schema: %{url: :string, method: :string, body_template: :string, response_key: :string},
+        execute: fn payload ->
+          config = %{
+            "url" => payload["url"],
+            "method" => payload["method"] || "get",
+            "headers" => payload["headers"] || %{},
+            "body_template" => payload["body_template"],
+            "response_key" => payload["response_key"] || "http_response"
+          }
+          Ema.Pipes.Actions.HttpRequestAction.execute(payload, config)
+        end
+      },
+
+      # Transform
+      %Action{
+        id: "transform",
+        context: "transform",
+        action_id: "transform",
+        label: "Transform Payload",
+        description: "Manipulate pipe payload fields (set/copy/delete/template/rename)",
+        schema: %{operations: {:array, :map}},
+        execute: fn payload ->
+          config = %{"operations" => payload["operations"] || []}
+          Ema.Pipes.Actions.TransformAction.execute(payload, config)
+        end
+      },
+
+      # Branch
+      %Action{
+        id: "branch",
+        context: "branch",
+        action_id: "branch",
+        label: "Branch",
+        description: "Conditional branching based on payload field value",
+        schema: %{condition: :map, if_true: :string, if_false: :string},
+        execute: fn payload ->
+          config = %{
+            "condition" => payload["condition"] || %{},
+            "if_true" => payload["if_true"],
+            "if_false" => payload["if_false"]
+          }
+          Ema.Pipes.Actions.BranchAction.execute(payload, config)
+        end
+      },
+
+      # Notify
+      %Action{
+        id: "notify:send",
+        context: "notify",
+        action_id: "notify:send",
+        label: "Send Notification",
+        description: "Send a notification via discord, telegram, or pubsub",
+        schema: %{channel: :string, target: :string, message_template: :string},
+        execute: fn payload ->
+          config = %{
+            "channel" => payload["channel"] || "pubsub",
+            "target" => payload["target"],
+            "message_template" => payload["message_template"] || "{{content}}"
+          }
+          Ema.Pipes.Actions.NotifyAction.execute(payload, config)
+        end
       }
     ]
   end

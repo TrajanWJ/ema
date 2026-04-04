@@ -93,10 +93,12 @@ defmodule Ema.Prompts.Optimizer do
 
   defp run_optimization(state) do
     now = state.clock.()
+    # Use real wall clock for metrics window so test data inserted at real time is always included
+    metrics_since = DateTime.add(DateTime.utc_now(), -@seven_days, :second)
     since = DateTime.add(now, -@seven_days, :second)
 
-    analyze_completed_tests(since)
-    create_variants_for_underperformers(state.bridge_runner, since)
+    analyze_completed_tests(since, metrics_since)
+    create_variants_for_underperformers(state.bridge_runner, metrics_since)
 
     maybe_cancel_timer(state.timer_ref)
 
@@ -106,11 +108,11 @@ defmodule Ema.Prompts.Optimizer do
       timer_ref: schedule_tick(now)}
   end
 
-  defp analyze_completed_tests(since) do
+  defp analyze_completed_tests(since, metrics_since) do
     Store.active_tests()
     |> Enum.each(fn %{control: control, variants: variants} ->
       if control && test_ready?(variants, since) do
-        resolve_test(control, variants, since)
+        resolve_test(control, variants, metrics_since)
       end
     end)
   end

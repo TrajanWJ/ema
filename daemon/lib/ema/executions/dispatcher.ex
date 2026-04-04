@@ -86,6 +86,29 @@ defmodule Ema.Executions.Dispatcher do
           base_prompt
       end
 
+    # Inject project memory context doc (tasks, proposals, execution history)
+    prompt =
+      try do
+        project_id = execution.project_id || execution.project_slug
+
+        if is_binary(project_id) and project_id != "" do
+          case Ema.Projects.ProjectWorker.get_context(project_id) do
+            {:ok, context_doc} when is_binary(context_doc) and context_doc != "" ->
+              Logger.debug("[Dispatcher] Project context doc injected for #{execution.id} (project: #{project_id})")
+              context_doc <> "\n\n---\n\n" <> prompt
+
+            _ ->
+              prompt
+          end
+        else
+          prompt
+        end
+      rescue
+        e ->
+          Logger.warning("[Dispatcher] ProjectWorker context injection failed for #{execution.id}: #{inspect(e)}")
+          prompt
+      end
+
     # Inject reflexion lessons from past executions
     prompt =
       try do

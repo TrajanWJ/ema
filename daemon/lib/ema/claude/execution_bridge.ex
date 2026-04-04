@@ -121,7 +121,7 @@ defmodule Ema.Claude.ExecutionBridge do
   end
 
   def prepend_project_intelligence(prompt, project_slug) when is_binary(prompt) do
-    case Superman.context_for(project_slug) do
+    case Ema.Superman.KnowledgeGraph.context_for(project_slug) do
       [] ->
         prompt
 

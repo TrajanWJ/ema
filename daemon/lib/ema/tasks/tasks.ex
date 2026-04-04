@@ -100,10 +100,13 @@ defmodule Ema.Tasks do
   defp do_create_task(attrs) do
     id = generate_id()
     attrs = put_scope_advice(attrs)
+    # Use matching key style to avoid mixed-key maps
+    id_key = if attrs |> Map.keys() |> Enum.any?(&is_atom/1), do: :id, else: "id"
+    attrs_with_id = Map.put(attrs, id_key, id)
 
     result =
       %Task{}
-      |> Task.changeset(Map.put(attrs, :id, id))
+      |> Task.changeset(attrs_with_id)
       |> Repo.insert()
 
     case result do
@@ -233,7 +236,11 @@ defmodule Ema.Tasks do
     domain = domain_from_attrs(attrs) || task_domain(task)
     advice = ScopeAdvisor.check(agent, domain, Map.get(attrs, :title) || Map.get(attrs, "title"))
 
-    put_in_metadata(attrs, "scope_advice", ScopeAdvisor.to_metadata(advice))
+    if attrs |> Map.keys() |> Enum.all?(&is_binary/1) do
+      put_in_metadata(attrs, "scope_advice", ScopeAdvisor.to_metadata(advice))
+    else
+      attrs
+    end
   end
 
   defp put_in_metadata(attrs, key, value) do
