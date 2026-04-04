@@ -41,8 +41,8 @@ defmodule Ema.Claude.BridgeSupervisor do
       # Layer 3: Routing engine
       Ema.Claude.SmartRouter,
 
-      # Layer 4: Main bridge (depends on everything above)
-      Ema.Claude.Bridge
+      # Layer 4: Bridge processes spawned dynamically by SmartRouter
+      # Ema.Claude.Bridge is NOT a singleton — started per-execution
     ]
 
     Logger.info("[Claude.BridgeSupervisor] Starting #{length(children)} child processes")

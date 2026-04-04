@@ -19,7 +19,7 @@ Personal AI desktop app: an autonomous thinking companion and life OS.
 ├─────────────────────────────────────────────┤
 │  React Frontend (app/src/)                  │
 │  ├─ Route-based app switching (App.tsx)      │
-│  ├─ 15 Zustand stores (REST load + WS sync) │
+│  ├─ 67+ Zustand stores (REST load + WS sync) │
 │  └─ Glass CSS design system (globals.css)   │
 ├─────────────────────────────────────────────┤
 │  Phoenix Daemon (daemon/)                   │
@@ -130,7 +130,7 @@ Pipeline: **Scheduler** → **Generator** → **Refiner** → **Debater** → **
 | `KillMemory` | Tracks killed proposal patterns (Jaccard similarity on titles, tag overlap) |
 
 PubSub topic: `"proposals:pipeline"` with `{:proposals, stage_atom, proposal}`.  
-User actions: **approve** (→ Task), **redirect** (→ 3 new seeds), **kill** (→ KillMemory).
+User actions: **approve** (→ creates  record → dispatched via  PubSub →  → AI agent handles → output creates Task/artifact), **redirect** (→ 3 new seeds), **kill** (→ KillMemory).
 
 #### Pipes System (`lib/ema/pipes/`)
 Supervised by `Pipes.Supervisor` (rest_for_one: Registry → Loader → Executor).
@@ -189,18 +189,18 @@ Supervised by `Canvas.Supervisor`.
 ## Frontend Structure (`app/src/`)
 
 ### Layout Components
-- **`Shell.tsx`** — Main wrapper, initializes all 15 stores on mount
+- **`Shell.tsx`** — Main wrapper, initializes all 67+ stores on mount
 - **`Launchpad.tsx`** — Home dashboard with app tile grid (4 columns), greeting, One Thing card
 - **`Dock.tsx`** — Vertical app launcher bar (56px), green dots for running apps
 - **`AmbientStrip.tsx`** — Custom titlebar (32px), clock, window controls
 - **`AppWindowChrome.tsx`** — Window frame for per-app windows (titlebar, controls, accent color)
 
-### App Components (13 apps)
+### App Components (52+ vApps)
 Each app is a self-contained component in `components/<domain>/`:
 BrainDumpApp, HabitsApp, JournalApp, SettingsApp, TasksApp, ProjectsApp, ProposalsApp, ResponsibilitiesApp, AgentsApp, VaultApp, CanvasApp, PipesApp, ChannelsApp
 
 ### Stores (`stores/`)
-15 Zustand stores, each following the pattern:
+67+ Zustand stores, each following the pattern:
 1. `loadViaRest()` — Fetch initial state from daemon REST API
 2. `connect()` — Join Phoenix channel for real-time updates
 3. Domain-specific actions (CRUD, transitions, etc.)

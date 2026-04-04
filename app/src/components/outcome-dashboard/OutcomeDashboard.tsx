@@ -37,6 +37,12 @@ interface ByDomainResponse {
   domains: Record<string, DomainStats>;
 }
 
+interface RoutingStats {
+  by_intent: Array<{ intent: string; task_count: number; success_rate: number }>;
+  most_common_intent: string | null;
+  misroute_count: number;
+}
+
 const STATUS_COLOR: Record<string, string> = {
   success: "#22C55E",
   completed: "#22C55E",
@@ -86,6 +92,7 @@ export function OutcomeDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [routingStats, setRoutingStats] = useState<RoutingStats | null>(null);
 
   async function load() {
     try {
@@ -98,6 +105,8 @@ export function OutcomeDashboard() {
       setSummary(summaryRes);
       setByDomain(domainRes.domains ?? {});
       setLastRefresh(new Date());
+      // Fetch routing stats (best-effort)
+      api.get<RoutingStats>("/routing/stats").then((r) => setRoutingStats(r)).catch(() => {});
     } catch (e) {
       setError(String(e));
     } finally {
@@ -335,6 +344,193 @@ export function OutcomeDashboard() {
                 )}
               </div>
             </div>
+            {/* Routing Stats */}
+            {routingStats && (
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--pn-text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 8,
+                  }}
+                >
+                  Intent Routing
+                </div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                  <div
+                    className="glass-surface"
+                    style={{
+                      flex: 1,
+                      padding: "12px 16px",
+                      borderRadius: 8,
+                      border: "1px solid var(--pn-border-subtle)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--pn-text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      Most Common Intent
+                    </span>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 600,
+                        color: "#a78bfa",
+                        fontFamily: "monospace",
+                        marginTop: 4,
+                      }}
+                    >
+                      {routingStats.most_common_intent ?? "—"}
+                    </div>
+                  </div>
+                  <div
+                    className="glass-surface"
+                    style={{
+                      flex: 1,
+                      padding: "12px 16px",
+                      borderRadius: 8,
+                      border: "1px solid var(--pn-border-subtle)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--pn-text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      Misroutes
+                    </span>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 600,
+                        color:
+                          routingStats.misroute_count > 0 ? "#f59e0b" : "#22c55e",
+                        fontFamily: "monospace",
+                        marginTop: 4,
+                      }}
+                    >
+                      {routingStats.misroute_count}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="glass-surface"
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid var(--pn-border-subtle)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {routingStats.by_intent.length === 0 ? (
+                    <div
+                      style={{
+                        padding: 16,
+                        textAlign: "center",
+                        fontSize: 12,
+                        color: "var(--pn-text-muted)",
+                      }}
+                    >
+                      No routing data yet
+                    </div>
+                  ) : (
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
+                    >
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid var(--pn-border-subtle)" }}>
+                          <th
+                            style={{
+                              padding: "8px 12px",
+                              textAlign: "left",
+                              color: "var(--pn-text-muted)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            Intent
+                          </th>
+                          <th
+                            style={{
+                              padding: "8px 12px",
+                              textAlign: "right",
+                              color: "var(--pn-text-muted)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            Tasks
+                          </th>
+                          <th
+                            style={{
+                              padding: "8px 12px",
+                              textAlign: "right",
+                              color: "var(--pn-text-muted)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            Success
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {routingStats.by_intent.map((row, i) => (
+                          <tr
+                            key={row.intent}
+                            style={{
+                              borderBottom:
+                                i < routingStats.by_intent.length - 1
+                                  ? "1px solid var(--pn-border-subtle)"
+                                  : "none",
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: "7px 12px",
+                                color: "var(--pn-text-primary)",
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {row.intent}
+                            </td>
+                            <td
+                              style={{
+                                padding: "7px 12px",
+                                textAlign: "right",
+                                color: "var(--pn-text-secondary)",
+                              }}
+                            >
+                              {row.task_count}
+                            </td>
+                            <td
+                              style={{
+                                padding: "7px 12px",
+                                textAlign: "right",
+                                color:
+                                  row.success_rate >= 0.7
+                                    ? "#22C55E"
+                                    : row.success_rate >= 0.4
+                                    ? "#f59e0b"
+                                    : "#ef4444",
+                              }}
+                            >
+                              {fmt(row.success_rate * 100)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

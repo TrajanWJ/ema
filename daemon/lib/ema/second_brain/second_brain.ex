@@ -446,6 +446,6 @@ defmodule Ema.SecondBrain do
   end
 
   defp default_vault_root do
-    Path.expand("~/.local/share/ema/vault")
+    Ema.Config.vault_path()
   end
 end

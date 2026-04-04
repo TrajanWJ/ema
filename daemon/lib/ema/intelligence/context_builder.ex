@@ -11,7 +11,7 @@ defmodule Ema.Intelligence.ContextBuilder do
   All reads degrade gracefully — missing files return empty strings/lists.
   """
 
-  @vault_path Application.compile_env(:ema, :vault_path, Path.expand("~/.local/share/ema/vault"))
+  # NOTE: vault_path resolved at runtime via Ema.Config.vault_path/0 — do NOT use compile_env here
   @ema_tracker_path Application.compile_env(
                       :ema,
                       :ema_tracker_path,
@@ -83,7 +83,7 @@ defmodule Ema.Intelligence.ContextBuilder do
   end
 
   defp get_preferences do
-    path = Path.join(@vault_path, "Trajan/Preferences.md")
+    path = Path.join(Ema.Config.vault_path(), "Trajan/Preferences.md")
 
     case File.read(path) do
       {:ok, content} ->
@@ -99,7 +99,7 @@ defmodule Ema.Intelligence.ContextBuilder do
 
   defp get_daily_note do
     date = Date.utc_today() |> Date.to_string()
-    path = Path.join(@vault_path, "Daily Notes/#{date}.md")
+    path = Path.join(Ema.Config.vault_path(), "Daily Notes/#{date}.md")
 
     case File.read(path) do
       {:ok, content} -> String.slice(content, 0, 2000)
@@ -116,7 +116,7 @@ defmodule Ema.Intelligence.ContextBuilder do
       {output, exit_code} =
         System.cmd(
           "grep",
-          ["-r", "-l", query, @vault_path, "--include=*.md"],
+          ["-r", "-l", query, Ema.Config.vault_path(), "--include=*.md"],
           stderr_to_stdout: false
         )
 
