@@ -19,6 +19,7 @@ defmodule Ema.Claude.ExecutionBridge do
   require Logger
 
   alias Ema.Intelligence.ReflexionInjector
+  alias Ema.Intelligence.SupermanRuntime
   alias Ema.Superman
 
   @max_concurrent 10
@@ -195,6 +196,7 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
   require Logger
 
   alias Ema.Intelligence.ReflexionStore
+  alias Ema.Intelligence.SupermanRuntime
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
@@ -224,6 +226,7 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
     Logger.info("[ExecutionBridge.Worker] Running #{state.execution_id}")
 
     prompt = Ema.Claude.ExecutionBridge.prepend_project_intelligence(prompt, state.project_slug)
+    prompt = prepend_superman_context(prompt, state.project_slug)
 
     result =
       Ema.Claude.Bridge.run(prompt,
@@ -250,6 +253,33 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
     )
 
     {:reply, result, state}
+  end
+
+  defp prepend_superman_context(prompt, project_slug) do
+    case Ema.Projects.get_project_by_slug(project_slug) do
+      nil ->
+        prompt
+
+      project ->
+        case SupermanRuntime.context_for(project) do
+          {:ok, ctx} ->
+            formatted = SupermanRuntime.format_for_prompt(ctx)
+
+            if formatted != "" do
+              Logger.info("[ExecutionBridge] Superman context injected for #{project_slug}")
+              formatted <> "\n\n" <> prompt
+            else
+              prompt
+            end
+
+          {:error, _} ->
+            prompt
+        end
+    end
+  rescue
+    error ->
+      Logger.warning("[ExecutionBridge] Superman context injection failed: #{inspect(error)}")
+      prompt
   end
 
   defp record_reflexion(state, {:ok, data}) do

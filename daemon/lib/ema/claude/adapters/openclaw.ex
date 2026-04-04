@@ -15,24 +15,52 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   require Logger
 
+  @openclaw_fuse :ema_openclaw_fuse
+
+  def install_fuse do
+    :fuse.install(@openclaw_fuse, {{:standard, 5, :timer.seconds(60)}, {:reset, :timer.minutes(5)}})
+    :ok
+  rescue
+    _ -> :ok
+  end
+
   # -- One-shot run (for AgentWorker) -----------------------------------------
 
   @doc """
   Run a one-shot agent message via local `openclaw agent --json`.
   Falls back to ClaudeCli adapter if openclaw is not installed locally.
+  Checks fuse before attempting — falls back immediately if blown.
   Returns `{:ok, result_map}` or `{:error, reason}`.
   """
   def run(message, agent_id, opts \\ []) do
+    case :fuse.ask(@openclaw_fuse, :sync) do
+      :blown ->
+        fallback_run(message, opts)
+
+      :ok ->
+        case do_openclaw_run(message, agent_id, opts) do
+          {:ok, _} = result -> result
+          {:error, _} ->
+            :fuse.melt(@openclaw_fuse)
+            fallback_run(message, opts)
+        end
+    end
+  rescue
+    _ -> fallback_run(message, opts)
+  end
+
+  defp do_openclaw_run(message, agent_id, opts) do
     case find_openclaw() do
       {:ok, openclaw_path} ->
         run_local(openclaw_path, message, agent_id, opts)
 
       :not_found ->
-        Logger.info("openclaw not found locally, falling back to ClaudeCli adapter")
-        Ema.Claude.Adapters.ClaudeCli.run(message, agent_id, opts)
+        {:error, :openclaw_not_found}
     end
-  rescue
-    e -> {:error, {:exception, Exception.message(e)}}
+  end
+
+  defp fallback_run(message, opts) do
+    Ema.Claude.Adapters.ClaudeCli.run(message, nil, opts)
   end
 
   @doc """

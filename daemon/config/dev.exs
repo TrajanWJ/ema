@@ -16,7 +16,7 @@ config :ema, Ema.Repo,
 config :ema, EmaWeb.Endpoint,
   http: [ip: {0, 0, 0, 0}, port: 4488],
   check_origin: false,
-  code_reloader: true,
+  code_reloader: false,
   debug_errors: true,
   secret_key_base:
     "dev-only-secret-key-base-that-is-at-least-64-bytes-long-for-development-use-only-not-production",

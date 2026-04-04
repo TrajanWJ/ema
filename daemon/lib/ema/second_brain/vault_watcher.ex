@@ -83,7 +83,7 @@ defmodule Ema.SecondBrain.VaultWatcher do
     case File.ls(dir) do
       {:ok, entries} ->
         entries
-        |> Enum.reject(&String.starts_with?(&1, "."))
+        |> Enum.reject(&(String.starts_with?(&1, ".") and not String.ends_with?(&1, ".superman")))
         |> Enum.flat_map(fn entry ->
           path = Path.join(dir, entry)
 

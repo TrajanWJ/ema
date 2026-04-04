@@ -42,7 +42,7 @@ defmodule Ema.Prompts.OptimizerTest do
               %{"variant_id" => "a", "content" => "variant A", "rationale" => "clearer"},
               %{"variant_id" => "b", "content" => "variant B", "rationale" => "tighter"}
             ])}
-         end}}
+         end}
       )
 
     Optimizer.optimize(server)
@@ -91,7 +91,7 @@ defmodule Ema.Prompts.OptimizerTest do
          name: server,
          now: DateTime.from_naive!(~N[2026-04-12 03:00:00], "Etc/UTC"),
          clock: fn -> DateTime.from_naive!(~N[2026-04-12 03:00:00], "Etc/UTC") end,
-         bridge_runner: fn _prompt, _control -> {:error, :not_used} end}}
+         bridge_runner: fn _prompt, _control -> {:error, :not_used} end}
       )
 
     Optimizer.optimize(server)

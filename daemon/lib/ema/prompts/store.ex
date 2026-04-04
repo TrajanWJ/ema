@@ -249,6 +249,7 @@ defmodule Ema.Prompts.Store do
 
   def choose_test_winner(%Prompt{} = control_prompt, variants, since) do
     test_metrics(control_prompt, variants, since)
+    |> Enum.filter(&(&1.total > 0))
     |> Enum.max_by(fn metric -> {metric.success_rate, metric.total, metric.prompt_id} end, fn -> nil end)
   end
 

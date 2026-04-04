@@ -311,6 +311,7 @@ defmodule EmaWeb.Router do
     get("/superman/health", SupermanController, :health)
     get("/superman/status", SupermanController, :status)
     get("/superman/context/:project_slug", SupermanController, :context)
+    post("/superman/context", SupermanController, :context_post)
     post("/superman/index", SupermanController, :index_repo)
     post("/superman/ask", SupermanController, :ask)
     get("/superman/gaps", SupermanController, :gaps)
@@ -435,7 +436,15 @@ defmodule EmaWeb.Router do
     get("/metrics/summary", MetricsController, :summary)
     get("/metrics/by_domain", MetricsController, :by_domain)
 
+    # Integrations
+    get("/integrations/status", IntegrationsController, :status)
+    post("/integrations/github/connect", IntegrationsController, :github_connect)
+    post("/integrations/slack/connect", IntegrationsController, :slack_connect)
+
     # Webhooks
+    post("/webhooks/github", WebhookController, :github)
+    post("/webhooks/slack/commands", WebhookController, :slack_command)
+    post("/webhooks/slack/events", WebhookController, :slack_event)
     post("/webhooks/telegram", TelegramController, :webhook)
     post("/webhooks/discord", DiscordWebhookController, :webhook)
     # Voice-integrated Discord bridge (messages → VoiceCore → Jarvis response)

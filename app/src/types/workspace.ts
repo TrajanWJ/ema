@@ -530,4 +530,5 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   "briefing": { title: "Daily Brief", defaultWidth: 750, defaultHeight: 700, minWidth: 600, minHeight: 600, accent: "#6366f1", icon: "📋" },
   "obsidian-vault": { title: "Obsidian Vault", defaultWidth: 1100, defaultHeight: 780, minWidth: 900, minHeight: 600, accent: "#7c3aed", icon: "📚" },
   "soul-editor": { title: "SOUL Editor", defaultWidth: 1100, defaultHeight: 750, minWidth: 900, minHeight: 600, accent: "#f472b6", icon: "♡" },
+  "knowledge-graph": { title: "Knowledge Graph", defaultWidth: 1100, defaultHeight: 800, minWidth: 900, minHeight: 650, accent: "#3b82f6", icon: "◉" },
 } as const;

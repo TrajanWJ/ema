@@ -3,11 +3,14 @@ defmodule Ema.DeliberationGate do
   Top-level deliberation gate that intercepts tasks containing structural
   keywords in title or description. When detected, auto-creates a proposal
   for human review before the task proceeds.
+
+  Keywords are configurable via:
+    config :ema, :deliberation_gate_keywords, ["restructure", "migrate", ...]
   """
 
   require Logger
 
-  @structural_keywords [
+  @default_structural_keywords [
     "restructure",
     "migrate",
     "delete all",
@@ -25,8 +28,11 @@ defmodule Ema.DeliberationGate do
 
   @doc """
   Returns the list of structural keywords checked by the gate.
+  Reads from application config at runtime; falls back to compiled defaults.
   """
-  def structural_keywords, do: @structural_keywords
+  def structural_keywords do
+    Application.get_env(:ema, :deliberation_gate_keywords, @default_structural_keywords)
+  end
 
   @doc """
   Checks title and description for structural keywords.
@@ -39,7 +45,7 @@ defmodule Ema.DeliberationGate do
     desc_lower = downcase(description)
 
     matched =
-      Enum.filter(@structural_keywords, fn kw ->
+      Enum.filter(structural_keywords(), fn kw ->
         String.contains?(title_lower, kw) or String.contains?(desc_lower, kw)
       end)
 

@@ -11,6 +11,8 @@ defmodule Ema.Agents.AgentWorker do
   alias Ema.Claude.Bridge
   alias Ema.Claude.Adapters.OpenClaw, as: OpenClawAdapter
   alias Ema.Claude.ContextInjector
+  alias Ema.Intelligence.BudgetEnforcer
+  alias Ema.Intelligence.VaultLearner
 
   # --- Public API ---
 
@@ -53,7 +55,8 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   def dispatch_to_domain(agent_slug, user_message, context \\ %{}) do
-    with {:ok, agent} <- fetch_agent(agent_slug),
+    with :ok <- BudgetEnforcer.check(),
+         {:ok, agent} <- fetch_agent(agent_slug),
          requested_keys <-
            context
            |> requested_context_keys()
@@ -76,7 +79,17 @@ defmodule Ema.Agents.AgentWorker do
              agent_id: agent.id,
              task_type: "domain_dispatch"
            ) do
-      {:ok, extract_bridge_text(response)}
+      text = extract_bridge_text(response)
+
+      VaultLearner.schedule_learning(%{
+        agent: agent_slug |> to_string() |> String.to_atom(),
+        task_type: Map.get(context, :type, Map.get(context, "type", :general)),
+        campaign_id: Map.get(context, :campaign_id, Map.get(context, "campaign_id")),
+        response_text: extract_response_text(response),
+        session_id: "dispatch-#{agent_slug}-#{System.system_time(:millisecond)}"
+      })
+
+      {:ok, text}
     end
   end
 
@@ -419,6 +432,12 @@ defmodule Ema.Agents.AgentWorker do
 
     "#{reply}\n\n---\nTool results:\n#{results_text}"
   end
+
+  defp extract_response_text(response) when is_binary(response), do: response
+  defp extract_response_text(%{text: t}) when is_binary(t), do: t
+  defp extract_response_text(%{"content" => t}) when is_binary(t), do: t
+  defp extract_response_text(%{content: t}) when is_binary(t), do: t
+  defp extract_response_text(r), do: inspect(r)
 
   defp notify_memory(agent_id, conversation_id) do
     case Registry.lookup(Ema.Agents.Registry, {:memory, agent_id}) do

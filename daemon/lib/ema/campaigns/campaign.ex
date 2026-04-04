@@ -8,20 +8,21 @@ defmodule Ema.Campaigns.Campaign do
     field :name, :string
     field :description, :string
     field :steps, {:array, :map}, default: []
-    field :status, :string, default: "draft"
+    field :status, :string, default: "forming"
     field :run_count, :integer, default: 0
+    field :project_id, :string
 
     timestamps(type: :utc_datetime)
   end
 
   @required [:name]
-  @optional [:id, :description, :steps, :status, :run_count]
+  @optional [:id, :description, :steps, :status, :run_count, :project_id]
 
   def changeset(campaign, attrs) do
     campaign
     |> cast(attrs, @required ++ @optional)
     |> validate_required(@required)
-    |> validate_inclusion(:status, ~w(draft active archived))
+    |> validate_inclusion(:status, ~w(forming ready running completed archived))
     |> put_id_if_missing()
   end
 
@@ -29,8 +30,8 @@ defmodule Ema.Campaigns.Campaign do
     if get_field(changeset, :id) do
       changeset
     else
-      _ts = System.system_time(:millisecond) |> Integer.to_string()
-      _rnd = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+      ts = System.system_time(:millisecond) |> Integer.to_string()
+      rnd = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
       put_change(changeset, :id, "camp_\#{ts}_\#{rnd}")
     end
   end

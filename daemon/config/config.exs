@@ -11,7 +11,8 @@ config :ema,
   ecto_repos: [Ema.Repo],
   generators: [timestamp_type: :utc_datetime],
   # AI backend: :runner (legacy Claude CLI) or :bridge (multi-backend router)
-  ai_backend: :bridge
+  ai_backend: :bridge,
+  vault_path: System.get_env("EMA_VAULT_PATH", "/home/trajan/vault")
 
 # Configure the endpoint
 config :ema, EmaWeb.Endpoint,

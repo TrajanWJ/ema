@@ -40,6 +40,8 @@ defmodule Ema.Application do
         Ema.Intelligence.GapScanner,
         Ema.Intelligence.ContextIndexer,
         Ema.Intelligence.AgentSupervisor,
+        Ema.Intelligence.AutonomyConfig,
+        Ema.Intelligence.VaultLearner,
         Ema.Campaigns.CampaignManager,
         # CLI Manager — process registry and supervisor for session runners
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
@@ -51,8 +53,8 @@ defmodule Ema.Application do
         maybe_start_bridge() ++
         maybe_start_claude_sessions() ++
         maybe_start_canvas() ++
-        maybe_start_second_brain() ++
         maybe_start_superman() ++
+        maybe_start_second_brain() ++
         maybe_start_responsibilities() ++
         maybe_start_vectors() ++
         maybe_start_proposal_engine() ++
@@ -68,6 +70,14 @@ defmodule Ema.Application do
           # Start to serve requests, typically the last entry
           EmaWeb.Endpoint
         ]
+
+    # Install fuse circuit breakers (safe if fuse not yet loaded)
+    try do
+      Ema.Intelligence.BudgetEnforcer.install()
+      Ema.Claude.Adapters.OpenClaw.install_fuse()
+    rescue
+      _ -> :ok
+    end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

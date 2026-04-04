@@ -87,6 +87,7 @@ import { SoulEditorApp } from "@/components/soul-editor/SoulEditorApp";
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
 import { OutcomeDashboard } from "@/components/outcome-dashboard/OutcomeDashboard";
+import { KnowledgeGraphApp } from "@/components/knowledge-graph/KnowledgeGraphApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -254,6 +255,8 @@ function AppContent() {
       return <BriefingApp />;
     case "soul-editor":
       return <SoulEditorApp />;
+    case "knowledge-graph":
+      return <KnowledgeGraphApp />;
 
     default:
       return (

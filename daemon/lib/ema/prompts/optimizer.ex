@@ -160,16 +160,18 @@ defmodule Ema.Prompts.Optimizer do
   defp resolve_test(%Prompt{} = control, variants, since) do
     winner = Store.choose_test_winner(control, variants, since)
 
-    Enum.each(variants, fn variant ->
-      if winner && variant.id == winner.prompt_id do
-        Store.promote_prompt(variant)
-      else
-        Store.archive_prompt(variant)
-      end
-    end)
+    if winner do
+      Enum.each(variants, fn variant ->
+        if variant.id == winner.prompt_id do
+          Store.promote_prompt(variant)
+        else
+          Store.archive_prompt(variant)
+        end
+      end)
 
-    if winner && winner.prompt_id != control.id do
-      Store.archive_prompt(control)
+      if winner.prompt_id != control.id do
+        Store.archive_prompt(control)
+      end
     end
   end
 

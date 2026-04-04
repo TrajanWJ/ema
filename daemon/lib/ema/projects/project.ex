@@ -20,6 +20,8 @@ defmodule Ema.Projects.Project do
     # source_proposal_id stored as raw field — Proposals context
     # will be created in a later plan
     field :source_proposal_id, :string
+    field :github_repo_url, :string
+    field :last_commit_sha, :string
 
     has_many :children, __MODULE__, foreign_key: :parent_id
     has_many :tasks, Ema.Tasks.Task
@@ -50,7 +52,9 @@ defmodule Ema.Projects.Project do
       :context_hash,
       :settings,
       :parent_id,
-      :source_proposal_id
+      :source_proposal_id,
+      :github_repo_url,
+      :last_commit_sha
     ])
     |> validate_required([:id, :slug, :name])
     |> validate_inclusion(:status, @valid_statuses)
