@@ -46,6 +46,26 @@ defmodule Ema.Orchestration.SpecializationAutotune do
     Process.send_after(self(), :autotune, @autotune_interval)
   end
 
+  @doc """
+  Update routing weights via UCBRouter after a dispatch outcome.
+  Also updates AgentFitnessStore for backwards compat.
+  Called from SignalProcessor after task completion.
+  """
+  def update_routing_weight(agent, task_type, outcome)
+      when outcome in [:success, :failure, :win, :loss] do
+    Ema.Intelligence.UCBRouter.record_outcome(agent, task_type, outcome)
+
+    outcome_atom = if outcome in [:success, :win], do: :success, else: :failure
+
+    try do
+      AgentFitnessStore.record_outcome(agent, to_string(task_type), outcome_atom, 0)
+    rescue
+      _ -> :ok
+    end
+
+    :ok
+  end
+
   defp do_autotune do
     scores = AgentFitnessStore.all_fitness_scores()
 

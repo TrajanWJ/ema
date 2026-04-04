@@ -177,6 +177,18 @@ defmodule Ema.Intelligence.SignalProcessor do
        } = signal) do
     Logger.debug("[SignalProcessor] signal #{agent_id}/#{task_type} -> #{outcome}")
     AgentFitnessStore.record_outcome(agent_id, task_type, outcome, duration_ms)
+
+    # Update UCB1 routing weights
+    ucb_agent = agent_id |> to_string() |> String.to_atom()
+    ucb_task = (task_type || :general) |> to_string() |> String.to_atom()
+    ucb_outcome = if outcome in [:success, :win], do: :win, else: :loss
+    Ema.Intelligence.UCBRouter.record_outcome(ucb_agent, ucb_task, ucb_outcome)
+
+    # Update PromptVariantStore if a variant_id is present in the signal
+    if variant_id = Map.get(signal, :variant_id) do
+      Ema.Intelligence.PromptVariantStore.record_outcome(ucb_agent, ucb_task, variant_id, ucb_outcome)
+    end
+
     Phoenix.PubSub.broadcast(Ema.PubSub, "signals:processed", {:signal, signal})
   end
 

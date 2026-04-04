@@ -146,4 +146,34 @@ defmodule Ema.Superman.KnowledgeGraph do
   defp type_score("approach"), do: 3
   defp type_score("prior_outcomes"), do: 2
   defp type_score(_), do: 1
+
+  @doc """
+  Returns KnowledgeGraph nodes for all projects in a space.
+  Requires projects to have space_id populated.
+  """
+  def context_for_space(space_id) when is_binary(space_id) do
+    import Ecto.Query
+
+    project_ids =
+      Ema.Repo.all(
+        from p in Ema.Projects.Project,
+          where: p.space_id == ^space_id and p.status != "archived",
+          select: p.id
+      )
+
+    project_ids
+    |> Enum.flat_map(&context_for/1)
+    |> Enum.sort_by(& &1[:inserted_at], {:desc, DateTime})
+    |> Enum.take(20)
+  end
+
+  def context_for_space(_), do: []
+
+  @doc """
+  Ingest nodes tagged with space_id for cross-space querying.
+  """
+  def ingest_for_space(nodes, space_id, project_id) do
+    tagged = Enum.map(nodes, fn n -> Map.put(n, :space_id, space_id) end)
+    ingest(tagged, project_id)
+  end
 end

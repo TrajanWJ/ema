@@ -13,10 +13,18 @@ defmodule EmaWeb.OrchestrationController do
     routing_stats = RoutingEngine.get_routing_stats()
     fitness_scores = AgentFitnessStore.all_fitness_scores()
 
+    ucb_stats =
+      try do
+        Ema.Intelligence.UCBRouter.all_stats()
+      rescue
+        _ -> []
+      end
+
     json(conn, %{
       routing: routing_stats,
       fitness_count: length(fitness_scores),
-      top_agents: Enum.take(fitness_scores, 10)
+      top_agents: Enum.take(fitness_scores, 10),
+      ucb_stats: ucb_stats
     })
   end
 

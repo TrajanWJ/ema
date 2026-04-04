@@ -41,6 +41,8 @@ defmodule Ema.Application do
         Ema.Intelligence.ContextIndexer,
         Ema.Intelligence.AgentSupervisor,
         Ema.Intelligence.AutonomyConfig,
+        Ema.Intelligence.UCBRouter,
+        {Ema.Intelligence.PromptVariantStore, []},
         Ema.Intelligence.VaultLearner,
         Ema.Campaigns.CampaignManager,
         # CLI Manager — process registry and supervisor for session runners
