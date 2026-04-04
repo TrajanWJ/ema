@@ -192,7 +192,7 @@ defmodule Ema.Prompts.Optimizer do
               status: variant.status
             }
           end),
-        metrics: Store.test_metrics(control, variants, since)
+        metrics: if(control, do: Store.test_metrics(control, variants, since), else: [])
       }
     end)
   end

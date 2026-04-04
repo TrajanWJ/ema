@@ -82,6 +82,7 @@ import { PersistenceApp } from "@/components/persistence/PersistenceApp";
 // Wave2 B5: build-it, briefing
 import { BuildItApp } from "@/components/build-it/BuildItApp";
 import { BriefingApp } from "@/components/briefing/BriefingApp";
+import { SoulEditorApp } from "@/components/soul-editor/SoulEditorApp";
 
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
@@ -251,6 +252,8 @@ function AppContent() {
       return <BuildItApp />;
     case "briefing":
       return <BriefingApp />;
+    case "soul-editor":
+      return <SoulEditorApp />;
 
     default:
       return (

@@ -141,6 +141,156 @@ export function PromptWorkshopApp() {
 
   return (
     <AppWindowChrome appId="prompt-workshop" title={config.title} icon={config.icon} accent={config.accent}>
+      {/* Top-level tab bar */}
+      <div style={{
+        display: "flex",
+        gap: 0,
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        padding: "0 12px",
+        background: "rgba(255,255,255,0.02)",
+      }}>
+        {(["Templates", "A/B Results"] as const).map((label) => {
+          const isActive = label === "Templates" ? !abTab : abTab;
+          return (
+            <button
+              key={label}
+              onClick={() => setAbTab(label === "A/B Results")}
+              style={{
+                padding: "8px 16px",
+                fontSize: 12,
+                fontWeight: 500,
+                border: "none",
+                cursor: "pointer",
+                background: "transparent",
+                color: isActive ? "#f59e0b" : "var(--pn-text-secondary)",
+                borderBottom: isActive ? "2px solid #f59e0b" : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {abTab ? (
+        /* A/B Results tab */
+        <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+          {abLoading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+              <span style={{ fontSize: 13, color: "var(--pn-text-secondary)" }}>Loading A/B results...</span>
+            </div>
+          )}
+          {abError && (
+            <div style={{ padding: 16, fontSize: 13, color: "#ef4444", textAlign: "center" }}>
+              {abError}
+            </div>
+          )}
+          {!abLoading && !abError && abResults.length === 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+              <span style={{ fontSize: 13, color: "var(--pn-text-muted)" }}>No A/B variants yet</span>
+            </div>
+          )}
+          {!abLoading && abResults.length > 0 && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: 12,
+            }}>
+              {abResults.map((v) => {
+                const color = STATUS_COLORS[v.status];
+                const pct = Math.round(v.success_rate * 100);
+                const canActivate = v.status === "TESTING" || v.status === "CONTROL";
+                return (
+                  <div key={v.id} style={{
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 10,
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}>
+                    {/* Header: name + badge */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--pn-text-primary)" }}>
+                        {v.name}
+                      </span>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        background: `${color}22`,
+                        color,
+                        letterSpacing: 0.5,
+                      }}>
+                        {v.status}
+                      </span>
+                    </div>
+
+                    {/* Usage count */}
+                    <div style={{ fontSize: 11, color: "var(--pn-text-secondary)" }}>
+                      Uses: <span style={{ color: "var(--pn-text-primary)" }}>{v.usage_count}</span>
+                    </div>
+
+                    {/* Success rate bar */}
+                    <div>
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 11,
+                        color: "var(--pn-text-secondary)",
+                        marginBottom: 4,
+                      }}>
+                        <span>Success</span>
+                        <span style={{ color: "var(--pn-text-primary)" }}>{pct}%</span>
+                      </div>
+                      <div style={{
+                        height: 4,
+                        borderRadius: 2,
+                        background: "rgba(255,255,255,0.08)",
+                        overflow: "hidden",
+                      }}>
+                        <div style={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          borderRadius: 2,
+                          background: color,
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* Activate button */}
+                    <button
+                      disabled={!canActivate}
+                      onClick={() => handleActivate(v.id)}
+                      style={{
+                        marginTop: "auto",
+                        padding: "6px 0",
+                        fontSize: 11,
+                        fontWeight: 500,
+                        borderRadius: 5,
+                        border: canActivate
+                          ? "1px solid rgba(245, 158, 11, 0.3)"
+                          : "1px solid rgba(255,255,255,0.06)",
+                        background: canActivate
+                          ? "rgba(245, 158, 11, 0.1)"
+                          : "rgba(255,255,255,0.03)",
+                        color: canActivate ? "#f59e0b" : "var(--pn-text-muted)",
+                        cursor: canActivate ? "pointer" : "default",
+                        opacity: canActivate ? 1 : 0.5,
+                      }}
+                    >
+                      Activate
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
       <div style={{ display: "flex", height: "100%" }}>
         {/* Left sidebar */}
         <div style={{
@@ -391,6 +541,7 @@ export function PromptWorkshopApp() {
           )}
         </div>
       </div>
+      )}
     </AppWindowChrome>
   );
 }

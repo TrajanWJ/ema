@@ -25,15 +25,19 @@ defmodule Ema.Superman.KnowledgeGraph do
   end
 
   def context_for(project_id) when is_binary(project_id) do
-    case :ets.lookup(@table, project_id) do
-      [{^project_id, nodes}] ->
-        nodes
-        |> Map.values()
-        |> Enum.sort_by(&node_rank/1, :desc)
-        |> Enum.take(10)
+    if :ets.whereis(@table) == :undefined do
+      []
+    else
+      case :ets.lookup(@table, project_id) do
+        [{^project_id, nodes}] ->
+          nodes
+          |> Map.values()
+          |> Enum.sort_by(&node_rank/1, :desc)
+          |> Enum.take(10)
 
-      [] ->
-        []
+        [] ->
+          []
+      end
     end
   end
 

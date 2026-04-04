@@ -67,25 +67,33 @@ defmodule Ema.Tasks do
 
   def create_task(attrs, opts) do
     force_dispatch = Keyword.get(opts, :force_dispatch, false)
+    title = Map.get(attrs, :title) || Map.get(attrs, "title") || ""
     description = Map.get(attrs, :description) || Map.get(attrs, "description") || ""
 
-    # Build a temporary struct-like map to pass to StructuralDetector
-    temp_task = %{description: description}
-
-    case Ema.Tasks.StructuralDetector.route(temp_task) do
-      {:require_proposal, _task} when not force_dispatch ->
-        keywords = Ema.Tasks.StructuralDetector.detect_keywords(description)
-        {:requires_proposal, keywords}
+    # DeliberationGate checks title + description for high-risk keywords
+    case Ema.DeliberationGate.check_task(%{title: title, description: description}) do
+      {:needs_deliberation, proposal_id} when not force_dispatch ->
+        {:needs_deliberation, proposal_id}
 
       _ ->
-        if force_dispatch do
-          Logger.warning(
-            "Deliberation gate bypassed for new task: #{description}"
-          )
-          append_bypass_log(%{description: description, attrs: attrs})
-        end
+        # Build a temporary struct-like map to pass to StructuralDetector
+        temp_task = %{description: description}
 
-        do_create_task(attrs)
+        case Ema.Tasks.StructuralDetector.route(temp_task) do
+          {:require_proposal, _task} when not force_dispatch ->
+            keywords = Ema.Tasks.StructuralDetector.detect_keywords(description)
+            {:requires_proposal, keywords}
+
+          _ ->
+            if force_dispatch do
+              Logger.warning(
+                "Deliberation gate bypassed for new task: #{description}"
+              )
+              append_bypass_log(%{description: description, attrs: attrs})
+            end
+
+            do_create_task(attrs)
+        end
     end
   end
 
