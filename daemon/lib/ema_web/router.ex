@@ -310,6 +310,7 @@ defmodule EmaWeb.Router do
     # Superman — Code Intelligence
     get("/superman/health", SupermanController, :health)
     get("/superman/status", SupermanController, :status)
+    get("/superman/context/:project_slug", SupermanController, :context)
     post("/superman/index", SupermanController, :index_repo)
     post("/superman/ask", SupermanController, :ask)
     get("/superman/gaps", SupermanController, :gaps)
@@ -327,6 +328,7 @@ defmodule EmaWeb.Router do
     get("/pipeline/throughput", PipelineController, :throughput)
 
     # Prompt Workshop
+    get("/prompts/optimizer/status", PromptOptimizerController, :status)
     resources("/prompts", PromptController, except: [:new, :edit])
     post("/prompts/:id/version", PromptController, :create_version)
 

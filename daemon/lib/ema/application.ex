@@ -18,6 +18,8 @@ defmodule Ema.Application do
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         {Task.Supervisor, name: Ema.TaskSupervisor},
+        Ema.Prompts.Loader,
+        Ema.Prompts.Optimizer,
         Ema.Agents.Supervisor,
         Ema.Agents.NetworkMonitor,
         # AI session tracking
@@ -50,6 +52,7 @@ defmodule Ema.Application do
         maybe_start_claude_sessions() ++
         maybe_start_canvas() ++
         maybe_start_second_brain() ++
+        maybe_start_superman() ++
         maybe_start_responsibilities() ++
         maybe_start_vectors() ++
         maybe_start_proposal_engine() ++
@@ -136,6 +139,14 @@ defmodule Ema.Application do
     end
   end
 
+  defp maybe_start_superman do
+    if Application.get_env(:ema, :start_second_brain, true) do
+      [Ema.Superman.Supervisor]
+    else
+      []
+    end
+  end
+
   defp maybe_start_responsibilities do
     if Application.get_env(:ema, :start_otp_workers, true) do
       [Ema.Responsibilities.Supervisor]
@@ -195,7 +206,7 @@ defmodule Ema.Application do
 
   defp maybe_start_openclaw do
     if Application.get_env(:ema, :start_openclaw, true) do
-      [Ema.OpenClaw.AgentBridge]
+      [Ema.OpenClaw.AgentBridge, Ema.OpenClaw.EventIngester]
     else
       []
     end

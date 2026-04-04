@@ -139,7 +139,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (state.currentProject === slug) return state;
       return {
         currentProject: slug,
-        context: slug ? state.context : null,
+        context: null,
         contextError: null,
       };
     });

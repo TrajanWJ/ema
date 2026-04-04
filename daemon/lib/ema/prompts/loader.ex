@@ -12,6 +12,7 @@ defmodule Ema.Prompts.Loader do
 
   Usage:
     Ema.Prompts.Loader.get("proposal_generator")
+    Ema.Prompts.Loader.get("proposal_generator", execution_id: "exec_123")
     Ema.Prompts.Loader.reload_kind("proposal_generator")
     Ema.Prompts.Loader.reload()
   """
@@ -33,10 +34,25 @@ defmodule Ema.Prompts.Loader do
   end
 
   @doc """
-  Returns the latest active prompt for `kind` from the ETS cache.
-  Falls back to DB if not found in cache.
+  Returns the routed prompt for `kind`.
+
+  If an active A/B test exists, routing is delegated to `Ema.Prompts.ABRouter`.
   """
-  def get(kind) do
+  def get(kind, opts \\ []) do
+    case Ema.Prompts.ABRouter.route(kind, opts) do
+      {:ok, prompt, _selection} ->
+        {:ok, prompt}
+
+      {:error, :not_found} ->
+        get_cached(kind)
+    end
+  end
+
+  def get_with_selection(kind, opts \\ []) do
+    Ema.Prompts.ABRouter.route(kind, opts)
+  end
+
+  defp get_cached(kind) do
     case :ets.lookup(@table, kind) do
       [{^kind, prompt}] -> {:ok, prompt}
       []                -> fetch_and_cache(kind)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { useProjectStore } from "@/stores/project-store";
 import { useProjectsStore } from "@/stores/projects-store";
@@ -29,13 +29,6 @@ function relativeTime(iso: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function isThisWeek(iso: string): boolean {
-  const date = new Date(iso);
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  return date >= weekAgo;
 }
 
 export function HQTab() {
@@ -86,9 +79,6 @@ export function HQTab() {
   const inProgress = activeTasks.filter((task) => task.status === "in_progress").length;
   const blocked = activeTasks.filter((task) => task.status === "blocked").length;
   const approvedProposals = recentProposals.filter((proposal) => proposal.status === "approved").length;
-  const completedThisWeek =
-    lastExecution?.completed_at && isThisWeek(lastExecution.completed_at) ? 1 : 0;
-
   const stats = [
     { label: "Active Tasks", value: activeTasks.length },
     { label: "In Progress", value: inProgress },
@@ -200,7 +190,7 @@ function Section({
   readonly title: string;
   readonly count: number;
   readonly color: string;
-  readonly children: React.ReactNode;
+  readonly children: ReactNode;
 }) {
   return (
     <div
@@ -436,7 +426,4 @@ function firstString(...values: unknown[]): string | null {
     }
   }
   return null;
-}
-    </div>
-  );
 }

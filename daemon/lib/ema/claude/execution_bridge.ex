@@ -19,6 +19,7 @@ defmodule Ema.Claude.ExecutionBridge do
   require Logger
 
   alias Ema.Intelligence.ReflexionInjector
+  alias Ema.Superman
 
   @max_concurrent 10
   @supervisor Ema.Claude.ExecutionSupervisor
@@ -118,6 +119,34 @@ defmodule Ema.Claude.ExecutionBridge do
     DynamicSupervisor.count_children(@supervisor).active
   end
 
+  def prepend_project_intelligence(prompt, project_slug) when is_binary(prompt) do
+    case Superman.context_for(project_slug) do
+      [] ->
+        prompt
+
+      nodes ->
+        intelligence =
+          nodes
+          |> Enum.map_join("\n\n", fn node ->
+            """
+            [#{node.type}] #{node.title}
+            #{node.content}
+            """
+            |> String.trim()
+          end)
+
+        """
+        Project intelligence:
+        #{intelligence}
+
+        #{prompt}
+        """
+        |> String.trim()
+    end
+  end
+
+  def prepend_project_intelligence(prompt, _project_slug), do: prompt
+
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
@@ -193,6 +222,8 @@ defmodule Ema.Claude.ExecutionBridge.Worker do
   @impl true
   def handle_call({:run, prompt}, _from, state) do
     Logger.info("[ExecutionBridge.Worker] Running #{state.execution_id}")
+
+    prompt = Ema.Claude.ExecutionBridge.prepend_project_intelligence(prompt, state.project_slug)
 
     result =
       Ema.Claude.Bridge.run(prompt,

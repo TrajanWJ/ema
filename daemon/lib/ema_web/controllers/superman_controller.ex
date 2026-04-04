@@ -3,6 +3,7 @@ defmodule EmaWeb.SupermanController do
 
   alias Ema.Intelligence.SupermanClient
   alias Ema.Projects
+  alias Ema.Superman
 
   action_fallback EmaWeb.FallbackController
 
@@ -127,5 +128,12 @@ defmodule EmaWeb.SupermanController do
       {:ok, body} -> json(conn, body)
       {:error, reason} -> conn |> put_status(502) |> json(%{error: inspect(reason)})
     end
+  end
+
+  def context(conn, %{"project_slug" => project_slug}) do
+    json(conn, %{
+      project_slug: project_slug,
+      nodes: Superman.context_for(project_slug)
+    })
   end
 end

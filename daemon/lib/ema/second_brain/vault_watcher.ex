@@ -9,6 +9,7 @@ defmodule Ema.SecondBrain.VaultWatcher do
   require Logger
 
   alias Ema.SecondBrain
+  alias Ema.Superman.IntentParser
 
   @poll_interval 5_000
 
@@ -90,7 +91,7 @@ defmodule Ema.SecondBrain.VaultWatcher do
             File.dir?(path) ->
               scan_directory(path)
 
-            String.ends_with?(entry, ".md") ->
+            String.ends_with?(entry, ".md") or String.ends_with?(entry, ".superman") ->
               case File.stat(path) do
                 {:ok, %{mtime: mtime}} -> [{path, mtime}]
                 _ -> []
@@ -134,22 +135,41 @@ defmodule Ema.SecondBrain.VaultWatcher do
 
     Enum.each(changes, fn
       {:created, full_path} ->
-        sync_file_to_db(full_path, root)
+        process_file_change(full_path, root)
 
       {:modified, full_path} ->
-        sync_file_to_db(full_path, root)
+        process_file_change(full_path, root)
 
       {:deleted, full_path} ->
-        relative = Path.relative_to(full_path, root)
-
-        case SecondBrain.get_note_by_path(relative) do
-          nil -> :ok
-          note -> SecondBrain.delete_note(note.id)
-        end
+        process_deleted_file(full_path, root)
     end)
 
     # Trigger graph rebuild after processing changes
     Ema.SecondBrain.GraphBuilder.rebuild()
+  end
+
+  defp process_file_change(full_path, root) do
+    if String.ends_with?(full_path, ".superman") do
+      sync_superman_file(full_path, root)
+    else
+      sync_file_to_db(full_path, root)
+    end
+  end
+
+  defp process_deleted_file(full_path, root) do
+    if String.ends_with?(full_path, ".superman") do
+      case superman_project_id(full_path, root) do
+        nil -> :ok
+        project_id -> Ema.Superman.clear(project_id)
+      end
+    else
+      relative = Path.relative_to(full_path, root)
+
+      case SecondBrain.get_note_by_path(relative) do
+        nil -> :ok
+        note -> SecondBrain.delete_note(note.id)
+      end
+    end
   end
 
   defp sync_file_to_db(full_path, root) do
@@ -193,6 +213,26 @@ defmodule Ema.SecondBrain.VaultWatcher do
 
       {:error, _} ->
         :ok
+    end
+  end
+
+  defp sync_superman_file(full_path, root) do
+    with project_id when is_binary(project_id) <- superman_project_id(full_path, root),
+         {:ok, content} <- File.read(full_path) do
+      nodes = IntentParser.parse(content, source: full_path)
+      Ema.Superman.ingest(nodes, project_id)
+    else
+      nil -> :ok
+      {:error, _reason} -> :ok
+    end
+  end
+
+  defp superman_project_id(full_path, root) do
+    relative = Path.relative_to(full_path, root)
+
+    case String.split(relative, "/", trim: true) do
+      ["projects", project_slug | _rest] when project_slug != "" -> project_slug
+      _ -> nil
     end
   end
 

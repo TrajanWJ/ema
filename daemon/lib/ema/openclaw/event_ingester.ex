@@ -211,36 +211,20 @@ defmodule Ema.OpenClaw.EventIngester do
   end
 
   defp find_or_create_conversation(agent_id, oc_session_id, channel_type) do
-    # Look for an existing conversation tagged with this OC session
-    existing =
-      Agents.list_conversations_by_agent(agent_id)
-      |> Enum.find(fn conv ->
-        meta = conv.metadata || %{}
-        Map.get(meta, "openclaw_session_id") == oc_session_id
-      end)
+    # Use oc_session_id as the stable channel_id for EMA conversation lookup
+    valid_channel_type = normalize_channel_type(channel_type)
+    channel_id = "oc_" <> oc_session_id
 
-    if existing do
-      existing.id
-    else
-      title = "OpenClaw #{channel_type} — #{String.slice(oc_session_id, 0, 12)}"
-
-      case Agents.create_conversation(%{
-             agent_id: agent_id,
-             title: title,
-             status: "active",
-             metadata: %{
-               "openclaw_session_id" => oc_session_id,
-               "channel_type" => channel_type,
-               "source" => "openclaw_ingester"
-             }
-           }) do
-        {:ok, conv} -> conv.id
-        {:error, reason} ->
-          Logger.error("[EventIngester] Failed to create conversation: #{inspect(reason)}")
-          "fallback_#{oc_session_id}"
-      end
+    case Agents.get_or_create_conversation(agent_id, valid_channel_type, channel_id, nil) do
+      {:ok, conv} -> conv.id
+      {:error, reason} ->
+        Logger.error("[EventIngester] Failed to get_or_create conversation: " <> inspect(reason))
+        "fallback_" <> oc_session_id
     end
   end
+
+  defp normalize_channel_type(type) when type in ["discord", "telegram", "webchat", "api"], do: type
+  defp normalize_channel_type(_), do: "webchat"
 
   defp resolve_agent_slug(nil), do: Config.default_agent()
   defp resolve_agent_slug(agent_id) when is_binary(agent_id) do

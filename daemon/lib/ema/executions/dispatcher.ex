@@ -20,6 +20,9 @@ defmodule Ema.Executions.Dispatcher do
   alias Ema.Executions.Router
   alias Ema.Intelligence.ContextBuilder
   alias Ema.Intelligence.OutcomeTracker
+  alias Ema.Intelligence.ReflexionInjector
+  alias Ema.Intelligence.ScopeAdvisor
+  alias Ema.Superman
   alias Ema.Vault.VaultBridge
 
   def start_link(opts \\ []) do
@@ -49,19 +52,51 @@ defmodule Ema.Executions.Dispatcher do
     packet = build_packet(execution)
     base_prompt = format_prompt(packet)
 
+    # Scope check — warn if recent outcomes show repeated failures
+    scope_meta =
+      try do
+        result = ScopeAdvisor.check(packet.agent_role, execution.mode, execution.title)
+        ScopeAdvisor.to_metadata(result)
+      rescue
+        _ -> %{"warn" => false, "reason" => nil}
+      end
+
+    if scope_meta["warn"] do
+      Logger.warning("[Dispatcher] ScopeAdvisor: #{scope_meta["reason"]}")
+      Ema.Executions.record_event(execution.id, "scope_warning", scope_meta)
+    end
+
     # Inject pre-dispatch context from local files
     prompt =
       try do
         context = ContextBuilder.build_context(execution)
         enriched = ContextBuilder.inject_context(base_prompt, context)
+
+        enriched =
+          prepend_project_intelligence(enriched, execution.project_slug)
+
         if enriched != base_prompt do
           Logger.debug("[Dispatcher] Context injected for #{execution.id} (mode: #{execution.mode})")
         end
+
         enriched
       rescue
         e ->
           Logger.warning("[Dispatcher] ContextBuilder failed for #{execution.id}: #{inspect(e)} — using base prompt")
           base_prompt
+      end
+
+    # Inject reflexion lessons from past executions
+    prompt =
+      try do
+        prefix = ReflexionInjector.build_prefix(
+          packet.agent_role || "default",
+          execution.mode || "code",
+          execution.project_slug || ""
+        )
+        if prefix != "", do: prefix <> prompt, else: prompt
+      rescue
+        _ -> prompt
       end
 
     case Ema.Executions.create_agent_session(execution.id, %{
@@ -326,8 +361,34 @@ defmodule Ema.Executions.Dispatcher do
       "/home/trajan/Desktop/Coding/#{project_slug}",
       "/home/trajan/#{project_slug}"
     ]
+
     Enum.find(paths, &File.dir?/1)
   end
 
-end
+  defp prepend_project_intelligence(prompt, project_slug) do
+    case Superman.context_for(project_slug) do
+      [] ->
+        prompt
 
+      nodes ->
+        intelligence =
+          nodes
+          |> Enum.map_join("\n\n", fn node ->
+            """
+            [#{node.type}] #{node.title}
+            #{node.content}
+            """
+            |> String.trim()
+          end)
+
+        """
+        Project intelligence:
+        #{intelligence}
+
+        #{prompt}
+        """
+        |> String.trim()
+    end
+  end
+
+end
