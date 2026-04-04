@@ -35,13 +35,35 @@ defmodule EmaWeb.TaskController do
       parent_id: params["parent_id"]
     }
 
-    with {:ok, task} <- Tasks.create_task(attrs) do
-      broadcast_task_event(task, "task_created")
+    force_dispatch = params["force_dispatch"] == true or params["force_dispatch"] == "true"
+    opts = [force_dispatch: force_dispatch]
 
-      conn
-      |> put_status(:created)
-      |> json(serialize_task(task))
+    case Tasks.create_task(attrs, opts) do
+      {:ok, task} ->
+        broadcast_task_event(task, "task_created")
+
+        conn
+        |> put_status(:created)
+        |> json(serialize_task(task))
+
+      {:requires_proposal, keywords} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{status: "requires_proposal", keywords: keywords})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: format_errors(changeset)})
     end
+  end
+
+  defp format_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
   end
 
   def show(conn, %{"id" => id}) do

@@ -4,13 +4,20 @@ import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
 import type { Task, TaskComment } from "@/types/tasks";
 
+interface CreateTaskResult {
+  status?: string;
+  keywords?: string[];
+  id?: string;
+  title?: string;
+}
+
 interface TasksState {
   tasks: readonly Task[];
   connected: boolean;
   channel: Channel | null;
   loadViaRest: (projectId?: string) => Promise<void>;
   connect: (projectId?: string) => Promise<void>;
-  createTask: (data: Partial<Task>) => Promise<void>;
+  createTask: (data: Partial<Task> & { force_dispatch?: boolean }) => Promise<CreateTaskResult>;
   transitionTask: (id: string, status: Task["status"]) => Promise<void>;
   addComment: (id: string, body: string) => Promise<TaskComment>;
 }
@@ -50,7 +57,7 @@ export const useTasksStore = create<TasksState>((set) => ({
   },
 
   async createTask(data) {
-    await api.post("/tasks", data);
+    return api.post<CreateTaskResult>("/tasks", data);
   },
 
   async transitionTask(id, status) {

@@ -399,5 +399,7 @@ defmodule EmaWeb.Router do
     # Webhooks
     post "/webhooks/telegram", TelegramController, :webhook
     post "/webhooks/discord", DiscordWebhookController, :webhook
+    # Voice-integrated Discord bridge (messages → VoiceCore → Jarvis response)
+    post "/discord/message", DiscordWebhookController, :receive
   end
 end

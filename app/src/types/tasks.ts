@@ -2,7 +2,7 @@ export interface Task {
   readonly id: string;
   readonly title: string;
   readonly description: string | null;
-  readonly status: "proposed" | "todo" | "in_progress" | "blocked" | "in_review" | "done" | "archived" | "cancelled";
+  readonly status: "proposed" | "todo" | "in_progress" | "blocked" | "in_review" | "done" | "archived" | "cancelled" | "requires_proposal";
   readonly priority: number;
   readonly source_type: string | null;
   readonly source_id: string | null;

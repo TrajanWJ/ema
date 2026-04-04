@@ -17,6 +17,7 @@ const STATUS_TRANSITIONS: Record<Task["status"], readonly Task["status"][]> = {
   done: ["archived"],
   archived: [],
   cancelled: [],
+  requires_proposal: ["todo", "cancelled"],
 } as const;
 
 const STATUS_COLORS: Record<Task["status"], string> = {
@@ -28,6 +29,7 @@ const STATUS_COLORS: Record<Task["status"], string> = {
   done: "#22c55e",
   archived: "var(--pn-text-muted)",
   cancelled: "var(--pn-text-muted)",
+  requires_proposal: "#fbbf24",
 };
 
 export function TaskDetail({ task, onClose }: TaskDetailProps) {

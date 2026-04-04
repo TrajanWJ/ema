@@ -1,4 +1,5 @@
 defmodule Ema.Tasks do
+  require Logger
   @moduledoc """
   Tasks -- actionable work items linked to projects, goals, and responsibilities.
   Supports lifecycle transitions, decomposition into subtasks, comments, and dependencies.
@@ -60,6 +61,34 @@ defmodule Ema.Tasks do
   end
 
   def create_task(attrs) do
+    create_task(attrs, [])
+  end
+
+  def create_task(attrs, opts) do
+    force_dispatch = Keyword.get(opts, :force_dispatch, false)
+    description = Map.get(attrs, :description) || Map.get(attrs, "description") || ""
+
+    # Build a temporary struct-like map to pass to StructuralDetector
+    temp_task = %{description: description}
+
+    case Ema.Tasks.StructuralDetector.route(temp_task) do
+      {:require_proposal, _task} when not force_dispatch ->
+        keywords = Ema.Tasks.StructuralDetector.detect_keywords(description)
+        {:requires_proposal, keywords}
+
+      _ ->
+        if force_dispatch do
+          Logger.warning(
+            "Deliberation gate bypassed for new task: #{description}"
+          )
+          append_bypass_log(%{description: description, attrs: attrs})
+        end
+
+        do_create_task(attrs)
+    end
+  end
+
+  defp do_create_task(attrs) do
     id = generate_id()
 
     result =
@@ -80,6 +109,21 @@ defmodule Ema.Tasks do
 
       error ->
         error
+    end
+  end
+
+  defp append_bypass_log(entry) do
+    dir = Path.expand("~/.local/share/ema")
+    path = Path.join(dir, "deliberation-bypasses.jsonl")
+
+    with :ok <- File.mkdir_p(dir) do
+      line = Jason.encode!(%{
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
+        description: entry.description,
+        attrs: entry.attrs
+      })
+      File.write!(path, line <> "
+", [:append])
     end
   end
 

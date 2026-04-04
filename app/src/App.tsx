@@ -112,10 +112,10 @@ function AppContent() {
       return <FocusApp />;
     case "git-sync":
       return <GitSyncApp />;
-    case "executions":
-      case "dispatch-board":
-        return <DispatchBoardApp />;
+    case executions:
       return <ExecutionsApp />;
+    case dispatch-board:
+        return <DispatchBoardApp />;
     case "openclaw":
       return <OpenClawApp />;
     case "cli-manager":
