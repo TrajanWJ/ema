@@ -11,9 +11,9 @@ defmodule Ema.Repo.Migrations.CreateIntentClusters do
       add :promoted, :boolean, default: false
       add :seed_id, :string
       add :status, :string, default: "forming"
-      add :project_id, :string, references(:projects, type: :string, on_delete: :nothing)
-      add :space_id, :string, references(:spaces, type: :string, on_delete: :nothing)
-      add :intent_node_id, :string, references(:intent_nodes, type: :string, on_delete: :nothing)
+      add :project_id, references(:projects, type: :string, on_delete: :nothing)
+      add :space_id, references(:spaces, type: :string, on_delete: :nothing)
+      add :intent_node_id, references(:intent_nodes, type: :string, on_delete: :nothing)
 
       timestamps(type: :utc_datetime)
     end
