@@ -7,7 +7,7 @@ defmodule Ema.Babysitter.StreamTicker do
   use GenServer
   require Logger
 
-  @channel_id "1489786483970936933"
+  @channel_id "1489815817867624578"
   @default_interval_ms 45_000
   @setting_key "babysitter.tick_interval_ms"
 
