@@ -54,14 +54,14 @@ defmodule Ema.Prompts.Optimizer do
   def init(opts) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     next_run = next_run_after(now)
-    schedule_tick(now)
 
     {:ok,
      %{
        clock: Keyword.get(opts, :clock, &DateTime.utc_now/0),
        bridge_runner: Keyword.get(opts, :bridge_runner, &run_bridge/2),
        last_run: nil,
-       next_run: next_run
+       next_run: next_run,
+       timer_ref: schedule_tick(now)
      }}
   end
 
@@ -97,15 +97,18 @@ defmodule Ema.Prompts.Optimizer do
     analyze_completed_tests(since)
     create_variants_for_underperformers(state.bridge_runner, since)
 
-    schedule_tick(now)
+    maybe_cancel_timer(state.timer_ref)
 
-    %{state | last_run: now, next_run: next_run_after(now)}
+    %{state |
+      last_run: now,
+      next_run: next_run_after(now),
+      timer_ref: schedule_tick(now)}
   end
 
   defp analyze_completed_tests(since) do
     Store.active_tests()
     |> Enum.each(fn %{control: control, variants: variants} ->
-      if test_ready?(variants, since) do
+      if control && test_ready?(variants, since) do
         resolve_test(control, variants, since)
       end
     end)
@@ -197,6 +200,9 @@ defmodule Ema.Prompts.Optimizer do
     Process.send_after(self(), :optimize, ms_until_next_run(now))
   end
 
+  defp maybe_cancel_timer(nil), do: :ok
+  defp maybe_cancel_timer(timer_ref), do: Process.cancel_timer(timer_ref)
+
   defp format_datetime(nil), do: nil
   defp format_datetime(value), do: DateTime.to_iso8601(value)
 
@@ -219,8 +225,18 @@ defmodule Ema.Prompts.Optimizer do
     end
   end
 
-  defp decode_variants(%{"result" => text}) when is_binary(text), do: Jason.decode(text)
-  defp decode_variants(%{"raw" => text}) when is_binary(text), do: Jason.decode(text)
-  defp decode_variants(text) when is_binary(text), do: Jason.decode(text)
+  defp decode_variants(%{"result" => text}) when is_binary(text), do: decode_variants(text)
+  defp decode_variants(%{"raw" => text}) when is_binary(text), do: decode_variants(text)
+
+  defp decode_variants(text) when is_binary(text) do
+    text
+    |> String.trim()
+    |> String.trim_leading("```json")
+    |> String.trim_leading("```")
+    |> String.trim_trailing("```")
+    |> String.trim()
+    |> Jason.decode()
+  end
+
   defp decode_variants(other), do: {:error, {:unexpected_response, other}}
 end
