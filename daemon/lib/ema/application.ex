@@ -230,7 +230,7 @@ defmodule Ema.Application do
 
   defp maybe_start_openclaw do
     if Application.get_env(:ema, :start_openclaw, true) do
-      [Ema.OpenClaw.AgentBridge, Ema.OpenClaw.EventIngester]
+      [Ema.OpenClaw.AgentBridge, Ema.OpenClaw.EventIngester, Ema.OpenClaw.ChannelDelivery]
     else
       []
     end
