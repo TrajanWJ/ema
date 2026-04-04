@@ -42,6 +42,40 @@ export function PromptWorkshopApp() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category>("custom");
   const [body, setBody] = useState("");
+  const [abTab, setAbTab] = useState(false);
+  const [abResults, setAbResults] = useState<ABVariant[]>([]);
+  const [abLoading, setAbLoading] = useState(false);
+  const [abError, setAbError] = useState<string | null>(null);
+
+  const fetchAbResults = useCallback(async () => {
+    setAbLoading(true);
+    setAbError(null);
+    try {
+      const res = await doFetch(`${BASE}/prompts/ab-results`, {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { data: ABVariant[] };
+      setAbResults(data.data);
+    } catch (err) {
+      setAbError(err instanceof Error ? err.message : "Failed to fetch");
+    } finally {
+      setAbLoading(false);
+    }
+  }, []);
+
+  async function handleActivate(id: string) {
+    try {
+      const res = await doFetch(`${BASE}/prompts/ab-results/${id}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchAbResults();
+    } catch {
+      // silent — user sees stale data as cue
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +94,10 @@ export function PromptWorkshopApp() {
       setBody(store.selected.body);
     }
   }, [store.selected, editing]);
+
+  useEffect(() => {
+    if (abTab) fetchAbResults();
+  }, [abTab, fetchAbResults]);
 
   const filtered = useMemo(
     () => store.templates.filter((t) => t.category === activeCategory),
