@@ -8,7 +8,7 @@ defmodule Ema.Babysitter.StreamTicker do
   require Logger
 
   @channel_id "1489815817867624578"
-  @default_interval_ms 45_000
+  @default_interval_ms 15_000
   @setting_key "babysitter.tick_interval_ms"
 
   # Category display labels (order matters for output)
