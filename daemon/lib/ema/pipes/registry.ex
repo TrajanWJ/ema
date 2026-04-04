@@ -41,13 +41,24 @@ defmodule Ema.Pipes.Registry do
   end
 
   def get_action(action_id) do
-    GenServer.call(__MODULE__, {:get_action, action_id})
+    case GenServer.call(__MODULE__, {:get_action, action_id}) do
+      nil -> Ema.PluginRegistry.lookup_action(action_id)
+      action -> action
+    end
   end
 
   def execute_action(action_id, payload) do
     case get_action(action_id) do
-      nil -> {:error, :unknown_action}
-      action -> action.execute.(payload)
+      nil ->
+        # Not in stock or plugin registry
+        {:error, :unknown_action}
+
+      %{source: :plugin} = plugin_action ->
+        # Plugin action — dispatch via PluginRegistry
+        Ema.PluginRegistry.dispatch_action(plugin_action.action_id, payload, %{})
+
+      action ->
+        action.execute.(payload)
     end
   end
 
