@@ -92,16 +92,27 @@ defmodule EmaWeb.ProposalController do
     context = params["context"] || %{}
 
     with {:ok, seed} <- fetch_seed(seed_id),
-         project <- if(project_id, do: Ema.Projects.get_project(project_id)),
-         {:ok, proposal_id, pubsub_topic} <-
-           Ema.Proposals.Orchestrator.start_proposal(seed, project, context) do
-      conn
-      |> put_status(:accepted)
-      |> json(%{
-        proposal_id: proposal_id,
-        pubsub_topic: pubsub_topic,
-        message: "Pipeline started. Subscribe to topic for streaming updates."
-      })
+         {:ok, checked_seed, preflight_diag} <- run_preflight(seed) do
+      project = if(project_id, do: Ema.Projects.get_project(project_id))
+      enriched_context = Map.put(context, "preflight", preflight_diag)
+
+      case Ema.Proposals.Orchestrator.start_proposal(checked_seed, project, enriched_context) do
+        {:ok, proposal_id, pubsub_topic} ->
+          conn
+          |> put_status(:accepted)
+          |> json(%{
+            proposal_id: proposal_id,
+            pubsub_topic: pubsub_topic,
+            preflight: %{
+              result: preflight_diag[:result],
+              score: preflight_diag[:enriched_score] || preflight_diag[:initial_score]
+            },
+            message: "Pipeline started. Subscribe to topic for streaming updates."
+          })
+
+        {:error, reason} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(reason)})
+      end
     end
   end
 
@@ -180,6 +191,15 @@ defmodule EmaWeb.ProposalController do
     case Proposals.get_seed(seed_id) do
       nil -> {:error, :not_found}
       seed -> {:ok, seed}
+    end
+  end
+
+  defp run_preflight(seed) do
+    case Ema.Proposals.SeedPreflight.check(seed) do
+      {:pass, checked, diag} -> {:ok, checked, diag}
+      {:rewrite, checked, diag} -> {:ok, checked, diag}
+      {:duplicate, _nil, diag} -> {:error, {:preflight_duplicate, diag}}
+      {:reject, _nil, diag} -> {:error, {:preflight_rejected, diag}}
     end
   end
 
