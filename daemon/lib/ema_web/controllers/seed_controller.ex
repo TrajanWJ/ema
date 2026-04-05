@@ -48,14 +48,17 @@ defmodule EmaWeb.SeedController do
         {:error, :not_found}
 
       seed ->
-        attrs = %{
-          name: params["name"],
-          prompt_template: params["prompt_template"],
-          schedule: params["schedule"],
-          active: params["active"],
-          context_injection: params["context_injection"],
-          metadata: params["metadata"]
-        }
+        attrs =
+          [
+            {"name", params["name"]},
+            {"prompt_template", params["prompt_template"]},
+            {"schedule", params["schedule"]},
+            {"active", params["active"]},
+            {"context_injection", params["context_injection"]},
+            {"metadata", params["metadata"]}
+          ]
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+          |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
 
         with {:ok, updated} <- Proposals.update_seed(seed, attrs) do
           json(conn, serialize_seed(updated))

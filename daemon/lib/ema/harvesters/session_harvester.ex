@@ -143,7 +143,7 @@ defmodule Ema.Harvesters.SessionHarvester do
 
       Propose workflow optimizations, custom tools, or automation to reduce repetitive tool usage.
       """,
-      schedule: nil,
+      schedule: "every_8h",
       active: true,
       metadata: %{source: "session_harvester", tool_counts: Map.new(tool_counts)}
     }) do
@@ -160,7 +160,7 @@ defmodule Ema.Harvesters.SessionHarvester do
       Recent Claude Code sessions had #{error_count} errors.
       Investigate recurring failure patterns and propose preventive measures or better error handling.
       """,
-      schedule: nil,
+      schedule: "every_8h",
       active: true,
       metadata: %{source: "session_harvester", error_count: error_count}
     }) do
@@ -177,7 +177,7 @@ defmodule Ema.Harvesters.SessionHarvester do
       A Claude Code session had #{event_count} events, suggesting complex multi-step work.
       Propose task decomposition strategies or workflow templates to handle similar tasks more efficiently.
       """,
-      schedule: nil,
+      schedule: "every_8h",
       active: true,
       metadata: %{source: "session_harvester", event_count: event_count}
     }) do

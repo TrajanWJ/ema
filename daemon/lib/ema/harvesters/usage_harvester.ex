@@ -196,7 +196,7 @@ defmodule Ema.Harvesters.UsageHarvester do
       Propose specific improvements to the prompts, context, or workflow for this agent/mode combination.
       Consider: common failure patterns, missing context, prompt clarity, and tooling gaps.
       """,
-      schedule: nil,
+      schedule: "every_8h",
       active: true,
       metadata: %{
         source: "usage_harvester",

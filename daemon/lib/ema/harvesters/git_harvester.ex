@@ -126,7 +126,7 @@ defmodule Ema.Harvesters.GitHarvester do
 
       Propose which branches should be deleted, merged, or preserved. Consider naming conventions and likely purpose.
       """,
-      schedule: nil,
+      schedule: "every_6h",
       active: true,
       project_id: project.id,
       metadata: %{source: "git_harvester", branch_count: length(branches)}
@@ -150,7 +150,7 @@ defmodule Ema.Harvesters.GitHarvester do
 
       Propose follow-up tasks to address these. Prioritize by risk and effort.
       """,
-      schedule: nil,
+      schedule: "every_6h",
       active: true,
       project_id: project.id,
       metadata: %{source: "git_harvester", commit_count: length(commits)}
