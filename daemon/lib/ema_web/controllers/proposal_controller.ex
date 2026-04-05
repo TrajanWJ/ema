@@ -28,6 +28,7 @@ defmodule EmaWeb.ProposalController do
     case Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
         conn |> put_status(:created) |> json(serialize_proposal(proposal))
+
       {:error, changeset} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
     end
@@ -74,6 +75,12 @@ defmodule EmaWeb.ProposalController do
         parents: Enum.map(lineage.parents, &serialize_proposal/1),
         children: Enum.map(lineage.children, &serialize_proposal/1)
       })
+    end
+  end
+
+  def outcome(conn, %{"id" => id}) do
+    with {:ok, outcome} <- Proposals.get_proposal_outcome(id) do
+      json(conn, outcome)
     end
   end
 
@@ -146,11 +153,12 @@ defmodule EmaWeb.ProposalController do
     budget = Ema.Proposals.CostAggregator.daily_budget()
     check = Ema.Proposals.CostAggregator.budget_check()
 
-    status = case check do
-      :ok -> "ok"
-      {:warning, _} -> "warning"
-      {:blocked, _} -> "blocked"
-    end
+    status =
+      case check do
+        :ok -> "ok"
+        {:warning, _} -> "warning"
+        {:blocked, _} -> "blocked"
+      end
 
     json(conn, %{
       daily_spend_usd: spend,
@@ -176,6 +184,7 @@ defmodule EmaWeb.ProposalController do
   # ── Private helpers ────────────────────────────────────────────────────────
 
   defp fetch_seed(nil), do: {:error, :bad_request}
+
   defp fetch_seed(seed_id) do
     case Proposals.get_seed(seed_id) do
       nil -> {:error, :not_found}

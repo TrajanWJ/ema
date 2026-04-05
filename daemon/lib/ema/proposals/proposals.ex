@@ -7,6 +7,7 @@ defmodule Ema.Proposals do
   import Ecto.Query
   alias Ema.Repo
   alias Ema.Proposals.{Proposal, Seed, ProposalTag}
+  alias Ema.ProposalEngine.OutcomeLinker
 
   # --- Proposals ---
 
@@ -137,6 +138,17 @@ defmodule Ema.Proposals do
           |> Repo.all()
 
         {:ok, %{proposal: proposal, parents: parent_chain, children: children_tree}}
+    end
+  end
+
+  def get_proposal_outcome(id) do
+    case get_proposal(id) do
+      nil ->
+        {:error, :not_found}
+
+      proposal ->
+        execution = Ema.Executions.get_by_proposal(proposal.id)
+        {:ok, OutcomeLinker.summarize(proposal, execution)}
     end
   end
 
