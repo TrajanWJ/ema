@@ -48,7 +48,6 @@ defmodule Ema.Application do
         Ema.Intelligence.UCBRouter,
         {Ema.Intelligence.PromptVariantStore, []},
         Ema.Intelligence.VaultLearner,
-        Ema.Campaigns.CampaignManager,
         # Projects — per-project worker registry and DynamicSupervisor for context caching
         {Registry, keys: :unique, name: Ema.Projects.WorkerRegistry},
         {DynamicSupervisor, name: Ema.Projects.ProjectWorkerSupervisor, strategy: :one_for_one},
@@ -57,6 +56,7 @@ defmodule Ema.Application do
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
       ] ++
         maybe_start_session_store() ++
+        maybe_start_campaign_manager() ++
         maybe_start_quality() ++
         maybe_start_orchestration() ++
         maybe_start_bridge() ++
@@ -131,6 +131,14 @@ defmodule Ema.Application do
   defp maybe_start_session_store do
     if Application.get_env(:ema, :start_session_store, true) do
       [Ema.Persistence.SessionStore]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_campaign_manager do
+    if Application.get_env(:ema, :start_campaign_manager, true) do
+      [Ema.Campaigns.CampaignManager]
     else
       []
     end

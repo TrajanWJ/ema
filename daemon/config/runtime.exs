@@ -113,3 +113,33 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 end
+
+# ── Anthropic Direct API Key (preferred over OAuth when ANTHROPIC_API_KEY is set) ──
+if api_key = System.get_env("ANTHROPIC_API_KEY") do
+  config :ema, anthropic_api_key: api_key
+
+  existing_claude_config = Application.get_env(:ema, Ema.Claude, [])
+  existing_providers = Keyword.get(existing_claude_config, :providers, [])
+
+  anthropic_api_key_provider = %{
+    id: "anthropic-api-key",
+    type: :anthropic,
+    name: "Anthropic Direct API",
+    adapter_module: Ema.Claude.Adapters.ApiKey,
+    accounts: [%{name: "default", auth: {:api_key, {:env, "ANTHROPIC_API_KEY"}}}],
+    models: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
+    cost_profile: %{
+      "claude-opus-4-6": %{input_per_1k: 0.015, output_per_1k: 0.075},
+      "claude-sonnet-4-6": %{input_per_1k: 0.003, output_per_1k: 0.015},
+      "claude-haiku-4-5-20251001": %{input_per_1k: 0.0008, output_per_1k: 0.004}
+    },
+    capabilities: %{
+      streaming: true,
+      tool_use: true,
+      multi_turn: false
+    }
+  }
+
+  config :ema, Ema.Claude,
+    Keyword.put(existing_claude_config, :providers, [anthropic_api_key_provider | existing_providers])
+end
