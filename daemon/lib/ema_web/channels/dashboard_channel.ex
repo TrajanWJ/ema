@@ -2,15 +2,29 @@ defmodule EmaWeb.DashboardChannel do
   use Phoenix.Channel
 
   alias Ema.{BrainDump, Habits, Journal}
+  alias Phoenix.Socket.Broadcast
+
+  @live_topics ["brain_dump:queue", "habits:tracker", "journal:today"]
 
   @impl true
   def join("dashboard:lobby", _payload, socket) do
+    Enum.each(@live_topics, &Phoenix.PubSub.subscribe(Ema.PubSub, &1))
     send(self(), :send_snapshot)
     {:ok, socket}
   end
 
   @impl true
   def handle_info(:send_snapshot, socket) do
+    push(socket, "snapshot", build_snapshot())
+    {:noreply, socket}
+  end
+
+  def handle_info(%Broadcast{topic: topic}, socket) when topic in @live_topics do
+    push(socket, "snapshot", build_snapshot())
+    {:noreply, socket}
+  end
+
+  defp build_snapshot do
     today = Date.utc_today() |> Date.to_iso8601()
 
     inbox_count = BrainDump.unprocessed_count()
@@ -41,7 +55,7 @@ defmodule EmaWeb.DashboardChannel do
 
     {:ok, journal_entry} = Journal.get_or_create_entry(today)
 
-    push(socket, "snapshot", %{
+    %{
       date: today,
       inbox_count: inbox_count,
       recent_inbox: recent_items,
@@ -56,8 +70,6 @@ defmodule EmaWeb.DashboardChannel do
         energy_e: journal_entry.energy_e,
         content: journal_entry.content
       }
-    })
-
-    {:noreply, socket}
+    }
   end
 end

@@ -38,11 +38,12 @@ defmodule EmaWeb.ResponsibilityController do
     }
 
     with {:ok, resp} <- Responsibilities.create_responsibility(attrs) do
-      broadcast("responsibility_created", serialize(resp))
+      serialized = serialize(resp)
+      broadcast("responsibility_created", serialized, resp.project_id)
 
       conn
       |> put_status(:created)
-      |> json(serialize(resp))
+      |> json(serialized)
     end
   end
 
@@ -66,8 +67,9 @@ defmodule EmaWeb.ResponsibilityController do
           |> Map.new()
 
         with {:ok, updated} <- Responsibilities.update_responsibility(resp, attrs) do
-          broadcast("responsibility_updated", serialize(updated))
-          json(conn, serialize(updated))
+          serialized = serialize(updated)
+          broadcast("responsibility_updated", serialized, updated.project_id)
+          json(conn, serialized)
         end
     end
   end
@@ -79,7 +81,7 @@ defmodule EmaWeb.ResponsibilityController do
 
       resp ->
         with {:ok, _} <- Responsibilities.delete_responsibility(resp) do
-          broadcast("responsibility_deleted", %{id: id})
+          broadcast("responsibility_deleted", %{id: id}, resp.project_id)
           json(conn, %{ok: true})
         end
     end
@@ -97,17 +99,16 @@ defmodule EmaWeb.ResponsibilityController do
         }
 
         with {:ok, {updated_resp, check_in}} <- Responsibilities.check_in(resp, attrs) do
-          broadcast("check_in_created", %{
+          payload = %{
             responsibility: serialize(updated_resp),
             check_in: serialize_check_in(check_in)
-          })
+          }
+
+          broadcast("check_in_created", payload, updated_resp.project_id)
 
           conn
           |> put_status(:created)
-          |> json(%{
-            responsibility: serialize(updated_resp),
-            check_in: serialize_check_in(check_in)
-          })
+          |> json(payload)
         end
     end
   end
@@ -120,8 +121,12 @@ defmodule EmaWeb.ResponsibilityController do
     json(conn, %{responsibilities: responsibilities})
   end
 
-  defp broadcast(event, payload) do
+  defp broadcast(event, payload, project_id \\ nil) do
     EmaWeb.Endpoint.broadcast("responsibilities:lobby", event, payload)
+
+    if project_id do
+      EmaWeb.Endpoint.broadcast("responsibilities:#{project_id}", event, payload)
+    end
   end
 
   defp serialize(resp) do

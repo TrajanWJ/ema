@@ -61,13 +61,17 @@ defmodule EmaWeb.ProjectController do
         }
 
         with {:ok, updated} <- Projects.update_project(project, attrs) do
+          serialized = serialize_project(updated)
+
           EmaWeb.Endpoint.broadcast(
             "projects:#{id}",
             "project_updated",
-            serialize_project(updated)
+            serialized
           )
 
-          json(conn, serialize_project(updated))
+          EmaWeb.Endpoint.broadcast("projects:lobby", "project_updated", serialized)
+
+          json(conn, serialized)
         end
     end
   end

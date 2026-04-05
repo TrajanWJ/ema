@@ -2,6 +2,7 @@ defmodule EmaWeb.HabitsController do
   use EmaWeb, :controller
 
   alias Ema.Habits
+  alias EmaWeb.Endpoint
 
   action_fallback EmaWeb.FallbackController
 
@@ -18,15 +19,21 @@ defmodule EmaWeb.HabitsController do
     }
 
     with {:ok, habit} <- Habits.create_habit(attrs) do
+      payload = serialize_habit(habit)
+      Endpoint.broadcast("habits:tracker", "habit_created", payload)
+
       conn
       |> put_status(:created)
-      |> json(serialize_habit(habit))
+      |> json(payload)
     end
   end
 
   def archive(conn, %{"id" => id}) do
     with {:ok, habit} <- Habits.archive_habit(id) do
-      json(conn, serialize_habit(habit))
+      payload = serialize_habit(habit)
+      Endpoint.broadcast("habits:tracker", "habit_archived", payload)
+
+      json(conn, payload)
     end
   end
 
@@ -35,11 +42,10 @@ defmodule EmaWeb.HabitsController do
 
     with {:ok, log} <- Habits.toggle_log(id, date) do
       streak = Habits.calculate_streak(id)
+      payload = %{log: serialize_log(log), streak: streak}
+      Endpoint.broadcast("habits:tracker", "habit_toggled", payload)
 
-      json(conn, %{
-        log: serialize_log(log),
-        streak: streak
-      })
+      json(conn, payload)
     end
   end
 

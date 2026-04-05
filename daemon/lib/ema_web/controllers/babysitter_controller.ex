@@ -17,12 +17,24 @@ defmodule EmaWeb.BabysitterController do
       |> Enum.map(&serialize_event/1)
 
     config = Ema.Babysitter.StreamTicker.config()
+    channels = Ema.Babysitter.StreamChannels.status()
+    topology = Ema.Babysitter.ChannelTopology
 
     json(conn, %{
       events: events,
       tick_config: %{
         interval_ms: config.interval_ms,
-        last_tick_at: DateTime.to_iso8601(config.last_tick_at)
+        last_tick_at: DateTime.to_iso8601(config.last_tick_at),
+        runtime: config.runtime,
+        stream: serialize_stream(config.stream)
+      },
+      stream_channels: channels,
+      topology: %{
+        category: topology.stream_category(),
+        active_streams: Enum.map(topology.active_streams(), &serialize_stream/1),
+        dormant_streams: Enum.map(topology.dormant_streams(), &serialize_stream/1),
+        delivery_only_channels: Enum.map(topology.delivery_only_channels(), &serialize_delivery_channel/1),
+        control_topics: topology.control_topics()
       }
     })
   end
@@ -81,4 +93,25 @@ defmodule EmaWeb.BabysitterController do
     end
   end
   defp parse_int(_), do: nil
+
+  defp serialize_stream(stream) do
+    %{
+      stream: Atom.to_string(stream.stream),
+      channel_name: stream.channel_name,
+      channel_id: stream.channel_id,
+      status: Atom.to_string(stream.status),
+      category: stream.category,
+      purpose: stream.purpose
+    }
+  end
+
+  defp serialize_delivery_channel(channel) do
+    %{
+      channel_name: channel.channel_name,
+      channel_id: channel.channel_id,
+      status: Atom.to_string(channel.status),
+      category: channel.category,
+      purpose: channel.purpose
+    }
+  end
 end
