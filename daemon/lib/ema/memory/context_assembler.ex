@@ -148,9 +148,10 @@ defmodule Ema.Memory.ContextAssembler do
   # Private
   # ---------------------------------------------------------------------------
 
-  defp get_project(slug) when is_binary(slug) do
-    Projects.get_project_by_slug(slug) ||
-      (if Regex.match?(~r/^\d+$/, slug), do: Projects.get_project(String.to_integer(slug)))
+  defp get_project(slug_or_id) when is_binary(slug_or_id) do
+    Projects.get_project(slug_or_id) ||
+      Projects.get_project_by_slug(slug_or_id) ||
+      (if Regex.match?(~r/^\d+$/, slug_or_id), do: Projects.get_project(String.to_integer(slug_or_id)))
   rescue
     _ -> nil
   end

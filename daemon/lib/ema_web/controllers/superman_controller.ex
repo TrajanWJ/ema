@@ -1,6 +1,7 @@
 defmodule EmaWeb.SupermanController do
   use EmaWeb, :controller
 
+  alias Ema.Claude.ProviderStatus
   alias Ema.Intelligence.SupermanClient
   alias Ema.Projects
   alias Ema.Superman
@@ -25,7 +26,6 @@ defmodule EmaWeb.SupermanController do
     with project when not is_nil(project) <- Projects.get_project(project_id),
          repo_path when not is_nil(repo_path) <- project.linked_path,
          {:ok, body} <- SupermanClient.index_repo(repo_path) do
-      # Update project with indexed timestamp
       Projects.update_project(project, %{
         settings:
           Map.merge(project.settings || %{}, %{
@@ -99,7 +99,6 @@ defmodule EmaWeb.SupermanController do
   end
 
   def autonomous(conn, _params) do
-    # Run async — return immediately with job reference
     task =
       Task.async(fn ->
         SupermanClient.autonomous_run()
@@ -130,7 +129,6 @@ defmodule EmaWeb.SupermanController do
     end
   end
 
-  # GET /superman/context/:project_slug — legacy, returns raw nodes from KnowledgeGraph
   def context(conn, %{"project_slug" => project_slug}) do
     nodes =
       project_slug
@@ -149,13 +147,11 @@ defmodule EmaWeb.SupermanController do
     })
   end
 
-  # POST /superman/context — Week 7 fallback: returns formatted context string
-  # Body: %{project_id: "..."}
-  # Returns: %{context: "...", source: "file" | "db" | "graph"}
-  def context_post(conn, %{"project_id" => project_id}) do
-    case Superman.context_for_with_source(project_id) do
-      {:ok, context, source} ->
-        json(conn, %{context: context, source: source})
+  def context_post(conn, %{"project_id" => project_id} = params) do
+    case Superman.context_bundle_for(project_id) do
+      {:ok, bundle} ->
+        provider_status = ProviderStatus.execution_status(Map.get(params, "provider_id"))
+        json(conn, Map.put(bundle, :provider_status, provider_status))
 
       {:error, :not_found} ->
         conn |> put_status(404) |> json(%{error: "project not found"})
