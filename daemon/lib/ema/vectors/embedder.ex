@@ -32,6 +32,66 @@ defmodule Ema.Vectors.Embedder do
     embed_text(text)
   end
 
+  @doc """
+  Embed a brain dump item asynchronously.
+  Persists the vector on the item record and updates embedding_status.
+  Meant to be called from Task.Supervisor — does not block the caller.
+  """
+  def embed_brain_dump_item(%{id: item_id, content: content}) do
+    case embed_text(content) do
+      {:ok, vector} ->
+        binary = Ema.Vectors.Index.serialize_embedding(vector)
+
+        Ema.BrainDump.Item
+        |> Ema.Repo.get(item_id)
+        |> case do
+          nil ->
+            Logger.warning("[Embedder] brain dump item #{item_id} vanished before embedding")
+            :error
+
+          item ->
+            item
+            |> Ecto.Changeset.change(%{
+              embedding: binary,
+              embedding_version: "v1",
+              embedding_status: "ready"
+            })
+            |> Ema.Repo.update()
+            |> case do
+              {:ok, updated} ->
+                # Also insert into the in-memory vector index
+                Ema.Vectors.Index.upsert(%{
+                  brain_dump_item_id: updated.id,
+                  kind: :brain_dump,
+                  text: content,
+                  embedding: vector
+                })
+
+                {:ok, updated}
+
+              {:error, reason} ->
+                Logger.warning("[Embedder] failed to persist embedding for item #{item_id}: #{inspect(reason)}")
+                :error
+            end
+        end
+
+      {:error, reason} ->
+        Logger.warning("[Embedder] embedding failed for brain dump item #{item_id}: #{inspect(reason)}")
+
+        Ema.BrainDump.Item
+        |> Ema.Repo.get(item_id)
+        |> case do
+          nil -> :ok
+          item ->
+            item
+            |> Ecto.Changeset.change(%{embedding_status: "failed"})
+            |> Ema.Repo.update()
+        end
+
+        :error
+    end
+  end
+
   @doc "Trigger a scan of project linked_paths."
   def scan_project(project_id) do
     GenServer.cast(__MODULE__, {:scan_project, project_id})

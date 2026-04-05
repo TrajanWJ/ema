@@ -149,9 +149,9 @@ defmodule Ema.Vectors.Index do
   # --- Persistence ---
 
   defp load_from_db do
-    # Load proposal embeddings from the database
     import Ecto.Query
 
+    # Load proposal embeddings
     proposals =
       Ema.Proposals.Proposal
       |> where([p], not is_nil(p.embedding))
@@ -176,6 +176,30 @@ defmodule Ema.Vectors.Index do
       end
     end)
 
+    # Load brain dump item embeddings
+    brain_dump_items =
+      Ema.BrainDump.Item
+      |> where([i], i.embedding_status == "ready" and not is_nil(i.embedding))
+      |> Ema.Repo.all()
+
+    Enum.each(brain_dump_items, fn item ->
+      case deserialize_embedding(item.embedding) do
+        {:ok, vector} ->
+          entry = %{
+            key: "brain_dump:#{item.id}",
+            kind: :brain_dump,
+            text: item.content,
+            embedding: vector,
+            brain_dump_item_id: item.id
+          }
+
+          :ets.insert(@table, {entry.key, entry})
+
+        :error ->
+          :ok
+      end
+    end)
+
     :ets.info(@table, :size)
   end
 
@@ -189,6 +213,7 @@ defmodule Ema.Vectors.Index do
     |> Enum.filter(fn entry -> entry[:project_id] == project_id end)
   end
 
+  defp build_key(%{brain_dump_item_id: id}) when is_binary(id), do: "brain_dump:#{id}"
   defp build_key(%{proposal_id: id}) when is_binary(id), do: "proposal:#{id}"
   defp build_key(%{path: path, chunk_index: idx}), do: "chunk:#{path}:#{inspect(idx)}"
   defp build_key(%{key: key}), do: key

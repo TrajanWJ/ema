@@ -32,6 +32,11 @@ defmodule Ema.BrainDump do
 
     case result do
       {:ok, item} ->
+        # Async embedding for brain-dump-to-proposal clustering
+        Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+          Ema.Vectors.Embedder.embed_brain_dump_item(item)
+        end)
+
         Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
           project_path = File.cwd!()
           intent_slug = Ema.Executions.IntentFolder.slugify(String.slice(item.content, 0, 60))

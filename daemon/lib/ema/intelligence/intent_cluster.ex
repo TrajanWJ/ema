@@ -13,6 +13,12 @@ defmodule Ema.Intelligence.IntentCluster do
     field :seed_id, :string
     field :status, :string, default: "forming"
 
+    # Brain-dump-to-proposal loop fields
+    field :source_fingerprint, :string
+    field :proposal_id, :string
+    field :centroid_embedding, :binary
+    field :last_evaluated_at, :utc_datetime
+
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :space, Ema.Spaces.Space, type: :string
     belongs_to :intent_node, Ema.Intelligence.IntentNode, type: :string
@@ -26,9 +32,11 @@ defmodule Ema.Intelligence.IntentCluster do
     cluster
     |> cast(attrs, [
       :id, :label, :description, :readiness_score, :item_count,
-      :promoted, :seed_id, :status, :project_id, :space_id, :intent_node_id
+      :promoted, :seed_id, :status, :project_id, :space_id, :intent_node_id,
+      :source_fingerprint, :proposal_id, :centroid_embedding, :last_evaluated_at
     ])
     |> validate_required([:id, :label])
     |> validate_inclusion(:status, @valid_statuses)
+    |> unique_constraint(:source_fingerprint)
   end
 end

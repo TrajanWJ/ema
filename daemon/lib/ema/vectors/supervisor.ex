@@ -15,7 +15,8 @@ defmodule Ema.Vectors.Supervisor do
   def init(_opts) do
     children = [
       Ema.Vectors.Index,
-      Ema.Vectors.Embedder
+      Ema.Vectors.Embedder,
+      Ema.BrainDump.ClusterEvaluator
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
