@@ -98,17 +98,9 @@ defmodule EmaWeb.ProjectController do
   Supports both id and slug as the :id path param (tries id first).
   """
   def context(conn, %{"id" => id_or_slug}) do
-    project =
-      Projects.get_project(id_or_slug) ||
-        Projects.get_project_by_slug(id_or_slug)
-
-    case project do
-      nil ->
-        {:error, :not_found}
-
-      project ->
-        context_data = Projects.get_context(project.id)
-        json(conn, context_data)
+    case Ema.Superman.Context.for_project(id_or_slug) do
+      {:ok, context_data} -> json(conn, context_data)
+      {:error, :not_found} -> {:error, :not_found}
     end
   end
 
