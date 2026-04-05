@@ -9,6 +9,7 @@ defmodule Ema.Agents.Channel do
     field :active, :boolean, default: true
     field :config, :map, default: %{}
     field :status, :string, default: "disconnected"
+    field :connection_status, :string, default: "disconnected"
     field :last_connected_at, :utc_datetime
     field :error_message, :string
 
@@ -18,9 +19,9 @@ defmodule Ema.Agents.Channel do
   end
 
   @valid_types ~w(discord telegram webchat api)
-  @valid_statuses ~w(connected disconnected error)
+  @valid_statuses ~w(connected disconnected error degraded unknown)
   @required_fields ~w(id channel_type agent_id)a
-  @optional_fields ~w(active config status last_connected_at error_message)a
+  @optional_fields ~w(active config status connection_status last_connected_at error_message)a
 
   def changeset(channel, attrs) do
     channel

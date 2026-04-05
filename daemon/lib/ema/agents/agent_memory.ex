@@ -55,6 +55,21 @@ defmodule Ema.Agents.AgentMemory do
   end
 
   @doc """
+  Non-blocking version of `get_memory_summary/2`.
+
+  Uses Claude asynchronously only when a summary must be generated.
+  If there is no history or a persisted summary already exists, the callback is
+  invoked immediately and `{:ok, :completed}` is returned.
+  """
+  def get_memory_summary_async(agent_id, conversation_id, on_complete \\ nil) do
+    GenServer.call(
+      via(agent_id),
+      {:get_memory_summary_async, conversation_id, on_complete},
+      30_000
+    )
+  end
+
+  @doc """
   Record the link between an OpenClaw session and an EMA conversation.
   This allows EMA to route future messages from the same OC session to the
   correct conversation, maintaining continuity even across OpenClaw restarts.
@@ -105,6 +120,12 @@ defmodule Ema.Agents.AgentMemory do
   @impl true
   def handle_call({:get_memory_summary, conversation_id}, _from, state) do
     result = build_memory_summary(conversation_id, state)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:get_memory_summary_async, conversation_id, on_complete}, _from, state) do
+    result = build_memory_summary_async(conversation_id, on_complete)
     {:reply, result, state}
   end
 
@@ -161,7 +182,7 @@ defmodule Ema.Agents.AgentMemory do
     total > @max_message_chars
   end
 
-  defp build_memory_summary(conversation_id, state) do
+  defp build_memory_summary(conversation_id, _state) do
     messages = Agents.list_messages_by_conversation(conversation_id)
 
     if length(messages) == 0 do
@@ -191,10 +212,43 @@ defmodule Ema.Agents.AgentMemory do
           """
 
           case Bridge.run(prompt, model: "haiku") do
-            {:ok, summary} -> {:ok, summary}
+            {:ok, result} -> {:ok, extract_summary_text(result)}
             {:error, reason} -> {:error, reason}
           end
       end
+    end
+  end
+
+  defp build_memory_summary_async(conversation_id, on_complete) do
+    messages = Agents.list_messages_by_conversation(conversation_id)
+
+    case existing_summary(messages) do
+      {:ok, summary} ->
+        notify_async_summary(on_complete, {:ok, summary})
+        {:ok, :completed}
+
+      :missing_summary ->
+        content =
+          Enum.map_join(messages, "\n", fn msg ->
+            "[#{msg.role}]: #{msg.content || "(no content)"}"
+          end)
+
+        prompt = """
+        Summarize this conversation history concisely, preserving key facts,
+        decisions, and context needed for continuity. Output only the summary.
+
+        #{String.slice(content, 0, 20_000)}
+        """
+
+        callback = fn
+          {:ok, result} ->
+            notify_async_summary(on_complete, {:ok, extract_summary_text(result)})
+
+          {:error, reason} ->
+            notify_async_summary(on_complete, {:error, reason})
+        end
+
+        Bridge.run_async(prompt, [model: "haiku"], callback)
     end
   end
 
@@ -221,32 +275,60 @@ defmodule Ema.Agents.AgentMemory do
       #{content_to_summarize}
       """
 
-      case Bridge.run(prompt, model: "haiku") do
-        {:ok, summary} ->
-          # Delete the old messages
-          oldest_kept = Enum.at(to_summarize, -1)
+      # W7-BRIDGE-FINISH: migrated to run_async/3 — fire-and-forget summarization
+      # The callback saves the summary and prunes old messages once Claude responds.
+      to_summarize_snapshot = to_summarize
+      Bridge.run_async(prompt, [model: "haiku"], fn
+        {:ok, result} ->
+          summary = extract_summary_text(result)
+          oldest_kept = Enum.at(to_summarize_snapshot, -1)
 
           if oldest_kept do
             Agents.delete_messages_before(conversation_id, oldest_kept.inserted_at)
           end
 
-          # Insert summary as a system message
           Agents.add_message(%{
             conversation_id: conversation_id,
             role: "system",
             content: "[Conversation summary]: #{summary}",
-            metadata: %{type: "summary", summarized_count: length(to_summarize)}
+            metadata: %{type: "summary", summarized_count: length(to_summarize_snapshot)}
           })
 
           Logger.info(
-            "[AgentMemory] Summarized #{length(to_summarize)} messages in conversation #{conversation_id}"
+            "[AgentMemory] Summarized #{length(to_summarize_snapshot)} messages in conversation #{conversation_id}"
           )
 
         {:error, reason} ->
           Logger.warning(
-            "[AgentMemory] Failed to summarize conversation #{conversation_id}: #{inspect(reason)}"
+            "[AgentMemory] Async summarization failed for #{conversation_id}: #{inspect(reason)}"
           )
-      end
+      end)
     end
   end
+
+  defp existing_summary([]), do: {:ok, "No conversation history."}
+
+  defp existing_summary(messages) do
+    case Enum.find(messages, fn m ->
+           m.role == "system" and
+             is_map(m.metadata) and
+             Map.get(m.metadata, "type") == "summary"
+         end) do
+      %{content: summary_content} -> {:ok, summary_content}
+      nil -> :missing_summary
+    end
+  end
+
+  defp notify_async_summary(on_complete, result) when is_function(on_complete, 1) do
+    on_complete.(result)
+  end
+
+  defp notify_async_summary(_on_complete, _result), do: :ok
+
+  defp extract_summary_text(%{"result" => text}) when is_binary(text), do: String.trim(text)
+  defp extract_summary_text(%{"content" => text}) when is_binary(text), do: String.trim(text)
+  defp extract_summary_text(%{text: text}) when is_binary(text), do: String.trim(text)
+  defp extract_summary_text(%{content: text}) when is_binary(text), do: String.trim(text)
+  defp extract_summary_text(text) when is_binary(text), do: String.trim(text)
+  defp extract_summary_text(other), do: inspect(other)
 end

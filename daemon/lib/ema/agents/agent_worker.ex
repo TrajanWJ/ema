@@ -93,6 +93,62 @@ defmodule Ema.Agents.AgentWorker do
     end
   end
 
+  @doc """
+  Non-blocking version of `dispatch_to_domain/3`.
+
+  Retains the synchronous API for direct HTTP/chat callers, but allows
+  background dispatch when the caller only needs eventual delivery.
+  """
+  def dispatch_to_domain_async(agent_slug, user_message, context \\ %{}, on_complete \\ nil) do
+    with :ok <- BudgetEnforcer.check(),
+         {:ok, agent} <- fetch_agent(agent_slug),
+         requested_keys <-
+           context
+           |> requested_context_keys()
+           |> Kernel.++(tool_context_keys(agent))
+           |> Enum.uniq(),
+         {:ok, system_prompt} <- load_system_prompt(agent),
+         {:ok, injected_context} <-
+           ContextInjector.build_context(
+             %{type: :domain_request, agent: agent_slug, message: user_message},
+             requested_keys
+           ) do
+      full_prompt =
+        build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context))
+
+      callback = fn
+        {:ok, response} ->
+          text = extract_bridge_text(response)
+
+          VaultLearner.schedule_learning(%{
+            agent: agent_slug |> to_string() |> String.to_atom(),
+            task_type: Map.get(context, :type, Map.get(context, "type", :general)),
+            campaign_id: Map.get(context, :campaign_id, Map.get(context, "campaign_id")),
+            response_text: extract_response_text(response),
+            session_id: "dispatch-#{agent_slug}-#{System.system_time(:millisecond)}"
+          })
+
+          if is_function(on_complete, 1), do: on_complete.({:ok, text})
+
+        {:error, reason} ->
+          if is_function(on_complete, 1), do: on_complete.({:error, reason})
+      end
+
+      Bridge.run_async(
+        full_prompt,
+        [
+          model: agent.model,
+          max_tokens: agent.max_tokens,
+          temperature: agent.temperature,
+          session_id: "domain-#{agent_slug}",
+          agent_id: agent.id,
+          task_type: "domain_dispatch"
+        ],
+        callback
+      )
+    end
+  end
+
   @doc "Check if this agent should autonomously respond to a message based on personality/config."
   def should_respond?(agent_id, message_content, channel_type) do
     case Registry.lookup(Ema.Agents.Registry, {:worker, agent_id}) do

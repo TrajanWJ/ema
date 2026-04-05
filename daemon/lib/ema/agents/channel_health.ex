@@ -88,13 +88,13 @@ defmodule Ema.Agents.ChannelHealth do
     |> Enum.flat_map(&Agents.list_channels_by_agent(&1.id))
     |> Enum.filter(& &1.active)
     |> Map.new(fn channel ->
-      status = parse_connection_status(channel.connection_status)
+      status = parse_connection_status(channel.status)
       now = DateTime.utc_now()
 
       entry = %{
         status: status,
         last_check: now,
-        error: channel.last_error,
+        error: channel.error_message,
         uptime_start: if(status == :connected, do: now)
       }
 
@@ -117,12 +117,12 @@ defmodule Ema.Agents.ChannelHealth do
 
   defp check_single_channel(channel, previous) do
     now = DateTime.utc_now()
-    status = parse_connection_status(channel.connection_status)
+    status = parse_connection_status(channel.status)
 
     entry = %{
       status: status,
       last_check: now,
-      error: channel.last_error,
+      error: channel.error_message,
       uptime_start: resolve_uptime_start(status, previous, now)
     }
 
