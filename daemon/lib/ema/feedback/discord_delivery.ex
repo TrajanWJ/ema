@@ -131,13 +131,8 @@ defmodule Ema.Feedback.DiscordDelivery.Worker do
   def handle_info(_msg, state), do: {:noreply, state}
 
   defp do_deliver(state, message) do
-    case Broadcast.emit(:stream, state.channel_id, message, %{channel_name: state.name}) do
-      :ok ->
-        %{state | delivered: state.delivered + 1}
-      {:error, reason} ->
-        Logger.warning("[DiscordDelivery.Worker] #{state.name} delivery failed: #{inspect(reason)}")
-        %{state | failed: state.failed + 1}
-    end
+    Broadcast.emit(:stream, state.channel_id, message, %{channel_name: state.name})
+    %{state | delivered: state.delivered + 1}
   end
 
   defp via(channel_id) do

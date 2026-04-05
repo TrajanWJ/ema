@@ -31,6 +31,7 @@ Active channels:
 - `live` uses `Ema.Babysitter.StreamTicker`.
 - All other active babysitter streams use `Ema.Babysitter.StreamChannels`.
 - Cadence is controlled by `Ema.Babysitter.TickPolicy`, not by hardcoded per-file interval tables.
+- Delivery is state-change-driven: unchanged steady-state summaries are skipped, repeated degraded heartbeat summaries are suppressed, and skip reasons are logged in the babysitter drivers.
 
 Dormant channels:
 

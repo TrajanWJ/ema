@@ -24,6 +24,11 @@ end
 
 config :ema, EmaWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4488"))]
 
+# Discord bot — used by Babysitter StreamChannels, Feedback.Broadcast, OrgController
+if discord_token = System.get_env("DISCORD_BOT_TOKEN") do
+  config :ema, :discord_bot_token, discord_token
+end
+
 # OpenClaw agent gateway (local-first, no VM dependency)
 config :ema, :openclaw,
   gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://localhost:18789"),

@@ -12,7 +12,7 @@ defmodule Ema.Babysitter.SessionResponder do
   @topic "babysitter:sessions"
   @babysitter_live "1489786483970936933"
   @agent_thoughts "1489820679472677044"
-  @stall_cooldown_ms 10 * 60 * 1000
+  @stall_cooldown_ms 30 * 60 * 1000
 
   # --- Public API ---
 
@@ -34,27 +34,38 @@ defmodule Ema.Babysitter.SessionResponder do
   def handle_info(%{event: :session_snapshot, stalled: stalled, just_completed: completed} = _snap, state) do
     now_ms = System.monotonic_time(:millisecond)
 
-    Enum.each(stalled, fn session ->
-      key = {:stall, Map.get(session, :project_path, Map.get(session, :project, "unknown"))}
-      last_alerted = :ets.lookup(:session_responder_cooldowns, key)
-
-      should_alert =
-        case last_alerted do
+    due_stalled =
+      stalled
+      |> Enum.map(fn session ->
+        project = Map.get(session, :project_path, Map.get(session, :project, "unknown"))
+        {session, {:stall, project}}
+      end)
+      |> Enum.filter(fn {_session, key} ->
+        case :ets.lookup(:session_responder_cooldowns, key) do
           [{^key, ts}] -> now_ms - ts > @stall_cooldown_ms
           [] -> true
         end
+      end)
 
-      if should_alert do
-        project = Map.get(session, :project_path, Map.get(session, :project, "unknown"))
-        mtime = Map.get(session, :mtime)
-        elapsed = format_elapsed(mtime)
+    if due_stalled != [] do
+      lines =
+        due_stalled
+        |> Enum.take(5)
+        |> Enum.map(fn {session, key} ->
+          project = Map.get(session, :project_path, Map.get(session, :project, "unknown"))
+          elapsed = format_elapsed(Map.get(session, :mtime))
+          :ets.insert(:session_responder_cooldowns, {key, now_ms})
+          "  └ **#{project}** stalled >5m — last active #{elapsed}"
+        end)
 
-        msg = "⚠️ **#{project}** stalled >5m — last active #{elapsed}"
-        Logger.info("[SessionResponder] Stall alert: #{project} (#{elapsed})")
-        post(@babysitter_live, msg)
-        :ets.insert(:session_responder_cooldowns, {key, now_ms})
-      end
-    end)
+      extra = if length(due_stalled) > 5, do: "
+  └ +#{length(due_stalled) - 5} more stalled sessions", else: ""
+      msg = "⚠️ **stalled sessions**
+" <> Enum.join(lines, "
+") <> extra
+      Logger.info("[SessionResponder] Stall alert batch: #{length(due_stalled)} sessions")
+      post(@babysitter_live, msg)
+    end
 
     Enum.each(completed, fn session ->
       project = Map.get(session, :project_path, Map.get(session, :project, "unknown"))

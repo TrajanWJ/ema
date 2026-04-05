@@ -574,7 +574,7 @@ defmodule Ema.Proposals.SeedPreflight do
         :affected_area,
         :missing_affected_module,
         deduction_reasons,
-        &infer_affected_area(seed)
+        fn -> infer_affected_area(seed) end
       )
       |> maybe_enrich_field(
         :validation_plan,

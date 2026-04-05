@@ -50,6 +50,7 @@ defmodule Ema.Babysitter.StreamTicker do
       last_tick_at: now,
       tick_count: tick_count,
       last_git_sha: nil,
+      last_delivery: nil,
       runtime: runtime
     }
 
@@ -101,9 +102,19 @@ defmodule Ema.Babysitter.StreamTicker do
 
     snapshot = gather_snapshot(state)
     runtime = TickPolicy.advance(state.runtime, tick_signals(snapshot))
-    message = render(snapshot, tick_n, state.started_at, now, runtime.current_ms)
-    post_to_discord(message)
-    session_snap = safe(fn -> Ema.Babysitter.SessionObserver.snapshot() end, %{sessions: [], stalled: [], just_completed: []})
+
+    delivery =
+      snapshot
+      |> build_delivery(tick_n, state.started_at, now, runtime.current_ms)
+      |> maybe_post_delivery(state.last_delivery)
+
+    session_snap =
+      safe(fn -> Ema.Babysitter.SessionObserver.snapshot() end, %{
+        sessions: [],
+        stalled: [],
+        just_completed: []
+      })
+
     safe(fn -> AnomalyScorer.score_and_dispatch(snapshot.recent_events || [], session_snap) end)
 
     %{
@@ -111,6 +122,7 @@ defmodule Ema.Babysitter.StreamTicker do
       | last_tick_at: now,
         tick_count: tick_n,
         last_git_sha: snapshot.git_sha,
+        last_delivery: delivery,
         interval_ms: runtime.current_ms,
         runtime: runtime
     }
@@ -125,7 +137,8 @@ defmodule Ema.Babysitter.StreamTicker do
       proposals: safe(fn -> query_proposals() end),
       sessions: safe(fn -> query_sessions() end),
       projects: safe(fn -> query_projects() end),
-      recent_events: safe(fn -> Ema.Babysitter.VisibilityHub.drain_since(state.last_tick_at) end, []),
+      recent_events:
+        safe(fn -> Ema.Babysitter.VisibilityHub.drain_since(state.last_tick_at) end, []),
       git_sha: safe(fn -> git_head_sha() end),
       git_recent: safe(fn -> git_recent_commits(3) end, []),
       memory_mb: safe(fn -> process_memory_mb() end),
@@ -196,7 +209,12 @@ defmodule Ema.Babysitter.StreamTicker do
       )
 
     total = Ema.Repo.aggregate(Ema.ClaudeSessions.ClaudeSession, :count)
-    active_count = Ema.Repo.aggregate(from(s in Ema.ClaudeSessions.ClaudeSession, where: s.status == "active"), :count)
+
+    active_count =
+      Ema.Repo.aggregate(
+        from(s in Ema.ClaudeSessions.ClaudeSession, where: s.status == "active"),
+        :count
+      )
 
     %{total: total, active_count: active_count, active: active}
   end
@@ -225,22 +243,28 @@ defmodule Ema.Babysitter.StreamTicker do
   end
 
   defp git_head_sha do
-    case System.cmd("git", ["-C", ema_repo_path(), "rev-parse", "--short", "HEAD"], stderr_to_stdout: false) do
+    case System.cmd("git", ["-C", ema_repo_path(), "rev-parse", "--short", "HEAD"],
+           stderr_to_stdout: false
+         ) do
       {sha, 0} -> String.trim(sha)
       _ -> nil
     end
   end
 
   defp git_recent_commits(n) do
-    case System.cmd("git", ["-C", ema_repo_path(), "log", "--oneline", "-#{n}"], stderr_to_stdout: false) do
+    case System.cmd("git", ["-C", ema_repo_path(), "log", "--oneline", "-#{n}"],
+           stderr_to_stdout: false
+         ) do
       {out, 0} ->
         out |> String.trim() |> String.split("\n") |> Enum.map(&String.trim/1)
-      _ -> []
+
+      _ ->
+        []
     end
   end
 
   defp process_memory_mb do
-    {:memory, bytes} = :erlang.process_info(self(), :memory)
+    {:memory, _bytes} = :erlang.process_info(self(), :memory)
     system_mem = :erlang.memory(:total)
     Float.round(system_mem / 1_048_576, 1)
   end
@@ -256,6 +280,38 @@ defmodule Ema.Babysitter.StreamTicker do
 
   # --- Rendering ---
 
+  @doc false
+  def build_delivery(snap, tick_n, started_at, now, interval_ms) do
+    degraded_summary? = repeated_degraded_summary?(snap)
+
+    %{
+      message: render(snap, tick_n, started_at, now, interval_ms),
+      signature: delivery_signature(snap),
+      degraded_summary?: degraded_summary?,
+      reason:
+        cond do
+          degraded_summary? -> "heartbeat degraded summary changed"
+          has_recent_activity?(snap) -> "recent activity changed"
+          true -> "state changed"
+        end
+    }
+  end
+
+  @doc false
+  def delivery_decision(nil, %{reason: reason}), do: {:post, reason}
+
+  def delivery_decision(last_delivery, %{signature: signature, degraded_summary?: true})
+      when is_map(last_delivery) and last_delivery.signature == signature do
+    {:skip, "repeated degraded summary"}
+  end
+
+  def delivery_decision(last_delivery, %{signature: signature})
+      when is_map(last_delivery) and last_delivery.signature == signature do
+    {:skip, "no state change"}
+  end
+
+  def delivery_decision(_last_delivery, %{reason: reason}), do: {:post, reason}
+
   defp render(snap, tick_n, started_at, now, interval_ms) do
     time_str = Calendar.strftime(now, "%H:%M:%S UTC")
     uptime_str = format_uptime(snap.uptime_s)
@@ -264,7 +320,9 @@ defmodule Ema.Babysitter.StreamTicker do
     lines = []
 
     # Header
-    lines = lines ++ ["⚡ **tick ##{tick_n}** · #{time_str} · uptime #{uptime_str} · every #{interval_str}"]
+    lines =
+      lines ++
+        ["⚡ **tick ##{tick_n}** · #{time_str} · uptime #{uptime_str} · every #{interval_str}"]
 
     # Git state
     lines = lines ++ [render_git(snap)]
@@ -283,18 +341,25 @@ defmodule Ema.Babysitter.StreamTicker do
 
     # Recent PubSub events (since last tick)
     events_section = render_events(snap.recent_events)
-    if events_section, do: lines = lines ++ [events_section]
+    lines = if events_section, do: lines ++ [events_section], else: lines
 
     # Memory
     mem_str = if snap.memory_mb, do: "#{snap.memory_mb} MB VM", else: "?"
-    lines = lines ++ ["-# 🔧 #{mem_str} · started #{Calendar.strftime(started_at, "%H:%M UTC")} · babysitter OTP live"]
+
+    lines =
+      lines ++
+        [
+          "-# 🔧 #{mem_str} · started #{Calendar.strftime(started_at, "%H:%M UTC")} · babysitter OTP live"
+        ]
 
     Enum.join(lines, "\n")
   end
 
   defp render_git(%{git_sha: nil, git_recent: []}), do: "📦 **git** — unavailable"
+
   defp render_git(%{git_sha: sha, git_recent: commits}) do
     sha_str = if sha, do: "`#{sha}`", else: "?"
+
     commits_str =
       commits
       |> Enum.map(fn c ->
@@ -307,9 +372,11 @@ defmodule Ema.Babysitter.StreamTicker do
   end
 
   defp render_sessions(nil), do: "🤖 **Claude sessions** — unavailable"
+
   defp render_sessions(%{active_count: 0, total: total}) do
     "🤖 **Claude sessions** — #{total} total, none active"
   end
+
   defp render_sessions(%{active_count: n, total: total, active: sessions}) do
     session_lines =
       sessions
@@ -327,6 +394,7 @@ defmodule Ema.Babysitter.StreamTicker do
 
   defp render_tasks(nil), do: "📋 **tasks** — unavailable"
   defp render_tasks(%{total: 0}), do: "📋 **tasks** — empty"
+
   defp render_tasks(%{total: total, by_status: by_status, recent: recent}) do
     status_str =
       by_status
@@ -346,6 +414,7 @@ defmodule Ema.Babysitter.StreamTicker do
 
   defp render_proposals(nil), do: "💡 **proposals** — unavailable"
   defp render_proposals(%{total: 0}), do: "💡 **proposals** — none queued"
+
   defp render_proposals(%{total: total, by_stage: by_stage, recent: recent}) do
     stage_str =
       by_stage
@@ -366,6 +435,7 @@ defmodule Ema.Babysitter.StreamTicker do
 
   defp render_projects(nil), do: "🏗️ **projects** — unavailable"
   defp render_projects(%{total: 0}), do: "🏗️ **projects** — none"
+
   defp render_projects(%{total: total, by_status: by_status, active: active}) do
     status_str =
       by_status
@@ -384,6 +454,7 @@ defmodule Ema.Babysitter.StreamTicker do
   end
 
   defp render_events([]), do: nil
+
   defp render_events(events) when length(events) > 0 do
     lines =
       events
@@ -401,11 +472,16 @@ defmodule Ema.Babysitter.StreamTicker do
   # --- Helpers ---
 
   defp summarize_event({tag, payload}) when is_map(payload) do
-    name = Map.get(payload, :name) || Map.get(payload, :title) || Map.get(payload, :message) ||
-           Map.get(payload, :summary) || Map.get(payload, :id)
+    name =
+      Map.get(payload, :name) || Map.get(payload, :title) || Map.get(payload, :message) ||
+        Map.get(payload, :summary) || Map.get(payload, :id)
+
     "#{tag} #{truncate(to_string(name), 40)}"
   end
-  defp summarize_event({tag, payload}) when is_binary(payload), do: "#{tag} #{truncate(payload, 40)}"
+
+  defp summarize_event({tag, payload}) when is_binary(payload),
+    do: "#{tag} #{truncate(payload, 40)}"
+
   defp summarize_event(other), do: truncate(inspect(other, limit: 2), 60)
 
   defp category_icon(:sessions), do: "🤖"
@@ -424,14 +500,17 @@ defmodule Ema.Babysitter.StreamTicker do
   defp status_emoji(_), do: "·"
 
   defp seconds_ago(nil), do: "?"
+
   defp seconds_ago(%DateTime{} = dt) do
     diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
     cond do
       diff < 60 -> "#{diff}s ago"
       diff < 3600 -> "#{div(diff, 60)}m ago"
       true -> "#{div(diff, 3600)}h ago"
     end
   end
+
   defp seconds_ago(_), do: "?"
 
   defp format_tokens(nil), do: "0"
@@ -511,5 +590,116 @@ defmodule Ema.Babysitter.StreamTicker do
       active_sessions: get_in(snapshot, [:sessions, :active_count]) || 0,
       pending_tasks: pending_tasks
     }
+  end
+
+  defp maybe_post_delivery(delivery, last_delivery) do
+    case delivery_decision(last_delivery, delivery) do
+      {:post, reason} ->
+        post_to_discord(delivery.message)
+        Logger.info("[StreamTicker] posted #{reason}")
+        delivery
+
+      {:skip, reason} ->
+        Logger.info("[StreamTicker] skipped post: #{reason}")
+        last_delivery || delivery
+    end
+  end
+
+  defp delivery_signature(snapshot) do
+    %{
+      git_sha: snapshot.git_sha,
+      git_recent: snapshot.git_recent || [],
+      tasks: normalize_tasks(snapshot.tasks),
+      proposals: normalize_proposals(snapshot.proposals),
+      sessions: normalize_sessions(snapshot.sessions),
+      projects: normalize_projects(snapshot.projects),
+      events: normalize_events(snapshot.recent_events),
+      heartbeat: normalize_live_heartbeat()
+    }
+  end
+
+  defp normalize_tasks(nil), do: nil
+
+  defp normalize_tasks(tasks) do
+    %{
+      total: tasks.total,
+      by_status: tasks.by_status || %{},
+      recent: Enum.map(tasks.recent || [], fn {title, status, _at} -> {title, status} end)
+    }
+  end
+
+  defp normalize_proposals(nil), do: nil
+
+  defp normalize_proposals(proposals) do
+    %{
+      total: proposals.total,
+      by_stage: proposals.by_stage || %{},
+      recent:
+        Enum.map(proposals.recent || [], fn {title, stage, status} -> {title, stage, status} end)
+    }
+  end
+
+  defp normalize_sessions(nil), do: nil
+
+  defp normalize_sessions(sessions) do
+    %{
+      total: sessions.total,
+      active_count: sessions.active_count,
+      active:
+        Enum.map(sessions.active || [], fn {id, path, _last_active, tokens, tools} ->
+          {id, path, tokens, tools}
+        end)
+    }
+  end
+
+  defp normalize_projects(nil), do: nil
+
+  defp normalize_projects(projects) do
+    %{
+      total: projects.total,
+      by_status: projects.by_status || %{},
+      active: projects.active || []
+    }
+  end
+
+  defp normalize_events(events) do
+    events
+    |> List.wrap()
+    |> Enum.take(-8)
+    |> Enum.map(fn %{category: category, topic: topic, event: event} ->
+      {category, topic, summarize_event(event)}
+    end)
+  end
+
+  defp normalize_live_heartbeat do
+    heartbeat = safe(fn -> Ema.Intelligence.VmMonitor.heartbeat_snapshot() end)
+
+    if heartbeat do
+      %{
+        status: heartbeat.status,
+        heartbeat_state: heartbeat.heartbeat_state,
+        trend: heartbeat.trend,
+        openclaw_up: heartbeat.openclaw_up,
+        narrative: heartbeat.narrative,
+        notes: heartbeat.notes || []
+      }
+    else
+      nil
+    end
+  end
+
+  defp repeated_degraded_summary?(_snapshot) do
+    case normalize_live_heartbeat() do
+      %{status: status, heartbeat_state: heartbeat_state}
+      when status in ["degraded", "offline"] or heartbeat_state in ["degraded", "backing_up"] ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp has_recent_activity?(snapshot) do
+    List.wrap(snapshot.recent_events) != []
   end
 end

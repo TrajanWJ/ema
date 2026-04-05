@@ -32,12 +32,12 @@ defmodule Ema.OpenClaw.EventIngester do
   use GenServer
   require Logger
 
-  alias Ema.OpenClaw.{Client, Config}
+  alias Ema.OpenClaw.Config
   alias Ema.Agents
   alias Ema.Agents.{AgentWorker, AgentMemory}
   alias Ema.Persistence.SessionStore
 
-  @poll_interval 5_000
+  # poll_interval: 5_000 — reserved for future use
   @pubsub Ema.PubSub
   @events_topic "openclaw:events"
   @ingester_topic "openclaw:ingested"

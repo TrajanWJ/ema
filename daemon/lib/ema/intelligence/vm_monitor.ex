@@ -106,10 +106,11 @@ defmodule Ema.Intelligence.VmMonitor do
 
     trend =
       cond do
-        flapping -> "flapping"
+        flapping and consecutive_good < 2 -> "flapping"
         current_healthy and recent_bad > 0 and consecutive_good >= 2 -> "improving"
         unhealthy?(current) and recent_good > 0 -> "worsening"
         current_healthy and latency_ratio >= 1.25 -> "warming"
+        flapping -> "flapping"
         true -> "steady"
       end
 

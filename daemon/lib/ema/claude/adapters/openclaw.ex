@@ -85,8 +85,8 @@ defmodule Ema.Claude.Adapters.OpenClaw do
         stream_loop(port, callback, "")
 
       :not_found ->
-        Logger.info("openclaw not found locally, falling back to ClaudeCli adapter for stream")
-        Ema.Claude.Adapters.ClaudeCli.stream(message, agent_id, callback, opts)
+        Logger.warning("openclaw not found locally, no stream fallback available")
+        {:error, :openclaw_not_found}
     end
   end
 

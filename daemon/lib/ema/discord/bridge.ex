@@ -54,7 +54,7 @@ defmodule Ema.Discord.Bridge do
 
     case VoiceCore.send_text(session_id, text) do
       {:ok, %{response: response}} ->
-        {:reply, {:ok, response}, state}
+        {:reply, {:ok, extract_result(response)}, state}
 
       {:error, :not_found} ->
         # Session died — create a new one and retry once
@@ -63,7 +63,7 @@ defmodule Ema.Discord.Bridge do
         {session_id, state} = ensure_session(channel_id, state)
 
         case VoiceCore.send_text(session_id, text) do
-          {:ok, %{response: response}} -> {:reply, {:ok, response}, state}
+          {:ok, %{response: response}} -> {:reply, {:ok, extract_result(response)}, state}
           {:error, reason} -> {:reply, {:error, reason}, state}
         end
 
@@ -133,4 +133,10 @@ defmodule Ema.Discord.Bridge do
   defp drop_session(channel_id, state) do
     %{state | sessions: Map.delete(state.sessions, channel_id)}
   end
+
+  # Claude CLI returns a full JSON map with "result", "duration_ms", etc.
+  # Extract just the text response for callers that expect a string.
+  defp extract_result(%{"result" => result}) when is_binary(result), do: result
+  defp extract_result(response) when is_binary(response), do: response
+  defp extract_result(response) when is_map(response), do: inspect(response)
 end

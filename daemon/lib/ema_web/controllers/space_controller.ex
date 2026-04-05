@@ -44,17 +44,8 @@ defmodule EmaWeb.SpaceController do
       |> Repo.all()
       |> Enum.map(&serialize_space/1)
 
-    # Collect the unique org_ids referenced by these spaces, then fetch them
-    org_ids =
-      spaces
-      |> Enum.map(& &1["org_id"])
-      |> Enum.uniq()
-      |> Enum.reject(&is_nil/1)
-
-    # TODO: Ema.Orgs.Org module not yet implemented
-    orgs = []
-
-    json(conn, %{spaces: spaces, orgs: orgs})
+    # TODO: Ema.Orgs.Org module not yet implemented — org fetching deferred
+    json(conn, %{spaces: spaces, orgs: []})
   end
 
   # ── create/2 ────────────────────────────────────────────────────────────────

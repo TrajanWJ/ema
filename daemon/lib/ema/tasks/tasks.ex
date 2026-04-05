@@ -289,7 +289,4 @@ defmodule Ema.Tasks do
     Map.get(metadata, "domain") || Map.get(metadata, :domain)
   end
 
-  defp is_binary_keyed_map?(map) do
-    Enum.all?(Map.keys(map), &is_binary/1)
-  end
 end

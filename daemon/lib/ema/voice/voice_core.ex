@@ -191,7 +191,7 @@ defmodule Ema.Voice.VoiceCore do
 
   defp execute_command(:ask_claude, question, _state) do
     case Ema.Claude.Bridge.run(question, timeout: 60_000) do
-      {:ok, response} -> response
+      {:ok, response} -> extract_result(response)
       {:error, _} -> "I couldn't reach Claude right now."
     end
   end
@@ -220,10 +220,14 @@ defmodule Ema.Voice.VoiceCore do
     """
 
     case Ema.Claude.Bridge.run(prompt, timeout: 60_000) do
-      {:ok, response} -> response
+      {:ok, response} -> extract_result(response)
       {:error, _} -> "I'm having trouble processing that. Could you rephrase?"
     end
   end
+
+  defp extract_result(%{"result" => result}) when is_binary(result), do: result
+  defp extract_result(response) when is_binary(response), do: response
+  defp extract_result(response) when is_map(response), do: inspect(response)
 
   defp transcribe(audio_data) do
     api_key = Application.get_env(:ema, :openai_api_key)

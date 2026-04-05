@@ -31,5 +31,6 @@ defmodule Ema.Executions.AgentSession do
     |> validate_required([:id, :agent_role, :status])
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_inclusion(:agent_role, @valid_roles)
+    |> foreign_key_constraint(:execution_id)
   end
 end

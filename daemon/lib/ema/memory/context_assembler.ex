@@ -13,7 +13,7 @@ defmodule Ema.Memory.ContextAssembler do
 
   require Logger
 
-  alias Ema.{Repo, Projects, Proposals, Executions}
+  alias Ema.{Projects, Proposals, Executions}
   alias Ema.Intelligence.IntentMap
   alias Ema.Memory
 

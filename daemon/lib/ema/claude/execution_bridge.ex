@@ -20,7 +20,6 @@ defmodule Ema.Claude.ExecutionBridge do
 
   alias Ema.Intelligence.ReflexionInjector
   alias Ema.Intelligence.SupermanRuntime
-  alias Ema.Superman
 
   @max_concurrent 10
   @supervisor Ema.Claude.ExecutionSupervisor

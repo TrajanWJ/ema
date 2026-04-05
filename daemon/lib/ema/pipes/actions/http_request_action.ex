@@ -107,7 +107,7 @@ defmodule Ema.Pipes.Actions.HttpRequestAction do
 
   defp render_headers(_, _), do: []
 
-  defp build_body(payload, %{body_template: nil}), do: {:ok, nil}
+  defp build_body(_payload, %{body_template: nil}), do: {:ok, nil}
   defp build_body(payload, %{body_template: template}), do: render_template(template, payload)
 
   defp maybe_add_body(opts, method, body) when method in ["post", "put", "patch"] and not is_nil(body) do

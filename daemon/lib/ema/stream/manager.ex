@@ -17,9 +17,12 @@ defmodule Ema.Stream.Manager do
   use GenServer
 
   require Logger
+  import Ecto.Query
 
   alias Ema.Feedback.Broadcast
-  alias Ema.Sessions.Monitor
+  alias Ema.Babysitter.SessionObserver
+  alias Ema.Claude.ExecutionBridge
+  alias Ema.Pipes.PipeRun
 
   # Cadence: how many ticks between emissions (base tick = 5 min)
   @base_tick_ms        5 * 60 * 1_000   # 5 min
@@ -117,7 +120,7 @@ defmodule Ema.Stream.Manager do
     incident = %{at: now, description: desc}
     incidents = [incident | state.incidents] |> Enum.take(100)
     # Wire incident as high-urgency activity into the babysitter monitor
-    Monitor.record_activity("babysitter-alerts", %{source: "incident", body: desc, urgent: true})
+    maybe_record_activity("babysitter-alerts", %{source: "incident", body: desc, urgent: true})
     {:noreply, %{state | incidents: incidents}}
   end
 
@@ -133,7 +136,7 @@ defmodule Ema.Stream.Manager do
   def handle_cast({:record_thought, session_id, summary}, state) do
     thoughts = Map.put(state.pending_thoughts, session_id, summary)
     # Wire real activity into babysitter monitor — session emitted a thought (significant activity)
-    Monitor.record_activity(session_id, %{source: "agent_thought", body: summary, weight: 2.0})
+    maybe_record_activity(session_id, %{source: "agent_thought", body: summary, weight: 2.0})
     {:noreply, %{state | pending_thoughts: thoughts}}
   end
 
@@ -545,23 +548,23 @@ defmodule Ema.Stream.Manager do
 
   defp get_session_stats do
     try do
-      snapshot = Monitor.snapshot()
-      recent = snapshot[:recent] || []
-      count = recent |> Enum.map(& &1.stream) |> Enum.uniq() |> length()
+      snapshot = SessionObserver.snapshot()
+      recent = snapshot[:sessions] || []
+      count = length(recent)
 
       sessions = recent |> Enum.map(fn e ->
         attrs = Map.get(e, :attrs, %{}) || %{}
         token_count = Map.get(attrs, :token_count, 0) || 0
         %{
-          id: e.stream,
+          id: Map.get(e, :session_id, "unknown"),
           tokens: div(token_count, 1000),
-          last_tool: Map.get(attrs, :last_tool, "unknown") || "unknown"
+          last_tool: Map.get(e, :last_tool, "unknown") || "unknown"
         }
       end)
 
       last = recent |> List.first() |> case do
         nil -> "none"
-        e -> "#{e.stream} @ #{format_time(e.at)}"
+        e -> "#{Map.get(e, :session_id, "unknown")} @ #{format_time(Map.get(e, :last_ts))}"
       end
 
       {count, sessions, last}
@@ -572,9 +575,9 @@ defmodule Ema.Stream.Manager do
 
   defp get_pipeline_stats do
     try do
-      active = Ema.Flow.Campaign.active_count()
-      queued = Ema.Proposals.queued_count()
-      failures = Ema.Proposals.recent_pipe_failures(10)
+      active = ExecutionBridge.active_count()
+      queued = queued_proposal_count()
+      failures = recent_pipe_failures(10)
       {active, queued, failures}
     rescue
       _ -> {0, 0, []}
@@ -583,7 +586,7 @@ defmodule Ema.Stream.Manager do
 
   defp get_vm_status do
     try do
-      Ema.Health.vm_status()
+      vm_status()
     rescue
       _ -> :unknown
     end
@@ -624,4 +627,35 @@ defmodule Ema.Stream.Manager do
   defp schedule_tick(tick_ms) do
     Process.send_after(self(), :tick, tick_ms)
   end
+
+
+  defp maybe_record_activity(_stream, _attrs), do: :ok
+
+  defp queued_proposal_count do
+    Ema.Repo.aggregate(
+      from(p in Ema.Proposals.Proposal, where: p.status == "queued"),
+      :count
+    )
+  end
+
+  defp recent_pipe_failures(limit) do
+    Ema.Repo.all(
+      from r in PipeRun,
+        where: r.status == "failed",
+        order_by: [desc: r.inserted_at],
+        limit: ^limit,
+        select: {r.id, r.inserted_at}
+    )
+  end
+
+  defp vm_status do
+    case System.cmd("systemctl", ["--user", "is-active", "ema-daemon.service"], stderr_to_stdout: true) do
+      {"active\n", 0} -> :ok
+      {"activating\n", 0} -> :backing_up
+      {_out, _code} -> :offline
+    end
+  rescue
+    _ -> :unknown
+  end
+
 end

@@ -73,7 +73,7 @@ defmodule Ema.Pipes.Actions.NotifyAction do
     end
   end
 
-  defp dispatch("discord", nil, message, topic, payload) do
+  defp dispatch("discord", nil, message, topic, _payload) do
     Logger.warning("[NotifyAction] Discord notify with no target — falling back to PubSub topic #{topic}")
     fallback_pubsub(topic, message)
   end

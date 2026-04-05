@@ -718,12 +718,6 @@ defmodule Ema.Pipes.Registry do
     ]
   end
 
-  defp noop_action(payload) do
-    require Logger
-    Logger.debug("Pipe noop action called with: #{inspect(payload)}")
-    {:ok, :noop}
-  end
-
   # Dynamic dispatch that handles missing modules gracefully.
   # Returns {:ok, result} on success or {:error, reason} if module/function unavailable.
   defp safe_apply(module, function, args) do

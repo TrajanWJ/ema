@@ -79,7 +79,7 @@ defmodule Ema.Claude.Bridge do
   Broadcasts result to "claude:task:<task_id>" when done.
   Optional on_complete callback is called with the result.
   """
-  @spec spawn_async(String.t(), keyword(), (any() -> any()) | nil) :: {:ok, String.t()}
+  @spec spawn_async(String.t(), keyword(), (any() -> any()) | nil) :: {:ok, String.t()} | {:error, any()}
   def spawn_async(prompt, opts \\ [], on_complete \\ nil)
       when is_binary(prompt) and is_list(opts) do
     task_id = generate_task_id()

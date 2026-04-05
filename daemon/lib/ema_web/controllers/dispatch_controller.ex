@@ -17,15 +17,8 @@ defmodule EmaWeb.DispatchController do
       |> Map.get("opts", %{})
       |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
 
-    case Ema.Claude.Bridge.spawn_async(prompt, opts) do
-      {:ok, task_id} ->
-        json(conn, %{task_id: task_id, status: "dispatched"})
-
-      {:error, reason} ->
-        conn
-        |> put_status(503)
-        |> json(%{error: "dispatch failed", reason: inspect(reason)})
-    end
+    {:ok, task_id} = Ema.Claude.Bridge.spawn_async(prompt, opts)
+    json(conn, %{task_id: task_id, status: "dispatched"})
   end
 
   def async(conn, _params) do

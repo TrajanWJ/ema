@@ -9,7 +9,7 @@ defmodule Ema.Intelligence.ScopeAdvisor do
   @warn_threshold 2
   @bad_statuses MapSet.new(["failed", "timeout", :failed, :timeout])
 
-  def check(agent, domain, _title) when agent in [nil, ""], do: :ok
+  def check(agent, _domain, _title) when agent in [nil, ""], do: :ok
   def check(_agent, domain, _title) when domain in [nil, ""], do: :ok
 
   def check(agent, domain, _title) do

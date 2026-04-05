@@ -68,7 +68,15 @@ defmodule Ema.Babysitter.StreamChannels do
     case Map.fetch(state.streams, stream) do
       {:ok, stream_state} ->
         n = stream_state.tick_count + 1
-        safe_tick(stream, n, state.started_at, state.session_snapshot)
+
+        delivery =
+          safe_tick(
+            stream,
+            n,
+            state.started_at,
+            state.session_snapshot,
+            stream_state.last_delivery
+          )
 
         runtime =
           stream
@@ -77,6 +85,7 @@ defmodule Ema.Babysitter.StreamChannels do
 
         updated_stream =
           stream_state
+          |> Map.put(:last_delivery, delivery)
           |> Map.put(:runtime, runtime)
           |> Map.put(:last_tick_at, DateTime.utc_now())
           |> Map.put(:tick_count, n)
@@ -91,17 +100,47 @@ defmodule Ema.Babysitter.StreamChannels do
 
   # --- Dispatch ---
 
-  defp safe_tick(stream, n, started_at, session_snapshot) do
+  @doc false
+  def build_delivery(stream, n, started_at, session_snapshot) do
+    %{
+      message: build_message(stream, n, started_at, session_snapshot),
+      signature: stream_signature(stream, session_snapshot),
+      degraded_summary?: degraded_stream_summary?(stream, session_snapshot),
+      reason: post_reason(stream, session_snapshot)
+    }
+  end
+
+  @doc false
+  def delivery_decision(nil, %{reason: reason}), do: {:post, reason}
+
+  def delivery_decision(last_delivery, %{signature: signature, degraded_summary?: true})
+      when is_map(last_delivery) and last_delivery.signature == signature do
+    {:skip, "repeated degraded summary"}
+  end
+
+  def delivery_decision(last_delivery, %{signature: signature})
+      when is_map(last_delivery) and last_delivery.signature == signature do
+    {:skip, "no state change"}
+  end
+
+  def delivery_decision(_last_delivery, %{reason: reason}), do: {:post, reason}
+
+  defp safe_tick(stream, n, started_at, session_snapshot, last_delivery) do
     try do
-      message = build_message(stream, n, started_at, session_snapshot)
-      if message, do: post(channel_id(stream), message)
+      delivery =
+        stream
+        |> build_delivery(n, started_at, session_snapshot)
+        |> maybe_post_delivery(stream, last_delivery)
+
+      delivery || last_delivery
     rescue
-      e -> Logger.warning("[StreamChannels:#{stream}] tick failed: #{inspect(e)}")
+      e ->
+        Logger.warning("[StreamChannels:#{stream}] tick failed: #{inspect(e)}")
+        last_delivery
     end
   end
 
   # --- Per-stream message builders ---
-
 
   defp build_message(:heartbeat, n, _started, _snap) do
     now = ts()
@@ -111,15 +150,30 @@ defmodule Ema.Babysitter.StreamChannels do
     {uptime_ms, _} = :erlang.statistics(:wall_clock)
     uptime = format_uptime(div(uptime_ms, 1000))
 
-    db_pool = safe_str(fn ->
-      pool = Ema.Repo.checkout(fn -> "ok" end)
-      if pool == "ok", do: "✅ pool healthy", else: "⚠️ pool issue"
-    end, "? pool")
+    db_pool =
+      safe_str(
+        fn ->
+          pool = Ema.Repo.checkout(fn -> "ok" end)
+          if pool == "ok", do: "✅ pool healthy", else: "⚠️ pool issue"
+        end,
+        "? pool"
+      )
 
-    task_q = safe_int(fn -> Ema.Repo.aggregate(
-      from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress"]), :count) end)
-    proposal_q = safe_int(fn -> Ema.Repo.aggregate(
-      from(p in Ema.Proposals.Proposal, where: p.status == "queued"), :count) end)
+    task_q =
+      safe_int(fn ->
+        Ema.Repo.aggregate(
+          from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress"]),
+          :count
+        )
+      end)
+
+    proposal_q =
+      safe_int(fn ->
+        Ema.Repo.aggregate(
+          from(p in Ema.Proposals.Proposal, where: p.status == "queued"),
+          :count
+        )
+      end)
 
     note_line =
       heartbeat.notes
@@ -146,26 +200,33 @@ defmodule Ema.Babysitter.StreamChannels do
 
   defp build_message(:intent, n, _started, _snap) do
     now = ts()
-    recent_intents = safe_list(fn ->
-      Ema.Repo.all(
-        from i in Ema.Superman.Intent,
-          order_by: [desc: i.inserted_at],
-          limit: 8,
-          select: {i.title, i.kind, i.status, i.inserted_at}
+
+    recent_intents =
+      safe_list(fn ->
+        recent_intents()
+      end)
+
+    routing =
+      safe_str(
+        fn ->
+          arms = router_arm_stats()
+
+          arms
+          |> Enum.map(fn {arm, %{score: s, pulls: p}} ->
+            "  └ `#{arm}` score #{Float.round(s, 3)} (#{p} pulls)"
+          end)
+          |> Enum.join("\n")
+        end,
+        "  └ UCB router: no data yet"
       )
-    end)
 
-    routing = safe_str(fn ->
-      arms = Ema.Intelligence.UCBRouter.arm_stats()
-      arms |> Enum.map(fn {arm, %{score: s, pulls: p}} ->
-        "  └ `#{arm}` score #{Float.round(s, 3)} (#{p} pulls)"
-      end) |> Enum.join("\n")
-    end, "  └ UCB router: no data yet")
-
-    intent_lines = recent_intents |> Enum.map(fn {title, kind, status, at} ->
-      ago = ago(at)
-      "  └ #{status_dot(status)} **#{truncate(title, 40)}** `#{kind || "?"}` · #{ago}"
-    end) |> Enum.join("\n")
+    intent_lines =
+      recent_intents
+      |> Enum.map(fn {title, kind, status, at} ->
+        ago = ago(at)
+        "  └ #{status_dot(status)} **#{truncate(title, 40)}** `#{kind || "?"}` · #{ago}"
+      end)
+      |> Enum.join("\n")
 
     """
     🎯 **intent stream ##{n}** · #{now}
@@ -179,48 +240,61 @@ defmodule Ema.Babysitter.StreamChannels do
 
   defp build_message(:pipeline, n, _started, _snap) do
     now = ts()
-    stages = safe_list(fn ->
-      Ema.Repo.all(
-        from p in Ema.Proposals.Proposal,
-          group_by: p.pipeline_stage,
-          order_by: [asc: p.pipeline_stage],
-          select: {p.pipeline_stage, count(p.id)}
-      )
-    end)
 
-    recent = safe_list(fn ->
-      Ema.Repo.all(
-        from p in Ema.Proposals.Proposal,
-          order_by: [desc: p.updated_at],
-          limit: 6,
-          select: {p.title, p.pipeline_stage, p.status, p.updated_at}
-      )
-    end)
+    stages =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from p in Ema.Proposals.Proposal,
+            group_by: p.pipeline_stage,
+            order_by: [asc: p.pipeline_stage],
+            select: {p.pipeline_stage, count(p.id)}
+        )
+      end)
 
-    pipe_runs = safe_list(fn ->
-      Ema.Repo.all(
-        from r in Ema.Pipes.PipeRun,
-          order_by: [desc: r.inserted_at],
-          limit: 5,
-          select: {r.id, r.status, r.inserted_at}
-      )
-    end)
+    recent =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from p in Ema.Proposals.Proposal,
+            order_by: [desc: p.updated_at],
+            limit: 6,
+            select: {p.title, p.pipeline_stage, p.status, p.updated_at}
+        )
+      end)
 
-    stage_bar = stages |> Enum.map(fn {s, n} ->
-      "#{s || "?"}: **#{n}**"
-    end) |> Enum.join(" → ")
+    pipe_runs =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from r in Ema.Pipes.PipeRun,
+            order_by: [desc: r.inserted_at],
+            limit: 5,
+            select: {r.id, r.status, r.inserted_at}
+        )
+      end)
 
-    recent_lines = recent |> Enum.map(fn {title, stage, status, at} ->
-      "  └ #{status_dot(status)} #{truncate(title, 42)} [#{stage || status}] · #{ago(at)}"
-    end) |> Enum.join("\n")
+    stage_bar =
+      stages
+      |> Enum.map(fn {s, n} ->
+        "#{s || "?"}: **#{n}**"
+      end)
+      |> Enum.join(" → ")
 
-    pipe_lines = if pipe_runs == [] do
-      "  └ no recent pipe runs"
-    else
-      pipe_runs |> Enum.map(fn {id, status, at} ->
-        "  └ #{status_dot(status)} `#{truncate(id, 16)}` #{status} · #{ago(at)}"
-      end) |> Enum.join("\n")
-    end
+    recent_lines =
+      recent
+      |> Enum.map(fn {title, stage, status, at} ->
+        "  └ #{status_dot(status)} #{truncate(title, 42)} [#{stage || status}] · #{ago(at)}"
+      end)
+      |> Enum.join("\n")
+
+    pipe_lines =
+      if pipe_runs == [] do
+        "  └ no recent pipe runs"
+      else
+        pipe_runs
+        |> Enum.map(fn {id, status, at} ->
+          "  └ #{status_dot(status)} `#{truncate(id, 16)}` #{status} · #{ago(at)}"
+        end)
+        |> Enum.join("\n")
+      end
 
     """
     ⚙️ **pipeline flow ##{n}** · #{now}
@@ -240,41 +314,73 @@ defmodule Ema.Babysitter.StreamChannels do
     # Use live session file data if available from SessionObserver
     {live_sessions, stalled, just_completed} =
       case session_snapshot do
-        %{sessions: s, stalled: st, just_completed: jc} -> {s, st, jc}
+        %{sessions: s, stalled: st, just_completed: jc} ->
+          {s, st, jc}
+
         nil ->
           try do
             snap = Ema.Babysitter.SessionObserver.snapshot()
             {snap[:sessions] || [], snap[:stalled] || [], snap[:just_completed] || []}
-          rescue _ -> {[], [], []} end
+          rescue
+            _ -> {[], [], []}
+          end
       end
 
     active_live = live_sessions |> Enum.filter(&(&1.status == :active))
     active_count = length(active_live)
 
-    session_lines = if active_live == [] do
-      "  └ no active sessions"
-    else
-      active_live |> Enum.map(fn s ->
-        proj = (s.project_path || "?") |> String.split("/") |> Enum.take(-2) |> Enum.join("/") |> truncate(30)
-        tool = if s.last_tool, do: " · ", else: ""
-        text = if s.last_text, do: "
-    _#{truncate(s.last_text, 70)}_", else: ""
-        "  └ 🤖 #{tool}#{text}"
-      end) |> Enum.join("
+    session_lines =
+      if active_live == [] do
+        "  └ no active sessions"
+      else
+        active_live
+        |> Enum.map(fn s ->
+          _proj =
+            (s.project_path || "?")
+            |> String.split("/")
+            |> Enum.take(-2)
+            |> Enum.join("/")
+            |> truncate(30)
+
+          tool = if s.last_tool, do: " · ", else: ""
+
+          text =
+            if s.last_text,
+              do: "
+    _#{truncate(s.last_text, 70)}_",
+              else: ""
+
+          "  └ 🤖 #{tool}#{text}"
+        end)
+        |> Enum.join("
 ")
-    end
+      end
 
-    stall_line = if stalled != [] do
-      names = stalled |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last())) |> Enum.join(", ")
-      "
+    stall_line =
+      if stalled != [] do
+        names =
+          stalled
+          |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last()))
+          |> Enum.join(", ")
+
+        "
 ⚠️ **stalled >5m:** #{names}"
-    else "" end
+      else
+        ""
+      end
 
-    done_line = if just_completed != [] do
-      names = just_completed |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last())) |> Enum.join(", ")
-      "
+    done_line =
+      if just_completed != [] do
+        names =
+          just_completed
+          |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last()))
+          |> Enum.join(", ")
+
+        "
 ✅ **just completed:** #{names}"
-    else "" end
+      else
+        ""
+      end
 
     """
     🤖 **agent thoughts ##{n}** · #{now}
@@ -283,38 +389,61 @@ defmodule Ema.Babysitter.StreamChannels do
     -# Live .jsonl file scan · tool calls · assistant text
     """
   end
+
   defp build_message(:intelligence, n, _started, _snap) do
     now = ts()
 
-    ucb = safe_str(fn ->
-      arms = Ema.Intelligence.UCBRouter.arm_stats()
-      arms |> Enum.sort_by(fn {_, %{score: s}} -> -s end) |> Enum.take(5)
-      |> Enum.map(fn {arm, %{score: s, pulls: p, wins: w}} ->
-        pct = if p > 0, do: Float.round(w / p * 100, 1), else: 0.0
-        "  └ `#{arm}` #{Float.round(s, 4)} score · #{p} pulls · #{pct}% win"
-      end) |> Enum.join("\n")
-    end, "  └ UCB router: no data")
+    ucb =
+      safe_str(
+        fn ->
+          arms = router_arm_stats()
 
-    bandit = safe_str(fn ->
-      variants = Ema.Intelligence.PromptVariantStore.top_variants(5)
-      variants |> Enum.map(fn v ->
-        "  └ `#{truncate(v.variant_id, 20)}` ε=#{v.epsilon} · #{v.uses} uses · #{Float.round(v.score, 3)} score"
-      end) |> Enum.join("\n")
-    end, "  └ prompt bandit: no variants yet")
+          arms
+          |> Enum.sort_by(fn {_, %{score: s}} -> -s end)
+          |> Enum.take(5)
+          |> Enum.map(fn {arm, %{score: s, pulls: p, wins: w}} ->
+            pct = if p > 0, do: Float.round(w / p * 100, 1), else: 0.0
+            "  └ `#{arm}` #{Float.round(s, 4)} score · #{p} pulls · #{pct}% win"
+          end)
+          |> Enum.join("\n")
+        end,
+        "  └ UCB router: no data"
+      )
+
+    bandit =
+      safe_str(
+        fn ->
+          variants = top_prompt_variants(5)
+
+          variants
+          |> Enum.map(fn v ->
+            "  └ `#{truncate(v.variant_id, 20)}` ε=#{v.epsilon} · #{v.uses} uses · #{Float.round(v.score, 3)} score"
+          end)
+          |> Enum.join("\n")
+        end,
+        "  └ prompt bandit: no variants yet"
+      )
 
     # Scope advisor recent verdicts
-    scope = safe_str(fn ->
-      recent = Ema.Repo.all(
-        from t in Ema.Tasks.Task,
-          where: not is_nil(t.metadata),
-          order_by: [desc: t.updated_at],
-          limit: 4,
-          select: {t.title, t.metadata}
+    scope =
+      safe_str(
+        fn ->
+          recent =
+            Ema.Repo.all(
+              from t in Ema.Tasks.Task,
+                where: not is_nil(t.metadata),
+                order_by: [desc: t.updated_at],
+                limit: 4,
+                select: {t.title, t.metadata}
+            )
+
+          recent
+          |> Enum.filter(fn {_, m} -> Map.has_key?(m || %{}, "scope_verdict") end)
+          |> Enum.map(fn {title, m} -> "  └ #{truncate(title, 35)} → #{m["scope_verdict"]}" end)
+          |> Enum.join("\n")
+        end,
+        "  └ scope advisor: no verdicts yet"
       )
-      recent |> Enum.filter(fn {_, m} -> Map.has_key?(m || %{}, "scope_verdict") end)
-      |> Enum.map(fn {title, m} -> "  └ #{truncate(title, 35)} → #{m["scope_verdict"]}" end)
-      |> Enum.join("\n")
-    end, "  └ scope advisor: no verdicts yet")
 
     """
     🧠 **intelligence layer ##{n}** · #{now}
@@ -332,30 +461,36 @@ defmodule Ema.Babysitter.StreamChannels do
     now = ts()
 
     # Second brain recent writes
-    brain_pages = safe_list(fn ->
-      Ema.Repo.all(
-        from e in Ema.SecondBrain.Entry,
-          order_by: [desc: e.updated_at],
-          limit: 8,
-          select: {e.title, e.source, e.updated_at}
-      )
-    end)
+    brain_pages =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from e in Ema.SecondBrain.Note,
+            order_by: [desc: e.updated_at],
+            limit: 8,
+            select: {e.title, e.source, e.updated_at}
+        )
+      end)
 
-    brain_dumps = safe_int(fn ->
-      Ema.Repo.aggregate(Ema.BrainDump.BrainDump, :count)
-    end)
+    brain_dumps =
+      safe_int(fn ->
+        Ema.Repo.aggregate(Ema.BrainDump.Item, :count)
+      end)
 
-    index_size = safe_int(fn ->
-      Ema.Repo.aggregate(Ema.SecondBrain.Entry, :count)
-    end)
+    index_size =
+      safe_int(fn ->
+        Ema.Repo.aggregate(Ema.SecondBrain.Note, :count)
+      end)
 
-    page_lines = if brain_pages == [] do
-      "  └ no entries yet"
-    else
-      brain_pages |> Enum.map(fn {title, source, at} ->
-        "  └ 📄 **#{truncate(title, 40)}** `#{source || "?"}` · #{ago(at)}"
-      end) |> Enum.join("\n")
-    end
+    page_lines =
+      if brain_pages == [] do
+        "  └ no entries yet"
+      else
+        brain_pages
+        |> Enum.map(fn {title, source, at} ->
+          "  └ 📄 **#{truncate(title, 40)}** `#{source || "?"}` · #{ago(at)}"
+        end)
+        |> Enum.join("\n")
+      end
 
     """
     📝 **memory writes ##{n}** · #{now}
@@ -369,42 +504,51 @@ defmodule Ema.Babysitter.StreamChannels do
   defp build_message(:execution, n, _started, _snap) do
     now = ts()
 
-    active_tasks = safe_list(fn ->
-      Ema.Repo.all(
-        from t in Ema.Tasks.Task,
-          where: t.status in ["in_progress", "active"],
-          order_by: [desc: t.updated_at],
-          limit: 8,
-          select: {t.title, t.status, t.updated_at}
-      )
-    end)
+    active_tasks =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from t in Ema.Tasks.Task,
+            where: t.status in ["in_progress", "active"],
+            order_by: [desc: t.updated_at],
+            limit: 8,
+            select: {t.title, t.status, t.updated_at}
+        )
+      end)
 
-    recent_done = safe_list(fn ->
-      cutoff = DateTime.add(DateTime.utc_now(), -900, :second)
-      Ema.Repo.all(
-        from t in Ema.Tasks.Task,
-          where: t.status == "done" and t.updated_at >= ^cutoff,
-          order_by: [desc: t.updated_at],
-          limit: 5,
-          select: {t.title, t.updated_at}
-      )
-    end)
+    recent_done =
+      safe_list(fn ->
+        cutoff = DateTime.add(DateTime.utc_now(), -900, :second)
 
-    active_lines = if active_tasks == [] do
-      "  └ nothing running"
-    else
-      active_tasks |> Enum.map(fn {title, status, at} ->
-        "  └ #{status_dot(status)} **#{truncate(title, 45)}** · #{ago(at)}"
-      end) |> Enum.join("\n")
-    end
+        Ema.Repo.all(
+          from t in Ema.Tasks.Task,
+            where: t.status == "done" and t.updated_at >= ^cutoff,
+            order_by: [desc: t.updated_at],
+            limit: 5,
+            select: {t.title, t.updated_at}
+        )
+      end)
 
-    done_lines = if recent_done == [] do
-      "  └ nothing completed in last 15m"
-    else
-      recent_done |> Enum.map(fn {title, at} ->
-        "  └ ✅ #{truncate(title, 45)} · #{ago(at)}"
-      end) |> Enum.join("\n")
-    end
+    active_lines =
+      if active_tasks == [] do
+        "  └ nothing running"
+      else
+        active_tasks
+        |> Enum.map(fn {title, status, at} ->
+          "  └ #{status_dot(status)} **#{truncate(title, 45)}** · #{ago(at)}"
+        end)
+        |> Enum.join("\n")
+      end
+
+    done_lines =
+      if recent_done == [] do
+        "  └ nothing completed in last 15m"
+      else
+        recent_done
+        |> Enum.map(fn {title, at} ->
+          "  └ ✅ #{truncate(title, 45)} · #{ago(at)}"
+        end)
+        |> Enum.join("\n")
+      end
 
     """
     🏃 **execution log ##{n}** · #{now}
@@ -421,28 +565,39 @@ defmodule Ema.Babysitter.StreamChannels do
 
     # Evolution signals from vault
     signals_path = Path.expand("~/vault/System/Evolution Signals.md")
-    signals_preview = safe_str(fn ->
-      if File.exists?(signals_path) do
-        File.read!(signals_path) |> String.split("\n") |> Enum.take(8) |> Enum.join("\n")
-      else
-        "no signals file yet"
-      end
-    end, "vault not accessible")
+
+    signals_preview =
+      safe_str(
+        fn ->
+          if File.exists?(signals_path) do
+            File.read!(signals_path) |> String.split("\n") |> Enum.take(8) |> Enum.join("\n")
+          else
+            "no signals file yet"
+          end
+        end,
+        "vault not accessible"
+      )
 
     # Usage harvester outcomes
-    recent_proposals = safe_list(fn ->
-      Ema.Repo.all(
-        from p in Ema.Proposals.Proposal,
-          where: p.status == "queued" and p.inserted_at >= ^DateTime.add(DateTime.utc_now(), -86400, :second),
-          order_by: [desc: p.inserted_at],
-          limit: 5,
-          select: {p.title, p.inserted_at}
-      )
-    end)
+    recent_proposals =
+      safe_list(fn ->
+        Ema.Repo.all(
+          from p in Ema.Proposals.Proposal,
+            where:
+              p.status == "queued" and
+                p.inserted_at >= ^DateTime.add(DateTime.utc_now(), -86400, :second),
+            order_by: [desc: p.inserted_at],
+            limit: 5,
+            select: {p.title, p.inserted_at}
+        )
+      end)
 
-    signal_lines = recent_proposals |> Enum.map(fn {title, at} ->
-      "  └ 🧬 #{truncate(title, 50)} · #{ago(at)}"
-    end) |> Enum.join("\n")
+    signal_lines =
+      recent_proposals
+      |> Enum.map(fn {title, at} ->
+        "  └ 🧬 #{truncate(title, 50)} · #{ago(at)}"
+      end)
+      |> Enum.join("\n")
 
     """
     🧬 **evolution signals ##{n}** · #{now}
@@ -462,22 +617,42 @@ defmodule Ema.Babysitter.StreamChannels do
     # Simulate what the full system would show if all modules were live
     # Uses real data where available, synthetic narrative for unbuilt modules
 
-    voice_status = "🎙️ VoiceCore: **offline** (ema-007-voicecore unmerged) — would show: intent confidence, TTS queue, Jarvis mode"
-    metamind_status = "🔮 MetaMind: **offline** (ema-004-metamind unmerged) — would show: prompt interceptions, peer review queue, library hits"
-    channels_status = "📡 Channels v2: **offline** (ema-006-channels-v2 unmerged) — would show: unified inbox depth, sync lag, active integrations"
-    evolution_status = "🧬 Evolution Engine: **offline** (ema-005-evolution unmerged) — would show: rule versions, signal scan results, auto-applied patches"
-    vector_status = "🔢 Vector Proposals: **offline** (ema-002-vector-proposals unmerged) — would show: embedding similarity scores, semantic clustering"
-    bridge_status = "🌉 Claude Bridge: **online** (ema-001 merged) — Port subprocess sessions, multi-turn context, streaming"
+    voice_status =
+      "🎙️ VoiceCore: **offline** (ema-007-voicecore unmerged) — would show: intent confidence, TTS queue, Jarvis mode"
+
+    metamind_status =
+      "🔮 MetaMind: **offline** (ema-004-metamind unmerged) — would show: prompt interceptions, peer review queue, library hits"
+
+    channels_status =
+      "📡 Channels v2: **offline** (ema-006-channels-v2 unmerged) — would show: unified inbox depth, sync lag, active integrations"
+
+    evolution_status =
+      "🧬 Evolution Engine: **offline** (ema-005-evolution unmerged) — would show: rule versions, signal scan results, auto-applied patches"
+
+    vector_status =
+      "🔢 Vector Proposals: **offline** (ema-002-vector-proposals unmerged) — would show: embedding similarity scores, semantic clustering"
+
+    bridge_status =
+      "🌉 Claude Bridge: **online** (ema-001 merged) — Port subprocess sessions, multi-turn context, streaming"
 
     # What IS live
-    live_count = safe_int(fn ->
-      [Ema.Claude.SessionManager, Ema.Pipes.Supervisor, Ema.SecondBrain.Indexer,
-       Ema.Babysitter.Supervisor, Ema.Intelligence.UCBRouter]
-      |> Enum.count(fn mod ->
-        pid = Process.whereis(mod)
-        pid != nil && Process.alive?(pid)
-      end)
-    end, 0)
+    live_count =
+      safe_int(
+        fn ->
+          [
+            Ema.Claude.SessionManager,
+            Ema.Pipes.Supervisor,
+            Ema.SecondBrain.Indexer,
+            Ema.Babysitter.Supervisor,
+            Ema.Intelligence.UCBRouter
+          ]
+          |> Enum.count(fn mod ->
+            pid = Process.whereis(mod)
+            pid != nil && Process.alive?(pid)
+          end)
+        end,
+        0
+      )
 
     """
     🔮 **speculative parity ##{n}** · #{now}
@@ -500,19 +675,18 @@ defmodule Ema.Babysitter.StreamChannels do
   defp ts, do: Calendar.strftime(DateTime.utc_now(), "%H:%M:%S UTC")
 
   defp ago(nil), do: "?"
+
   defp ago(%DateTime{} = dt) do
     diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
     cond do
       diff < 60 -> "#{diff}s ago"
       diff < 3600 -> "#{div(diff, 60)}m ago"
       true -> "#{div(diff, 3600)}h #{rem(div(diff, 60), 60)}m ago"
     end
   end
-  defp ago(_), do: "?"
 
-  defp fmt_tokens(nil), do: "0"
-  defp fmt_tokens(n) when n >= 1000, do: "#{Float.round(n / 1000, 1)}k"
-  defp fmt_tokens(n), do: "#{n}"
+  defp ago(_), do: "?"
 
   defp fmt_ms(nil), do: "?"
   defp fmt_ms(n), do: "#{n}ms"
@@ -541,23 +715,317 @@ defmodule Ema.Babysitter.StreamChannels do
   defp heartbeat_emoji("degraded"), do: "🔴"
   defp heartbeat_emoji(_), do: "⚪"
 
-  defp safe_int(fun, default \\ 0) do
-    try do fun.() rescue _ -> default end
+  defp safe_int(fun, default \\ 0)
+  defp safe_int(fun, default) do
+    try do
+      fun.()
+    rescue
+      _ -> default
+    end
   end
 
-  defp safe_str(fun, default \\ "") do
+  defp safe_str(fun, default) do
     try do
       result = fun.()
       if result in [nil, "", []], do: default, else: result
-    rescue _ -> default end
+    rescue
+      _ -> default
+    end
   end
 
   defp safe_list(fun) do
-    try do fun.() rescue _ -> [] end
+    try do
+      fun.()
+    rescue
+      _ -> []
+    end
+  end
+
+  defp maybe_post_delivery(delivery, stream, last_delivery) do
+    case delivery_decision(last_delivery, delivery) do
+      {:post, reason} ->
+        if delivery.message, do: post(channel_id(stream), delivery.message)
+        Logger.info("[StreamChannels:#{stream}] posted #{reason}")
+        delivery
+
+      {:skip, reason} ->
+        Logger.info("[StreamChannels:#{stream}] skipped post: #{reason}")
+        last_delivery || delivery
+    end
+  end
+
+  defp stream_signature(:heartbeat, _session_snapshot) do
+    heartbeat = VmMonitor.heartbeat_snapshot()
+
+    %{
+      status: heartbeat.status,
+      heartbeat_state: heartbeat.heartbeat_state,
+      trend: heartbeat.trend,
+      openclaw_up: heartbeat.openclaw_up,
+      notes: heartbeat.notes || [],
+      task_q:
+        safe_int(fn ->
+          Ema.Repo.aggregate(
+            from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress"]),
+            :count
+          )
+        end),
+      proposal_q:
+        safe_int(fn ->
+          Ema.Repo.aggregate(
+            from(p in Ema.Proposals.Proposal, where: p.status == "queued"),
+            :count
+          )
+        end)
+    }
+  end
+
+  defp stream_signature(:intent, _session_snapshot) do
+    %{
+      intents:
+        safe_list(fn ->
+          recent_intents_signature()
+        end),
+      router:
+        safe_list(fn ->
+          router_arm_stats()
+          |> Enum.sort_by(fn {arm, _} -> arm end)
+          |> Enum.map(fn {arm, %{score: score, pulls: pulls}} ->
+            {arm, Float.round(score, 3), pulls}
+          end)
+        end)
+    }
+  end
+
+  defp stream_signature(:pipeline, _session_snapshot) do
+    %{
+      stages:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from p in Ema.Proposals.Proposal,
+              group_by: p.pipeline_stage,
+              order_by: [asc: p.pipeline_stage],
+              select: {p.pipeline_stage, count(p.id)}
+          )
+        end),
+      proposals:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from p in Ema.Proposals.Proposal,
+              order_by: [desc: p.updated_at],
+              limit: 6,
+              select: {p.title, p.pipeline_stage, p.status}
+          )
+        end),
+      pipe_runs:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from r in Ema.Pipes.PipeRun,
+              order_by: [desc: r.inserted_at],
+              limit: 5,
+              select: {r.id, r.status}
+          )
+        end)
+    }
+  end
+
+  defp stream_signature(:agent, session_snapshot) do
+    {sessions, stalled, just_completed} = normalize_session_snapshot(session_snapshot)
+
+    %{
+      total: safe_int(fn -> Ema.Repo.aggregate(Ema.ClaudeSessions.ClaudeSession, :count) end),
+      active:
+        Enum.map(Enum.filter(sessions, &(&1.status == :active)), fn session ->
+          {session.session_id, session.project_path, session.last_tool, session.last_text}
+        end),
+      stalled: Enum.map(stalled, &{&1.session_id, &1.project_path}),
+      just_completed: Enum.map(just_completed, &{&1.session_id, &1.project_path})
+    }
+  end
+
+  defp stream_signature(:intelligence, _session_snapshot) do
+    %{
+      router:
+        safe_list(fn ->
+          router_arm_stats()
+          |> Enum.sort_by(fn {_arm, %{score: score}} -> -score end)
+          |> Enum.take(5)
+          |> Enum.map(fn {arm, %{score: score, pulls: pulls, wins: wins}} ->
+            {arm, Float.round(score, 4), pulls, wins}
+          end)
+        end),
+      variants:
+        safe_list(fn ->
+          top_prompt_variants(5)
+          |> Enum.map(fn variant ->
+            {variant.variant_id, variant.epsilon, variant.uses, Float.round(variant.score, 3)}
+          end)
+        end),
+      scope:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from t in Ema.Tasks.Task,
+              where: not is_nil(t.metadata),
+              order_by: [desc: t.updated_at],
+              limit: 4,
+              select: {t.title, t.metadata}
+          )
+          |> Enum.filter(fn {_, metadata} -> Map.has_key?(metadata || %{}, "scope_verdict") end)
+          |> Enum.map(fn {title, metadata} -> {title, metadata["scope_verdict"]} end)
+        end)
+    }
+  end
+
+  defp stream_signature(:memory, _session_snapshot) do
+    %{
+      dumps: safe_int(fn -> Ema.Repo.aggregate(Ema.BrainDump.Item, :count) end),
+      entries: safe_int(fn -> Ema.Repo.aggregate(Ema.SecondBrain.Note, :count) end),
+      pages:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from e in Ema.SecondBrain.Note,
+              order_by: [desc: e.updated_at],
+              limit: 8,
+              select: {e.title, e.source_type}
+          )
+        end)
+    }
+  end
+
+  defp stream_signature(:execution, _session_snapshot) do
+    cutoff = DateTime.add(DateTime.utc_now(), -900, :second)
+
+    %{
+      active:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from t in Ema.Tasks.Task,
+              where: t.status in ["in_progress", "active"],
+              order_by: [desc: t.updated_at],
+              limit: 8,
+              select: {t.title, t.status}
+          )
+        end),
+      completed:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from t in Ema.Tasks.Task,
+              where: t.status == "done" and t.updated_at >= ^cutoff,
+              order_by: [desc: t.updated_at],
+              limit: 5,
+              select: t.title
+          )
+        end)
+    }
+  end
+
+  defp stream_signature(:evolution, _session_snapshot) do
+    signals_path = Path.expand("~/vault/System/Evolution Signals.md")
+
+    %{
+      proposals:
+        safe_list(fn ->
+          Ema.Repo.all(
+            from p in Ema.Proposals.Proposal,
+              where:
+                p.status == "queued" and
+                  p.inserted_at >= ^DateTime.add(DateTime.utc_now(), -86400, :second),
+              order_by: [desc: p.inserted_at],
+              limit: 5,
+              select: p.title
+          )
+        end),
+      signals_preview_hash:
+        safe_str(
+          fn ->
+            if File.exists?(signals_path) do
+              File.read!(signals_path)
+              |> String.split("\n")
+              |> Enum.take(8)
+              |> Enum.join("\n")
+              |> :erlang.phash2()
+              |> Integer.to_string()
+            else
+              "no-signals-file"
+            end
+          end,
+          "vault-inaccessible"
+        )
+    }
+  end
+
+  defp stream_signature(:speculative, _session_snapshot) do
+    %{
+      live_modules:
+        safe_int(
+          fn ->
+            [
+              Ema.Claude.SessionManager,
+              Ema.Pipes.Supervisor,
+              Ema.SecondBrain.Indexer,
+              Ema.Babysitter.Supervisor,
+              Ema.Intelligence.UCBRouter
+            ]
+            |> Enum.count(fn mod ->
+              pid = Process.whereis(mod)
+              pid != nil and Process.alive?(pid)
+            end)
+          end,
+          0
+        )
+    }
+  end
+
+  defp post_reason(:heartbeat, _session_snapshot) do
+    if degraded_stream_summary?(:heartbeat, nil),
+      do: "heartbeat degraded summary changed",
+      else: "state changed"
+  end
+
+  defp post_reason(:agent, session_snapshot) do
+    {_sessions, stalled, just_completed} = normalize_session_snapshot(session_snapshot)
+
+    cond do
+      just_completed != [] -> "session completion changed"
+      stalled != [] -> "stalled session state changed"
+      true -> "state changed"
+    end
+  end
+
+  defp post_reason(_stream, _session_snapshot), do: "state changed"
+
+  defp degraded_stream_summary?(:heartbeat, _session_snapshot) do
+    heartbeat = VmMonitor.heartbeat_snapshot()
+
+    heartbeat.status in ["degraded", "offline"] or
+      heartbeat.heartbeat_state in ["degraded", "backing_up"]
+  end
+
+  defp degraded_stream_summary?(_stream, _session_snapshot), do: false
+
+  defp normalize_session_snapshot(%{
+         sessions: sessions,
+         stalled: stalled,
+         just_completed: just_completed
+       }) do
+    {sessions, stalled, just_completed}
+  end
+
+  defp normalize_session_snapshot(_session_snapshot) do
+    try do
+      snapshot = Ema.Babysitter.SessionObserver.snapshot()
+      {snapshot[:sessions] || [], snapshot[:stalled] || [], snapshot[:just_completed] || []}
+    rescue
+      _ -> {[], [], []}
+    end
   end
 
   defp post(channel_id, message) do
-    Phoenix.PubSub.broadcast(Ema.PubSub, "discord:outbound:#{channel_id}", {:post, String.trim(message)})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "discord:outbound:#{channel_id}",
+      {:post, String.trim(message)}
+    )
   end
 
   defp build_stream_state(now) do
@@ -567,7 +1035,8 @@ defmodule Ema.Babysitter.StreamChannels do
         timer: nil,
         runtime: TickPolicy.runtime(topology.stream),
         last_tick_at: now,
-        tick_count: 0
+        tick_count: 0,
+        last_delivery: nil
       })
     end)
   end
@@ -607,18 +1076,25 @@ defmodule Ema.Babysitter.StreamChannels do
     end
   end
 
-  defp active_session_count(stream) when stream in [:live, :heartbeat, :agent, :execution, :speculative] do
+  defp active_session_count(stream)
+       when stream in [:live, :heartbeat, :agent, :execution, :speculative] do
     safe_int(fn ->
-      Ema.Repo.aggregate(from(s in Ema.ClaudeSessions.ClaudeSession, where: s.status == "active"), :count)
+      Ema.Repo.aggregate(
+        from(s in Ema.ClaudeSessions.ClaudeSession, where: s.status == "active"),
+        :count
+      )
     end)
   end
 
   defp active_session_count(_stream), do: 0
 
-  defp pending_task_count(stream) when stream in [:live, :heartbeat, :pipeline, :execution, :speculative] do
+  defp pending_task_count(stream)
+       when stream in [:live, :heartbeat, :pipeline, :execution, :speculative] do
     safe_int(fn ->
       Ema.Repo.aggregate(
-        from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress", "active", "blocked"]),
+        from(t in Ema.Tasks.Task,
+          where: t.status in ["proposed", "in_progress", "active", "blocked"]
+        ),
         :count
       )
     end)
@@ -629,4 +1105,44 @@ defmodule Ema.Babysitter.StreamChannels do
   defp channel_id(stream) do
     ChannelTopology.stream_channel_id(stream)
   end
+
+
+  defp recent_intents do
+    []
+  end
+
+  defp recent_intents_signature do
+    []
+  end
+
+  defp router_arm_stats do
+    Ema.Intelligence.UCBRouter.all_stats()
+    |> Enum.group_by(& &1.agent)
+    |> Enum.map(fn {agent, stats} ->
+      pulls = Enum.reduce(stats, 0, &(&1.trials + &2))
+      wins = Enum.reduce(stats, 0, &(&1.wins + &2))
+      score = if pulls > 0, do: wins / pulls, else: 0.0
+      {agent, %{score: score, pulls: pulls, wins: wins}}
+    end)
+  rescue
+    _ -> []
+  end
+
+  defp top_prompt_variants(limit) do
+    for agent <- [:coder, :codex, :researcher, :ops, :security],
+        task_type <- [:default, :coding, :research, :review, :ops],
+        variant <- Ema.Intelligence.PromptVariantStore.list_variants(agent, task_type) do
+      %{
+        variant_id: variant.id,
+        epsilon: 0.15,
+        uses: variant.trials,
+        score: variant.win_rate
+      }
+    end
+    |> Enum.sort_by(& &1.score, :desc)
+    |> Enum.take(limit)
+  rescue
+    _ -> []
+  end
+
 end

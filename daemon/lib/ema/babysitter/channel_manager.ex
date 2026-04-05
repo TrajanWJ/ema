@@ -17,10 +17,6 @@ defmodule Ema.Babysitter.ChannelManager do
   alias Ema.Babysitter.OrgController
 
   @poll_ms 5 * 60 * 1000
-  @archive_category_id "1484014919904002170"
-  @ema_systems_category_id "1484410815464345620"
-  @alerts_channel "1484031239680823316"
-  @babysitter_live "1489786483970936933"
 
   # Sprint channels to actively manage
   @sprint_channels [

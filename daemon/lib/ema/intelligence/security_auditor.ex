@@ -9,8 +9,6 @@ defmodule Ema.Intelligence.SecurityAuditor do
 
   alias Ema.Intelligence.VmMonitor
 
-  @vm_ip "localhost"
-
   @doc "Run all security checks and return posture report."
   def audit do
     vm_health = VmMonitor.current_health()

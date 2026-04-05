@@ -1,50 +1,73 @@
 # EMA Project Context
 
-## Core Loop (desired)
+## Core Loop (working)
 ```
-brain dump item
-  → intent folder (.superman/intents/<slug>/)
-  → Execution (DB row, runtime state)
-  → proposal/approval
-  → agent delegation (structured packet)
-  → harvested result
-  → patch intent files (result.md, execution-log.md, status.json)
-  → next execution
+brain dump item / proposal seed
+  → ProposalEngine pipeline (Generator → Refiner → Debater → Tagger)
+  → Proposal queued for review
+  → User approve/redirect/kill
+  → Execution record created
+  → Dispatcher → Claude CLI invocation
+  → Result artifact written
+  → Execution completed
 ```
 
-## What Exists Today
+## What Exists Today (2026-04-05)
 
 **Input layer:**
-- `BrainDump.create_item/1` — fires `"brain_dump:item_created"` on PubSub + EventBus
+- `BrainDump.create_item/1` — fires PubSub + EventBus events
+- 79 proposal seeds (10 active after cleanup, 69 deactivated)
+- Evolution system generates seeds from behavioral signals (currently deactivated — was producing spam)
 
 **Proposal layer:**
-- `ProposalEngine.Generator.generate/1` — takes Seed, calls Claude, creates Proposal, broadcasts `{:proposals, :generated, proposal}`
-- `ProposalEngine.Scheduler` — 1-minute tick, dispatches active seeds
-- Full pipeline: Generator → Refiner → Debater → Tagger (PubSub `"proposals:pipeline"`)
+- Full 5-stage pipeline: Generator → Refiner → Debater → Tagger → Combiner
+- KillMemory tracks killed proposal patterns (Jaccard similarity)
+- Orchestrator supports manual generation via API
+- SeedPreflight quality gate (in worktree — not yet merged)
 
-**Approval:**
-- `Proposals.approve_proposal/1` — sets status `"approved"`, broadcasts `"proposal_approved"` — then nothing
+**Approval → Execution:**
+- `Proposals.approve_proposal/1` → `Ema.Executions.on_proposal_approved/1` → creates Execution → dispatches via PubSub
+- `Ema.Executions.Dispatcher` handles dispatch to Claude CLI
+- Execution tracks: status, agent_sessions, events, diffs
 
 **Agent layer:**
-- `Agents.AgentWorker` — GenServer handling messages, Claude CLI calls
-- `OpenClaw.AgentBridge` — polls gateway every 5s (no dispatch method)
-- `ClaudeSessions.SessionWatcher` — passive filesystem discovery only
+- `Agents.AgentWorker` — GenServer per agent, Claude CLI calls, tool execution (1 tool implemented)
+- `AgentMemory` — conversation compression at >20 messages
+- `OpenClaw.AgentBridge` — polls gateway every 5s
+- `ClaudeSessions.SessionWatcher` — passive JSONL discovery + parsing + project linking
 
 **Harvesting:**
-- `Harvesters.SessionHarvester` — designed, not implemented
+- `GitHarvester` + `SessionHarvester` — implemented
+- `VaultHarvester`, `UsageHarvester`, `BrainDumpHarvester` — declared but not implemented
 
-**Evolution:**
-- `Evolution.SignalScanner` — scans for behavior signals, unaware of executions
+**Observability:**
+- `Babysitter` — OrgController + StreamChannels (9 Discord channels) + StreamTicker
+- `GapScanner` — 7-source friction scanning every 60 min
+- `TokenTracker` — per-call cost recording with spike detection
+- `Evolution.SignalScanner` — behavioral signal scanning
 
-## What Is Missing
-1. `executions` table — the runtime linkage object
-2. `execution_events` table — audit trail per execution
-3. `agent_sessions` table — EMA-dispatched sessions (not passive discovery)
-4. `Ema.Executions` context module
-5. BrainDump → Execution wire
-6. Approved proposal → Dispatcher → agent
-7. Session → Execution feedback on completion
-8. Harvester → intent file patchback
+## What's In Worktree Branches (built, not merged)
+
+1. `Superman.Context.for_project/2` — real project dashboard context API
+2. Proposal API contract normalization — consistent response shapes
+3. `BridgeDispatch` GenServer — async dispatch with tracking, retries, PubSub callbacks
+4. `SeedPreflight` — pre-generation quality gate (100-point scoring, dedup, enrichment)
+5. `Claude.Failure` — typed failure taxonomy + event store + preflight checks
+6. Brain Dump → Proposal Loop — embedding clusters, cosine similarity, auto-surfacing
+7. OpenClaw Vault Sync — rsync mirror, delta consumer, reconciler (behind config flag)
+
+## What's Missing (Phase 2 targets)
+
+1. **Intelligence.Router** — event classification, routing decisions
+2. **ContextInjector** — vault + goals + tasks enrichment for AI calls
+3. **Domain agents** — Strategist, Coach, Archivist personas
+4. **CampaignManager** — named persistent session clusters
+5. **Outcome linker** — proposal → execution → result → feedback loop
+6. **Auto-approve rules** — safe proposals skip human review
+7. **Genealogy edge tracking** — DAG visualization of idea evolution
+8. **Friction map heatmap** — visual representation of GapScanner findings
+9. **Pattern Crystallizer** — detect recurring workflows, harden into artifacts (Phase 3)
+10. **Autonomous Reasoning** — auto-improvement loop, threat model, health dashboard (Phase 3)
 
 ## Design Invariants
 - **Intent** = semantic, pre-execution, markdown, slow-changing
@@ -53,3 +76,11 @@ brain dump item
 - **HQ** = execution surface (timeline of runtime state)
 - **EMA** = intention/readiness surface (shapes what to do)
 - No vague agent delegation — all packets must be structured
+- Bridge fallback: `Bridge.run/2` → `Runner.run/2` when Bridge not started (silent)
+
+## Contradictions to Fix (from audit 2026-04-04)
+1. 7 dead WebSocket channel topics (frontend joins, no backend handler)
+2. Bridge opt-in but called everywhere (silent feature loss)
+3. 3 missing harvester modules (declared in @valid_harvesters)
+4. Vault path resolved 4 ways (compile_env vs get_env vs env var vs hardcoded)
+5. CLAUDE.md store/app counts severely outdated

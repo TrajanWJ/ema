@@ -21,23 +21,24 @@ defmodule Ema.Voice.CommandParser do
   """
   @spec parse(String.t()) :: result()
   def parse(text) when is_binary(text) do
-    normalized = text |> String.trim() |> String.downcase()
+    trimmed = String.trim(text)
+    normalized = String.downcase(trimmed)
 
     cond do
-      match = match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i) ->
-        {:command, :open_app, normalize_app_name(match)}
+      match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i) ->
+        {:command, :open_app, normalize_app_name(match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i))}
 
-      match = match_pattern(normalized, ~r/^show\s+(?:me\s+)?(.+)$/i) ->
-        {:command, :show, match}
+      match_pattern(normalized, ~r/^show\s+(?:me\s+)?(.+)$/i) ->
+        {:command, :show, extract_arg(trimmed, ~r/^(?:show)\s+(?:me\s+)?(.+)$/i)}
 
-      match = match_pattern(normalized, ~r/^(?:create|add|new)\s+task\s+(.+)$/i) ->
-        {:command, :create_task, match}
+      match_pattern(normalized, ~r/^(?:create|add|new)\s+task\s+(.+)$/i) ->
+        {:command, :create_task, extract_arg(trimmed, ~r/^(?:create|add|new)\s+task\s+(.+)$/i)}
 
-      match = match_pattern(normalized, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i) ->
-        {:command, :brain_dump, match}
+      match_pattern(normalized, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i) ->
+        {:command, :brain_dump, extract_arg(trimmed, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i)}
 
-      match = match_pattern(normalized, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i) ->
-        {:command, :ask_claude, match}
+      match_pattern(normalized, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i) ->
+        {:command, :ask_claude, extract_arg(trimmed, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i)}
 
       true ->
         :conversation
@@ -98,5 +99,12 @@ defmodule Ema.Voice.CommandParser do
   defp normalize_app_name(raw) do
     key = String.downcase(String.trim(raw))
     Map.get(@app_aliases, key, key)
+  end
+
+  defp extract_arg(text, regex) do
+    case Regex.run(regex, text) do
+      [_, capture] -> String.trim(capture)
+      _ -> String.trim(text)
+    end
   end
 end

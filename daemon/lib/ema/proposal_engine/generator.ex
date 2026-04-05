@@ -192,7 +192,7 @@ defmodule Ema.ProposalEngine.Generator do
 
   defp normalize_estimated_scope(_), do: nil
 
-  defp create_proposal_from_result(seed, result, preflight_diagnostics \\ %{}) do
+  defp create_proposal_from_result(seed, result, preflight_diagnostics) do
     preflight_score = preflight_diagnostics[:enriched_score] || preflight_diagnostics[:initial_score]
 
     attrs = %{

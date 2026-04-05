@@ -121,7 +121,7 @@ defmodule EmaWeb.ResponsibilityController do
     json(conn, %{responsibilities: responsibilities})
   end
 
-  defp broadcast(event, payload, project_id \\ nil) do
+  defp broadcast(event, payload, project_id) do
     EmaWeb.Endpoint.broadcast("responsibilities:lobby", event, payload)
 
     if project_id do

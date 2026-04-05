@@ -69,7 +69,9 @@ defmodule Ema.Superman do
   This keeps the legacy mixed list-or-string contract intact on context_for/1 while
   exposing a stable shape for newer callers.
   """
-  def context_bundle_for(project_ref, opts \\ []) when is_binary(project_ref) do
+  def context_bundle_for(project_ref, opts \\ [])
+
+  def context_bundle_for(project_ref, opts) when is_binary(project_ref) do
     with {:ok, project} <- resolve_project(project_ref) do
       graph_nodes = fetch_graph_nodes(project, project_ref)
       assembled_result = fetch_assembled_context(project, opts)
@@ -100,7 +102,7 @@ defmodule Ema.Superman do
 
   defp fetch_assembled_context(project, opts) do
     case ContextAssembler.context_for(project.id, opts) do
-      {:ok, assembled} = ok -> ok
+      {:ok, _assembled} = ok -> ok
       {:error, _} -> ContextAssembler.context_for(project.slug, opts)
     end
   rescue

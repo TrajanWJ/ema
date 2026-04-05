@@ -25,12 +25,32 @@ defmodule Ema.Babysitter.PatternMatcher do
   end
 
   defp detect_stalled_sessions(%{stalled: stalled}) when is_list(stalled) and length(stalled) > 0 do
-    Enum.map(stalled, fn s ->
-      %{pattern: :session_stall, severity: 0.5,
-        affected: [s.session_id || s.path],
+    unique =
+      stalled
+      |> Enum.map(fn s ->
+        %{
+          id: s.session_id || s.path || s.project_path || "unknown",
+          path: s.project_path || "unknown",
+          last_tool: s.last_tool || "none"
+        }
+      end)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.sort_by(& &1.path)
+
+    sample =
+      unique
+      |> Enum.take(3)
+      |> Enum.map_join(", ", fn s -> "#{s.path} (#{s.last_tool})" end)
+
+    [
+      %{
+        pattern: :session_stall,
+        severity: min(1.0, 0.45 + length(unique) * 0.1),
+        affected: Enum.map(unique, & &1.id),
         recommended_action: :alert_human,
-        detail: "Stalled: #{s.project_path || "unknown"} (last tool: #{s.last_tool || "none"})"}
-    end)
+        detail: "#{length(unique)} stalled sessions: #{sample}"
+      }
+    ]
   end
   defp detect_stalled_sessions(_), do: []
 
