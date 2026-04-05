@@ -39,6 +39,30 @@ defmodule Ema.ProposalEngine.Generator do
   def handle_info(_msg, state), do: {:noreply, state}
 
   defp do_generate(seed) do
+    case Ema.Proposals.SeedPreflight.check(seed) do
+      {:pass, checked_seed, diagnostics} ->
+        do_generate_after_preflight(checked_seed, diagnostics)
+
+      {:rewrite, checked_seed, diagnostics} ->
+        do_generate_after_preflight(checked_seed, diagnostics)
+
+      {:duplicate, _nil, diagnostics} ->
+        Logger.info(
+          "Generator: seed #{seed.id} blocked as duplicate: #{inspect(diagnostics[:duplicate_info])}"
+        )
+
+        :duplicate
+
+      {:reject, _nil, diagnostics} ->
+        Logger.info(
+          "Generator: seed #{seed.id} rejected by preflight (score: #{diagnostics[:initial_score]})"
+        )
+
+        :rejected
+    end
+  end
+
+  defp do_generate_after_preflight(seed, preflight_diagnostics) do
     project =
       if seed.project_id do
         Ema.Projects.get_project(seed.project_id)
@@ -57,7 +81,7 @@ defmodule Ema.ProposalEngine.Generator do
 
     case Ema.Claude.AI.run(prompt, stage: :generator) do
       {:ok, result} ->
-        create_proposal_from_result(seed, result)
+        create_proposal_from_result(seed, result, preflight_diagnostics)
 
       {:error, reason} ->
         Logger.warning(
@@ -141,34 +165,36 @@ defmodule Ema.ProposalEngine.Generator do
 
   defp build_relevant_code_context(_, _), do: nil
 
-defp normalize_estimated_scope(nil), do: nil
+  defp normalize_estimated_scope(nil), do: nil
 
-defp normalize_estimated_scope(scope) when is_binary(scope) do
-  normalized =
-    scope
-    |> String.trim()
-    |> String.downcase()
+  defp normalize_estimated_scope(scope) when is_binary(scope) do
+    normalized =
+      scope
+      |> String.trim()
+      |> String.downcase()
 
-  cond do
-    normalized in ["xs", "extra small", "extra-small", "tiny", "trivial"] -> "xs"
-    normalized in ["s", "small"] -> "s"
-    normalized in ["m", "medium", "med"] -> "m"
-    normalized in ["l", "large"] -> "l"
-    normalized in ["xl", "extra large", "extra-large", "very large"] -> "xl"
-    String.contains?(normalized, "extra large") -> "xl"
-    String.contains?(normalized, "very large") -> "xl"
-    String.contains?(normalized, "medium to large") -> "l"
-    String.contains?(normalized, "small to medium") -> "m"
-    String.contains?(normalized, "medium") -> "m"
-    String.contains?(normalized, "large") -> "l"
-    String.contains?(normalized, "small") -> "s"
-    true -> nil
+    cond do
+      normalized in ["xs", "extra small", "extra-small", "tiny", "trivial"] -> "xs"
+      normalized in ["s", "small"] -> "s"
+      normalized in ["m", "medium", "med"] -> "m"
+      normalized in ["l", "large"] -> "l"
+      normalized in ["xl", "extra large", "extra-large", "very large"] -> "xl"
+      String.contains?(normalized, "extra large") -> "xl"
+      String.contains?(normalized, "very large") -> "xl"
+      String.contains?(normalized, "medium to large") -> "l"
+      String.contains?(normalized, "small to medium") -> "m"
+      String.contains?(normalized, "medium") -> "m"
+      String.contains?(normalized, "large") -> "l"
+      String.contains?(normalized, "small") -> "s"
+      true -> nil
+    end
   end
-end
 
-defp normalize_estimated_scope(_), do: nil
+  defp normalize_estimated_scope(_), do: nil
 
-  defp create_proposal_from_result(seed, result) do
+  defp create_proposal_from_result(seed, result, preflight_diagnostics \\ %{}) do
+    preflight_score = preflight_diagnostics[:enriched_score] || preflight_diagnostics[:initial_score]
+
     attrs = %{
       title: result["title"] || "Untitled Proposal from #{seed.name}",
       summary: result["summary"],
@@ -178,7 +204,12 @@ defp normalize_estimated_scope(_), do: nil
       benefits: result["benefits"] || [],
       project_id: seed.project_id,
       seed_id: seed.id,
-      generation_log: %{"generator" => result}
+      prompt_quality_score: preflight_score && preflight_score / 100.0,
+      score_breakdown: preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown],
+      generation_log: %{
+        "generator" => result,
+        "preflight" => sanitize_diagnostics(preflight_diagnostics)
+      }
     }
 
     case Ema.Proposals.create_proposal(attrs) do
@@ -205,4 +236,29 @@ defp normalize_estimated_scope(_), do: nil
         {:error, reason}
     end
   end
+
+  # Convert diagnostics map to JSON-safe format for generation_log storage
+  defp sanitize_diagnostics(diag) when is_map(diag) do
+    diag
+    |> Map.drop([:score_breakdown, :enriched_breakdown])
+    |> Enum.map(fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), sanitize_value(v)}
+      {k, v} -> {k, sanitize_value(v)}
+    end)
+    |> Map.new()
+  end
+
+  defp sanitize_diagnostics(_), do: %{}
+
+  defp sanitize_value(v) when is_atom(v), do: Atom.to_string(v)
+  defp sanitize_value(v) when is_map(v), do: sanitize_diagnostics(v)
+
+  defp sanitize_value(v) when is_list(v) do
+    Enum.map(v, fn
+      {k, val} when is_atom(k) -> %{Atom.to_string(k) => sanitize_value(val)}
+      item -> sanitize_value(item)
+    end)
+  end
+
+  defp sanitize_value(v), do: v
 end
