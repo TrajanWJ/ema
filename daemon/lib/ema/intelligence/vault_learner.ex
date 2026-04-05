@@ -12,7 +12,7 @@ defmodule Ema.Intelligence.VaultLearner do
   use GenServer
   require Logger
 
-  def vault_base, do: Application.get_env(:ema, :vault_path, "/home/trajan/vault")
+  def vault_base, do: Ema.Config.vault_path()
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   def init(_opts), do: {:ok, %{queued: 0, written: 0}}

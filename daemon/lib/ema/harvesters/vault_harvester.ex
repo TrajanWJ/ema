@@ -28,7 +28,7 @@ defmodule Ema.Harvesters.VaultHarvester do
 
   @impl Ema.Harvesters.Base
   def harvest(_context) do
-    vault_path = Application.get_env(:ema, :vault_path) || System.get_env("EMA_VAULT_PATH", Path.expand("~/vault"))
+    vault_path = Ema.Config.vault_path()
 
     case File.stat(vault_path) do
       {:error, reason} ->
