@@ -33,6 +33,14 @@ defmodule Ema.Tasks do
     |> Repo.all()
   end
 
+  def list_recent_by_project(project_id, limit \\ 10) do
+    Task
+    |> where([t], t.project_id == ^project_id)
+    |> order_by([t], desc: t.updated_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
   def list_by_status(status) do
     Task
     |> where([t], t.status == ^status)
