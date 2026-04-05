@@ -381,6 +381,7 @@ defmodule Ema.Claude.Bridge do
     args = [
       claude_path,
       "--print",
+      "--verbose",
       "--output-format", "stream-json",
       "--input-format", "stream-json",
       "--model", model,

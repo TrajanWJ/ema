@@ -158,6 +158,7 @@ defmodule Ema.Claude.Backend do
 
     args = [
       "--print",
+      "--verbose",
       "--output-format",
       "stream-json",
       "--permission-mode",
@@ -211,6 +212,7 @@ defmodule Ema.Claude.Backend do
       "agent",
       "run",
       "--print",
+      "--verbose",
       "--output-format",
       "stream-json",
       "--session-id",
