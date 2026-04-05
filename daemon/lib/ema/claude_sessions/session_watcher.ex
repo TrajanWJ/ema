@@ -100,6 +100,9 @@ defmodule Ema.ClaudeSessions.SessionWatcher do
 
       {:error, reason} ->
         Logger.warning("SessionWatcher: failed to parse #{path}: #{inspect(reason)}")
+
+        failure = Ema.Claude.Failure.classify_session_error(reason, metadata: %{path: path})
+        Ema.Claude.Failure.record(failure, artifact_id: path, artifact_type: :session_file)
     end
   end
 
