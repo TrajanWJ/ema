@@ -11,6 +11,12 @@ defmodule Ema.BrainDump.Item do
     field :action, :string
     field :processed_at, :utc_datetime
 
+    # Embedding fields for brain-dump-to-proposal clustering
+    field :embedding, :binary
+    field :embedding_version, :string
+    field :embedding_status, :string, default: "pending"
+    field :surfaced_proposal_id, :string
+
     belongs_to :project, Ema.Projects.Project, type: :string
 
     timestamps(type: :utc_datetime)
