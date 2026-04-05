@@ -38,6 +38,30 @@ defmodule Ema.Feedback.Broadcast do
 
   # --- Public API ---
 
+
+  @stream_channels %{
+    system_heartbeat:   "1489820670333423827",
+    agent_thoughts:     "1489820679472677044",
+    intent_stream:      "1489820673760301156",
+    pipeline_flow:      "1489820676859756606",
+    memory_writes:      "1489820685101699193",
+    intelligence_layer: "1489820682198974525",
+    babysitter_digest:  "1489856926706827264",
+    babysitter_live:    "1489786483970936933",
+    babysitter_sprint:  "1489815795293749258"
+  }
+
+  @doc "Emit to a named stream channel by atom key"
+  def emit(channel_name, message) when is_atom(channel_name) and is_binary(message) do
+    case Map.fetch(@stream_channels, channel_name) do
+      {:ok, channel_id} -> emit(:stream, channel_id, message)
+      :error -> Logger.warning("[Broadcast] Unknown stream channel: \#{inspect(channel_name)}")
+    end
+  end
+
+  def stream_channel_id(key), do: Map.get(@stream_channels, key)
+  def stream_channels, do: @stream_channels
+
   @doc "Emit a message to Discord channel + EMA internal PubSub"
   def emit(source, channel_id, message, metadata \\ %{}) when is_binary(message) do
     event = build_event(source, channel_id, message, metadata)

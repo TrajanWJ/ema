@@ -24,6 +24,8 @@ defmodule Ema.Prompts.Loader do
   alias Ema.Prompts.Prompt
 
   @table :prompts_cache
+  @poll_interval 5_000
+  @prompts_dir "priv/prompts"
 
   # ---------------------------------------------------------------------------
   # Public API
@@ -82,8 +84,9 @@ defmodule Ema.Prompts.Loader do
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     load_all_into_cache()
+    schedule_file_poll()
     Logger.info("[Prompts.Loader] started — #{:ets.info(table, :size)} prompts cached")
-    {:ok, %{table: table}}
+    {:ok, %{table: table, file_mtimes: scan_prompt_files()}}
   end
 
   @impl true
@@ -101,6 +104,25 @@ defmodule Ema.Prompts.Loader do
     end
 
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:poll_files, state) do
+    new_mtimes = scan_prompt_files()
+    changed = detect_changed_files(state.file_mtimes, new_mtimes)
+
+    Enum.each(changed, fn path ->
+      case upsert_from_file(path) do
+        {:ok, prompt} ->
+          Logger.info("[Prompts.Loader] hot-reloaded #{prompt.kind} v#{prompt.version} from #{Path.basename(path)}")
+
+        {:error, reason} ->
+          Logger.warning("[Prompts.Loader] failed to load #{path}: #{inspect(reason)}")
+      end
+    end)
+
+    schedule_file_poll()
+    {:noreply, %{state | file_mtimes: new_mtimes}}
   end
 
   @impl true
@@ -127,6 +149,62 @@ defmodule Ema.Prompts.Loader do
       prompt ->
         :ets.insert(@table, {kind, prompt})
         {:ok, prompt}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # File watcher helpers
+  # ---------------------------------------------------------------------------
+
+  defp schedule_file_poll do
+    Process.send_after(self(), :poll_files, @poll_interval)
+  end
+
+  defp prompts_dir do
+    Application.app_dir(:ema, @prompts_dir)
+  end
+
+  defp scan_prompt_files do
+    dir = prompts_dir()
+
+    if File.dir?(dir) do
+      dir
+      |> File.ls!()
+      |> Enum.filter(&String.ends_with?(&1, ".md"))
+      |> Map.new(fn filename ->
+        path = Path.join(dir, filename)
+        {path, File.stat!(path).mtime}
+      end)
+    else
+      %{}
+    end
+  end
+
+  defp detect_changed_files(old_mtimes, new_mtimes) do
+    Enum.reduce(new_mtimes, [], fn {path, mtime}, acc ->
+      if Map.get(old_mtimes, path) != mtime do
+        [path | acc]
+      else
+        acc
+      end
+    end)
+  end
+
+  @doc false
+  def upsert_from_file(path) do
+    kind = path |> Path.basename(".md") |> String.replace("-", "_")
+    content = File.read!(path)
+
+    case Store.latest_for_kind(kind) do
+      nil ->
+        Store.create_prompt(%{kind: kind, content: content})
+
+      existing ->
+        if existing.content != content do
+          Store.create_new_version(kind, content)
+        else
+          {:ok, existing}
+        end
     end
   end
 end

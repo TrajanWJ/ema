@@ -64,6 +64,7 @@ defmodule Ema.ProposalEngine.Generator do
           "Generator: Claude CLI call failed for seed #{seed.id}: #{inspect(reason)}"
         )
 
+        Ema.ProposalEngine.Diagnostics.record_generation_error(seed, reason)
         :error
     end
   end
@@ -137,12 +138,39 @@ defmodule Ema.ProposalEngine.Generator do
 
   defp build_relevant_code_context(_, _), do: nil
 
+defp normalize_estimated_scope(nil), do: nil
+
+defp normalize_estimated_scope(scope) when is_binary(scope) do
+  normalized =
+    scope
+    |> String.trim()
+    |> String.downcase()
+
+  cond do
+    normalized in ["xs", "extra small", "extra-small", "tiny", "trivial"] -> "xs"
+    normalized in ["s", "small"] -> "s"
+    normalized in ["m", "medium", "med"] -> "m"
+    normalized in ["l", "large"] -> "l"
+    normalized in ["xl", "extra large", "extra-large", "very large"] -> "xl"
+    String.contains?(normalized, "extra large") -> "xl"
+    String.contains?(normalized, "very large") -> "xl"
+    String.contains?(normalized, "medium to large") -> "l"
+    String.contains?(normalized, "small to medium") -> "m"
+    String.contains?(normalized, "medium") -> "m"
+    String.contains?(normalized, "large") -> "l"
+    String.contains?(normalized, "small") -> "s"
+    true -> nil
+  end
+end
+
+defp normalize_estimated_scope(_), do: nil
+
   defp create_proposal_from_result(seed, result) do
     attrs = %{
       title: result["title"] || "Untitled Proposal from #{seed.name}",
       summary: result["summary"],
       body: result["body"],
-      estimated_scope: result["estimated_scope"],
+      estimated_scope: normalize_estimated_scope(result["estimated_scope"]),
       risks: result["risks"] || [],
       benefits: result["benefits"] || [],
       project_id: seed.project_id,
@@ -152,6 +180,8 @@ defmodule Ema.ProposalEngine.Generator do
 
     case Ema.Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
+        Ema.ProposalEngine.Diagnostics.record_generation_ok(seed, proposal)
+
         if attrs[:brain_dump_item_id] do
           Ema.Executions.link_proposal(attrs[:brain_dump_item_id], proposal.id)
         end
@@ -168,6 +198,7 @@ defmodule Ema.ProposalEngine.Generator do
 
       {:error, reason} ->
         Logger.error("Generator: failed to create proposal: #{inspect(reason)}")
+        Ema.ProposalEngine.Diagnostics.record_generation_error(seed, reason)
         {:error, reason}
     end
   end

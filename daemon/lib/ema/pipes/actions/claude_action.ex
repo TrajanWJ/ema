@@ -77,6 +77,72 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
     end
   end
 
+  @doc """
+  Execute a Claude action asynchronously within a pipe.
+
+  Same as `execute/2` but returns `{:ok, task_id}` immediately.
+  The callback (if provided) receives `{:ok, output_payload}` or `{:error, reason}`
+  when Claude responds. Also broadcasts on `"claude:task:<task_id>"` PubSub topic.
+
+  ## W7-BRIDGE-FINISH
+  Added alongside the sync `execute/2` — non-breaking. Use when the pipe chain
+  does not need Claude's output to continue (e.g. fire-and-forget enrichments).
+  """
+  def execute_async(payload, config, callback_or_pid \\ nil) do
+    config = normalize_config(config)
+
+    with {:ok, prompt} <- build_prompt(payload, config),
+         event = build_event(payload, config),
+         routing_decision = Router.route(event),
+         {:ok, enriched_context} <- extract_context(routing_decision) do
+      context_preamble = format_context_preamble(enriched_context)
+      full_prompt = if map_size(enriched_context) > 0, do: context_preamble <> "\n\n" <> prompt, else: prompt
+
+      bridge_opts =
+        [timeout: config.timeout_ms]
+        |> maybe_add_model(config.model)
+
+      Bridge.run_async(full_prompt, bridge_opts, fn result ->
+        output =
+          case result do
+            {:ok, r} when is_map(r) ->
+              {:ok, Map.merge(payload, %{
+                "claude_output" => r.text,
+                "claude_model" => r.model,
+                "claude_tokens" => r.output_tokens,
+                "claude_cost" => r.cost
+              })}
+
+            {:ok, text} when is_binary(text) ->
+              {:ok, Map.merge(payload, %{
+                "claude_output" => text,
+                "claude_model" => "unknown",
+                "claude_tokens" => 0,
+                "claude_cost" => nil
+              })}
+
+            {:error, reason} ->
+              Logger.error("[ClaudeAction] Async pipeline failed: #{inspect(reason)}")
+              {:error, reason}
+          end
+
+        case callback_or_pid do
+          nil -> :ok
+          f when is_function(f, 1) -> f.(output)
+          pid when is_pid(pid) -> send(pid, {:claude_action_result, output})
+        end
+      end)
+    else
+      {:error, reason} ->
+        Logger.error("[ClaudeAction] Async pre-flight failed: #{inspect(reason)}")
+        {:error, reason}
+
+      other ->
+        Logger.error("[ClaudeAction] Async unexpected result: #{inspect(other)}")
+        {:error, {:unexpected, other}}
+    end
+  end
+
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp normalize_config(config) when is_map(config) do

@@ -148,7 +148,7 @@ defmodule Ema.Campaigns do
   def transition_campaign(%Campaign{} = campaign, new_status) do
     current = campaign.status
 
-    if Flow.valid_transition?(current, new_status) do
+    if Flow.campaign_valid_transition?(current, new_status) do
       with {:ok, updated} <- update_campaign(campaign, %{status: new_status}) do
         Phoenix.PubSub.broadcast(
           Ema.PubSub,
@@ -291,6 +291,13 @@ defmodule Ema.Campaigns do
     Enum.all?(step_statuses, fn {_id, s} ->
       s["status"] in ["completed", "failed"]
     end)
+  end
+
+  def list_campaigns_for_project(project_id) do
+    Campaign
+    |> where([c], c.project_id == ^project_id)
+    |> order_by(desc: :inserted_at)
+    |> Repo.all()
   end
 
   defp complete_run(run) do

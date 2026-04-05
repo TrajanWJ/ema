@@ -1,7 +1,10 @@
 defmodule Ema.Focus.Summary do
   @moduledoc """
   Post-focus AI summary generation.
-  Uses Claude Runner to summarize the session, then appends to today's journal entry.
+  Uses Claude Bridge (async) to summarize the session, then appends to today's journal entry.
+
+  Migrated to Bridge.run_async/3 (Week 7 B3) — no longer blocks the focus timer GenServer.
+  The AI call is fire-and-forget; result is delivered via callback.
   """
 
   require Logger
@@ -11,7 +14,8 @@ defmodule Ema.Focus.Summary do
 
   @doc """
   Generate an AI summary for a completed focus session.
-  Skips if Claude CLI is unavailable or session was very short (<5 min work).
+  Skips if session was very short (<5 min work).
+  Returns {:ok, task_id} when the async request is dispatched, or :skip.
   """
   def maybe_generate(session, task_id) do
     session = Focus.get_session!(session.id)
@@ -22,29 +26,34 @@ defmodule Ema.Focus.Summary do
       Logger.debug("Focus.Summary: session too short (#{div(work_ms, 60_000)}m), skipping")
       :skip
     else
-      if true do
-        generate(session, task_id, work_ms)
-      else
-        Logger.debug("Focus.Summary: Claude CLI unavailable, skipping")
-        :skip
-      end
+      generate_async(session, task_id, work_ms)
     end
   end
 
-  defp generate(session, task_id, work_ms) do
+  # Migrated to async (Week 7 B3): Bridge.run_async/3 returns immediately.
+  # The callback handles persisting the summary once Claude responds.
+  defp generate_async(session, task_id, work_ms) do
     prompt = build_prompt(session, task_id, work_ms)
 
-    case Bridge.run(prompt, model: "haiku", timeout: 30_000) do
+    callback = fn
       {:ok, result} ->
         summary = extract_text(result)
         save_summary(session, summary)
         append_to_journal(summary, work_ms)
         Logger.info("Focus.Summary: generated summary for session #{session.id}")
-        {:ok, summary}
 
       {:error, reason} ->
         Logger.warning("Focus.Summary: AI generation failed: #{inspect(reason)}")
-        {:error, reason}
+    end
+
+    case Bridge.run_async(prompt, [model: "haiku", timeout: 30_000], callback) do
+      {:ok, task_id_ai} ->
+        Logger.debug("Focus.Summary: dispatched async task #{task_id_ai} for session #{session.id}")
+        {:ok, task_id_ai}
+
+      error ->
+        Logger.warning("Focus.Summary: failed to dispatch async: #{inspect(error)}")
+        error
     end
   end
 

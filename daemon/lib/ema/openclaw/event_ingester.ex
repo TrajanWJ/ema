@@ -32,7 +32,7 @@ defmodule Ema.OpenClaw.EventIngester do
   use GenServer
   require Logger
 
-  alias Ema.OpenClaw.{Client, Config, AgentBridge}
+  alias Ema.OpenClaw.{Client, Config}
   alias Ema.Agents
   alias Ema.Agents.{AgentWorker, AgentMemory}
   alias Ema.Persistence.SessionStore

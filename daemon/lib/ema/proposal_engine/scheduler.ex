@@ -113,6 +113,8 @@ defmodule Ema.ProposalEngine.Scheduler do
       Logger.info("ProposalEngine.Scheduler: dispatched #{dispatched} seed(s) at #{now}")
     end
 
+    Ema.ProposalEngine.Diagnostics.record_scheduler_tick(%{last_scheduler_tick_at: DateTime.to_iso8601(now)})
+
     schedule_tick()
 
     {:noreply,
@@ -155,6 +157,7 @@ defmodule Ema.ProposalEngine.Scheduler do
 
   defp dispatch_seed(seed) do
     Logger.info("ProposalEngine.Scheduler: dispatching seed #{seed.id} (#{seed.name})")
+    Ema.ProposalEngine.Diagnostics.record_dispatch(seed)
     Ema.ProposalEngine.Generator.generate(seed)
     Ema.Proposals.increment_seed_run_count(seed)
   end

@@ -3,6 +3,10 @@ defmodule Ema.Feedback.DiscordDelivery do
   Supervisor + per-channel workers that consume discord:outbound:<id> PubSub topics
   and deliver messages to Discord REST API + mirror to ema:feedback.
 
+  The registered channel list comes from `Ema.Babysitter.ChannelTopology`, which
+  includes active babysitter streams, dormant-but-kept stream channels, and
+  delivery-only Discord channels used by other EMA publishers.
+
   Each channel gets its own lightweight worker process that:
     1. Subscribes to "discord:outbound:<channel_id>"
     2. Receives {:post, msg} or {:send_message, msg}
@@ -15,35 +19,10 @@ defmodule Ema.Feedback.DiscordDelivery do
   use DynamicSupervisor
   require Logger
 
+  alias Ema.Babysitter.ChannelTopology
   alias Ema.Feedback.DiscordDelivery.Worker
 
   @registry Ema.Feedback.DiscordDelivery.Registry
-
-  # Static channel seed — all known stream channels
-  @static_channels [
-    # 🧵 STREAM OF CONSCIOUSNESS
-    {"1489786483970936933", "babysitter-live"},
-    {"1489820670333423827", "system-heartbeat"},
-    {"1489820673760301156", "intent-stream"},
-    {"1489820676859756606", "pipeline-flow"},
-    {"1489820679472677044", "agent-thoughts"},
-    {"1489820682198974525", "intelligence-layer"},
-    {"1489820685101699193", "memory-writes"},
-    {"1489820687563493408", "execution-log"},
-    {"1489820691074387979", "evolution-signals"},
-    {"1489820693758607370", "speculative-feed"},
-    # 🔨 ACTIVE SPRINT
-    {"1489751362211282954", "critical-blockers-track"},
-    {"1489751362215608441", "core-loop-implementation"},
-    {"1489751362613805317", "intelligence-integrations"},
-    {"1485847116227280966", "deliberation"},
-    {"1485847117078724629", "prompt-lab"},
-    # 📡 FEEDS
-    {"1482258431997116531", "research-feed"},
-    {"1484014829156175893", "code-output"},
-    {"1484031239680823316", "alerts"},
-    {"1482256984811114688", "ops-log"},
-  ]
 
   def start_link(opts \\ []) do
     DynamicSupervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -51,16 +30,17 @@ defmodule Ema.Feedback.DiscordDelivery do
 
   @impl true
   def init(_opts) do
-    # Start workers for all static channels after supervisor is up
-    send(self(), :start_static)
-    DynamicSupervisor.init(strategy: :one_for_one)
-  end
+    # DynamicSupervisor is not a general-purpose GenServer for custom mailbox bootstraps.
+    # Seed static workers from a detached task after the supervisor is registered.
+    Task.start(fn ->
+      Process.sleep(50)
 
-  def handle_info(:start_static, state) do
-    Enum.each(@static_channels, fn {channel_id, name} ->
-      start_worker(channel_id, name)
+      Enum.each(ChannelTopology.all_delivery_channels(), fn {channel_id, name} ->
+        start_worker(channel_id, name)
+      end)
     end)
-    {:noreply, state}
+
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
 
   @doc "Register a new channel for delivery at runtime"

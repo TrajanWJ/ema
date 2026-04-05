@@ -320,8 +320,9 @@ defmodule Ema.Prompts.Store do
     "prompt_#{ts}_#{rnd}"
   end
 
-  defp tap_reload_cache({:ok, %Prompt{kind: kind}} = result) do
+  defp tap_reload_cache({:ok, %Prompt{kind: kind} = prompt} = result) do
     maybe_reload_cache(kind)
+    broadcast_update(prompt)
     result
   end
 
@@ -331,5 +332,9 @@ defmodule Ema.Prompts.Store do
     if Process.whereis(Ema.Prompts.Loader) do
       Ema.Prompts.Loader.reload_kind(kind)
     end
+  end
+
+  defp broadcast_update(%Prompt{} = prompt) do
+    Phoenix.PubSub.broadcast(Ema.PubSub, "prompts:updated", {:prompt_updated, prompt})
   end
 end

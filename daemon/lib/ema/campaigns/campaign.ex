@@ -32,7 +32,7 @@ defmodule Ema.Campaigns.Campaign do
     else
       ts = System.system_time(:millisecond) |> Integer.to_string()
       rnd = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-      put_change(changeset, :id, "camp_\#{ts}_\#{rnd}")
+      put_change(changeset, :id, "camp_#{ts}_#{rnd}")
     end
   end
 end

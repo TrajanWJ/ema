@@ -126,6 +126,28 @@ defmodule Ema.Campaigns.Flow do
   @doc "Alias for valid_transition?/2."
   def can_transition?(from, to), do: valid_transition?(from, to)
 
+  # ---------------------------------------------------------------------------
+  # Campaign status transitions (separate from Flow's own state machine)
+  # ---------------------------------------------------------------------------
+
+  @campaign_transitions %{
+    "forming"   => ~w(ready running archived),
+    "ready"     => ~w(running forming archived),
+    "running"   => ~w(completed forming archived),
+    "completed" => ~w(archived),
+    "archived"  => []
+  }
+
+  @doc "Returns true if the campaign status transition from `from` to `to` is valid."
+  def campaign_valid_transition?(from, to) do
+    to in Map.get(@campaign_transitions, from, [])
+  end
+
+  @doc "Returns the list of campaign statuses reachable from `state`."
+  def campaign_valid_transitions(state) do
+    Map.get(@campaign_transitions, state, [])
+  end
+
   @doc "Builds a flow-like map from a Campaign struct (reads status, defaults to forming)."
   def from_campaign(%{status: status} = _campaign) do
     %{state: status || "forming", valid_next: valid_transitions(status || "forming")}

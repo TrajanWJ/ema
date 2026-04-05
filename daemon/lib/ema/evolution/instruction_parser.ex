@@ -2,6 +2,15 @@ defmodule Ema.Evolution.InstructionParser do
   @moduledoc """
   Parses natural language instructions into structured behavioral rules.
   Uses Claude to extract actionable rules from free-text signals.
+
+  ## Async API (Week 7 B3)
+
+  `parse_async/2` and `parse_signal_async/3` are non-blocking alternatives.
+  They return `{:ok, task_id}` immediately and deliver results via PubSub
+  ("claude:task:<task_id>") and/or a callback.
+
+  The synchronous `parse/1` and `parse_signal/2` are retained for callers
+  that require a result inline.
   """
 
   require Logger
@@ -9,6 +18,9 @@ defmodule Ema.Evolution.InstructionParser do
   @doc """
   Parses a natural language instruction into a structured rule map.
   Returns {:ok, rule_map} or {:error, reason}.
+
+  Synchronous — blocks until Claude responds.
+  For non-blocking use, see `parse_async/2`.
   """
   def parse(instruction) when is_binary(instruction) do
     prompt = build_parse_prompt(instruction)
@@ -24,11 +36,53 @@ defmodule Ema.Evolution.InstructionParser do
   end
 
   @doc """
+  Non-blocking version of `parse/1`. Returns `{:ok, task_id}` immediately.
+
+  Result is delivered via:
+  - PubSub broadcast to `"claude:task:<task_id>"` as `{:done, task_id, {:ok, rule_map}}`
+  - Optional `on_complete` callback called with `{:ok, rule_map}` or `{:error, reason}`
+
+  ## Example
+
+      {:ok, task_id} = InstructionParser.parse_async(instruction, fn
+        {:ok, rule} -> Evolution.store_rule(rule)
+        {:error, _} -> :ignore
+      end)
+  """
+  def parse_async(instruction, on_complete \\ nil) when is_binary(instruction) do
+    prompt = build_parse_prompt(instruction)
+
+    callback = fn
+      {:ok, result} ->
+        rule = normalize_result(result, instruction)
+        if is_function(on_complete, 1), do: on_complete.({:ok, rule})
+
+      {:error, reason} ->
+        Logger.warning("InstructionParser: async Claude call failed: #{inspect(reason)}")
+        # Deliver fallback via callback so caller isn't left hanging
+        fallback = fallback_parse(instruction)
+        if is_function(on_complete, 1), do: on_complete.({:ok, fallback})
+    end
+
+    Ema.Claude.Bridge.run_async(prompt, [model: "haiku"], callback)
+  end
+
+  @doc """
   Parses a signal with metadata context into a rule.
+  Synchronous.
   """
   def parse_signal(source, metadata) when is_atom(source) and is_map(metadata) do
     instruction = build_instruction_from_signal(source, metadata)
     parse(instruction)
+  end
+
+  @doc """
+  Non-blocking version of `parse_signal/2`. Returns `{:ok, task_id}` immediately.
+  """
+  def parse_signal_async(source, metadata, on_complete \\ nil)
+      when is_atom(source) and is_map(metadata) do
+    instruction = build_instruction_from_signal(source, metadata)
+    parse_async(instruction, on_complete)
   end
 
   # --- Private ---

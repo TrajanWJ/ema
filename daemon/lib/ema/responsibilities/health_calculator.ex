@@ -81,10 +81,16 @@ defmodule Ema.Responsibilities.HealthCalculator do
   end
 
   defp broadcast_health_change(resp) do
-    EmaWeb.Endpoint.broadcast("responsibilities:lobby", "health_changed", %{
+    payload = %{
       id: resp.id,
       health: resp.health,
       title: resp.title
-    })
+    }
+
+    EmaWeb.Endpoint.broadcast("responsibilities:lobby", "health_changed", payload)
+
+    if resp.project_id do
+      EmaWeb.Endpoint.broadcast("responsibilities:#{resp.project_id}", "health_changed", payload)
+    end
   end
 end
