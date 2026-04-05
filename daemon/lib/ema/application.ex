@@ -84,6 +84,7 @@ defmodule Ema.Application do
         maybe_start_harvesters() ++
         maybe_start_temporal() ++
         maybe_start_openclaw() ++
+        maybe_start_openclaw_vault_sync() ++
         maybe_start_mcp() ++
         [
           # Start to serve requests, typically the last entry
@@ -297,6 +298,14 @@ defmodule Ema.Application do
   defp maybe_start_cluster do
     if Application.get_env(:ema, :start_cluster, false) do
       [Ema.Claude.NodeCoordinator]
+    else
+      []
+    end
+  end
+
+  defp maybe_start_openclaw_vault_sync do
+    if Application.get_env(:ema, :openclaw_vault_sync, [])[:enabled] do
+      [Ema.Integrations.OpenClaw.VaultSyncSupervisor]
     else
       []
     end
