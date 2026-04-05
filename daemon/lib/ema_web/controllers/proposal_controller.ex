@@ -21,13 +21,18 @@ defmodule EmaWeb.ProposalController do
       title: params["title"],
       body: params["body"],
       summary: params["summary"],
+      confidence: params["confidence"],
+      estimated_scope: params["estimated_scope"],
+      risks: params["risks"],
+      benefits: params["benefits"],
       status: params["status"] || "queued",
       project_id: params["project_id"]
     }
 
     case Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
-        conn |> put_status(:created) |> json(serialize_proposal(proposal))
+        conn |> put_status(:created) |> json(%{proposal: serialize_proposal(proposal)})
+
       {:error, changeset} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
     end
@@ -46,7 +51,7 @@ defmodule EmaWeb.ProposalController do
 
   def approve(conn, %{"id" => id}) do
     with {:ok, proposal} <- Proposals.approve_proposal(id) do
-      json(conn, serialize_proposal(proposal))
+      json(conn, %{proposal: serialize_proposal(proposal)})
     end
   end
 
@@ -63,7 +68,7 @@ defmodule EmaWeb.ProposalController do
 
   def kill(conn, %{"id" => id}) do
     with {:ok, proposal} <- Proposals.kill_proposal(id) do
-      json(conn, serialize_proposal(proposal))
+      json(conn, %{proposal: serialize_proposal(proposal)})
     end
   end
 
