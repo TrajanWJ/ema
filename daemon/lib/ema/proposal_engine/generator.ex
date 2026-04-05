@@ -55,7 +55,7 @@ defmodule Ema.ProposalEngine.Generator do
         relevant_code_context: relevant_code_context
       )
 
-    case Ema.Claude.AI.run(prompt) do
+    case Ema.Claude.AI.run(prompt, stage: :generator) do
       {:ok, result} ->
         create_proposal_from_result(seed, result)
 
@@ -63,6 +63,9 @@ defmodule Ema.ProposalEngine.Generator do
         Logger.warning(
           "Generator: Claude CLI call failed for seed #{seed.id}: #{inspect(reason)}"
         )
+
+        failure = Ema.Claude.Failure.classify_generation_error(reason, seed_id: seed.id)
+        Ema.Claude.Failure.record(failure, artifact_id: to_string(seed.id), artifact_type: :seed)
 
         :error
     end

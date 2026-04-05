@@ -4,6 +4,8 @@ defmodule Ema.Claude.Runner do
   Handles JSON output parsing and graceful fallback when CLI is unavailable.
   """
 
+  alias Ema.Claude.{Failure, Preflight}
+
   require Logger
 
   @doc """
@@ -13,28 +15,57 @@ defmodule Ema.Claude.Runner do
     - :model - Claude model to use (default: "sonnet")
     - :timeout - command timeout in ms (default: 300_000)
     - :cmd_fn - function to use for running commands (default: &System.cmd/3, for testing)
+    - :stage - pipeline stage atom for failure classification
+    - :skip_preflight - skip preflight checks (default: false)
   """
   def run(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, "sonnet")
     timeout = Keyword.get(opts, :timeout, 300_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
+    stage = Keyword.get(opts, :stage)
+    skip_preflight = Keyword.get(opts, :skip_preflight, false)
 
-    task =
-      Task.async(fn ->
-        try do
-          claude_bin = resolve_claude_path()
-          run_via_stdin(claude_bin, prompt, model, cmd_fn)
-        rescue
-          e in ErlangError ->
-            Logger.warning("Claude CLI not available: #{inspect(e)}")
-            {:error, %{code: :not_found, message: "Claude CLI not available"}}
-        end
-      end)
+    with :ok <- maybe_preflight(prompt, stage, skip_preflight) do
+      task =
+        Task.async(fn ->
+          try do
+            claude_bin = resolve_claude_path()
+            run_via_stdin(claude_bin, prompt, model, cmd_fn)
+          rescue
+            e in ErlangError ->
+              Logger.warning("Claude CLI not available: #{inspect(e)}")
+              {:error, %{code: :not_found, message: "Claude CLI not available"}}
+          end
+        end)
 
-    case Task.yield(task, timeout) || Task.shutdown(task) do
-      {:ok, result} -> result
-      nil -> {:error, %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}}
+      case Task.yield(task, timeout) || Task.shutdown(task) do
+        {:ok, {:error, reason} = error} ->
+          record_failure(reason, stage)
+          error
+
+        {:ok, result} ->
+          result
+
+        nil ->
+          error = %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}
+          record_failure(error, stage)
+          {:error, error}
+      end
     end
+  end
+
+  defp maybe_preflight(_prompt, _stage, true), do: :ok
+
+  defp maybe_preflight(prompt, stage, false) do
+    case Preflight.run!(prompt: prompt, stage: stage) do
+      :ok -> :ok
+      {:error, failure} -> {:error, %{code: :preflight_failed, message: failure.raw_reason}}
+    end
+  end
+
+  defp record_failure(reason, stage) do
+    failure = Failure.classify_runner_error(reason, stage: stage)
+    Failure.record(failure)
   end
 
   # Write prompt to a temp file and redirect via bash.
