@@ -7,6 +7,13 @@ defmodule Ema.Application do
 
   @impl true
   def start(_type, _args) do
+    # Fail fast if DISCORD_BOT_TOKEN is missing — Discord delivery will silently
+    # drop all messages without it, making the daemon appear healthy when it isn't.
+    unless System.get_env("DISCORD_BOT_TOKEN") do
+      raise "DISCORD_BOT_TOKEN not set — Discord delivery will fail. " <>
+              "Set it in your environment before starting the EMA daemon."
+    end
+
     children =
       [
         EmaWeb.Telemetry,
