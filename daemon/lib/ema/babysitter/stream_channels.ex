@@ -5,79 +5,96 @@ defmodule Ema.Babysitter.StreamChannels do
   Each channel in the 🧵 STREAM OF CONSCIOUSNESS Discord category gets its own
   focused ticker that queries exactly the data relevant to that stream.
 
-  Channels:
-    - babysitter-live       (1489786483970936933) — handled by StreamTicker (main)
-    - system-heartbeat      (1489820670333423827) — BEAM vitals, DB pool, queue depths
-    - intent-stream         (1489820673760301156) — Superman intent classifications
-    - pipeline-flow         (1489820676859756606) — Proposal→execution state transitions
-    - agent-thoughts        (1489820679472677044) — Active Claude sessions narrative
-    - intelligence-layer    (1489820682198974525) — UCB router, prompt bandit, scope advisor
-    - memory-writes         (1489820685101699193) — Second Brain writes, FTS updates
-    - execution-log         (1489820687563493408) — Task dispatch, pipe runs, ProjectWorker
-    - evolution-signals     (1489820691074387979) — Self-improvement signals
-    - speculative-feed      (1489820693758607370) — Synthetic parity for unbuilt modules
+  The authoritative stream/channel mapping lives in
+  `Ema.Babysitter.ChannelTopology`.
+
+  This worker only schedules the secondary active streams. The primary
+  `:live` stream stays in `Ema.Babysitter.StreamTicker`, and dormant streams
+  remain registered for delivery without being auto-scheduled.
   """
 
   use GenServer
   require Logger
   import Ecto.Query
-
-  @channels %{
-    heartbeat:    "1489820670333423827",
-    intent:       "1489820673760301156",
-    pipeline:     "1489820676859756606",
-    agent:        "1489820679472677044",
-    intelligence: "1489820682198974525",
-    memory:       "1489820685101699193",
-    execution:    "1489820687563493408",
-    evolution:    "1489820691074387979",
-    speculative:  "1489820693758607370"
-  }
-
-  # Each stream has its own interval (ms)
-  @intervals %{
-    heartbeat:    10_000,   # fast — vitals
-    intent:       20_000,   # medium — intent classifications
-    pipeline:     15_000,   # medium — proposal flow
-    agent:        15_000,   # medium — session state
-    intelligence: 30_000,   # slower — routing weights don't change fast
-    memory:       30_000,   # slower — write events
-    execution:    15_000,   # medium — task dispatch
-    evolution:    60_000,   # slow — evolution signals
-    speculative:  45_000    # slow — synthetic parity
-  }
+  alias Ema.Babysitter.{ChannelTopology, TickPolicy}
+  alias Ema.Intelligence.VmMonitor
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  def status, do: GenServer.call(__MODULE__, :status)
+
   # --- GenServer ---
 
   @impl true
   def init(_opts) do
-    timers = schedule_all()
-    {:ok, %{timers: timers, tick_counts: %{}, started_at: DateTime.utc_now()}}
+    now = DateTime.utc_now()
+    streams = build_stream_state(now)
+    # Subscribe to SessionObserver snapshots
+    Phoenix.PubSub.subscribe(Ema.PubSub, "babysitter:sessions")
+    {:ok, %{streams: schedule_all(streams), started_at: now, session_snapshot: nil}}
+  end
+
+  @impl true
+  def handle_call(:status, _from, state) do
+    streams =
+      state.streams
+      |> Enum.sort_by(fn {stream, _} -> stream end)
+      |> Enum.map(fn {stream, stream_state} ->
+        topology = ChannelTopology.stream!(stream)
+
+        %{
+          stream: Atom.to_string(stream),
+          channel_id: topology.channel_id,
+          channel_name: topology.channel_name,
+          status: Atom.to_string(topology.status),
+          runtime: TickPolicy.describe(stream_state.runtime),
+          last_tick_at: DateTime.to_iso8601(stream_state.last_tick_at),
+          tick_count: stream_state.tick_count
+        }
+      end)
+
+    {:reply, streams, state}
+  end
+
+  @impl true
+  def handle_info(%{event: :session_snapshot} = snapshot, state) do
+    {:noreply, %{state | session_snapshot: snapshot}}
   end
 
   @impl true
   def handle_info({:tick, stream}, state) do
-    n = Map.get(state.tick_counts, stream, 0) + 1
-    safe_tick(stream, n, state.started_at)
+    case Map.fetch(state.streams, stream) do
+      {:ok, stream_state} ->
+        n = stream_state.tick_count + 1
+        safe_tick(stream, n, state.started_at, state.session_snapshot)
 
-    interval = Map.get(@intervals, stream, 30_000)
-    timer = Process.send_after(self(), {:tick, stream}, interval)
-    new_timers = Map.put(state.timers, stream, timer)
-    new_counts = Map.put(state.tick_counts, stream, n)
+        runtime =
+          stream
+          |> stream_signals(stream_state.last_tick_at)
+          |> then(&TickPolicy.advance(stream_state.runtime, &1))
 
-    {:noreply, %{state | timers: new_timers, tick_counts: new_counts}}
+        updated_stream =
+          stream_state
+          |> Map.put(:runtime, runtime)
+          |> Map.put(:last_tick_at, DateTime.utc_now())
+          |> Map.put(:tick_count, n)
+          |> schedule_stream(stream)
+
+        {:noreply, %{state | streams: Map.put(state.streams, stream, updated_stream)}}
+
+      :error ->
+        {:noreply, state}
+    end
   end
 
   # --- Dispatch ---
 
-  defp safe_tick(stream, n, started_at) do
+  defp safe_tick(stream, n, started_at, session_snapshot) do
     try do
-      message = build_message(stream, n, started_at)
-      if message, do: post(@channels[stream], message)
+      message = build_message(stream, n, started_at, session_snapshot)
+      if message, do: post(channel_id(stream), message)
     rescue
       e -> Logger.warning("[StreamChannels:#{stream}] tick failed: #{inspect(e)}")
     end
@@ -85,8 +102,10 @@ defmodule Ema.Babysitter.StreamChannels do
 
   # --- Per-stream message builders ---
 
-  defp build_message(:heartbeat, n, _started) do
+
+  defp build_message(:heartbeat, n, _started, _snap) do
     now = ts()
+    heartbeat = VmMonitor.heartbeat_snapshot()
     mem = safe_int(fn -> :erlang.memory(:total) |> div(1_048_576) end)
     procs = safe_int(fn -> :erlang.system_info(:process_count) end)
     {uptime_ms, _} = :erlang.statistics(:wall_clock)
@@ -102,16 +121,30 @@ defmodule Ema.Babysitter.StreamChannels do
     proposal_q = safe_int(fn -> Ema.Repo.aggregate(
       from(p in Ema.Proposals.Proposal, where: p.status == "queued"), :count) end)
 
-    """
-    💓 **heartbeat ##{n}** · #{now}
-    BEAM: **#{mem} MB** · #{procs} processes · uptime #{uptime}
-    DB: #{db_pool}
-    Queue depths: **#{task_q}** tasks pending · **#{proposal_q}** proposals queued
-    -# EMA daemon vitals
-    """
+    note_line =
+      heartbeat.notes
+      |> List.first()
+      |> case do
+        nil -> nil
+        note -> "Watch: #{note}"
+      end
+
+    lines =
+      [
+        "💓 **heartbeat ##{n}** · #{now}",
+        "#{heartbeat_emoji(heartbeat.heartbeat_state)} #{heartbeat.narrative}",
+        "VM: **#{heartbeat.status}** / `#{heartbeat.heartbeat_state}` · trend `#{heartbeat.trend}` · latency #{fmt_ms(heartbeat.latency_ms)}",
+        "BEAM: **#{mem} MB** · #{procs} processes · uptime #{uptime}",
+        "Flow: **#{task_q}** active tasks · **#{proposal_q}** queued proposals · #{db_pool}",
+        note_line,
+        "-# babysitter window #{heartbeat.sample_count} checks · recent #{Enum.join(heartbeat.recent_statuses, " → ")}"
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    Enum.join(lines, "\n")
   end
 
-  defp build_message(:intent, n, _started) do
+  defp build_message(:intent, n, _started, _snap) do
     now = ts()
     recent_intents = safe_list(fn ->
       Ema.Repo.all(
@@ -144,7 +177,7 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:pipeline, n, _started) do
+  defp build_message(:pipeline, n, _started, _snap) do
     now = ts()
     stages = safe_list(fn ->
       Ema.Repo.all(
@@ -200,42 +233,57 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:agent, n, _started) do
+  defp build_message(:agent, n, _started, session_snapshot) do
     now = ts()
-    active = safe_list(fn ->
-      Ema.Repo.all(
-        from s in Ema.ClaudeSessions.ClaudeSession,
-          where: s.status == "active",
-          order_by: [desc: s.last_active],
-          limit: 8,
-          select: {s.session_id, s.project_path, s.last_active, s.token_count, s.tool_calls, s.summary}
-      )
-    end)
-
     total = safe_int(fn -> Ema.Repo.aggregate(Ema.ClaudeSessions.ClaudeSession, :count) end)
-    active_count = length(active)
 
-    session_lines = if active == [] do
+    # Use live session file data if available from SessionObserver
+    {live_sessions, stalled, just_completed} =
+      case session_snapshot do
+        %{sessions: s, stalled: st, just_completed: jc} -> {s, st, jc}
+        nil ->
+          try do
+            snap = Ema.Babysitter.SessionObserver.snapshot()
+            {snap[:sessions] || [], snap[:stalled] || [], snap[:just_completed] || []}
+          rescue _ -> {[], [], []} end
+      end
+
+    active_live = live_sessions |> Enum.filter(&(&1.status == :active))
+    active_count = length(active_live)
+
+    session_lines = if active_live == [] do
       "  └ no active sessions"
     else
-      active |> Enum.map(fn {_id, path, last_at, tokens, tools, summary} ->
-        proj = path |> String.split("/") |> List.last() |> truncate(25)
-        tok = if tokens, do: " #{fmt_tokens(tokens)} tok", else: ""
-        tool = if tools && tools > 0, do: " #{tools} calls", else: ""
-        sum = if summary, do: "\n    _#{truncate(summary, 60)}_", else: ""
-        "  └ 🤖 `#{proj}`#{tok}#{tool} · #{ago(last_at)}#{sum}"
-      end) |> Enum.join("\n")
+      active_live |> Enum.map(fn s ->
+        proj = (s.project_path || "?") |> String.split("/") |> Enum.take(-2) |> Enum.join("/") |> truncate(30)
+        tool = if s.last_tool, do: " · ", else: ""
+        text = if s.last_text, do: "
+    _#{truncate(s.last_text, 70)}_", else: ""
+        "  └ 🤖 #{tool}#{text}"
+      end) |> Enum.join("
+")
     end
+
+    stall_line = if stalled != [] do
+      names = stalled |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last())) |> Enum.join(", ")
+      "
+⚠️ **stalled >5m:** #{names}"
+    else "" end
+
+    done_line = if just_completed != [] do
+      names = just_completed |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last())) |> Enum.join(", ")
+      "
+✅ **just completed:** #{names}"
+    else "" end
 
     """
     🤖 **agent thoughts ##{n}** · #{now}
-    **#{active_count} active** / #{total} total Claude sessions
+    **#{active_count} active live** / #{total} total sessions#{stall_line}#{done_line}
     #{session_lines}
-    -# Claude session stream · token burn · tool activity
+    -# Live .jsonl file scan · tool calls · assistant text
     """
   end
-
-  defp build_message(:intelligence, n, _started) do
+  defp build_message(:intelligence, n, _started, _snap) do
     now = ts()
 
     ucb = safe_str(fn ->
@@ -280,7 +328,7 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:memory, n, _started) do
+  defp build_message(:memory, n, _started, _snap) do
     now = ts()
 
     # Second brain recent writes
@@ -318,7 +366,7 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:execution, n, _started) do
+  defp build_message(:execution, n, _started, _snap) do
     now = ts()
 
     active_tasks = safe_list(fn ->
@@ -368,7 +416,7 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:evolution, n, _started) do
+  defp build_message(:evolution, n, _started, _snap) do
     now = ts()
 
     # Evolution signals from vault
@@ -408,7 +456,7 @@ defmodule Ema.Babysitter.StreamChannels do
     """
   end
 
-  defp build_message(:speculative, n, _started) do
+  defp build_message(:speculative, n, _started, _snap) do
     now = ts()
 
     # Simulate what the full system would show if all modules were live
@@ -466,6 +514,9 @@ defmodule Ema.Babysitter.StreamChannels do
   defp fmt_tokens(n) when n >= 1000, do: "#{Float.round(n / 1000, 1)}k"
   defp fmt_tokens(n), do: "#{n}"
 
+  defp fmt_ms(nil), do: "?"
+  defp fmt_ms(n), do: "#{n}ms"
+
   defp format_uptime(s) when s < 60, do: "#{s}s"
   defp format_uptime(s) when s < 3600, do: "#{div(s, 60)}m #{rem(s, 60)}s"
   defp format_uptime(s), do: "#{div(s, 3600)}h #{rem(div(s, 60), 60)}m"
@@ -482,6 +533,13 @@ defmodule Ema.Babysitter.StreamChannels do
   defp status_dot("approved"), do: "✓"
   defp status_dot("blocked"), do: "🚫"
   defp status_dot(_), do: "·"
+
+  defp heartbeat_emoji("healthy"), do: "🟢"
+  defp heartbeat_emoji("warming"), do: "🟡"
+  defp heartbeat_emoji("backing_up"), do: "🟠"
+  defp heartbeat_emoji("recovering"), do: "🔵"
+  defp heartbeat_emoji("degraded"), do: "🔴"
+  defp heartbeat_emoji(_), do: "⚪"
 
   defp safe_int(fun, default \\ 0) do
     try do fun.() rescue _ -> default end
@@ -502,12 +560,73 @@ defmodule Ema.Babysitter.StreamChannels do
     Phoenix.PubSub.broadcast(Ema.PubSub, "discord:outbound:#{channel_id}", {:post, String.trim(message)})
   end
 
-  defp schedule_all do
-    @intervals |> Enum.map(fn {stream, ms} ->
-      # Stagger starts so they don't all fire at once
-      jitter = :rand.uniform(5_000)
-      timer = Process.send_after(self(), {:tick, stream}, ms + jitter)
-      {stream, timer}
-    end) |> Map.new()
+  defp build_stream_state(now) do
+    ChannelTopology.secondary_scheduled_streams()
+    |> Enum.reduce(%{}, fn topology, acc ->
+      Map.put(acc, topology.stream, %{
+        timer: nil,
+        runtime: TickPolicy.runtime(topology.stream),
+        last_tick_at: now,
+        tick_count: 0
+      })
+    end)
+  end
+
+  defp schedule_all(streams) do
+    Enum.into(streams, %{}, fn {stream, stream_state} ->
+      {stream, schedule_stream(stream_state, stream, true)}
+    end)
+  end
+
+  defp schedule_stream(stream_state, stream, initial \\ false) do
+    if stream_state.timer, do: Process.cancel_timer(stream_state.timer)
+    jitter = if initial, do: :rand.uniform(5_000), else: 0
+    delay = stream_state.runtime.current_ms + jitter
+    timer = Process.send_after(self(), {:tick, stream}, delay)
+    %{stream_state | timer: timer}
+  end
+
+  defp stream_signals(stream, last_tick_at) do
+    events =
+      last_tick_at
+      |> Ema.Babysitter.VisibilityHub.events_since()
+      |> filter_stream_events(stream)
+
+    %{
+      event_count: length(events),
+      recent_event_count: length(events),
+      active_sessions: active_session_count(stream),
+      pending_tasks: pending_task_count(stream)
+    }
+  end
+
+  defp filter_stream_events(events, stream) do
+    case TickPolicy.activity_categories(stream) do
+      :all -> events
+      categories -> Enum.filter(events, &(&1.category in categories))
+    end
+  end
+
+  defp active_session_count(stream) when stream in [:live, :heartbeat, :agent, :execution, :speculative] do
+    safe_int(fn ->
+      Ema.Repo.aggregate(from(s in Ema.ClaudeSessions.ClaudeSession, where: s.status == "active"), :count)
+    end)
+  end
+
+  defp active_session_count(_stream), do: 0
+
+  defp pending_task_count(stream) when stream in [:live, :heartbeat, :pipeline, :execution, :speculative] do
+    safe_int(fn ->
+      Ema.Repo.aggregate(
+        from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress", "active", "blocked"]),
+        :count
+      )
+    end)
+  end
+
+  defp pending_task_count(_stream), do: 0
+
+  defp channel_id(stream) do
+    ChannelTopology.stream_channel_id(stream)
   end
 end

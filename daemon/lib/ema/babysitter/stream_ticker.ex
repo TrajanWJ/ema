@@ -11,9 +11,9 @@ defmodule Ema.Babysitter.StreamTicker do
   use GenServer
   require Logger
   import Ecto.Query
+  alias Ema.Babysitter.{ChannelTopology, TickPolicy}
+  alias Ema.Babysitter.AnomalyScorer
 
-  # Posts to #babysitter-live (the primary coordination channel)
-  @channel_id "1489786483970936933"
   @default_interval_ms 15_000
   @setting_key "babysitter.tick_interval_ms"
 
@@ -37,7 +37,8 @@ defmodule Ema.Babysitter.StreamTicker do
 
   @impl true
   def init(_opts) do
-    interval = read_interval()
+    runtime = TickPolicy.runtime(:live) |> maybe_apply_legacy_interval()
+    interval = runtime.current_ms
     tick_count = :persistent_term.get(@tick_count_key, 0)
     timer = schedule_tick(interval)
     now = DateTime.utc_now()
@@ -48,7 +49,8 @@ defmodule Ema.Babysitter.StreamTicker do
       started_at: now,
       last_tick_at: now,
       tick_count: tick_count,
-      last_git_sha: nil
+      last_git_sha: nil,
+      runtime: runtime
     }
 
     {:ok, state}
@@ -57,25 +59,36 @@ defmodule Ema.Babysitter.StreamTicker do
   @impl true
   def handle_call({:set_interval, ms}, _from, state) do
     Ema.Settings.set(@setting_key, to_string(ms))
+    TickPolicy.configure_stream(:live, %{mode: :manual, manual_ms: ms})
     if state.timer, do: Process.cancel_timer(state.timer)
-    timer = schedule_tick(ms)
-    {:reply, :ok, %{state | interval_ms: ms, timer: timer}}
+    runtime = TickPolicy.refresh_runtime(state.runtime)
+    timer = schedule_tick(runtime.current_ms)
+    {:reply, :ok, %{state | interval_ms: runtime.current_ms, timer: timer, runtime: runtime}}
   end
 
   def handle_call(:config, _from, state) do
-    {:reply, %{interval_ms: state.interval_ms, last_tick_at: state.last_tick_at, tick_count: state.tick_count}, state}
+    {:reply,
+     %{
+       interval_ms: state.interval_ms,
+       last_tick_at: state.last_tick_at,
+       tick_count: state.tick_count,
+       runtime: TickPolicy.describe(state.runtime),
+       stream: ChannelTopology.live_stream()
+     }, state}
   end
 
   @impl true
   def handle_cast(:tick_now, state) do
     new_state = do_tick(state)
-    {:noreply, new_state}
+    if state.timer, do: Process.cancel_timer(state.timer)
+    timer = schedule_tick(new_state.runtime.current_ms)
+    {:noreply, %{new_state | timer: timer}}
   end
 
   @impl true
   def handle_info(:tick, state) do
     new_state = do_tick(state)
-    timer = schedule_tick(new_state.interval_ms)
+    timer = schedule_tick(new_state.runtime.current_ms)
     {:noreply, %{new_state | timer: timer}}
   end
 
@@ -87,10 +100,20 @@ defmodule Ema.Babysitter.StreamTicker do
     :persistent_term.put(@tick_count_key, tick_n)
 
     snapshot = gather_snapshot(state)
-    message = render(snapshot, tick_n, state.started_at, now, state.interval_ms)
+    runtime = TickPolicy.advance(state.runtime, tick_signals(snapshot))
+    message = render(snapshot, tick_n, state.started_at, now, runtime.current_ms)
     post_to_discord(message)
+    session_snap = safe(fn -> Ema.Babysitter.SessionObserver.snapshot() end, %{sessions: [], stalled: [], just_completed: []})
+    safe(fn -> AnomalyScorer.score_and_dispatch(snapshot.recent_events || [], session_snap) end)
 
-    %{state | last_tick_at: now, tick_count: tick_n, last_git_sha: snapshot.git_sha}
+    %{
+      state
+      | last_tick_at: now,
+        tick_count: tick_n,
+        last_git_sha: snapshot.git_sha,
+        interval_ms: runtime.current_ms,
+        runtime: runtime
+    }
   end
 
   # --- Data gathering ---
@@ -429,9 +452,11 @@ defmodule Ema.Babysitter.StreamTicker do
   defp truncate(s, max), do: String.slice(s, 0, max - 1) <> "…"
 
   defp post_to_discord(message) do
+    channel_id = ChannelTopology.live_stream().channel_id
+
     Phoenix.PubSub.broadcast(
       Ema.PubSub,
-      "discord:outbound:#{@channel_id}",
+      "discord:outbound:#{channel_id}",
       {:post, message}
     )
   end
@@ -454,5 +479,37 @@ defmodule Ema.Babysitter.StreamTicker do
       val when is_binary(val) -> String.to_integer(val)
       val when is_integer(val) -> val
     end
+  end
+
+  defp maybe_apply_legacy_interval(runtime) do
+    case Ema.Settings.get(@setting_key) do
+      nil ->
+        runtime
+
+      _ ->
+        legacy_ms = read_interval() |> max(runtime.min_ms) |> min(runtime.max_ms)
+
+        runtime
+        |> Map.put(:mode, "manual")
+        |> Map.put(:manual_ms, legacy_ms)
+        |> Map.put(:current_ms, legacy_ms)
+        |> Map.put(:reason, "legacy manual interval")
+    end
+  end
+
+  defp tick_signals(snapshot) do
+    pending_tasks =
+      snapshot.tasks
+      |> Map.get(:by_status, %{})
+      |> Map.take(["proposed", "in_progress", "active", "blocked"])
+      |> Map.values()
+      |> Enum.sum()
+
+    %{
+      event_count: length(snapshot.recent_events || []),
+      recent_event_count: length(snapshot.recent_events || []),
+      active_sessions: get_in(snapshot, [:sessions, :active_count]) || 0,
+      pending_tasks: pending_tasks
+    }
   end
 end

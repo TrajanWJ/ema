@@ -50,8 +50,9 @@ defmodule Ema.Babysitter.VisibilityHub do
   end
 
   @doc """
-  Returns events since `dt` AND updates the internal cursor to now,
-  so the next call starts fresh. Used by StreamTicker.
+  Returns events recorded at or after `dt`.
+
+  This is a pure query. Callers track their own cursor or last-seen time.
   """
   def drain_since(%DateTime{} = dt) do
     GenServer.call(__MODULE__, {:drain_since, dt})

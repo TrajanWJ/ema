@@ -8,6 +8,7 @@ defmodule Ema.Babysitter.OrgController do
   require Logger
 
   @discord_api "https://discord.com/api/v10"
+  @archive_category_id "1484014919904002170"
 
   # --- Public API ---
 
@@ -33,6 +34,16 @@ defmodule Ema.Babysitter.OrgController do
   @doc "Create a new Discord channel in `category_id` with the given name and topic."
   def create_channel(name, category_id, topic) do
     GenServer.call(__MODULE__, {:create_channel, name, category_id, topic})
+  end
+
+  @doc "Move a channel to a different category (parent_id)."
+  def move_channel(channel_id, new_parent_id) when is_binary(channel_id) and is_binary(new_parent_id) do
+    GenServer.call(__MODULE__, {:move_channel, channel_id, new_parent_id})
+  end
+
+  @doc "Archive a channel by moving it to the _ARCHIVE category."
+  def archive_channel(channel_id) do
+    move_channel(channel_id, @archive_category_id)
   end
 
   # --- GenServer ---
@@ -80,6 +91,11 @@ defmodule Ema.Babysitter.OrgController do
     }
 
     result = discord_post("/guilds/#{guild_id}/channels", body)
+    {:reply, result, state}
+  end
+
+  def handle_call({:move_channel, channel_id, new_parent_id}, _from, state) do
+    result = discord_patch("/channels/#{channel_id}", %{parent_id: new_parent_id})
     {:reply, result, state}
   end
 
