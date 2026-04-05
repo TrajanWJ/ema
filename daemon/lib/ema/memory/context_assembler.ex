@@ -263,7 +263,7 @@ defmodule Ema.Memory.ContextAssembler do
 
   defp get_vault_notes(project, limit) do
     try do
-      vault_path = Application.get_env(:ema, :vault_path, Path.expand("~/vault"))
+      vault_path = Ema.Config.vault_path()
       project_dir = Path.join(vault_path, "Projects")
 
       if File.dir?(project_dir) do

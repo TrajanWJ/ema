@@ -169,7 +169,7 @@ defmodule Ema.Intelligence.WikiSync do
   end
 
   defp create_wiki_stub(action) do
-    vault_dir = Application.get_env(:ema, :vault_path, Path.expand("~/.local/share/ema/vault"))
+    vault_dir = Ema.Config.vault_path()
     full_path = Path.join(vault_dir, action.wiki_path)
 
     dir = Path.dirname(full_path)

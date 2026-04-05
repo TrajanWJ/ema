@@ -98,7 +98,7 @@ defmodule Ema.Proposals.VaultSeeder do
   # Private
 
   defp default_vault_path do
-    System.get_env("EMA_VAULT_PATH") || Path.expand("~/.local/share/ema/vault")
+    Ema.Config.vault_path()
   end
 
   defp list_markdown_files(vault_path) do

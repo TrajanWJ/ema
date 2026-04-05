@@ -4,7 +4,7 @@ defmodule Ema.Vault.VaultIndex do
   Provides filesystem-level search and read/write operations for vault notes.
   """
 
-  @vault_path Application.compile_env(:ema, :obsidian_vault_path, "/home/trajan/vault")
+  # vault_path/0 resolves at runtime via Ema.Config — no compile_env needed
 
   # List all vault notes with metadata
   def list_notes(opts \\ []) do
@@ -83,7 +83,7 @@ defmodule Ema.Vault.VaultIndex do
   end
 
   def vault_path do
-    Application.get_env(:ema, :obsidian_vault_path, @vault_path)
+    Ema.Config.obsidian_vault_path()
   end
 
   # --- Private ---
