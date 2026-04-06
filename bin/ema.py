@@ -261,7 +261,7 @@ def cmd_task_get(client, args):
 
 
 def cmd_task_dispatch(client, args):
-    """Dispatch a task — routes through OpenClaw via /api/openclaw/dispatch."""
+    """Dispatch a task to EMA's local execution system."""
     # First get the task to build context
     task_result = client.get(f"/api/tasks/{args.task_id}")
     task = task_result.get("task", task_result)
@@ -286,31 +286,23 @@ def cmd_task_dispatch(client, args):
     if args.context:
         payload["objective"] += f"\n\nContext: {args.context}"
 
-    # Try openclaw dispatch first
-    try:
-        result = client.post("/api/openclaw/dispatch", payload)
-        if USE_JSON:
-            out_json(result)
-            return
-        exec_id = result.get("execution_id") or result.get("id") or "?"
-        agent = result.get("agent") or args.agent or "auto"
-        out(f"Dispatched {args.task_id} → agent: {agent} | execution: {exec_id}")
-    except SystemExit:
-        # Fallback: create execution directly
-        exec_payload = {
-            "execution": {
-                "objective": task.get("title", ""),
-                "mode": "implement",
-                "task_id": args.task_id,
-                "title": task.get("title", ""),
-            }
+    exec_payload = {
+        "execution": {
+            "objective": payload["objective"],
+            "mode": "implement",
+            "task_id": args.task_id,
+            "title": task.get("title", ""),
         }
-        result = client.post("/api/executions", exec_payload)
-        if USE_JSON:
-            out_json(result)
-            return
-        exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
-        out(f"Dispatched {args.task_id} → execution: {exec_id}")
+    }
+    if args.agent:
+        exec_payload["execution"]["agent"] = args.agent
+
+    result = client.post("/api/executions", exec_payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
+    out(f"Dispatched {args.task_id} → execution: {exec_id}")
 
 
 def cmd_task_status(client, args):
@@ -491,7 +483,7 @@ def cmd_proposal_list(client, args):
 
 
 def cmd_proposal_dispatch(client, args):
-    """Dispatch a proposal — approve then send to OpenClaw."""
+    """Dispatch a proposal — approve then create a local EMA execution."""
     # First approve it
     approve_result = client.post(f"/api/proposals/{args.proposal_id}/approve", {})
     prop = approve_result if "id" in approve_result else approve_result.get("proposal", approve_result)
@@ -502,7 +494,7 @@ def cmd_proposal_dispatch(client, args):
 
     out(f"Approved {args.proposal_id} | {prop.get('title','?')}")
 
-    # Then dispatch via openclaw
+    # Then dispatch via local EMA execution
     payload = {
         "proposal_id": args.proposal_id,
         "objective": prop.get("body") or prop.get("title", ""),
@@ -512,23 +504,20 @@ def cmd_proposal_dispatch(client, args):
     if args.agent:
         payload["agent"] = args.agent
 
-    try:
-        result = client.post("/api/openclaw/dispatch", payload)
-        exec_id = result.get("execution_id") or result.get("id") or "?"
-        out(f"→ Dispatched to OpenClaw | execution: {exec_id}")
-    except SystemExit:
-        # Fallback: create execution directly
-        exec_payload = {
-            "execution": {
-                "objective": prop.get("body") or prop.get("title", ""),
-                "proposal_id": args.proposal_id,
-                "mode": "implement",
-                "title": prop.get("title", ""),
-            }
+    exec_payload = {
+        "execution": {
+            "objective": prop.get("body") or prop.get("title", ""),
+            "proposal_id": args.proposal_id,
+            "mode": "implement",
+            "title": prop.get("title", ""),
         }
-        result = client.post("/api/executions", exec_payload)
-        exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
-        out(f"→ Created execution: {exec_id}")
+    }
+    if args.agent:
+        exec_payload["execution"]["agent"] = args.agent
+
+    result = client.post("/api/executions", exec_payload)
+    exec_id = result.get("id") or result.get("execution", {}).get("id") or "?"
+    out(f"→ Created execution: {exec_id}")
 
 
 # ── vault ─────────────────────────────────────────────────────────────────────
@@ -587,14 +576,6 @@ def cmd_status(client, args):
     out(f"║  EMA Status — {now}  ║")
     out(f"╠═══════════════════════════════════════╣")
     out(f"║  Daemon      {daemon_info:<26} ║")
-
-    # OpenClaw
-    try:
-        oc = client.get("/api/openclaw/status")
-        oc_status = "✓ connected"
-    except SystemExit:
-        oc_status = "— not checked"
-    out(f"║  OpenClaw    {oc_status:<26} ║")
 
     out(f"╠═══════════════════════════════════════╣")
 
@@ -676,14 +657,12 @@ def cmd_dispatch_logs(client, args):
 # ── sync ──────────────────────────────────────────────────────────────────────
 
 def cmd_sync_openclaw(client, args):
-    result = client.get("/api/openclaw/status")
+    result = client.get("/api/health")
     if USE_JSON:
-        out_json(result)
+        out_json({"status": result.get("status", "unknown"), "mode": "host-local"})
         return
-    status = result.get("status", "unknown")
-    out(f"OpenClaw: {status}")
-    if result.get("agents"):
-        out(f"Agents: {', '.join(result['agents'])}")
+    out("Host-local mode active")
+    out(f"Daemon: {result.get('status', 'unknown')}")
 
 
 # ─── Arg parsing ──────────────────────────────────────────────────────────────
@@ -700,7 +679,7 @@ Commands:
   ema proposal list|view|dispatch
   ema vault search
   ema dispatch status|logs
-  ema sync openclaw
+  ema sync openclaw   # deprecated: now reports host-local daemon mode
   ema status
 
 Examples:
@@ -818,7 +797,7 @@ Examples:
     # ── sync ──
     sync_p = sub.add_parser("sync", help="External service sync")
     sync_sub = sync_p.add_subparsers(dest="action", metavar="ACTION")
-    sync_sub.add_parser("openclaw", help="Check OpenClaw sync status")
+    sync_sub.add_parser("openclaw", help="Deprecated: report host-local daemon mode")
 
     # ── status ──
     sub.add_parser("status", help="System health overview")

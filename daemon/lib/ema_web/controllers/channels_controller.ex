@@ -126,7 +126,7 @@ defmodule EmaWeb.ChannelsController do
             agent_slug: agent.slug,
             channel_type: ch.channel_type,
             active: ch.active,
-            connection_status: ch.connection_status,
+            connection_status: channel_connection_status(ch),
             config: ch.config
           }
         end)
@@ -183,7 +183,7 @@ defmodule EmaWeb.ChannelsController do
             agent_slug: agent.slug,
             agent_name: agent.name,
             active: ch.active,
-            connection_status: ch.connection_status || "unknown",
+            connection_status: channel_connection_status(ch),
             config: redact_config(ch.config)
           }
         end)
@@ -338,4 +338,7 @@ defmodule EmaWeb.ChannelsController do
   end
 
   defp parse_int(val, _default) when is_integer(val), do: val
+  defp channel_connection_status(channel) do
+    Map.get(channel, :connection_status) || Map.get(channel, :status) || "unknown"
+  end
 end

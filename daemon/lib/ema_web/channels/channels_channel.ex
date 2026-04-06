@@ -166,7 +166,7 @@ defmodule EmaWeb.ChannelsChannel do
             %{
               channel_type: ch.channel_type,
               active: ch.active,
-              connection_status: ch.connection_status
+              connection_status: channel_connection_status(ch)
             }
           end)
       }
@@ -227,5 +227,8 @@ defmodule EmaWeb.ChannelsChannel do
       metadata: msg.metadata,
       created_at: msg.inserted_at
     }
+  end
+  defp channel_connection_status(channel) do
+    Map.get(channel, :connection_status) || Map.get(channel, :status) || "unknown"
   end
 end
