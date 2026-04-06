@@ -70,14 +70,14 @@ defmodule EmaWeb.ActorController do
     tags = Actors.tags_for_entity("actor", id)
 
     json(conn, %{tags: Enum.map(tags, fn t ->
-      %{id: t.id, name: t.name, slug: t.slug, color: t.color}
+      %{id: t.id, tag: t.tag, namespace: t.namespace, actor_id: t.actor_id, entity_type: t.entity_type, entity_id: t.entity_id}
     end)})
   end
 
   def list_phases(conn, %{"id" => id}) do
     transitions = Actors.list_phase_transitions(id)
     json(conn, %{transitions: Enum.map(transitions, fn t ->
-      %{id: t.id, actor_id: t.actor_id, from_phase: t.from_phase, to_phase: t.to_phase, reason: t.reason, inserted_at: t.inserted_at}
+      %{id: t.id, actor_id: t.actor_id, from_phase: t.from_phase, to_phase: t.to_phase, week_number: t.week_number, reason: t.reason, summary: t.summary, transitioned_at: t.transitioned_at}
     end)})
   end
 

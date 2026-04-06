@@ -2385,6 +2385,9 @@ Examples:
         choices=["all", "heartbeat", "pipeline", "executions", "tasks", "proposals", "agents", "braindump", "inbox", "focus", "babysitter", "tokens", "cost"],
         default="all", help="Channel to watch (default: all)")
 
+    # ── tui ──
+    sub.add_parser("tui", help="Interactive terminal dashboard (requires: uv)", parents=[shared])
+
     # ── em (executive management) ──
     em_p = sub.add_parser("em", help="Executive management", parents=[shared])
     em_sub = em_p.add_subparsers(dest="action", metavar="ACTION")
@@ -2506,7 +2509,14 @@ def main():
         sys.exit(0)
 
     # ── Route ──
-    if args.group == "status":
+    if args.group == "tui":
+        import subprocess
+        tui_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ema-tui")
+        env = os.environ.copy()
+        env["EMA_HOST"] = f"http://{host}"
+        os.execvpe("uv", ["uv", "run", "--script", tui_script], env)
+
+    elif args.group == "status":
         cmd_status(client, args)
 
     elif args.group == "task":

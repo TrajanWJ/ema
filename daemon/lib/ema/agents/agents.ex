@@ -53,6 +53,13 @@ defmodule Ema.Agents do
     Repo.delete(agent)
   end
 
+  # === Agent ↔ Actor Bridge ===
+
+  @doc "Get the Agent for a given Actor (FK primary, slug fallback)."
+  def agent_for_actor(%Ema.Actors.Actor{id: id}) do
+    Repo.get_by(Agent, actor_id: id) || Repo.get_by(Agent, slug: id)
+  end
+
   # === Channels ===
 
   def list_channels_by_agent(agent_id) do

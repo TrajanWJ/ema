@@ -12,7 +12,63 @@
 cd "$(dirname "$0")/.." || exit 1
 
 export EMA_MCP_STDIO=true
-export MIX_ENV=dev
+export MIX_ENV=${MIX_ENV:-dev}
+
+PYTHON_BIN=$(command -v python3 || command -v python || true)
+EMA_DAEMON_LOG=${EMA_DAEMON_LOG:-/tmp/ema-daemon.log}
+
+is_port_open() {
+  if [ -z "$PYTHON_BIN" ]; then
+    return 1
+  fi
+  "$PYTHON_BIN" >/dev/null 2>&1 <<'PYTHON'
+import socket
+import contextlib
+import sys
+
+sock = socket.socket()
+sock.settimeout(0.2)
+with contextlib.suppress(Exception):
+    try:
+        sock.connect(("127.0.0.1", 4488))
+        sys.exit(0)
+    finally:
+        sock.close()
+sys.exit(1)
+PYTHON
+}
+
+wait_for_port() {
+  local attempts=${EMA_DAEMON_STARTUP_ATTEMPTS:-120}
+  while [ $attempts -gt 0 ]; do
+    if is_port_open; then
+      return 0
+    fi
+    attempts=$((attempts - 1))
+    sleep 1
+  done
+  return 1
+}
+
+start_daemon_if_missing() {
+  if is_port_open; then
+    echo "ema-mcp: detected EMA daemon already serving on :4488" >&2
+    return 0
+  fi
+
+  echo "ema-mcp: no daemon detected on :4488, launching mix phx.server..." >&2
+  mix phx.server >>"$EMA_DAEMON_LOG" 2>&1 &
+  DAEMON_PID=$!
+
+  if wait_for_port; then
+    echo "ema-mcp: daemon ready (PID $DAEMON_PID, log $EMA_DAEMON_LOG)" >&2
+    return 0
+  fi
+
+  echo "ema-mcp: daemon failed to start within timeout; see $EMA_DAEMON_LOG" >&2
+  kill "$DAEMON_PID" 2>/dev/null || true
+  exit 1
+}
 
 show_help() {
   cat <<'EOF'
@@ -71,5 +127,7 @@ for ebin in "$PWD"/_build/dev/lib/*/ebin; do
   [ -d "$ebin" ] || continue
   paths+=("-pa" "$ebin")
 done
+
+start_daemon_if_missing
 
 exec elixir "${paths[@]}" -e 'Ema.MCP.StdioRunner.run()' 2>/dev/null

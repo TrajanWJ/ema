@@ -113,6 +113,9 @@ defmodule Ema.Application do
     case result do
       {:ok, _pid} ->
         unless test_env?() do
+          # Bootstrap actor records before agents start (sync, idempotent)
+          Ema.Actors.Bootstrap.ensure_defaults()
+
           Task.start(fn ->
             Process.sleep(200)
             Ema.Agents.Supervisor.start_active_agents()

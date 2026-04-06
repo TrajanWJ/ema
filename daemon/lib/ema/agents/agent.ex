@@ -18,6 +18,7 @@ defmodule Ema.Agents.Agent do
     field :settings, :map, default: %{}
 
     belongs_to :project, Ema.Projects.Project, type: :string
+    belongs_to :actor, Ema.Actors.Actor, type: :string
 
     has_many :channels, Ema.Agents.Channel
     has_many :conversations, Ema.Agents.Conversation
@@ -29,7 +30,7 @@ defmodule Ema.Agents.Agent do
   @valid_statuses ~w(inactive active error)
   @valid_models ~w(opus sonnet haiku)
   @required_fields ~w(id slug name)a
-  @optional_fields ~w(description avatar status model temperature max_tokens script_path tools settings project_id)a
+  @optional_fields ~w(description avatar status model temperature max_tokens script_path tools settings project_id actor_id)a
 
   def changeset(agent, attrs) do
     agent

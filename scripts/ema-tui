@@ -1,0 +1,348 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["textual>=1.0.0"]
+# ///
+"""EMA Executive Dashboard — Terminal UI
+
+Launch: uv run scripts/ema-tui
+Or:     ema tui
+"""
+
+import json
+import os
+import sys
+import urllib.request
+import urllib.error
+from datetime import datetime, timezone
+
+# ── HTTP Client (mirrors scripts/ema pattern) ──
+
+BASE_URL = os.environ.get("EMA_HOST", "http://localhost:4488")
+
+
+def api_get(path, params=None):
+    url = BASE_URL + path
+    if params:
+        qs = "&".join(f"{k}={v}" for k, v in params.items() if v is not None)
+        if qs:
+            url += "?" + qs
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def api_post(path, data):
+    url = BASE_URL + path
+    try:
+        body = json.dumps(data).encode()
+        req = urllib.request.Request(url, data=body, headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }, method="POST")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def fmt_ago(ts_str):
+    if not ts_str:
+        return "—"
+    try:
+        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        delta = datetime.now(timezone.utc) - ts
+        secs = int(delta.total_seconds())
+        if secs < 60:
+            return f"{secs}s"
+        if secs < 3600:
+            return f"{secs // 60}m"
+        if secs < 86400:
+            return f"{secs // 3600}h"
+        return f"{secs // 86400}d"
+    except Exception:
+        return "—"
+
+
+# ── Textual App ──
+
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.reactive import reactive
+from textual.widget import Widget
+from textual.widgets import DataTable, Footer, Header, Static
+
+
+class StatusBar(Static):
+    """Top bar showing actor phases."""
+
+    actors = reactive(list)
+
+    def render(self):
+        if not self.actors:
+            return "Loading..."
+        parts = []
+        for a in self.actors:
+            name = a.get("name", a.get("slug", "?"))
+            phase = a.get("phase", "?")
+            atype = a.get("type", a.get("actor_type", "?"))
+            icon = "👤" if atype == "human" else "🤖"
+            parts.append(f"{icon} {name}:{phase}")
+        return "  ".join(parts)
+
+
+class TaskPanel(Widget):
+    """Task list panel."""
+
+    DEFAULT_CSS = """
+    TaskPanel { height: 1fr; border: solid $primary; }
+    TaskPanel DataTable { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Tasks", classes="panel-title")
+        yield DataTable(id="tasks-table")
+
+    def on_mount(self):
+        table = self.query_one("#tasks-table", DataTable)
+        table.add_columns("Title", "Status", "Priority", "Age")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self, tasks):
+        table = self.query_one("#tasks-table", DataTable)
+        table.clear()
+        for t in tasks[:20]:
+            title = (t.get("title") or "?")[:40]
+            status = t.get("status") or "?"
+            pri = {1: "🔴 crit", 2: "🟠 high", 3: "🟡 med", 4: "🔵 low", 5: "⚪ min"}.get(
+                t.get("priority"), "?"
+            )
+            age = fmt_ago(t.get("created_at") or t.get("updated_at"))
+            table.add_row(title, status, pri, age)
+
+
+class ExecutionPanel(Widget):
+    """Execution list panel."""
+
+    DEFAULT_CSS = """
+    ExecutionPanel { height: 1fr; border: solid $secondary; }
+    ExecutionPanel DataTable { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Executions", classes="panel-title")
+        yield DataTable(id="exec-table")
+
+    def on_mount(self):
+        table = self.query_one("#exec-table", DataTable)
+        table.add_columns("Title", "Mode", "Status", "Age")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self, executions):
+        table = self.query_one("#exec-table", DataTable)
+        table.clear()
+        for e in executions[:15]:
+            title = (e.get("title") or "?")[:35]
+            mode = e.get("mode", "?")
+            status = e.get("status", "?")
+            icon = {"running": "▶", "completed": "✓", "failed": "✗", "created": "○"}.get(status, "·")
+            age = fmt_ago(e.get("inserted_at") or e.get("updated_at"))
+            table.add_row(title, mode, f"{icon} {status}", age)
+
+
+class BrainDumpPanel(Widget):
+    """Brain dump inbox panel."""
+
+    DEFAULT_CSS = """
+    BrainDumpPanel { height: 1fr; border: solid $accent; }
+    BrainDumpPanel VerticalScroll { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Brain Dump", classes="panel-title")
+        yield VerticalScroll(id="bd-scroll")
+
+    def refresh_data(self, items):
+        scroll = self.query_one("#bd-scroll", VerticalScroll)
+        scroll.remove_children()
+        for item in items[:10]:
+            content = (item.get("content") or "")[:80]
+            status = "✓" if item.get("processed") else "○"
+            age = fmt_ago(item.get("created_at"))
+            scroll.mount(Static(f"{status} [{age}] {content}"))
+
+
+class PhasePanel(Widget):
+    """Phase transition log panel."""
+
+    DEFAULT_CSS = """
+    PhasePanel { height: 1fr; border: solid $warning; }
+    PhasePanel DataTable { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Phase Log", classes="panel-title")
+        yield DataTable(id="phase-table")
+
+    def on_mount(self):
+        table = self.query_one("#phase-table", DataTable)
+        table.add_columns("Actor", "From", "To", "Week", "When")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self, actors):
+        table = self.query_one("#phase-table", DataTable)
+        table.clear()
+        for actor in actors:
+            actor_id = actor.get("id", "?")
+            name = actor.get("name", actor_id)[:12]
+            phases = api_get(f"/api/actors/{actor_id}/phases")
+            transitions = phases.get("phase_transitions", phases.get("data", []))
+            for t in transitions[:5]:
+                frm = t.get("from_phase") or "—"
+                to = t.get("to_phase") or "?"
+                week = str(t.get("week_number") or "—")
+                when = fmt_ago(t.get("transitioned_at"))
+                table.add_row(name, frm, to, week, when)
+
+
+class ProjectPanel(Widget):
+    """Projects overview panel."""
+
+    DEFAULT_CSS = """
+    ProjectPanel { height: 1fr; border: solid $success; }
+    ProjectPanel VerticalScroll { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Projects", classes="panel-title")
+        yield VerticalScroll(id="proj-scroll")
+
+    def refresh_data(self, projects):
+        scroll = self.query_one("#proj-scroll", VerticalScroll)
+        scroll.remove_children()
+        for p in projects[:10]:
+            name = p.get("name") or p.get("slug", "?")
+            status = p.get("status", "?")
+            scroll.mount(Static(f"  {name:<20} {status}"))
+
+
+class EmaDashboard(App):
+    """EMA Executive Dashboard"""
+
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+    .panel-title {
+        text-style: bold;
+        padding: 0 1;
+        color: $text;
+        height: 1;
+    }
+    #status-bar {
+        dock: top;
+        height: 1;
+        background: $primary-background;
+        color: $text;
+        padding: 0 2;
+        text-style: bold;
+    }
+    #top-row {
+        height: 1fr;
+    }
+    #bottom-row {
+        height: 1fr;
+    }
+    #left-col {
+        width: 1fr;
+    }
+    #right-col {
+        width: 1fr;
+    }
+    """
+
+    TITLE = "EMA Executive Dashboard"
+    BINDINGS = [
+        Binding("q", "quit", "Quit"),
+        Binding("r", "refresh", "Refresh"),
+        Binding("d", "dump", "Brain Dump"),
+        Binding("t", "focus_tasks", "Tasks"),
+        Binding("e", "focus_exec", "Executions"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield StatusBar(id="status-bar")
+        yield Horizontal(
+            Vertical(
+                TaskPanel(id="tasks"),
+                PhasePanel(id="phases"),
+                id="left-col",
+            ),
+            Vertical(
+                ExecutionPanel(id="executions"),
+                BrainDumpPanel(id="braindump"),
+                ProjectPanel(id="projects"),
+                id="right-col",
+            ),
+            id="top-row",
+        )
+        yield Footer()
+
+    def on_mount(self):
+        self.refresh_all()
+        self.set_interval(10, self.refresh_all)
+
+    def refresh_all(self):
+        # Fetch all data
+        actors_data = api_get("/api/actors")
+        actors = actors_data.get("actors", []) if isinstance(actors_data, dict) else []
+
+        tasks_data = api_get("/api/tasks")
+        tasks = tasks_data.get("tasks", []) if isinstance(tasks_data, dict) else []
+
+        exec_data = api_get("/api/executions")
+        execs = exec_data.get("executions", exec_data.get("data", [])) if isinstance(exec_data, dict) else []
+
+        bd_data = api_get("/api/brain-dump/items")
+        bd_items = bd_data.get("items", []) if isinstance(bd_data, dict) else []
+
+        proj_data = api_get("/api/projects")
+        projects = proj_data.get("projects", proj_data.get("data", [])) if isinstance(proj_data, dict) else []
+
+        # Update panels
+        self.query_one("#status-bar", StatusBar).actors = actors
+        self.query_one("#tasks", TaskPanel).refresh_data(tasks)
+        self.query_one("#executions", ExecutionPanel).refresh_data(execs)
+        self.query_one("#braindump", BrainDumpPanel).refresh_data(bd_items)
+        self.query_one("#phases", PhasePanel).refresh_data(actors)
+        self.query_one("#projects", ProjectPanel).refresh_data(projects)
+
+    def action_refresh(self):
+        self.refresh_all()
+        self.notify("Refreshed")
+
+    def action_dump(self):
+        self.push_screen(BrainDumpInput())
+
+    def action_focus_tasks(self):
+        self.query_one("#tasks-table", DataTable).focus()
+
+    def action_focus_exec(self):
+        self.query_one("#exec-table", DataTable).focus()
+
+
+class BrainDumpInput(Widget):
+    """Quick brain dump input screen."""
+    pass  # TODO: implement input screen
+
+
+if __name__ == "__main__":
+    EmaDashboard().run()

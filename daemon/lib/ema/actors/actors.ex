@@ -256,6 +256,33 @@ defmodule Ema.Actors do
     end
   end
 
+  # ── Agent ↔ Actor Bridge ──
+
+  @doc "Get the Actor record for an Agent (FK primary, slug fallback)."
+  def actor_for_agent(%Ema.Agents.Agent{actor_id: actor_id}) when is_binary(actor_id) and actor_id != "" do
+    get_actor(actor_id)
+  end
+
+  def actor_for_agent(%Ema.Agents.Agent{slug: slug}) do
+    get_actor_by_slug(slug)
+  end
+
+  @doc "Get actor_id for an Agent, or nil."
+  def actor_id_for_agent(%Ema.Agents.Agent{} = agent) do
+    case actor_for_agent(agent) do
+      %Actor{id: id} -> id
+      nil -> nil
+    end
+  end
+
+  @doc "Get the default human actor ID. Cached after first lookup."
+  def default_human_actor_id do
+    case get_actor_by_slug("trajan") do
+      %Actor{id: id} -> id
+      nil -> nil
+    end
+  end
+
   # ── Private ──
 
   defp generate_id do

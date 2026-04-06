@@ -7,6 +7,7 @@ Status: 2026-04-06 — This document captures the audited MCP/Codex wiring so fu
 - **JSON-RPC core**: `daemon/lib/ema/mcp/server.ex` implements the MCP JSON-RPC loop, handles `initialize`, `resources/*`, and `tools/*` calls, and guards recursion depth via `Ema.MCP.RecursionGuard`.
 - **Tool registry**: `Ema.MCP.Tools` defines the actionable API surface (`create_task`, `create_proposal`, `ema_get_intents`, `ema_create_intent`, the context queries, etc.) and all request handling now mirrors the REST controllers (the recent `ema_create_task` patch publishes the flat payload the `/api/tasks` controller expects).
 - **Session tools**: `Ema.MCP.SessionTools` wraps the `Ema.Sessions.Orchestrator` calls — the same verbs (`ema_spawn_session`, `ema_check_session`, etc.) that Codex/Claude use when orchestrating additional agent work.
+- **Launcher self-healing**: `daemon/bin/ema-mcp` now detects when `:4488` is free and starts `mix phx.server` in the background before running `Ema.MCP.StdioRunner`, then waits for the port to become available. That makes the MCP surface ready immediately whenever the daemon had been stopped or a new agent triggers it.
 
 ## 2. Synchronous HTTP surfaces
 

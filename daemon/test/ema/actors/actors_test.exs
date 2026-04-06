@@ -34,13 +34,13 @@ defmodule Ema.ActorsTest do
   end
 
   describe "ensure_default_human_actor/0" do
-    test "creates trajan actor if not exists" do
+    test "returns a trajan actor" do
       {:ok, actor} = Actors.ensure_default_human_actor()
       assert actor.slug == "trajan"
       assert actor.actor_type == "human"
     end
 
-    test "returns existing on second call" do
+    test "is idempotent" do
       {:ok, first} = Actors.ensure_default_human_actor()
       {:ok, second} = Actors.ensure_default_human_actor()
       assert first.id == second.id
