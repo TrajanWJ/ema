@@ -14,56 +14,58 @@ defmodule Ema.Application do
       end
     end
 
+    # Core children — always start (no DB access at init)
+    core_children = [
+      EmaWeb.Telemetry,
+      Ema.Repo,
+      {Ecto.Migrator,
+       repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
+      {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: Ema.PubSub},
+      {Registry, keys: :unique, name: Ema.Agents.Registry},
+      {Task.Supervisor, name: Ema.TaskSupervisor},
+      {Registry, keys: :unique, name: Ema.Projects.WorkerRegistry},
+      {DynamicSupervisor, name: Ema.Projects.ProjectWorkerSupervisor, strategy: :one_for_one},
+      {Registry, keys: :unique, name: Ema.CliManager.Registry},
+      {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
+    ]
+
+    # Runtime children — skip in test (hit DB at init or run background work)
+    runtime_children =
+      if test_env?() do
+        []
+      else
+        [
+          Ema.Feedback.Supervisor,
+          Ema.Prompts.Loader,
+          Ema.Prompts.Optimizer,
+          Ema.Agents.Supervisor,
+          Ema.Agents.NetworkMonitor,
+          Ema.Claude.SessionManager,
+          Ema.Claude.BridgeDispatch,
+          Ema.Focus.Timer,
+          Ema.Pipes.Supervisor,
+          Ema.Ingestor.Processor,
+          Ema.Intelligence.TokenTracker,
+          Ema.Executions.Dispatcher,
+          Ema.Intents.Populator,
+          Ema.Intelligence.TrustScorer,
+          Ema.Intelligence.VmMonitor,
+          Ema.Intelligence.CostForecaster,
+          Ema.Intelligence.SessionMemoryWatcher,
+          Ema.Intelligence.GapScanner,
+          Ema.Intelligence.ContextIndexer,
+          Ema.Intelligence.AgentSupervisor,
+          Ema.Intelligence.AutonomyConfig,
+          Ema.Intelligence.UCBRouter,
+          {Ema.Intelligence.PromptVariantStore, []},
+          Ema.Intelligence.VaultLearner
+        ]
+      end
+
     children =
-      [
-        EmaWeb.Telemetry,
-        Ema.Repo,
-        {Ecto.Migrator,
-         repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
-        {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: Ema.PubSub},
-        # Babysitter — system observability and Discord stream-of-consciousness
-        # Feedback layer — Discord delivery consumers + EMA internal visibility
-        Ema.Feedback.Supervisor,
-        # Agent process registry and supervisor
-        {Registry, keys: :unique, name: Ema.Agents.Registry},
-        {Task.Supervisor, name: Ema.TaskSupervisor},
-        Ema.Prompts.Loader,
-        Ema.Prompts.Optimizer,
-        Ema.Agents.Supervisor,
-        Ema.Agents.NetworkMonitor,
-        # AI session tracking
-        Ema.Claude.SessionManager,
-        # Async Claude dispatch with request tracking and retries
-        Ema.Claude.BridgeDispatch,
-        # Focus timer GenServer
-        Ema.Focus.Timer,
-        # Pipes — workflow automation (Registry -> Loader -> Executor)
-        Ema.Pipes.Supervisor,
-        # Ingest job processor
-        Ema.Ingestor.Processor,
-        # Intelligence — token tracking, trust scoring, VM monitoring, cost forecasting
-        Ema.Intelligence.TokenTracker,
-        Ema.Executions.Dispatcher,
-        Ema.Intents.Populator,
-        Ema.Intelligence.TrustScorer,
-        Ema.Intelligence.VmMonitor,
-        Ema.Intelligence.CostForecaster,
-        Ema.Intelligence.SessionMemoryWatcher,
-        Ema.Intelligence.GapScanner,
-        Ema.Intelligence.ContextIndexer,
-        Ema.Intelligence.AgentSupervisor,
-        Ema.Intelligence.AutonomyConfig,
-        Ema.Intelligence.UCBRouter,
-        {Ema.Intelligence.PromptVariantStore, []},
-        Ema.Intelligence.VaultLearner,
-        # Projects — per-project worker registry and DynamicSupervisor for context caching
-        {Registry, keys: :unique, name: Ema.Projects.WorkerRegistry},
-        {DynamicSupervisor, name: Ema.Projects.ProjectWorkerSupervisor, strategy: :one_for_one},
-        # CLI Manager — process registry and supervisor for session runners
-        {Registry, keys: :unique, name: Ema.CliManager.Registry},
-        {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
-      ] ++
+      core_children ++
+      runtime_children ++
         maybe_start_babysitter() ++
         maybe_start_session_store() ++
         maybe_start_campaign_manager() ++
@@ -160,7 +162,7 @@ defmodule Ema.Application do
   end
 
   defp maybe_start_babysitter do
-    if System.get_env("EMA_MCP_STDIO") in ["1", "true", "TRUE"] do
+    if test_env?() or System.get_env("EMA_MCP_STDIO") in ["1", "true", "TRUE"] do
       []
     else
       [Ema.Babysitter.Supervisor]
