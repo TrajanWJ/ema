@@ -1,1 +1,11 @@
 ema-daemon.env
+__pycache__/
+*.pyc
+node_modules/
+.claude/worktrees/
+scripts/__pycache__/
+bin/__pycache__/
+daemon/ema
+daemon/.superman/
+hq-api/.hq-data/
+.superpowers/brainstorm/**/state/

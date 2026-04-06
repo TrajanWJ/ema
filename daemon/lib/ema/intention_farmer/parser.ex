@@ -135,23 +135,75 @@ defmodule Ema.IntentionFarmer.Parser do
       |> Stream.reject(&is_nil/1)
       |> Enum.to_list()
 
+    session_id = Path.basename(path, ".jsonl")
+
+    messages =
+      lines
+      |> Enum.map(fn line ->
+        text = String.trim(to_string(line["text"] || ""))
+
+        %{
+          "role" => "user",
+          "text" => text,
+          "session_id" => line["session_id"],
+          "timestamp" => line["ts"]
+        }
+      end)
+      |> Enum.reject(&(&1["text"] == ""))
+
     intents =
       lines
       |> Enum.map(fn line ->
+        content = String.trim(to_string(line["text"] || ""))
+
         %{
-          content: line["text"] || "",
-          intent_type: classify_intent(line["text"] || ""),
+          content: content,
+          intent_type: classify_intent(content),
           source_type: "codex_history",
-          session_id: line["session_id"],
-          timestamp: parse_unix_ts(line["ts"])
+          metadata: %{
+            "history_session_id" => line["session_id"],
+            "timestamp" => format_dt(parse_unix_ts(line["ts"]))
+          }
         }
       end)
       |> Enum.reject(&(&1.content == ""))
 
+    timestamps =
+      lines
+      |> Enum.map(&parse_unix_ts(&1["ts"]))
+      |> Enum.reject(&is_nil/1)
+
+    {started_at, ended_at} =
+      case timestamps do
+        [] -> {nil, nil}
+        [single] -> {single, single}
+        many -> {List.first(many), List.last(many)}
+      end
+
     {:ok,
      %{
+       session_id: session_id,
        source_type: "codex_history",
+       messages: messages,
        intents: intents,
+       tool_call_count: 0,
+       files_touched: [],
+       token_count: Enum.reduce(intents, 0, fn intent, acc -> acc + String.length(intent.content) end),
+       message_count: length(messages),
+       started_at: started_at,
+       ended_at: ended_at,
+       project_path: nil,
+       model: nil,
+       model_provider: "openai",
+       metadata: %{
+         "history_entry_count" => length(lines),
+         "history_sessions" =>
+           lines
+           |> Enum.map(& &1["session_id"])
+           |> Enum.reject(&is_nil/1)
+           |> Enum.uniq()
+           |> Enum.sort()
+       },
        raw_path: path
      }}
   rescue
@@ -210,16 +262,32 @@ defmodule Ema.IntentionFarmer.Parser do
 
   @doc "Parse a CLAUDE.md file for project context."
   def parse_claude_md(path) do
-    case File.read(path) do
-      {:ok, content} ->
-        {:ok,
-         %{
-           source_type: "claude_md",
-           content: content,
-           raw_path: path,
-           project_path: infer_project_from_claude_md(path)
-         }}
+    with {:ok, content} <- File.read(path),
+         {:ok, stat} <- File.stat(path) do
+      project_path = infer_project_from_claude_md(path)
+      trimmed = String.trim(content)
 
+      {:ok,
+       %{
+         session_id: Path.basename(project_path || path),
+         source_type: "claude_md",
+         messages: [%{"role" => "user", "text" => trimmed}],
+         intents: build_single_intent(trimmed, "claude_md"),
+         tool_call_count: 0,
+         files_touched: [path],
+         token_count: String.length(trimmed),
+         message_count: if(trimmed == "", do: 0, else: 1),
+         started_at: file_mtime(stat),
+         ended_at: file_mtime(stat),
+         project_path: project_path,
+         model: nil,
+         model_provider: "anthropic",
+         raw_path: path,
+         metadata: %{
+           "artifact_type" => "claude_md"
+         }
+       }}
+    else
       {:error, reason} ->
         {:error, {:file_read_failed, reason}}
     end
@@ -475,6 +543,9 @@ defmodule Ema.IntentionFarmer.Parser do
   defp parse_unix_ts(ts) when is_integer(ts), do: DateTime.from_unix!(ts)
   defp parse_unix_ts(ts) when is_float(ts), do: DateTime.from_unix!(trunc(ts))
   defp parse_unix_ts(_), do: nil
+
+  defp format_dt(nil), do: nil
+  defp format_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
   defp infer_project_from_claude_md(path) do
     Path.dirname(path)

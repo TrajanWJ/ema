@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import socket
 import re
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -180,6 +181,277 @@ def table(rows, headers, widths=None):
     out("  ".join("─" * w for w in widths))
     for r in rows:
         out(fmt.format(*[str(v)[:w] for v, w in zip(r, widths)]))
+
+
+# ─── MCP helpers ──────────────────────────────────────────────────────────────
+
+
+def parse_cli_value(raw):
+    if raw == "":
+        return ""
+
+    lowered = raw.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered == "null":
+        return None
+
+    try:
+        if raw.startswith(("{", "[", '"')) or raw in ("0",) or raw[0].isdigit() or raw[0] == "-":
+            return json.loads(raw)
+    except Exception:
+        pass
+
+    return raw
+
+
+def parse_mcp_args(arg_pairs, args_json=None):
+    payload = {}
+
+    for pair in arg_pairs or []:
+        if "=" not in pair:
+            die(f"Invalid --arg '{pair}'. Expected KEY=VALUE.")
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        if not key:
+            die(f"Invalid --arg '{pair}'. Key cannot be empty.")
+        payload[key] = parse_cli_value(value)
+
+    if args_json:
+        try:
+            parsed = json.loads(args_json)
+        except json.JSONDecodeError as e:
+            die(f"Invalid --args-json payload: {e}")
+        if not isinstance(parsed, dict):
+            die("--args-json must decode to a JSON object")
+        payload.update(parsed)
+
+    return payload
+
+
+def resolve_project_ref(client, ref):
+    result = client.get("/api/projects")
+    projects = result.get("projects", result if isinstance(result, list) else [])
+
+    for proj in projects:
+        if ref in [str(proj.get("id")), proj.get("slug"), proj.get("name")]:
+            return str(proj.get("id"))
+
+    die(f"Project not found: {ref}")
+
+
+def read_mcp_resource(client, uri):
+    parsed = urllib.parse.urlparse(uri)
+    base_uri = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    query = urllib.parse.parse_qs(parsed.query)
+
+    if base_uri == "ema://context/operator":
+        data = client.get("/api/context/operator/package")
+    elif base_uri == "ema://context/project":
+        ref = (query.get("id") or [None])[0]
+        if not ref:
+            die("Resource ema://context/project requires ?id=<project_id_or_slug>")
+        project_id = resolve_project_ref(client, ref)
+        data = client.get(f"/api/context/project/{project_id}/package")
+    elif base_uri == "ema://projects/active":
+        data = client.get("/api/projects", params={"status": "active", "include_context": "true"})
+    elif base_uri == "ema://tasks/pending":
+        data = client.get("/api/tasks", params={"status": "pending,blocked", "include_context": "true"})
+    elif base_uri == "ema://proposals/recent":
+        data = client.get("/api/proposals", params={"status": "approved", "limit": 5, "order": "desc"})
+    elif base_uri == "ema://bootstrap/status":
+        data = client.get("/api/onboarding/status")
+    elif base_uri == "ema://focus/current":
+        data = client.get("/api/focus/current")
+    elif base_uri == "ema://vault/search":
+        search = (query.get("q") or [None])[0]
+        if not search:
+            die("Resource ema://vault/search requires ?q=<query>")
+        data = client.get("/api/vectors/query", params={"q": search, "k": 5})
+    else:
+        die(f"Unknown MCP resource URI: {uri}")
+
+    return {
+        "uri": uri,
+        "mimeType": "application/json",
+        "data": data
+    }
+
+
+def cmd_mcp_tools(client, args):
+    result = client.get("/api/mcp/tools")
+    tools = result.get("tools", [])
+
+    if args.name:
+        tools = [t for t in tools if t.get("name") == args.name]
+
+    if USE_JSON:
+        out_json(tools)
+        return
+
+    rows = []
+    for tool in tools:
+        schema = tool.get("inputSchema", {})
+        required = ",".join(schema.get("required", [])) or "—"
+        props = ",".join(schema.get("properties", {}).keys()) or "—"
+        scope = "session" if str(tool.get("name", "")).startswith("ema_") else "core"
+        rows.append([tool.get("name", "—"), scope, required, props, tool.get("description", "")[:56]])
+
+    table(rows, ["name", "scope", "required", "args", "description"], widths=[24, 8, 20, 28, 56])
+
+
+def cmd_mcp_resources(client, args):
+    result = client.get("/api/mcp/tools")
+    resources = result.get("resources", [])
+
+    if args.uri:
+        resources = [r for r in resources if r.get("uri") == args.uri]
+
+    if USE_JSON:
+        out_json(resources)
+        return
+
+    rows = [[r.get("uri", "—"), r.get("name", "—"), r.get("mimeType", "—"), r.get("description", "")[:64]] for r in resources]
+    table(rows, ["uri", "name", "mime", "description"], widths=[28, 22, 18, 64])
+
+
+def cmd_mcp_read(client, args):
+    result = read_mcp_resource(client, args.uri)
+
+    if USE_JSON:
+        out_json(result)
+        return
+
+    out(f"URI: {result['uri']}")
+    out(f"MIME: {result['mimeType']}")
+    out(json.dumps(result["data"], indent=2, default=str))
+
+
+def cmd_mcp_call(client, args):
+    arguments = parse_mcp_args(args.arg, args.args_json)
+    payload = {"name": args.name, "arguments": arguments}
+    result = client.post("/api/mcp/tools/execute", payload)
+
+    if USE_JSON:
+        out_json(result)
+        return
+
+    out(f"Tool: {result.get('name', args.name)}")
+    out(f"Request ID: {result.get('request_id', '—')}")
+    out(json.dumps(result.get("result", result), indent=2, default=str))
+
+
+def cmd_mcp_doctor(client, args):
+    daemon_ok = False
+    mcp_ok = False
+    launcher = Path(__file__).resolve().parent.parent / "daemon" / "bin" / "ema-mcp"
+
+    try:
+        health = client.get("/api/health")
+        daemon_ok = True
+    except SystemExit:
+        health = None
+
+    try:
+        registry = client.get("/api/mcp/tools")
+        mcp_ok = True
+    except SystemExit:
+        registry = None
+
+    launcher_exists = launcher.exists()
+    launcher_help = None
+    launcher_version = None
+
+    if launcher_exists:
+        try:
+            launcher_help = subprocess.run(
+                [str(launcher), "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            ).stdout.strip()
+            launcher_version = subprocess.run(
+                [str(launcher), "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            ).stdout.strip()
+        except Exception as e:
+            launcher_help = f"(failed: {e})"
+
+    config = {
+        "mcpServers": {
+            "ema": {
+                "command": str(launcher),
+                "cwd": str(launcher.parent.parent)
+            }
+        }
+    }
+
+    report = {
+        "daemon": {
+            "ok": daemon_ok,
+            "health": health
+        },
+        "mcp_registry": {
+            "ok": mcp_ok,
+            "tool_count": len((registry or {}).get("tools", [])),
+            "resource_count": len((registry or {}).get("resources", []))
+        },
+        "launcher": {
+            "path": str(launcher),
+            "exists": launcher_exists,
+            "version": launcher_version,
+            "help_available": bool(launcher_help)
+        },
+        "claude_config": config
+    }
+
+    if USE_JSON:
+        out_json(report)
+        return
+
+    out(f"daemon     {'ok' if daemon_ok else 'down'}")
+    out(f"registry   {'ok' if mcp_ok else 'down'}")
+    out(f"launcher   {'ok' if launcher_exists else 'missing'}  {launcher}")
+    if launcher_version:
+        out(f"version    {launcher_version}")
+    if mcp_ok:
+        out(f"surface    {report['mcp_registry']['tool_count']} tools, {report['mcp_registry']['resource_count']} resources")
+    out("")
+    out("Claude MCP config:")
+    out(json.dumps(config, indent=2))
+
+
+def cmd_mcp_config(client, args):
+    launcher = Path(__file__).resolve().parent.parent / "daemon" / "bin" / "ema-mcp"
+    config = {
+        "mcpServers": {
+            "ema": {
+                "command": str(launcher),
+                "cwd": str(launcher.parent.parent)
+            }
+        }
+    }
+
+    if USE_JSON or args.format == "json":
+        out_json(config)
+        return
+
+    out(json.dumps(config, indent=2))
+
+
+def cmd_mcp_stdio(client, args):
+    launcher = Path(__file__).resolve().parent.parent / "daemon" / "bin" / "ema-mcp"
+
+    if not launcher.exists():
+        die(f"MCP launcher not found: {launcher}")
+
+    os.execv(str(launcher), [str(launcher)])
 
 # ─── Command implementations ──────────────────────────────────────────────────
 
@@ -1446,6 +1718,7 @@ def build_parser():
         epilog="""
 Commands:
   ema dump "thought"                   Quick brain dump
+  ema mcp tools|resources|read|call|doctor|config|stdio
   ema task create|list|get|dispatch|status
   ema project create|list|view|context|dependencies
   ema proposal list|view|dispatch
@@ -1467,6 +1740,9 @@ Commands:
 
 Examples:
   ema dump "investigate auth token expiry"
+  ema mcp tools
+  ema mcp read 'ema://context/project?id=ema'
+  ema mcp call ema_spawn_session --arg prompt='Investigate build drift' --arg project_slug=ema
   ema agent chat main "what should I work on?"
   ema exec list --status running
   ema exec create "research auth patterns" --mode research
@@ -1593,6 +1869,31 @@ Examples:
     # ── dump (shortcut) ──
     dump_p = sub.add_parser("dump", help="Quick brain dump", parents=[shared])
     dump_p.add_argument("text", nargs="+", help="Text to dump")
+
+    # ── mcp ──
+    mcp_p = sub.add_parser("mcp", help="MCP discovery, execution, and stdio bridge", parents=[shared])
+    mcp_sub = mcp_p.add_subparsers(dest="action", metavar="ACTION")
+
+    mt = mcp_sub.add_parser("tools", help="List MCP tools")
+    mt.add_argument("name", nargs="?", help="Optional tool name filter")
+
+    mr = mcp_sub.add_parser("resources", help="List MCP resources")
+    mr.add_argument("uri", nargs="?", help="Optional resource URI filter")
+
+    mread = mcp_sub.add_parser("read", help="Read an MCP resource URI")
+    mread.add_argument("uri", help="Resource URI, e.g. ema://context/operator")
+
+    mcall = mcp_sub.add_parser("call", help="Execute an MCP tool through EMA")
+    mcall.add_argument("name", help="Tool name")
+    mcall.add_argument("--arg", action="append", default=[], help="Tool argument as KEY=VALUE (repeatable)")
+    mcall.add_argument("--args-json", help="JSON object of tool arguments")
+
+    mcp_sub.add_parser("doctor", help="Check daemon MCP surface and launcher wiring")
+
+    mconfig = mcp_sub.add_parser("config", help="Print Claude MCP config snippet")
+    mconfig.add_argument("--format", choices=["json", "claude"], default="claude", help="Output format")
+
+    mcp_sub.add_parser("stdio", help="Exec into the native stdio MCP launcher")
 
     # ── brain-dump ──
     bd_p = sub.add_parser("brain-dump", help="Brain dump inbox", parents=[shared])
@@ -1852,6 +2153,24 @@ def main():
 
     elif args.group == "dump":
         cmd_dump(client, args)
+
+    elif args.group == "mcp":
+        if not args.action:
+            parser.parse_args(["mcp", "--help"])
+        elif args.action == "tools":
+            cmd_mcp_tools(client, args)
+        elif args.action == "resources":
+            cmd_mcp_resources(client, args)
+        elif args.action == "read":
+            cmd_mcp_read(client, args)
+        elif args.action == "call":
+            cmd_mcp_call(client, args)
+        elif args.action == "doctor":
+            cmd_mcp_doctor(client, args)
+        elif args.action == "config":
+            cmd_mcp_config(client, args)
+        elif args.action == "stdio":
+            cmd_mcp_stdio(client, args)
 
     elif args.group == "brain-dump":
         if not args.action:

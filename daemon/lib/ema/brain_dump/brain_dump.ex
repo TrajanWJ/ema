@@ -7,6 +7,7 @@ defmodule Ema.BrainDump do
   import Ecto.Query
   alias Ema.Repo
   alias Ema.BrainDump.Item
+  alias Ema.Projects
 
   def list_items(opts \\ []) do
     Item
@@ -46,7 +47,7 @@ defmodule Ema.BrainDump do
           end)
 
           Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
-            project_path = File.cwd!()
+            {project_slug, project_path} = execution_project_context(item.project_id)
             intent_slug = Ema.Executions.IntentFolder.slugify(String.slice(item.content, 0, 60))
             intent_path = ".superman/intents/#{intent_slug}"
 
@@ -69,6 +70,7 @@ defmodule Ema.BrainDump do
                    objective: item.content,
                    mode: "research",
                    status: "created",
+                   project_slug: project_slug,
                    brain_dump_item_id: item.id,
                    intent_slug: intent_slug,
                    intent_path: intent_path,
@@ -94,6 +96,8 @@ defmodule Ema.BrainDump do
           content: item.content,
           source: item.source
         })
+
+        Phoenix.PubSub.broadcast(Ema.PubSub, "brain_dump", {:brain_dump, :item_created, item})
 
         {:ok, item}
 
@@ -330,6 +334,15 @@ defmodule Ema.BrainDump do
 
   defp maybe_filter(query, _field, nil), do: query
   defp maybe_filter(query, field, value), do: where(query, [i], field(i, ^field) == ^value)
+
+  defp execution_project_context(project_id) when is_binary(project_id) and project_id != "" do
+    case Projects.get_project(project_id) do
+      nil -> {nil, File.cwd!()}
+      project -> {project.slug, project.linked_path || File.cwd!()}
+    end
+  end
+
+  defp execution_project_context(_project_id), do: {nil, File.cwd!()}
 
   defp test_env?, do: Code.ensure_loaded?(Mix) and Mix.env() == :test
 end

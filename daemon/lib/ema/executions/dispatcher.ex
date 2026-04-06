@@ -364,13 +364,13 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp get_project_path(project_slug) do
-    paths = [
-      "/home/trajan/Projects/#{project_slug}",
-      "/home/trajan/Desktop/Coding/#{project_slug}",
-      "/home/trajan/#{project_slug}"
-    ]
+    case Ema.Projects.get_project_by_slug(project_slug) do
+      nil ->
+        nil
 
-    Enum.find(paths, &File.dir?/1)
+      project ->
+        project.linked_path
+    end
   end
 
   defp prepend_project_intelligence(prompt, project_slug) do

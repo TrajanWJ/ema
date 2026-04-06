@@ -164,6 +164,22 @@ defmodule Ema.MCP.Tools do
           },
           "required" => ["project"]
         }
+      },
+      %{
+        "name" => "bootstrap_status",
+        "description" => "Fetch EMA bootstrap/readiness status, including provider health and detected CLI tools.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{}
+        }
+      },
+      %{
+        "name" => "run_bootstrap",
+        "description" => "Run EMA's onboarding/bootstrap sweep to detect tools, catalog imports, and refresh construction context.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{}
+        }
       }
     ]
   end
@@ -202,6 +218,14 @@ defmodule Ema.MCP.Tools do
     call_context_project(args, request_id)
   end
 
+  def call("bootstrap_status", args, request_id) do
+    call_bootstrap_status(args, request_id)
+  end
+
+  def call("run_bootstrap", args, request_id) do
+    call_run_bootstrap(args, request_id)
+  end
+
   def call(name, _args, _request_id) do
     {:error, "Unknown tool: #{name}"}
   end
@@ -222,6 +246,22 @@ defmodule Ema.MCP.Tools do
          {:ok, %{status: status, body: body}} when status in 200..299 <- get("/api/context/project/#{project_id}/package") do
       {:ok, body}
     else
+      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp call_bootstrap_status(_args, _request_id) do
+    case get("/api/onboarding/status") do
+      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
+      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp call_run_bootstrap(_args, _request_id) do
+    case post("/api/onboarding/run", %{}) do
+      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
       {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
       {:error, reason} -> {:error, reason}
     end
@@ -363,17 +403,19 @@ defmodule Ema.MCP.Tools do
     with {:ok, query} <- require_string(args, "query"),
          limit = min(Map.get(args, "limit", 5), 20),
          {:ok, %{status: status, body: body}} when status in 200..299 <-
-           get("/api/vectors/search?query=#{URI.encode(query)}&limit=#{limit}") do
+           get("/api/vectors/query?q=#{URI.encode(query)}&k=#{limit}") do
       duration = System.monotonic_time(:millisecond) - start_time
       log_mcp_call("query_vault", request_id, :success, duration)
+
+      results = body["results"] || []
 
       {:ok,
        %{
          query: query,
          limit: limit,
-         results: format_vault_results(body),
-         total: length(List.wrap(body)),
-         message: "Found #{length(List.wrap(body))} vault matches."
+         results: format_vault_results(results),
+         total: length(results),
+         message: "Found #{length(results)} vault matches."
        }}
     else
       {:error, reason} ->

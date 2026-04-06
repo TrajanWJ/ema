@@ -1,6 +1,8 @@
 defmodule Mix.Tasks.Ema.Mcp.Stdio do
   use Mix.Task
 
+  @compiled_endpoint_config Application.compile_env(:ema, EmaWeb.Endpoint, [])
+
   @shortdoc "Run EMA MCP server over clean stdio"
 
   @moduledoc """
@@ -18,6 +20,14 @@ defmodule Mix.Tasks.Ema.Mcp.Stdio do
     System.put_env("EMA_MCP_STDIO", "1")
 
     Mix.Task.run("app.config")
+
+    endpoint_cfg =
+      :ema
+      |> Application.get_env(EmaWeb.Endpoint, [])
+      |> Keyword.merge(@compiled_endpoint_config)
+      |> Keyword.put(:code_reloader, false)
+
+    Application.put_env(:ema, EmaWeb.Endpoint, endpoint_cfg)
 
     try do
       :logger.remove_handler(:default)

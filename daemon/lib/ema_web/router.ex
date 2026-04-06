@@ -34,6 +34,11 @@ defmodule EmaWeb.Router do
     patch("/brain-dump/items/:id/process", BrainDumpController, :process)
     delete("/brain-dump/items/:id", BrainDumpController, :delete)
 
+    # Onboarding / bootstrap
+    get("/onboarding/status", OnboardingController, :status)
+    get("/onboarding/readiness", OnboardingController, :readiness)
+    post("/onboarding/run", OnboardingController, :run)
+
     get("/habits", HabitsController, :index)
     post("/habits", HabitsController, :create)
     get("/habits/today", HabitsController, :today_logs)
@@ -311,6 +316,7 @@ defmodule EmaWeb.Router do
     resources("/spaces", SpaceController, except: [:new, :edit, :update, :delete])
 
     # Focus — timer-driven sessions
+    get("/focus", FocusController, :current)
     get("/focus/current", FocusController, :current)
     get("/focus/today", FocusController, :today)
     get("/focus/weekly", FocusController, :weekly)
@@ -398,7 +404,7 @@ defmodule EmaWeb.Router do
     get("/tokens/budget", TokenController, :budget)
     put("/tokens/budget", TokenController, :set_budget)
 
-    # Intent Map
+    # Intent Map (legacy)
     get("/intent/nodes", IntentController, :index)
     get("/intent/tree/:project_id", IntentController, :tree)
     get("/intent/export/:project_id", IntentController, :export)
@@ -406,6 +412,12 @@ defmodule EmaWeb.Router do
     get("/intent/nodes/:id", IntentController, :show)
     put("/intent/nodes/:id", IntentController, :update)
     delete("/intent/nodes/:id", IntentController, :delete)
+
+    # Intents (Intent Engine) — specific routes before resources
+    get("/intents/tree", IntentsController, :tree)
+    get("/intents/:id/tree", IntentsController, :tree)
+    get("/intents/:id/lineage", IntentsController, :lineage)
+    resources("/intents", IntentsController, except: [:new, :edit])
 
     # Gap Inbox
     get("/gaps", GapController, :index)

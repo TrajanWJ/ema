@@ -1,6 +1,20 @@
 defmodule Ema.Executions.IntentFolder do
   @moduledoc "Manages .superman/intents/<slug>/ lifecycle."
 
+  def default_status(slug) do
+    %{
+      slug: slug,
+      status: "idle",
+      phase: 1,
+      clarity: 0,
+      energy: 0,
+      latest_execution_id: nil,
+      open_questions: [],
+      completion_pct: 0,
+      last_updated: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+  end
+
   def slugify(text) do
     text
     |> String.downcase()
@@ -13,9 +27,11 @@ defmodule Ema.Executions.IntentFolder do
 
   def create(project_path, slug, content) do
     dir = Path.join([project_path, ".superman", "intents", slug])
+    status = default_status(slug) |> Jason.encode!(pretty: true)
 
     with :ok <- File.mkdir_p(dir),
-         :ok <- File.write(Path.join(dir, "intent.md"), "# Intent\n\n#{content}\n") do
+         :ok <- File.write(Path.join(dir, "intent.md"), "# Intent\n\n#{content}\n"),
+         :ok <- File.write(Path.join(dir, "status.json"), status <> "\n") do
       :ok
     end
   end

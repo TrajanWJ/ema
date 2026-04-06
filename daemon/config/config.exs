@@ -12,6 +12,8 @@ config :ema,
   generators: [timestamp_type: :utc_datetime],
   # AI backend: :runner (legacy Claude CLI) or :bridge (multi-backend router)
   ai_backend: :bridge,
+  # Manual by default during active construction to avoid SQLite contention on boot.
+  start_startup_bootstrap: false,
   proposal_engine: [enabled: true],
   # Seed preflight quality gate: :observe | :enrich_only | :enforce
   seed_preflight: [mode: :enrich_only, minimum_score: 15, duplicate_similarity_threshold: 0.6],

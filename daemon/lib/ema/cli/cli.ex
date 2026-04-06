@@ -14,6 +14,11 @@ defmodule Ema.CLI do
   @actor_dispatch_switches [json: :boolean, host: :string, actor: :string, space: :string, project: :string, task: :string]
   @actor_dispatch_aliases [j: :json, H: :host, a: :actor, s: :space, p: :project, t: :task]
 
+  def main(["mcp-serve" | _]) do
+    {:ok, _} = Application.ensure_all_started(:req)
+    Ema.CLI.Commands.McpServe.handle([], %{}, nil, %{})
+  end
+
   def main(args) do
     {:ok, _} = Application.ensure_all_started(:req)
 

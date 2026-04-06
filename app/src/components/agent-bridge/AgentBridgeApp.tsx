@@ -1,6 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { api } from "@/lib/api";
+import { useProjectsStore } from "@/stores/projects-store";
+import { ProjectPicker } from "@/components/claude-bridge/ProjectPicker";
+import type { Project } from "@/types/projects";
+import type { Execution } from "@/types/executions";
 
 interface Session {
   id: string;
@@ -18,6 +22,7 @@ export function AgentBridgeApp() {
   const [result, setResult] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   const loadSessions = () => {
     setLoading(true);
@@ -27,16 +32,26 @@ export function AgentBridgeApp() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadSessions(); }, []);
+  useEffect(() => {
+    loadSessions();
+    useProjectsStore.getState().loadViaRest().catch(() => {});
+  }, []);
 
   const dispatch = (e: FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
     setDispatching(true);
     setResult(null);
-    api.post<{ id: string }>("/executions", { title: prompt.trim(), mode: "implement" })
-      .then((res) => {
-        setResult(`Dispatched execution ${res.id}`);
+    api.post<{ execution: Execution }>("/executions", {
+      title: prompt.trim(),
+      objective: prompt.trim(),
+      mode: "implement",
+      requires_approval: false,
+      project_slug: selectedProject?.slug ?? undefined,
+    })
+      .then(({ execution }) => {
+        const projectLabel = selectedProject ? ` for ${selectedProject.name}` : "";
+        setResult(`Dispatched execution ${execution.id}${projectLabel}`);
         setPrompt("");
       })
       .catch((err: unknown) => setResult(`Error: ${err instanceof Error ? err.message : String(err)}`))
@@ -65,6 +80,10 @@ export function AgentBridgeApp() {
                 background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.87)", fontSize: 13,
                 fontFamily: "system-ui", resize: "vertical",
               }}
+            />
+            <ProjectPicker
+              selectedId={selectedProject?.id ?? null}
+              onSelect={setSelectedProject}
             />
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <select

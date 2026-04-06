@@ -23,7 +23,6 @@ defmodule Ema.Application do
         {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Ema.PubSub},
         # Babysitter — system observability and Discord stream-of-consciousness
-        Ema.Babysitter.Supervisor,
         # Feedback layer — Discord delivery consumers + EMA internal visibility
         Ema.Feedback.Supervisor,
         # Agent process registry and supervisor
@@ -46,6 +45,7 @@ defmodule Ema.Application do
         # Intelligence — token tracking, trust scoring, VM monitoring, cost forecasting
         Ema.Intelligence.TokenTracker,
         Ema.Executions.Dispatcher,
+        Ema.Intents.Populator,
         Ema.Intelligence.TrustScorer,
         Ema.Intelligence.VmMonitor,
         Ema.Intelligence.CostForecaster,
@@ -64,6 +64,7 @@ defmodule Ema.Application do
         {Registry, keys: :unique, name: Ema.CliManager.Registry},
         {DynamicSupervisor, name: Ema.CliManager.RunnerSupervisor, strategy: :one_for_one}
       ] ++
+        maybe_start_babysitter() ++
         maybe_start_session_store() ++
         maybe_start_campaign_manager() ++
         maybe_start_quality() ++
@@ -82,6 +83,7 @@ defmodule Ema.Application do
         maybe_start_voice() ++
         maybe_start_git_watcher() ++
         maybe_start_harvesters() ++
+        maybe_start_intention_farmer() ++
         maybe_start_temporal() ++
         maybe_start_mcp() ++
         [
@@ -113,6 +115,8 @@ defmodule Ema.Application do
             Process.sleep(200)
             Ema.Agents.Supervisor.start_active_agents()
           end)
+
+          maybe_run_startup_bootstrap()
         end
 
       _ ->
@@ -152,6 +156,14 @@ defmodule Ema.Application do
       [Ema.Persistence.SessionStore]
     else
       []
+    end
+  end
+
+  defp maybe_start_babysitter do
+    if System.get_env("EMA_MCP_STDIO") in ["1", "true", "TRUE"] do
+      []
+    else
+      [Ema.Babysitter.Supervisor]
     end
   end
 
@@ -270,6 +282,14 @@ defmodule Ema.Application do
     end
   end
 
+  defp maybe_start_intention_farmer do
+    if Application.get_env(:ema, :start_intention_farmer, true) do
+      [Ema.IntentionFarmer.Supervisor]
+    else
+      []
+    end
+  end
+
   defp maybe_start_temporal do
     if Application.get_env(:ema, :start_temporal, true) do
       [Ema.Temporal.Engine]
@@ -309,6 +329,13 @@ defmodule Ema.Application do
       [Ema.MCP.Server]
     else
       []
+    end
+  end
+
+  defp maybe_run_startup_bootstrap do
+    if Application.get_env(:ema, :start_startup_bootstrap, true) and
+         System.get_env("EMA_MCP_STDIO") not in ["1", "true", "TRUE"] do
+      Ema.IntentionFarmer.StartupBootstrap.run_async()
     end
   end
 end

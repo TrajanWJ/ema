@@ -1,0 +1,68 @@
+#!/bin/bash
+# EMA MCP Server — native Elixir stdio server for Claude Code
+# Proxies JSON-RPC 2.0 over stdio to the running EMA daemon via HTTP.
+#
+# The daemon must be running at localhost:4488. This script adds the
+# session orchestration tools that the Node.js bridge also provides,
+# but with zero Node.js dependency.
+#
+# Usage in ~/.claude/settings.json:
+#   "ema": { "command": "/home/trajan/Projects/ema/daemon/bin/ema-mcp" }
+
+cd "$(dirname "$0")/.." || exit 1
+
+export EMA_MCP_STDIO=true
+export MIX_ENV=dev
+
+show_help() {
+  cat <<'EOF'
+EMA MCP launcher
+
+Usage:
+  ema-mcp [--help] [--version] [--doctor]
+
+Behavior:
+  With no flags, starts the EMA MCP stdio server.
+  This process is meant to be launched by Claude Code or another MCP client.
+
+Flags:
+  --help      Show this help
+  --version   Show launcher version
+  --doctor    Print launcher and daemon wiring info
+
+Claude config snippet:
+{
+  "mcpServers": {
+    "ema": {
+      "command": "/home/trajan/Projects/ema/daemon/bin/ema-mcp",
+      "cwd": "/home/trajan/Projects/ema/daemon"
+    }
+  }
+}
+EOF
+}
+
+case "${1:-}" in
+  -h|--help|help)
+    show_help
+    exit 0
+    ;;
+  --version|version)
+    echo "ema-mcp 2.0.0"
+    exit 0
+    ;;
+  --doctor|doctor)
+    echo "launcher: $(pwd)/bin/ema-mcp"
+    echo "daemon-escript: $(pwd)/ema"
+    if [ -x "./ema" ]; then
+      echo "escript: ok"
+    else
+      echo "escript: missing"
+    fi
+    echo "daemon-api: ${EMA_HOST:-http://localhost:4488}"
+    exit 0
+    ;;
+esac
+
+# Use the escript which doesn't compete for stdio with mix.
+exec ./ema mcp-serve 2>/dev/null

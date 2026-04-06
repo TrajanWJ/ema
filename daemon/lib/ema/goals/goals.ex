@@ -73,6 +73,9 @@ defmodule Ema.Goals do
     |> Goal.changeset(Map.put(attrs, :id, id))
     |> Repo.insert()
     |> tap_broadcast(:goal_created)
+    |> tap_ok(fn goal ->
+      Phoenix.PubSub.broadcast(Ema.PubSub, "goals", {:goals, :created, goal})
+    end)
   end
 
   def update_goal(id, attrs) do
@@ -133,6 +136,12 @@ defmodule Ema.Goals do
         error
     end
   end
+
+  defp tap_ok({:ok, record} = result, fun) do
+    fun.(record)
+    result
+  end
+  defp tap_ok(error, _fun), do: error
 
   defp generate_id(prefix) do
     timestamp = System.system_time(:millisecond) |> Integer.to_string()

@@ -1,0 +1,105 @@
+<h2>Intent Engine — Unified Schema</h2>
+<p class="subtitle">6-level hierarchy with full lifecycle tracking</p>
+
+<div class="section">
+  <h3>intents table</h3>
+  <div class="mockup">
+    <div class="mockup-header">Ecto Schema: Ema.Intents.Intent</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+      <div style="color: #9ca3af;">── Identity ──</div>
+      <div><span style="color: #60a5fa;">id</span>          string  "int_&lt;ts&gt;_&lt;rand&gt;"</div>
+      <div><span style="color: #60a5fa;">title</span>       string  required</div>
+      <div><span style="color: #60a5fa;">description</span>  text    optional</div>
+      <div><span style="color: #60a5fa;">slug</span>        string  unique, auto-generated</div>
+      <br/>
+      <div style="color: #9ca3af;">── Hierarchy ──</div>
+      <div><span style="color: #fbbf24;">level</span>       integer 0-5</div>
+      <div style="padding-left: 20px; color: #9ca3af;">0=vision  1=goal  2=project  3=feature  4=task  5=execution</div>
+      <div><span style="color: #fbbf24;">kind</span>        string  enum</div>
+      <div style="padding-left: 20px; color: #9ca3af;">goal | question | task | exploration | fix | audit | system</div>
+      <div><span style="color: #fbbf24;">parent_id</span>   FK → intents (self-ref)</div>
+      <br/>
+      <div style="color: #9ca3af;">── Lifecycle ──</div>
+      <div><span style="color: #34d399;">status</span>      string  enum</div>
+      <div style="padding-left: 20px; color: #9ca3af;">planned | active | researched | outlined | implementing | complete | blocked | archived</div>
+      <div><span style="color: #34d399;">phase</span>       integer 1-5 (research→harvest)</div>
+      <div><span style="color: #34d399;">clarity</span>     float   0.0-1.0</div>
+      <div><span style="color: #34d399;">energy</span>      float   0.0-1.0</div>
+      <div><span style="color: #34d399;">completion_pct</span> integer 0-100</div>
+      <br/>
+      <div style="color: #9ca3af;">── Linkage (all optional) ──</div>
+      <div><span style="color: #f472b6;">project_id</span>           FK → projects</div>
+      <div><span style="color: #f472b6;">goal_id</span>              FK → goals</div>
+      <div><span style="color: #f472b6;">task_id</span>              FK → tasks</div>
+      <div><span style="color: #f472b6;">proposal_id</span>          FK → proposals</div>
+      <div><span style="color: #f472b6;">execution_id</span>         FK → executions</div>
+      <div><span style="color: #f472b6;">brain_dump_item_id</span>   FK → inbox_items</div>
+      <div><span style="color: #f472b6;">harvested_intent_id</span>  FK → harvested_intents</div>
+      <div><span style="color: #f472b6;">session_id</span>           FK → claude_sessions</div>
+      <br/>
+      <div style="color: #9ca3af;">── Content ──</div>
+      <div><span style="color: #c084fc;">wiki_path</span>          string  vault note path</div>
+      <div><span style="color: #c084fc;">intent_folder_path</span> string  .superman/intents/&lt;slug&gt;</div>
+      <div><span style="color: #c084fc;">embedding</span>          binary  vector (optional)</div>
+      <div><span style="color: #c084fc;">tags</span>               text    JSON array</div>
+      <div><span style="color: #c084fc;">metadata</span>           text    JSON map</div>
+      <div><span style="color: #c084fc;">source_fingerprint</span> string  unique (dedup)</div>
+      <br/>
+      <div style="color: #9ca3af;">── Timestamps ──</div>
+      <div>inserted_at, updated_at</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>intent_edges table</h3>
+  <div class="mockup">
+    <div class="mockup-header">Ecto Schema: Ema.Intents.IntentEdge</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+      <div><span style="color: #60a5fa;">id</span>          string</div>
+      <div><span style="color: #60a5fa;">source_id</span>   FK → intents (cascade)</div>
+      <div><span style="color: #60a5fa;">target_id</span>   FK → intents (cascade)</div>
+      <div><span style="color: #60a5fa;">edge_type</span>   string  enum</div>
+      <div style="padding-left: 20px; color: #9ca3af;">hierarchy | depends-on | blocks | enables | supersedes</div>
+      <div style="padding-left: 20px; color: #9ca3af;">implements | related-to | part-of | contradicts</div>
+      <div><span style="color: #60a5fa;">weight</span>      float   0.0-1.0 (ranked relationships)</div>
+      <div>inserted_at, updated_at</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Population Sources → intents</h3>
+  <div class="mockup">
+    <div class="mockup-header">Auto-Population Pipeline (PubSub Subscribers)</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8;">
+      <div style="color: #fbbf24;">brain_dump:item_created</div>
+      <div>  → create intent (level: 4-5, kind: from content classification)</div>
+      <div>  → create IntentFolder on disk</div>
+      <div>  → create execution (auto-dispatch)</div>
+      <br/>
+      <div style="color: #fbbf24;">proposals:approved</div>
+      <div>  → create intent (level: 2-3, kind: task)</div>
+      <div>  → link to proposal_id</div>
+      <div>  → link parent intent if cluster has intent_node_id</div>
+      <br/>
+      <div style="color: #fbbf24;">executions:completed</div>
+      <div>  → update linked intent: phase++, completion_pct, status</div>
+      <div>  → write to IntentFolder status.json</div>
+      <div>  → propagate status up to parent (Superman pattern)</div>
+      <br/>
+      <div style="color: #fbbf24;">intention_farmer:intent_loaded</div>
+      <div>  → create intent (level: 4-5, kind: from harvested type)</div>
+      <div>  → link to harvested_intent_id + session_id</div>
+      <div>  → check for cluster merge (embedding similarity)</div>
+      <br/>
+      <div style="color: #fbbf24;">goals:created / goals:updated</div>
+      <div>  → create/update intent (level: 1, kind: goal)</div>
+      <div>  → link to goal_id</div>
+      <br/>
+      <div style="color: #fbbf24;">intents:status_changed (self-referential)</div>
+      <div>  → reflexive capture: emit pipe event</div>
+      <div>  → update wiki_path note if vault convergence active</div>
+    </div>
+  </div>
+</div>

@@ -45,8 +45,10 @@ defmodule Ema.Executions do
 
   def create(attrs) do
     id = generate_id()
-    # Normalize to string keys so Ecto changeset doesn't get mixed atom/string maps
-    attrs = attrs |> Map.new(fn {k, v} -> {to_string(k), v} end) |> Map.put("id", id)
+    attrs =
+      attrs
+      |> normalize_create_attrs()
+      |> Map.put("id", id)
 
     %Execution{}
     |> Execution.changeset(attrs)
@@ -165,6 +167,7 @@ defmodule Ema.Executions do
         |> tap_ok(fn updated ->
           record_event(updated.id, "completed", %{signal: signal})
           broadcast("execution:completed", %{execution: updated, signal: signal})
+          Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
           patch_intent_file(updated, result_summary)
         end)
     end
@@ -191,6 +194,7 @@ defmodule Ema.Executions do
         |> tap_ok(fn updated ->
           record_event(updated.id, "completed", %{signal: signal, result_path: result_path})
           broadcast("execution:completed", %{execution: updated, signal: signal})
+          Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
           patch_intent_file(updated, result_summary)
           Ema.Intelligence.ReflectionLoop.reflect_async(updated.id, result_summary)
         end)
@@ -327,6 +331,97 @@ defmodule Ema.Executions do
   defp generate_id do
     :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
   end
+
+  defp normalize_create_attrs(attrs) do
+    attrs =
+      attrs
+      |> Map.new(fn {k, v} -> {to_string(k), v} end)
+      |> maybe_put_project_slug()
+      |> maybe_put_intent_anchor()
+
+    maybe_create_intent_folder(attrs)
+    attrs
+  end
+
+  defp maybe_put_project_slug(%{"project_slug" => slug} = attrs) when is_binary(slug) and slug != "",
+    do: attrs
+
+  defp maybe_put_project_slug(%{"project_id" => project_id} = attrs)
+       when is_binary(project_id) and project_id != "" do
+    case Ema.Projects.get_project(project_id) do
+      nil -> attrs
+      project -> Map.put(attrs, "project_slug", project.slug)
+    end
+  end
+
+  defp maybe_put_project_slug(attrs), do: attrs
+
+  defp maybe_put_intent_anchor(%{"intent_slug" => slug, "intent_path" => path} = attrs)
+       when is_binary(slug) and slug != "" and is_binary(path) and path != "" do
+    attrs
+  end
+
+  defp maybe_put_intent_anchor(attrs) do
+    objective =
+      attrs["objective"] ||
+        attrs["title"] ||
+        "execution"
+
+    slug =
+      attrs["intent_slug"]
+      |> case do
+        value when is_binary(value) and value != "" -> value
+        _ -> Ema.Executions.IntentFolder.slugify(objective)
+      end
+
+    intent_path = attrs["intent_path"] || ".superman/intents/#{slug}"
+
+    attrs
+    |> Map.put("intent_slug", slug)
+    |> Map.put("intent_path", intent_path)
+  end
+
+  defp maybe_create_intent_folder(%{"intent_slug" => slug} = attrs) do
+    content =
+      attrs["objective"] ||
+        attrs["title"] ||
+        slug
+
+    attrs
+    |> resolve_project_path_from_attrs()
+    |> case do
+      nil ->
+        :ok
+
+      project_path ->
+        if Ema.Executions.IntentFolder.exists?(project_path, slug) do
+          :ok
+        else
+          case Ema.Executions.IntentFolder.create(project_path, slug, content) do
+            :ok ->
+              :ok
+
+            {:error, reason} ->
+              Logger.warning("[Executions] IntentFolder create failed for #{slug}: #{inspect(reason)}")
+          end
+        end
+    end
+  end
+
+  defp resolve_project_path_from_attrs(%{"project_slug" => slug})
+       when is_binary(slug) and slug != "" do
+    resolve_project_path(slug) || File.cwd!()
+  end
+
+  defp resolve_project_path_from_attrs(%{"project_id" => project_id})
+       when is_binary(project_id) and project_id != "" do
+    case Ema.Projects.get_project(project_id) do
+      nil -> File.cwd!()
+      project -> project.linked_path || File.cwd!()
+    end
+  end
+
+  defp resolve_project_path_from_attrs(_attrs), do: File.cwd!()
 
   defp tap_ok({:ok, val} = result, fun) do
     fun.(val)
@@ -498,9 +593,15 @@ defmodule Ema.Executions do
   defp resolve_project_path(nil), do: nil
 
   defp resolve_project_path(slug) do
-    case Ema.Projects.get_project(slug) do
-      nil -> nil
-      project -> project.path
+    case Ema.Projects.get_project_by_slug(slug) do
+      nil ->
+        case Ema.Projects.get_project(slug) do
+          nil -> nil
+          project -> project.linked_path
+        end
+
+      project ->
+        project.linked_path
     end
   end
 end

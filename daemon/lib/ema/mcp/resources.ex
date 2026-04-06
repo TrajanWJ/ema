@@ -44,6 +44,18 @@ defmodule Ema.MCP.Resources do
         "mimeType" => "application/json"
       },
       %{
+        "uri" => "ema://bootstrap/status",
+        "name" => "Bootstrap Status",
+        "description" => "Onboarding, provider, CLI tool, and active-use readiness for EMA.",
+        "mimeType" => "application/json"
+      },
+      %{
+        "uri" => "ema://focus/current",
+        "name" => "Current Focus State",
+        "description" => "Current focus session and timer state.",
+        "mimeType" => "application/json"
+      },
+      %{
         "uri" => "ema://vault/search",
         "name" => "Vault Search",
         "description" => "Semantic search over the EMA knowledge vault. Add ?q=your+query to the URI.",
@@ -84,11 +96,19 @@ defmodule Ema.MCP.Resources do
     fetch_resource("/api/proposals?status=approved&limit=5&order=desc", "proposals/recent")
   end
 
+  def read("ema://bootstrap/status") do
+    fetch_resource("/api/onboarding/status", "bootstrap/status")
+  end
+
+  def read("ema://focus/current") do
+    fetch_resource("/api/focus", "focus/current")
+  end
+
   def read("ema://vault/search" <> query_string) do
     query = parse_query_param(query_string, "q")
 
     if query && query != "" do
-      fetch_resource("/api/vectors/search?query=#{URI.encode(query)}&limit=5", "vault/search")
+      fetch_resource("/api/vectors/query?q=#{URI.encode(query)}&k=5", "vault/search")
     else
       degraded_response("vault/search", "Query parameter 'q' is required. Use ema://vault/search?q=your+query")
     end

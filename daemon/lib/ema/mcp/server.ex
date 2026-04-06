@@ -51,6 +51,7 @@ defmodule Ema.MCP.Server do
   """
   def run_stdio do
     quiet_stdio_logging()
+    trace("run_stdio:start")
     {:ok, _} = start_link([])
     # Block forever; the GenServer owns stdio
     Process.sleep(:infinity)
@@ -83,7 +84,12 @@ defmodule Ema.MCP.Server do
         {:line, 1_048_576}
       ])
 
-    Logger.info("[MCP] Server started, listening on stdio")
+    trace("init:port_opened")
+
+    # Don't log to stdout — it corrupts the MCP protocol
+    unless System.get_env("EMA_MCP_STDIO") do
+      Logger.info("[MCP] Server started, listening on stdio")
+    end
 
     state = %{
       port: port,
@@ -98,12 +104,14 @@ defmodule Ema.MCP.Server do
 
   @impl true
   def handle_info({port, {:data, {:eol, line}}}, %{port: port} = state) do
+    trace("handle_info:eol #{inspect(String.trim(line))}")
     state = handle_raw_message(String.trim(line), state)
     {:noreply, state}
   end
 
   def handle_info({port, {:data, {:noeol, chunk}}}, %{port: port} = state) do
     # Accumulate partial line
+    trace("handle_info:noeol #{inspect(chunk)}")
     {:noreply, %{state | buffer: state.buffer <> chunk}}
   end
 
@@ -160,6 +168,7 @@ defmodule Ema.MCP.Server do
   defp handle_rpc(id, "initialize", params, state) do
     client_info = Map.get(params, "clientInfo", %{})
     Logger.info("[MCP] Client connected: #{inspect(client_info)}")
+    trace("rpc:initialize #{inspect(client_info)}")
 
     response = %{
       "protocolVersion" => "2024-11-05",
@@ -172,6 +181,7 @@ defmodule Ema.MCP.Server do
   end
 
   defp handle_rpc(id, "resources/list", _params, state) do
+    trace("rpc:resources/list")
     resources = Resources.list()
     send_result(state, id, %{"resources" => resources})
     state
@@ -193,6 +203,7 @@ defmodule Ema.MCP.Server do
   end
 
   defp handle_rpc(id, "tools/list", _params, state) do
+    trace("rpc:tools/list")
     tools = Tools.list() ++ SessionTools.list()
     send_result(state, id, %{"tools" => tools})
     state
@@ -291,14 +302,26 @@ defmodule Ema.MCP.Server do
   # ── Private: Wire ─────────────────────────────────────────────────────────
 
   defp send_result(state, id, result) do
+    trace("send_result #{inspect(id)}")
     Protocol.send_result(state.port, id, result)
   end
 
   defp send_error(state, id, code, message) do
+    trace("send_error #{inspect(id)} #{inspect(code)} #{inspect(message)}")
     Protocol.send_error(state.port, id, code, message)
   end
 
   defp generate_request_id do
     :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  end
+
+  defp trace(message) do
+    case System.get_env("EMA_MCP_TRACE_FILE") do
+      nil ->
+        :ok
+
+      path ->
+        File.write(path, "#{DateTime.utc_now() |> DateTime.to_iso8601()} #{message}\n", [:append])
+    end
   end
 end

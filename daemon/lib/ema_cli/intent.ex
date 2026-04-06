@@ -1,40 +1,45 @@
 defmodule EmaCli.Intent do
-  @moduledoc "CLI commands for the Intent Graph"
+  @moduledoc "CLI commands for the Intent Engine"
 
-  import EmaCli.CLI, only: [api_get: 1, format_output: 2, error: 1, warn: 1]
+  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1]
 
   def run("search", opts) do
     query = Map.get(opts, :_arg) || error("Usage: ema intent search <query>")
     project = if Map.get(opts, :project), do: "&project_id=#{opts.project}", else: ""
 
-    case api_get("/intelligence/intent_nodes?search=#{URI.encode(query)}#{project}") do
-      {:ok, %{"nodes" => nodes}} -> format_output(nodes, opts)
-      {:ok, nodes} when is_list(nodes) -> format_output(nodes, opts)
+    case api_get("/intents?search=#{URI.encode(query)}#{project}") do
+      {:ok, %{"intents" => intents}} -> format_output(intents, opts)
+      {:ok, intents} when is_list(intents) -> format_output(intents, opts)
       {:error, msg} -> warn("Intent search unavailable: #{msg}")
     end
   end
 
   def run("list", opts) do
-    params = build_params(opts, [:project, :level, :parent_id, :limit])
+    params = build_params(opts, [:project_id, :level, :status, :kind, :limit])
 
-    case api_get("/intelligence/intent_nodes#{params}") do
-      {:ok, %{"nodes" => nodes}} ->
-        format_output(nodes, opts)
+    case api_get("/intents#{params}") do
+      {:ok, %{"intents" => intents}} ->
+        format_output(intents, opts)
 
-      {:ok, nodes} when is_list(nodes) ->
-        format_output(nodes, opts)
+      {:ok, intents} when is_list(intents) ->
+        format_output(intents, opts)
 
       {:error, _} ->
-        warn("Intent nodes not available -- may need to add /api/intelligence/intent_nodes route")
+        warn("Intent list not available")
     end
   end
 
   def run("graph", opts) do
-    project_id = Map.get(opts, :project) || error("Usage: ema intent graph --project=<id>")
+    project_id = Map.get(opts, :project) || Map.get(opts, :project_id)
 
-    case api_get("/intelligence/intent_nodes/tree?project_id=#{project_id}") do
-      {:ok, tree} when is_list(tree) -> print_ascii_tree(tree, 0)
+    path =
+      if project_id,
+        do: "/intents/tree?project_id=#{project_id}",
+        else: "/intents/tree"
+
+    case api_get(path) do
       {:ok, %{"tree" => tree}} -> print_ascii_tree(tree, 0)
+      {:ok, tree} when is_list(tree) -> print_ascii_tree(tree, 0)
       {:error, _} -> warn("Intent tree not available")
     end
   end
@@ -42,14 +47,33 @@ defmodule EmaCli.Intent do
   def run("trace", opts) do
     id = Map.get(opts, :_arg) || error("Usage: ema intent trace <node-id>")
 
-    case api_get("/intelligence/intent_nodes/#{id}") do
+    case api_get("/intents/#{id}") do
+      {:ok, %{"intent" => intent}} -> format_output([intent], opts)
       {:ok, node} when is_map(node) -> format_output([node], opts)
-      {:error, msg} -> warn("Node not found: #{msg}")
+      {:error, msg} -> warn("Intent not found: #{msg}")
+    end
+  end
+
+  def run("create", opts) do
+    title = Map.get(opts, :_arg) || error("Usage: ema intent create <title>")
+
+    body = %{
+      title: title,
+      project_id: Map.get(opts, :project) || Map.get(opts, :project_id),
+      level: Map.get(opts, :level, 4),
+      kind: Map.get(opts, :kind, "task"),
+      description: Map.get(opts, :description),
+      parent_id: Map.get(opts, :parent_id)
+    }
+
+    case api_post("/intents", body) do
+      {:ok, intent} -> format_output([intent], opts)
+      {:error, msg} -> warn("Failed to create intent: #{msg}")
     end
   end
 
   def run(unknown, _),
-    do: error("Unknown intent subcommand: #{unknown}. Try: search, list, graph, trace")
+    do: error("Unknown intent subcommand: #{unknown}. Try: search, list, graph, trace, create")
 
   defp print_ascii_tree([], _depth), do: :ok
 

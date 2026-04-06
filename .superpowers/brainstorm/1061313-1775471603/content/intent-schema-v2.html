@@ -1,0 +1,276 @@
+<h2>Intent Engine — Cross-Pollinated Architecture</h2>
+<p class="subtitle">Synthesized from Superman IDE, OpenClaw, Life OS, Obsidian vault patterns, 14 GitHub repos, and 3-system analysis</p>
+
+<div class="section">
+  <h3>Design Lineage</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+    <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #818cf8; font-weight: 600; margin-bottom: 4px;">Superman IDE</div>
+      <div style="color: #9ca3af;">IntentGraph 5-level hierarchy, status propagation (children→parent), zoom levels, auto-intent from structural analysis, flow-first graph construction, gap engine, focus engine priority scoring</div>
+    </div>
+    <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #f59e0b; font-weight: 600; margin-bottom: 4px;">OpenClaw Dispatch</div>
+      <div style="color: #9ca3af;">Agent fitness scoring, outcome journal (what_worked/what_failed), workflow crystallization (5+ at 70%+ → bake in), circuit breakers per agent-task-type, P0-P4 priority queue</div>
+    </div>
+    <div style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #10b981; font-weight: 600; margin-bottom: 4px;">Life OS / Vault Patterns</div>
+      <div style="color: #9ca3af;">Multi-space federation, shadow notes, graduated autonomy zones, 3-instance rule for schema evolution, archive-never-delete, consolidation cycles (daily/weekly/monthly)</div>
+    </div>
+    <div style="background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #ec4899; font-weight: 600; margin-bottom: 4px;">Agentic Patterns Research</div>
+      <div style="color: #9ca3af;">Spec-driven development, tiered autonomy (HITL/HOTL/HOOTL), 5-layer memory (working→short→long→episodic→semantic), task sizing to 2hr units, multi-agent validation</div>
+    </div>
+    <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #8b5cf6; font-weight: 600; margin-bottom: 4px;">Open Source Repos</div>
+      <div style="color: #9ca3af;">obra/knowledge-graph (MCP+SQLite+vectors), semiont (W3C annotations), marktion (inline AI), gollum (git-backed wiki), codebase-to-course (interactive HTML courses)</div>
+    </div>
+    <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 12px;">
+      <div style="color: #3b82f6; font-weight: 600; margin-bottom: 4px;">EMA Intelligence Layer</div>
+      <div style="color: #9ca3af;">Router (classify→enrich→route), ContextInjector (6 sources), BridgeDispatch (async+retry), 5-stage pipeline (intake→enrich→bridge→gate→iterate), tiered hybrid agents</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Unified Intent Schema (v2 — enriched)</h3>
+  <div class="mockup">
+    <div class="mockup-header">intents table — 6 levels, full lifecycle, outcome tracking</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+      <div style="color: #60a5fa; font-weight: bold;">── Identity ──</div>
+      <div>id              string   "int_&lt;ts&gt;_&lt;rand&gt;"</div>
+      <div>title           string   required</div>
+      <div>description     text     optional</div>
+      <div>slug            string   unique, auto-generated</div>
+      <div>source_fingerprint string unique (dedup across all ingest paths)</div>
+      <br/>
+      <div style="color: #fbbf24; font-weight: bold;">── Hierarchy ──</div>
+      <div>level           integer  0-5</div>
+      <div style="color:#9ca3af; padding-left:16px;">0=vision 1=goal 2=project 3=feature 4=task 5=execution</div>
+      <div>kind            string   goal|question|task|exploration|fix|audit|system</div>
+      <div>parent_id       FK → intents (self-ref, cascade)</div>
+      <div>children_count  integer  cached counter (for tree rendering)</div>
+      <br/>
+      <div style="color: #34d399; font-weight: bold;">── Lifecycle (from Superman + Execution Router) ──</div>
+      <div>status          string   planned|active|researched|outlined|implementing|complete|blocked|archived</div>
+      <div>phase           integer  1-5 (research→outline→implement→review→harvest)</div>
+      <div>clarity         float    0.0-1.0 (from IntentFolder)</div>
+      <div>energy          float    0.0-1.0 (from IntentFolder)</div>
+      <div>completion_pct  integer  0-100 (computed from child status propagation)</div>
+      <div style="color:#9ca3af; padding-left:16px;">↑ Superman pattern: all children complete → 100%, some → proportional, none → 0%</div>
+      <br/>
+      <div style="color: #f472b6; font-weight: bold;">── Outcome Tracking (from OpenClaw) ──</div>
+      <div>priority        integer  0-4 (P0=bypass, P1=&lt;1min... P4=idle)</div>
+      <div>fitness_score   float    0.0-1.0 (success rate of executions on this intent)</div>
+      <div>what_worked     text     JSON array (outcome journal)</div>
+      <div>what_failed     text     JSON array (outcome journal)</div>
+      <div>retry_count     integer  default 0 (circuit breaker tracking)</div>
+      <br/>
+      <div style="color: #c084fc; font-weight: bold;">── Linkage ──</div>
+      <div>project_id      FK → projects</div>
+      <div>goal_id         FK → goals</div>
+      <div>task_id         FK → tasks</div>
+      <div>proposal_id     FK → proposals</div>
+      <div>execution_id    FK → executions</div>
+      <div>brain_dump_item_id FK → inbox_items</div>
+      <div>harvested_intent_id FK → harvested_intents</div>
+      <div>session_id      FK → claude_sessions</div>
+      <br/>
+      <div style="color: #fb923c; font-weight: bold;">── Content + Context ──</div>
+      <div>wiki_path       string   vault note path</div>
+      <div>intent_folder_path string .superman/intents/&lt;slug&gt;</div>
+      <div>embedding       binary   vector (for clustering + similarity)</div>
+      <div>tags            text     JSON array</div>
+      <div>metadata        text     JSON map (extensible)</div>
+      <div>linked_code     text     JSON array of code node IDs (from Superman)</div>
+      <br/>
+      <div style="color: #22d3ee; font-weight: bold;">─�� Autonomy (from Agentic Patterns) ──</div>
+      <div>autonomy_level  string   full|supervised|gated (HITL/HOTL/HOOTL)</div>
+      <div>agent_role      string   who handles this (architect|implementer|researcher...)</div>
+      <div>estimated_hours float    task sizing (2hr sweet spot for agents)</div>
+      <br/>
+      <div style="color: #9ca3af;">inserted_at, updated_at</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Intent Edges (enriched)</h3>
+  <div class="mockup">
+    <div class="mockup-header">intent_edges — typed, weighted, matching GraphBuilder vocabulary</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+      <div>id          string</div>
+      <div>source_id   FK → intents (cascade)</div>
+      <div>target_id   FK → intents (cascade)</div>
+      <div>edge_type   string</div>
+      <div style="color:#9ca3af; padding-left:16px;">hierarchy | depends-on | blocks | enables | supersedes</div>
+      <div style="color:#9ca3af; padding-left:16px;">implements | related-to | part-of | contradicts</div>
+      <div style="color:#9ca3af; padding-left:16px;">crystallized-from (OpenClaw workflow crystallization)</div>
+      <div style="color:#9ca3af; padding-left:16px;">shadow-of (Life OS shadow notes)</div>
+      <div>weight      float  0.0-1.0</div>
+      <div>context     text   line/paragraph where link was found</div>
+      <div>inserted_at, updated_at</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Population Pipeline (6 sources + 2 new)</h3>
+  <div class="mockup">
+    <div class="mockup-header">PubSub Subscribers + Reflexive Capture</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+<span style="color:#60a5fa;">EXISTING SOURCES:</span>
+<span style="color:#fbbf24;">brain_dump:item_created</span>    → intent (level 4-5, auto-dispatch)
+<span style="color:#fbbf24;">proposals:approved</span>         → intent (level 2-3, link proposal)
+<span style="color:#fbbf24;">executions:completed</span>       → update intent phase, propagate status up
+<span style="color:#fbbf24;">intention_farmer:loaded</span>    → intent (level 4-5, link session)
+<span style="color:#fbbf24;">goals:created</span>              → intent (level 1, link goal)
+<span style="color:#fbbf24;">tasks:created</span>              → intent (level 4, link task)
+
+<span style="color:#60a5fa;">NEW SOURCES (from cross-pollination):</span>
+<span style="color:#34d399;">structural_analysis</span>        → Superman auto-intent-generator
+  Parses codebase → detects flows → gaps → creates system-level intents
+  Runs on project index, fills level 2-3 automatically
+
+<span style="color:#34d399;">workflow_crystallization</span>   → OpenClaw pattern detector
+  5+ successful executions at 70%+ → crystallize workflow → new intent
+  Edge type: "crystallized-from" linking child intents
+
+<span style="color:#60a5fa;">REFLEXIVE (self-referential):</span>
+<span style="color:#ec4899;">cluster_evaluator:ready</span>    → detect recurring themes in brain dumps
+  Creates parent intent grouping cluster members
+<span style="color:#ec4899;">kill_memory:pattern</span>        → detect repeatedly killed proposals
+  Creates "anti-intent" (kind: audit, status: blocked)
+<span style="color:#ec4899;">execution_failures:cluster</span> → detect failure patterns per project
+  Creates diagnostic intent (kind: fix, priority: P1)
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Vault Convergence Model</h3>
+  <div class="mockup">
+    <div class="mockup-header">Dynamic Context Assembler — 4 views from one vault</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+<span style="color:#8b5cf6;">~/.local/share/ema/vault/</span>
+├── <span style="color:#60a5fa;">wiki/</span>           ← curated knowledge (ground truth)
+│   ├── Architecture/   GraphBuilder scans for [[wikilinks]]
+│   ├── User/           Autonomy: read-only for agents
+│   ├── Projects/       Autonomy: full for agents
+│   └── _index.md       MOC (updated on every write)
+│
+├── <span style="color:#fbbf24;">intents/</span>        ← working memory (auto-populated from DB)
+│   ├── by-project/     Mirror of wiki/Projects/ structure
+│   │   └── ema/
+│   │       ├── vision.md       → [[wiki/Architecture/EMA-Overview]]
+│   │       └── intent-engine.md → [[wiki/Architecture/Intent-System]]
+│   ├── by-level/       Zoom view (vision/ goal/ project/ feature/ task/)
+│   ├── by-status/      Kanban view (active/ blocked/ complete/)
+│   └── _index.md       Auto-generated MOC
+│
+├── <span style="color:#34d399;">ground-truth/</span>   ← wiki without intents (implementation docs only)
+│   └── (filtered projection — generated from wiki/ minus intents/)
+│
+├── <span style="color:#f472b6;">system/state/</span>   ← auto-generated by SystemBrain
+│   ├── projects.md     Existing
+│   ├── proposals.md    Existing
+│   └── intents.md      NEW — live intent tree state
+│
+└── <span style="color:#9ca3af;">.superman/intents/</span>  ← execution scratchpads (existing)
+    ��── &lt;slug&gt;/
+        ├── intent.md
+        ├── status.json
+        ├── execution-log.md
+        └── result.md
+
+<span style="color:#60a5fa;">CONTEXT ASSEMBLER:</span>
+Given a query (project, level, kind, status) →
+  1. Query intents DB (filtered, sorted)
+  2. Resolve wiki_path for each → pull curated knowledge
+  3. Resolve intent_folder_path → pull execution history
+  4. Assemble into navigable view (tree, flat, kanban)
+  5. Inject linked_code if code context needed (Superman)
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Agent Ingestion — No-Config Discovery</h3>
+  <div class="mockup">
+    <div class="mockup-header">SourceRegistry (enhanced from IntentionFarmer)</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+<span style="color:#fbbf24;">CLAUDE CODE</span>
+  ~/.claude/projects/**/*.jsonl       Session files (existing)
+  ~/.claude/projects/**/CLAUDE.md     Project instructions
+  ~/.claude/CLAUDE.md                 Global instructions
+  → Parser extracts: intents, tool_calls, files_touched, model, tokens
+
+<span style="color:#34d399;">CODEX CLI</span>
+  ~/.codex/sessions/**/*.jsonl        Session files (existing)
+  ~/.codex/history.jsonl              History file (existing)
+  → Parser extracts: intents, commands, model, provider
+
+<span style="color:#60a5fa;">MCP SERVERS</span>
+  Auto-detect from:
+    ~/.claude/settings.json           MCP server configs
+    ~/.cursor/mcp.json                Cursor MCP configs
+    project/.mcp.json                 Per-project MCP
+  → For each: probe health endpoint, catalog tools, track usage
+
+<span style="color:#c084fc;">EMA AGENTS</span>
+  Ema.Agents.Supervisor               Internal agent sessions
+  → Already tracked: conversations, messages, runs
+  → NEW: extract intents from agent conversations
+
+<span style="color:#ec4899;">SESSION IDENTITY (new)</span>
+  Each discovered session gets typed:
+    source_type: claude_code | codex_cli | mcp_server | ema_agent
+    model: opus | sonnet | haiku | o4-mini | o3 | local
+    project_path: resolved from session context
+    session_name: derived from first human message
+    → Surfaces in CLI: `ema session list --type=claude_code`
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Migration as First Intent (Self-Bootstrap)</h3>
+  <div class="mockup">
+    <div class="mockup-header">The migration IS the first intent in the new system</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7;">
+<span style="color:#fbbf24;">STEP 1: Create intents table (migration)</span>
+  New Ecto schema + migration
+  Keep intent_nodes and harvested_intents readable
+
+<span style="color:#fbbf24;">STEP 2: Seed the first intent</span>
+  title: "Build EMA Intent Engine"
+  level: 2 (project)
+  kind: task
+  status: active
+  children:
+    - "Unified Intent Schema" (level 3, complete after this migration)
+    - "Vault Convergence" (level 3, planned)
+    - "Wikipedia Frontend" (level 3, planned)
+    - "CLI + Agent Ingestion" (level 3, planned)
+    - "LaunchpadHQ Sprint 2" (level 3, planned)
+
+<span style="color:#fbbf24;">STEP 3: Migrate existing data</span>
+  intent_nodes → intents (map level 0-4 → 0-4, add kind/phase)
+  harvested_intents → intents (level 4-5, link back via FK)
+  .superman/intents/ → scan, create intent per folder
+  brain_dump clusters → intents (via cluster→intent promotion)
+
+<span style="color:#fbbf24;">STEP 4: Wire PubSub subscribers</span>
+  IntentPopulator GenServer subscribes to all 8 event sources
+  Creates intents on events, propagates status changes
+
+<span style="color:#fbbf24;">STEP 5: Wire IntentionFarmer → intents (not brain_dump)</span>
+  Loader creates intents directly instead of brain dump items
+  Optional: still create brain dump item for inbox visibility
+
+<span style="color:#fbbf24;">STEP 6: Update CLI + MCP + controllers</span>
+  `ema intent` commands point to new Ema.Intents context
+  MCP tools expose intent CRUD
+  Update stale wiki doc (Intent-System.md)
+    </div>
+  </div>
+</div>
