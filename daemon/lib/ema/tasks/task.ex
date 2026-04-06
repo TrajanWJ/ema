@@ -27,6 +27,7 @@ defmodule Ema.Tasks.Task do
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :goal, Ema.Goals.Goal, type: :string
     belongs_to :parent, __MODULE__, type: :string
+    belongs_to :actor, Ema.Actors.Actor, type: :string
 
     # responsibility_id stored as raw field — Responsibilities context
     # will be created in a later plan
@@ -82,6 +83,7 @@ defmodule Ema.Tasks.Task do
       :goal_id,
       :responsibility_id,
       :parent_id,
+      :actor_id,
       :agent,
       :intent,
       :intent_confidence,

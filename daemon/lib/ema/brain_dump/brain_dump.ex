@@ -8,8 +8,15 @@ defmodule Ema.BrainDump do
   alias Ema.Repo
   alias Ema.BrainDump.Item
 
-  def list_items do
-    Item |> order_by(desc: :inserted_at) |> Repo.all()
+  def list_items(opts \\ []) do
+    Item
+    |> maybe_filter(:project_id, opts[:project_id])
+    |> maybe_filter(:space_id, opts[:space_id])
+    |> maybe_filter(:actor_id, opts[:actor_id])
+    |> maybe_filter(:container_type, opts[:container_type])
+    |> maybe_filter(:container_id, opts[:container_id])
+    |> order_by(desc: :inserted_at)
+    |> Repo.all()
   end
 
   def list_unprocessed do
@@ -32,52 +39,54 @@ defmodule Ema.BrainDump do
 
     case result do
       {:ok, item} ->
-        # Async embedding for brain-dump-to-proposal clustering
-        Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
-          Ema.Vectors.Embedder.embed_brain_dump_item(item)
-        end)
+        unless test_env?() do
+          # Async embedding for brain-dump-to-proposal clustering
+          Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+            Ema.Vectors.Embedder.embed_brain_dump_item(item)
+          end)
 
-        Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
-          project_path = File.cwd!()
-          intent_slug = Ema.Executions.IntentFolder.slugify(String.slice(item.content, 0, 60))
-          intent_path = ".superman/intents/#{intent_slug}"
+          Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
+            project_path = File.cwd!()
+            intent_slug = Ema.Executions.IntentFolder.slugify(String.slice(item.content, 0, 60))
+            intent_path = ".superman/intents/#{intent_slug}"
 
-          # Create intent folder on disk
-          case Ema.Executions.IntentFolder.create(project_path, intent_slug, item.content) do
-            :ok ->
-              :ok
+            # Create intent folder on disk
+            case Ema.Executions.IntentFolder.create(project_path, intent_slug, item.content) do
+              :ok ->
+                :ok
 
-            {:error, reason} ->
-              require Logger
+              {:error, reason} ->
+                require Logger
 
-              Logger.warning(
-                "[BrainDump] IntentFolder create failed for #{intent_slug}: #{inspect(reason)}"
-              )
-          end
+                Logger.warning(
+                  "[BrainDump] IntentFolder create failed for #{intent_slug}: #{inspect(reason)}"
+                )
+            end
 
-          # Create execution with semantic anchor
-          case Ema.Executions.create(%{
-                 title: String.slice(item.content, 0, 120),
-                 objective: item.content,
-                 mode: "research",
-                 status: "created",
-                 brain_dump_item_id: item.id,
-                 intent_slug: intent_slug,
-                 intent_path: intent_path,
-                 requires_approval: false
-               }) do
-            {:ok, ex} ->
-              # Auto-approve so dispatch_if_ready fires for requires_approval: false
-              Ema.Executions.approve_execution(ex.id)
+            # Create execution with semantic anchor
+            case Ema.Executions.create(%{
+                   title: String.slice(item.content, 0, 120),
+                   objective: item.content,
+                   mode: "research",
+                   status: "created",
+                   brain_dump_item_id: item.id,
+                   intent_slug: intent_slug,
+                   intent_path: intent_path,
+                   requires_approval: false
+                 }) do
+              {:ok, ex} ->
+                # Auto-approve so dispatch_if_ready fires for requires_approval: false
+                Ema.Executions.approve_execution(ex.id)
 
-            {:error, reason} ->
-              require Logger
+              {:error, reason} ->
+                require Logger
 
-              Logger.warning(
-                "[BrainDump] Failed to create execution for item #{item.id}: #{inspect(reason)}"
-              )
-          end
-        end)
+                Logger.warning(
+                  "[BrainDump] Failed to create execution for item #{item.id}: #{inspect(reason)}"
+                )
+            end
+          end)
+        end
 
         Ema.Pipes.EventBus.broadcast_event("brain_dump:item_created", %{
           item_id: item.id,
@@ -317,4 +326,9 @@ defmodule Ema.BrainDump do
     random = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "bd_#{timestamp}_#{random}"
   end
+
+  defp maybe_filter(query, _field, nil), do: query
+  defp maybe_filter(query, field, value), do: where(query, [i], field(i, ^field) == ^value)
+
+  defp test_env?, do: Code.ensure_loaded?(Mix) and Mix.env() == :test
 end

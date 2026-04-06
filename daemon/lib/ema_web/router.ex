@@ -268,6 +268,31 @@ defmodule EmaWeb.Router do
     # Goals
     resources("/goals", GoalController, except: [:new, :edit])
 
+    # Actors
+    resources("/actors", ActorController, except: [:new, :edit])
+    post("/actors/:id/transition", ActorController, :transition_phase)
+    get("/actors/:id/tags", ActorController, :list_tags)
+    get("/actors/:id/commands", ActorController, :list_commands)
+    post("/actors/:id/commands", ActorController, :register_command)
+    get("/actors/:id/phases", ActorController, :phases)
+
+    get("/tags", TagController, :index)
+    post("/tags", TagController, :create)
+    delete("/tags", TagController, :delete)
+
+    get("/entity-data", EntityDataController, :index)
+    post("/entity-data", EntityDataController, :create)
+    delete("/entity-data", EntityDataController, :delete)
+
+    get("/container-config", ContainerConfigController, :index)
+    post("/container-config", ContainerConfigController, :create)
+    delete("/container-config", ContainerConfigController, :delete)
+
+    get("/phase-transitions", PhaseTransitionController, :index)
+    post("/phase-transitions", PhaseTransitionController, :create)
+
+    resources("/spaces", SpaceController, except: [:new, :edit, :update, :delete])
+
     # Focus — timer-driven sessions
     get("/focus/current", FocusController, :current)
     get("/focus/today", FocusController, :today)

@@ -19,10 +19,14 @@ defmodule Ema.BrainDump.Item do
 
     belongs_to :project, Ema.Projects.Project, type: :string
 
+    # Container scoping (e.g., container_type: "project", container_id: "abc123")
+    field :container_type, :string
+    field :container_id, :string
+
     timestamps(type: :utc_datetime)
   end
 
-  @valid_sources ~w(text shortcut clipboard harvested)
+  @valid_sources ~w(text shortcut clipboard)
   @valid_actions ~w(task journal archive note processing)
 
   def create_changeset(item, attrs) do
