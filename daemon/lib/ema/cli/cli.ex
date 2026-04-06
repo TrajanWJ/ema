@@ -434,6 +434,18 @@ defmodule Ema.CLI do
       name: "proposal",
       about: "Proposal lifecycle",
       subcommands: [
+        create: [
+          name: "create",
+          about: "Create a proposal (queued for review)",
+          args: [title: [required: true, help: "Proposal title", parser: :string]],
+          options: [
+            body: [short: "-b", long: "--body", help: "Full proposal body", parser: :string],
+            summary: [short: "-s", long: "--summary", help: "Brief summary", parser: :string],
+            project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
+            space: [long: "--space", help: "Space ID", parser: :string],
+            actor: [long: "--actor", help: "Actor ID", parser: :string]
+          ]
+        ],
         list: [
           name: "list",
           about: "List proposals",

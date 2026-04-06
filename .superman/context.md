@@ -30,6 +30,14 @@ brain dump item / proposal seed
 - `Ema.Executions.Dispatcher` handles dispatch to Claude CLI
 - Execution tracks: status, agent_sessions, events, diffs
 
+**Actor/Workspace layer:**
+- `Ema.Actors` — Collaboration identity: 18 actors (1 human + 17 agents) bootstrapped on startup
+- `Ema.Actors.Bootstrap` — Idempotent startup: creates actors, backfills agent FK
+- Tasks and executions stamped with `actor_id` (defaults to human). REST `?actor_id=` filtering on both.
+- Bridge: `Ema.Agents.Agent.actor_id` FK → `Ema.Actors.Actor`. Bidirectional lookup functions.
+- Entity data: per-actor metadata on any entity (sprint_week, estimated_tokens, priority)
+- Phase transitions: plan → execute → review → retro cadence per actor
+
 **Agent layer:**
 - `Agents.AgentWorker` — GenServer per agent, Claude CLI calls, tool execution (1 tool implemented)
 - `AgentMemory` — conversation compression at >20 messages

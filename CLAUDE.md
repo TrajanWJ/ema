@@ -102,8 +102,26 @@ Supporting modules:
 - `ClaudeSessions` — Context module (list/create/update/link/complete sessions)
 - `ClaudeSession` — Ecto schema (session_id, project_path, status, token_count, files_touched)
 
+#### Actor/Workspace System (`lib/ema/actors/`)
+Bootstrapped on startup via `Ema.Actors.Bootstrap.ensure_defaults/0`. Creates actor records for all active agents + human operator. Actors are the collaboration/workspace identity layer; Agents are the operational worker runtime.
+
+| Component | Purpose |
+|-----------|---------|
+| `Actors` | Context module: CRUD, phase transitions, tags, entity_data, commands |
+| `Actor` | Schema: id, slug, actor_type (human/agent), phase, capabilities, config |
+| `Bootstrap` | Idempotent startup: creates human actor + agent actors, backfills agent FK |
+| `Tag` | Universal tags: any actor can tag any entity |
+| `EntityData` | Per-actor metadata on any entity (priority, sprint_week, etc.) |
+| `PhaseTransition` | Append-only log: plan → execute → review → retro cadence |
+| `ActorCommand` | Agent-registered CLI extensions |
+| `ContainerConfig` | Per-container (space/project/task) settings |
+
+**Bridge:** `Ema.Agents.Agent` has `actor_id` FK to `Ema.Actors.Actor`. Slug convention as fallback. Bridge functions: `Ema.Actors.actor_for_agent/1`, `Ema.Agents.agent_for_actor/1`.
+
+**Actor-stamping:** Tasks and executions get `actor_id` on creation (defaults to human actor). REST API supports `?actor_id=` filtering on `/api/tasks` and `/api/executions`.
+
 #### Agents System (`lib/ema/agents/`)
-Supervised by `Agents.Supervisor` (DynamicSupervisor). Starts active agents on boot.
+Supervised by `Agents.Supervisor` (DynamicSupervisor). Starts active agents on boot. Each agent has a corresponding Actor record (workspace identity) linked via `actor_id` FK.
 
 | Component | Purpose |
 |-----------|---------|
@@ -115,7 +133,7 @@ Supervised by `Agents.Supervisor` (DynamicSupervisor). Starts active agents on b
 | `DiscordChannel` | Stub (needs nostrum dep) |
 | `TelegramChannel` | Stub (needs ex_gram dep) |
 
-Schemas: `Agent` (slug, model, temperature, tools, settings), `Channel` (type, config), `Conversation`, `Message`, `Run`
+Schemas: `Agent` (slug, model, temperature, tools, settings, actor_id), `Channel` (type, config), `Conversation`, `Message`, `Run`
 
 #### Proposal Engine (`lib/ema/proposal_engine/`)
 Supervised by `ProposalEngine.Supervisor` (rest_for_one).
@@ -294,7 +312,7 @@ SpaceManager, SpaceRouter, NoteSync, ShadowNoteManager, CrossSpaceQuery, SpaceAw
 
 SQLite at `~/.local/share/ema/ema.db` via `ecto_sqlite3`.
 
-Key tables: brain_dump_items, habits, habit_logs, journal_entries, settings, workspace_windows, projects, tasks, task_comments, proposals, proposal_tags, seeds, vault_notes, vault_links, pipes, pipe_actions, pipe_transforms, pipe_runs, responsibilities, check_ins, agents, agent_channels, agent_conversations, agent_messages, agent_runs, canvases, canvas_elements, canvas_data_sources, claude_sessions, goals, focus_sessions, focus_blocks, notes, vault_entries, app_shortcuts
+Key tables: brain_dump_items, habits, habit_logs, journal_entries, settings, workspace_windows, projects, tasks, task_comments, proposals, proposal_tags, seeds, vault_notes, vault_links, pipes, pipe_actions, pipe_transforms, pipe_runs, responsibilities, check_ins, agents, agent_channels, agent_conversations, agent_messages, agent_runs, canvases, canvas_elements, canvas_data_sources, claude_sessions, goals, focus_sessions, focus_blocks, notes, vault_entries, app_shortcuts, actors, tags, entity_data, phase_transitions, container_config, actor_commands, spaces, intents, intent_links, intent_events
 
 ---
 
@@ -311,6 +329,9 @@ Key tables: brain_dump_items, habits, habit_logs, journal_entries, settings, wor
 - Second Brain vault watcher + graph builder + system brain state files
 - Responsibility scheduler generating tasks from cadences
 - Agent system with per-agent supervision, memory compression, and webchat bridge
+- Actor/workspace system: 18 actors bootstrapped on startup (1 human + 17 agents), phase cadence, mutual visibility
+- Actor-stamped tasks and executions with `actor_id` (defaults to human), REST `?actor_id=` filtering
+- Agent ↔ Actor bridge: FK on agents table + slug convention fallback + bidirectional lookup functions
 - Canvas with data sources and element management
 - Seed data: 4 projects, 4 proposal seeds, 4 responsibilities
 

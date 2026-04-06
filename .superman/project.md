@@ -27,7 +27,8 @@ docs/                    — architecture, features, schemas, security specs
 | ProposalEngine | rest_for_one | Scheduler → Generator → Refiner → Debater → Tagger → Combiner |
 | Pipes | rest_for_one | EventBus → Registry → Loader → Executor (22 triggers, 15 actions) |
 | SecondBrain | one_for_one | VaultWatcher → GraphBuilder → SystemBrain |
-| Agents | DynamicSupervisor | Per-agent: AgentWorker + AgentMemory + channels |
+| Actors | Bootstrap on startup | 18 actors (1 human + 17 agents), phase cadence, tags, entity_data |
+| Agents | DynamicSupervisor | Per-agent: AgentWorker + AgentMemory + channels (linked to Actors via FK) |
 | ClaudeSessions | one_for_one | SessionWatcher (polls JSONL) + SessionMonitor (pgrep) |
 | Babysitter | one_for_one | OrgController + StreamChannels + StreamTicker + VisibilityHub |
 | Harvesters | one_for_one | GitHarvester + SessionHarvester (Vault/Usage/BrainDump not yet implemented) |

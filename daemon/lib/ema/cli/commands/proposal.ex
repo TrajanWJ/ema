@@ -14,6 +14,49 @@ defmodule Ema.CLI.Commands.Proposal do
     {"Updated", :updated_at}
   ]
 
+  def handle([:create], parsed, transport, opts) do
+    title = parsed.args.title
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        attrs =
+          %{title: title, status: "queued"}
+          |> maybe_put(:body, parsed.options[:body])
+          |> maybe_put(:summary, parsed.options[:summary])
+          |> maybe_put(:project_id, parsed.options[:project])
+          |> maybe_put(:space_id, parsed.options[:space])
+          |> maybe_put(:actor_id, parsed.options[:actor])
+
+        case transport.call(Ema.Proposals, :create_proposal, [attrs]) do
+          {:ok, proposal} ->
+            Output.success("Created proposal #{proposal.id}: #{proposal.title}")
+            if opts[:json], do: Output.json(proposal)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        body =
+          %{"title" => title, "status" => "queued"}
+          |> maybe_put("body", parsed.options[:body])
+          |> maybe_put("summary", parsed.options[:summary])
+          |> maybe_put("project_id", parsed.options[:project])
+          |> maybe_put("space_id", parsed.options[:space])
+          |> maybe_put("actor_id", parsed.options[:actor])
+
+        case transport.post("/proposals", body) do
+          {:ok, resp} ->
+            proposal = Helpers.extract_record(resp, "proposal")
+            Output.success("Created proposal #{proposal["id"]}: #{proposal["title"]}")
+            if opts[:json], do: Output.json(proposal)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
@@ -173,4 +216,7 @@ defmodule Ema.CLI.Commands.Proposal do
 
   defp maybe_append(list, _key, nil), do: list
   defp maybe_append(list, key, value), do: [{key, value} | list]
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end
