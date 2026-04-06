@@ -467,6 +467,8 @@ defmodule EmaWeb.Router do
     get("/team-pulse", TeamPulseController, :index)
     get("/team-pulse/agents", TeamPulseController, :agents)
     get("/team-pulse/velocity", TeamPulseController, :velocity)
+    get("/team-pulse/standups", TeamPulseController, :standups)
+    post("/team-pulse/standups", TeamPulseController, :create_standup)
 
     # Metrics
     get("/metrics/summary", MetricsController, :summary)
@@ -496,5 +498,18 @@ defmodule EmaWeb.Router do
     post("/webhooks/discord", DiscordWebhookController, :webhook)
     # Voice-integrated Discord bridge (messages → VoiceCore → Jarvis response)
     post("/discord/message", DiscordWebhookController, :receive)
+
+    # Harvesters
+    get("/harvesters", HarvesterController, :index)
+    get("/harvesters/recent", HarvesterController, :recent)
+    post("/harvesters/:name/run", HarvesterController, :run)
+
+    # Persistence
+    get("/persistence/stats", PersistenceController, :stats)
+    post("/persistence/backup", PersistenceController, :backup)
+
+    # MCP Tools
+    get("/mcp/tools", MCPController, :index)
+    post("/mcp/tools/execute", MCPController, :execute)
   end
 end
