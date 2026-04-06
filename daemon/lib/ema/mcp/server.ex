@@ -50,9 +50,25 @@ defmodule Ema.MCP.Server do
   Called from a Mix alias or escript.
   """
   def run_stdio do
+    quiet_stdio_logging()
     {:ok, _} = start_link([])
     # Block forever; the GenServer owns stdio
     Process.sleep(:infinity)
+  end
+
+  defp quiet_stdio_logging do
+    Logger.configure(level: :error)
+
+    with backends when is_list(backends) <- Application.get_env(:logger, :backends, []),
+         true <- :console in backends do
+      Logger.remove_backend(:console, flush: true)
+    else
+      _ -> :ok
+    end
+
+    :ok
+  rescue
+    _ -> :ok
   end
 
   # ── GenServer Callbacks ───────────────────────────────────────────────────

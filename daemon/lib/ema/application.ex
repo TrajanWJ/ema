@@ -9,7 +9,9 @@ defmodule Ema.Application do
   def start(_type, _args) do
     unless System.get_env("DISCORD_BOT_TOKEN") do
       require Logger
-      Logger.warning("DISCORD_BOT_TOKEN not set — Discord delivery will be unavailable")
+      unless System.get_env("EMA_MCP_STDIO") in ["1", "true", "TRUE"] do
+        Logger.warning("DISCORD_BOT_TOKEN not set — Discord delivery will be unavailable")
+      end
     end
 
     children =
@@ -104,6 +106,19 @@ defmodule Ema.Application do
     opts = [strategy: :one_for_one, name: Ema.Supervisor]
     result = Supervisor.start_link(children, opts)
 
+    case result do
+      {:ok, _pid} ->
+        unless test_env?() do
+          Task.start(fn ->
+            Process.sleep(200)
+            Ema.Agents.Supervisor.start_active_agents()
+          end)
+        end
+
+      _ ->
+        :ok
+    end
+
     # Populate SecondBrain FTS index on every boot (async, non-blocking)
     if Application.get_env(:ema, :start_second_brain, true) do
       Task.start(fn ->
@@ -126,6 +141,10 @@ defmodule Ema.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp test_env? do
+    Code.ensure_loaded?(Mix) and function_exported?(Mix, :env, 0) and Mix.env() == :test
   end
 
   defp maybe_start_session_store do
@@ -211,7 +230,6 @@ defmodule Ema.Application do
     end
   end
 
-
   defp maybe_start_proposal_engine do
     if Application.get_env(:ema, :proposal_engine)[:enabled] do
       [Ema.ProposalEngine.Supervisor]
@@ -275,7 +293,6 @@ defmodule Ema.Application do
       []
     end
   end
-
 
   defp maybe_start_cluster do
     if Application.get_env(:ema, :start_cluster, false) do
