@@ -74,9 +74,10 @@ defmodule Ema.BrainDump do
                    intent_path: intent_path,
                    requires_approval: false
                  }) do
-              {:ok, ex} ->
-                # Auto-approve so dispatch_if_ready fires for requires_approval: false
-                Ema.Executions.approve_execution(ex.id)
+              {:ok, _ex} ->
+                # Executions.create/1 already auto-dispatches when requires_approval is false.
+                # Do not approve again here; that creates duplicate dispatch_started/running events.
+                :ok
 
               {:error, reason} ->
                 require Logger

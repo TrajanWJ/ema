@@ -146,6 +146,25 @@ defmodule Ema.MCP.Tools do
           "required" => ["task_id", "outcome", "feedback"]
         }
       }
+      ,%{
+        "name" => "context_operator",
+        "description" => "Fetch the canonical EMA operator context package from host EMA.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{}
+        }
+      },
+      %{
+        "name" => "context_project",
+        "description" => "Fetch the canonical EMA project context package by project id or slug.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{
+            "project" => %{"type" => "string", "description" => "Project id, slug, or name"}
+          },
+          "required" => ["project"]
+        }
+      }
     ]
   end
 
@@ -175,8 +194,37 @@ defmodule Ema.MCP.Tools do
     call_log_outcome(args, request_id)
   end
 
+  def call("context_operator", args, request_id) do
+    call_context_operator(args, request_id)
+  end
+
+  def call("context_project", args, request_id) do
+    call_context_project(args, request_id)
+  end
+
   def call(name, _args, _request_id) do
     {:error, "Unknown tool: #{name}"}
+  end
+
+  # ── Tool: context_operator / context_project ─────────────────────────────
+
+  defp call_context_operator(_args, _request_id) do
+    case get("/api/context/operator/package") do
+      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
+      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp call_context_project(args, _request_id) do
+    with {:ok, project_ref} <- require_string(args, "project"),
+         {:ok, project_id} <- resolve_project_id(project_ref),
+         {:ok, %{status: status, body: body}} when status in 200..299 <- get("/api/context/project/#{project_id}/package") do
+      {:ok, body}
+    else
+      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   # ── Tool: create_proposal ─────────────────────────────────────────────────
