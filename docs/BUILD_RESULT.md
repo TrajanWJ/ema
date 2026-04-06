@@ -9,7 +9,7 @@
 |------|--------|-------------|
 | Wave 1: Foundations | **DONE** | OpenClaw cleanup, actor model, stale files, migration fixes |
 | Wave 2: Surfaces + Engine | **DONE** | Engine verified, frontend audited, docs updated |
-| Wave 3: Coverage | **NOT STARTED** | CLI extension batches, TUI, frontend fixes |
+| Wave 3: Coverage | **IN PROGRESS** | Frontend fixes done, CLI/TUI remaining |
 | Wave 4: Engine Bootstrap | **VERIFIED** | Engine already operational — 82 proposals, 92 seeds |
 | Wave 5: Integration | **NOT STARTED** | E2E testing, doc finalization, MCP sync |
 
@@ -45,15 +45,16 @@
 - `daemon/lib/ema_tui/` does not exist
 - Design spec ready in `docs/cli/BUILD_PLAN.md`
 
-### E. Frontend: AUDITED
-- **78 routed apps** classified:
-  - 32 WORKING (full REST + WebSocket)
-  - 16 WORKING-REST (REST only)
-  - 12 BROKEN (fictional endpoints)
-  - 18 STUB (minimal/client-only)
-- **Critical broken**: GoalPlannerApp, KnowledgeGraphApp, ProjectPortfolioApp, HarvestersApp, PersistenceApp, MCPApp
-- **Missing WS channels**: pipeline:*, decisions:*, project_graph:*, knowledge_graph:*, jarvis:*
-- Full audit at `docs/FRONTEND_AUDIT.md`
+### E. Frontend: FIXED
+- **78 routed apps** audited, **12 broken apps resolved**:
+  - 3 deleted (GoalPlannerApp, ProjectPortfolioApp, OutcomeDashboard — duplicates/dead)
+  - 1 rewired (KnowledgeGraphApp → /vault/graph)
+  - 1 fixed (MetaMindApp store → /metamind/library)
+  - 3 partial fixes (MessageHub, TeamPulse, Integrations — removed fictional calls)
+  - 3 stub controllers added (Harvester, Persistence, MCP)
+  - Team-pulse standups endpoints added
+- **5 missing WS channels registered**: pipeline:*, decisions:*, jarvis:*, project_graph:*, knowledge_graph:*
+- Frontend builds clean, all API calls now hit real endpoints
 
 ### F. Documentation: PARTIAL
 - `docs/BUILD_PLAN.md` — written (master coordination document)
@@ -167,8 +168,8 @@
 
 ## What Remains (Priority Order)
 
-1. **Fix 12 broken frontend apps** — rewire to correct endpoints or remove
-2. **Register 5 missing WS channels** in UserSocket
+1. ~~Fix 12 broken frontend apps~~ **DONE**
+2. ~~Register 5 missing WS channels~~ **DONE**
 3. **Update DATA_MODELS.md** with actor model tables
 4. **Bootstrap ema-dev agent** — register actor, create self-improvement seeds
 5. **CLI command handlers** for em/tag/data (specs exist, handlers don't)
@@ -182,10 +183,6 @@
 
 ## Single Next Instruction
 
-Fix the 12 broken frontend apps identified in `docs/FRONTEND_AUDIT.md`:
-- Delete `GoalPlannerApp` (duplicate of `GoalsApp`)
-- Rewire `KnowledgeGraphApp` to vault graph endpoints
-- Rewire `ProjectPortfolioApp` to `/projects` endpoints
-- Stub `HarvestersApp`, `PersistenceApp`, `MCPApp` pending backend
-- Fix `MetaMindApp` store to use `/metamind/library`
-- Register missing WS channels in `daemon/lib/ema_web/user_socket.ex`
+Update `docs/DATA_MODELS.md` with actor model tables, then bootstrap the
+ema-dev agent: register an actor, create self-improvement seeds, and verify
+the proposal engine generates work about EMA itself.
