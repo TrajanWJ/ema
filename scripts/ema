@@ -530,7 +530,7 @@ def cmd_task_list(client, args):
             t.get("id", "?")[:20],
             (t.get("title") or "")[:35],
             (t.get("project_id") or "—")[:12],
-            t.get("status", "?")[:10],
+            (t.get("status") or "?")[:10],
             fmt_priority(t.get("priority")),
             fmt_time(t.get("due_date")) if t.get("due_date") else "—",
         ])
@@ -1071,8 +1071,8 @@ def cmd_braindump_list(client, args):
         rows.append([
             i.get("id", "?")[:14],
             (i.get("content") or "")[:50],
-            i.get("status", "?")[:10],
-            fmt_time(i.get("inserted_at")),
+            ("processed" if i.get("processed") else "pending")[:10],
+            fmt_time(i.get("created_at") or i.get("inserted_at")),
         ])
     table(rows, ["ID", "CONTENT", "STATUS", "CREATED"], [16, 52, 11, 12])
 
@@ -1358,7 +1358,7 @@ def cmd_em_status(client, args):
         out(f"\nActor: {actor.get('id', '?')}")
         out(f"  Name:   {actor.get('name', '?')}")
         out(f"  Slug:   {actor.get('slug', '?')}")
-        out(f"  Type:   {actor.get('actor_type', '?')}")
+        out(f"  Type:   {actor.get('type', actor.get('actor_type', '?'))}")
         out(f"  Status: {actor.get('status', '?')}")
         return
 
@@ -1371,7 +1371,7 @@ def cmd_em_status(client, args):
         rows.append([
             a.get("slug", "?")[:16],
             (a.get("name") or "?")[:25],
-            (a.get("actor_type") or "?")[:12],
+            (a.get("type", a.get("actor_type")) or "?")[:12],
             (a.get("status") or "?")[:10],
         ])
     table(rows, ["SLUG", "NAME", "TYPE", "STATUS"], [18, 27, 14, 11])
@@ -1484,7 +1484,7 @@ def cmd_actor_list(client, args):
         rows.append([
             a.get("slug", "?")[:16],
             (a.get("name") or "?")[:25],
-            (a.get("actor_type") or "?")[:12],
+            (a.get("type", a.get("actor_type")) or "?")[:12],
             (a.get("status") or "?")[:10],
         ])
     table(rows, ["SLUG", "NAME", "TYPE", "STATUS"], [18, 27, 14, 11])
@@ -1499,7 +1499,7 @@ def cmd_actor_create(client, args):
         return
 
     actor = result.get("actor", result)
-    out(f"{actor.get('id', '?')} | {actor.get('name', '?')} | type: {actor.get('actor_type', '?')}")
+    out(f"{actor.get('id', '?')} | {actor.get('name', '?')} | type: {actor.get('type', actor.get('actor_type', '?'))}")
 
 
 def cmd_actor_get(client, args):
@@ -1513,7 +1513,7 @@ def cmd_actor_get(client, args):
     out(f"\nActor: {actor.get('id')}")
     out(f"  Name:   {actor.get('name', '—')}")
     out(f"  Slug:   {actor.get('slug', '—')}")
-    out(f"  Type:   {actor.get('actor_type', '—')}")
+    out(f"  Type:   {actor.get('type', actor.get('actor_type', '—'))}")
     out(f"  Status: {actor.get('status', '—')}")
     out(f"  Created: {fmt_time(actor.get('inserted_at'))}")
 
