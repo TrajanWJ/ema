@@ -8,7 +8,7 @@ defmodule Ema.Actors do
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.Actors.{Actor, Tag, EntityTag, EntityData, ContainerConfig, PhaseTransition, ActorCommand}
+  alias Ema.Actors.{Actor, Tag, EntityData, ContainerConfig, PhaseTransition, ActorCommand}
 
   # ── Actor CRUD ──
 
@@ -43,18 +43,27 @@ defmodule Ema.Actors do
 
   def delete_actor(%Actor{} = actor), do: Repo.delete(actor)
 
-  def transition_phase(%Actor{} = actor, new_phase, reason \\ nil) do
+  def transition_phase(%Actor{} = actor, new_phase, opts \\ []) do
     old_phase = actor.phase
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    reason = if is_binary(opts), do: opts, else: opts[:reason]
+    summary = if is_list(opts), do: opts[:summary]
+    space_id = if(is_list(opts), do: opts[:space_id]) || actor.space_id
+    project_id = if is_list(opts), do: opts[:project_id]
+    week_number = if is_list(opts), do: opts[:week_number]
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:actor, Actor.changeset(actor, %{phase: new_phase, phase_started_at: now}))
     |> Ecto.Multi.insert(:transition, PhaseTransition.changeset(%PhaseTransition{id: generate_id()}, %{
       actor_id: actor.id,
+      space_id: space_id,
+      project_id: project_id,
       from_phase: old_phase,
       to_phase: new_phase,
+      week_number: week_number,
       reason: reason,
-      inserted_at: now
+      summary: summary,
+      transitioned_at: now
     }))
     |> Repo.transaction()
     |> case do
@@ -70,14 +79,28 @@ defmodule Ema.Actors do
   def record_phase_transition(%{"actor_id" => actor_id, "to_phase" => to_phase} = params) do
     case get_actor(actor_id) do
       nil -> {:error, :not_found}
-      actor -> transition_phase(actor, to_phase, params["reason"])
+      actor ->
+        transition_phase(actor, to_phase,
+          reason: params["reason"],
+          summary: params["summary"],
+          space_id: params["space_id"],
+          project_id: params["project_id"],
+          week_number: params["week_number"] && String.to_integer("#{params["week_number"]}")
+        )
     end
   end
 
   def record_phase_transition(%{actor_id: actor_id, to_phase: to_phase} = params) do
     case get_actor(actor_id) do
       nil -> {:error, :not_found}
-      actor -> transition_phase(actor, to_phase, Map.get(params, :reason))
+      actor ->
+        transition_phase(actor, to_phase,
+          reason: Map.get(params, :reason),
+          summary: Map.get(params, :summary),
+          space_id: Map.get(params, :space_id),
+          project_id: Map.get(params, :project_id),
+          week_number: Map.get(params, :week_number)
+        )
     end
   end
 
@@ -88,77 +111,50 @@ defmodule Ema.Actors do
     |> Repo.all()
   end
 
-  # ── Tags ──
+  # ── Tags (flat schema: one row per entity+tag+actor) ──
 
   def list_tags(opts \\ []) do
-    query = Tag |> maybe_filter_space(opts[:space_id]) |> order_by([t], asc: t.name)
-
-    if opts[:entity_type] || opts[:entity_id] || opts[:actor_id] do
-      query
-      |> join(:inner, [t], et in EntityTag, on: et.tag_id == t.id)
-      |> maybe_where_field(:entity_type, opts[:entity_type])
-      |> maybe_where_field(:entity_id, opts[:entity_id])
-      |> maybe_where_actor(opts[:actor_id])
-      |> Repo.all()
-    else
-      Repo.all(query)
-    end
+    Tag
+    |> maybe_filter_tag(:entity_type, opts[:entity_type])
+    |> maybe_filter_tag(:entity_id, opts[:entity_id])
+    |> maybe_filter_tag(:actor_id, opts[:actor_id])
+    |> maybe_filter_tag(:namespace, opts[:namespace])
+    |> order_by([t], desc: t.inserted_at)
+    |> Repo.all()
   end
-
-  defp maybe_where_field(query, _field, nil), do: query
-  defp maybe_where_field(query, :entity_type, val), do: where(query, [_t, et], et.entity_type == ^val)
-  defp maybe_where_field(query, :entity_id, val), do: where(query, [_t, et], et.entity_id == ^val)
-
-  defp maybe_where_actor(query, nil), do: query
-  defp maybe_where_actor(query, actor_id), do: where(query, [_t, et], et.actor_id == ^actor_id)
 
   def get_tag(id), do: Repo.get(Tag, id)
 
-  def create_tag(attrs) do
+  def tag_entity(entity_type, entity_id, tag_name, actor_id \\ "human", namespace \\ "default") do
     %Tag{id: generate_id()}
-    |> Tag.changeset(attrs)
-    |> Repo.insert()
+    |> Tag.changeset(%{
+      entity_type: entity_type,
+      entity_id: entity_id,
+      tag: tag_name,
+      actor_id: actor_id,
+      namespace: namespace
+    })
+    |> Repo.insert(on_conflict: :nothing, conflict_target: [:entity_type, :entity_id, :tag, :actor_id])
   end
 
-  @doc "Tag an entity. Finds or creates the tag by name, then creates entity_tag link."
-  def tag_entity(entity_type, entity_id, tag_name, actor_id \\ "human", _namespace \\ "default") do
-    slug = tag_name |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-")
-
-    tag =
-      case Repo.get_by(Tag, slug: slug) do
-        nil ->
-          {:ok, t} = create_tag(%{name: tag_name, slug: slug})
-          t
-        existing -> existing
-      end
-
-    %EntityTag{id: generate_id()}
-    |> EntityTag.changeset(%{tag_id: tag.id, entity_type: entity_type, entity_id: entity_id, actor_id: actor_id})
-    |> Repo.insert(on_conflict: :nothing)
-    |> case do
-      {:ok, et} -> {:ok, Map.merge(Map.from_struct(et), %{tag: tag_name, namespace: "default"})}
-      error -> error
-    end
-  end
-
-  def untag_entity(entity_type, entity_id, tag_name, _actor_id \\ "human") do
-    slug = tag_name |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-")
-
-    case Repo.get_by(Tag, slug: slug) do
-      nil -> {0, nil}
-      tag ->
-        EntityTag
-        |> where([et], et.tag_id == ^tag.id and et.entity_type == ^entity_type and et.entity_id == ^entity_id)
-        |> Repo.delete_all()
-    end
+  def untag_entity(entity_type, entity_id, tag_name, actor_id \\ "human") do
+    Tag
+    |> where([t], t.entity_type == ^entity_type and t.entity_id == ^entity_id and t.tag == ^tag_name and t.actor_id == ^actor_id)
+    |> Repo.delete_all()
   end
 
   def tags_for_entity(entity_type, entity_id) do
     Tag
-    |> join(:inner, [t], et in EntityTag, on: et.tag_id == t.id)
-    |> where([_t, et], et.entity_type == ^entity_type and et.entity_id == ^entity_id)
+    |> where([t], t.entity_type == ^entity_type and t.entity_id == ^entity_id)
+    |> order_by([t], asc: t.tag)
     |> Repo.all()
   end
+
+  defp maybe_filter_tag(query, _field, nil), do: query
+  defp maybe_filter_tag(query, :entity_type, val), do: where(query, [t], t.entity_type == ^val)
+  defp maybe_filter_tag(query, :entity_id, val), do: where(query, [t], t.entity_id == ^val)
+  defp maybe_filter_tag(query, :actor_id, val), do: where(query, [t], t.actor_id == ^val)
+  defp maybe_filter_tag(query, :namespace, val), do: where(query, [t], t.namespace == ^val)
 
   # ── Entity Data ──
 

@@ -15,6 +15,7 @@ defmodule Ema.Spaces.Space do
     field :icon, :string
     field :color, :string
     field :settings, :map, default: %{}
+    field :portable, :boolean, default: false
     field :archived_at, :utc_datetime
 
     belongs_to :organization, Ema.Org.Organization, type: :string, foreign_key: :org_id
@@ -34,9 +35,10 @@ defmodule Ema.Spaces.Space do
       :icon,
       :color,
       :settings,
+      :portable,
       :archived_at
     ])
-    |> validate_required([:org_id, :name])
+    |> validate_required([:name])
     |> validate_inclusion(:space_type, @space_types)
     |> validate_inclusion(:ai_privacy, @ai_privacy_opts)
     |> validate_length(:name, min: 1, max: 100)

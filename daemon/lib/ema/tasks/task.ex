@@ -25,6 +25,7 @@ defmodule Ema.Tasks.Task do
     field :intent_overridden, :boolean, default: false
 
     belongs_to :project, Ema.Projects.Project, type: :string
+    belongs_to :space, Ema.Spaces.Space, type: :string
     belongs_to :goal, Ema.Goals.Goal, type: :string
     belongs_to :parent, __MODULE__, type: :string
     belongs_to :actor, Ema.Actors.Actor, type: :string
@@ -80,6 +81,7 @@ defmodule Ema.Tasks.Task do
       :completed_at,
       :metadata,
       :project_id,
+      :space_id,
       :goal_id,
       :responsibility_id,
       :parent_id,
