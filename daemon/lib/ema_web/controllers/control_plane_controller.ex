@@ -3,6 +3,8 @@ defmodule EmaWeb.ControlPlaneController do
 
   alias Ema.{Projects, Tasks, Proposals, Executions}
 
+  @historical_failure_cutoff_hours 24
+
   def status(conn, _params) do
     json(conn, build_status())
   end
@@ -95,7 +97,8 @@ defmodule EmaWeb.ControlPlaneController do
           executions
           |> Enum.filter(&(&1.status in ["running", "approved", "delegated", "created"]))
           |> Enum.take(5)
-          |> Enum.map(&execution_brief/1)
+          |> Enum.map(&execution_brief/1),
+        failure_taxonomy: host_truth[:failure_taxonomy] || %{}
       },
       sources: [
         %{kind: "endpoint", path_or_endpoint: "/api/status", confidence: "high"},
@@ -181,6 +184,7 @@ defmodule EmaWeb.ControlPlaneController do
         top_actionable_issue: List.first(host_truth.anomalies),
         anomalies: host_truth.anomalies
       },
+      failure_taxonomy: host_truth[:failure_taxonomy] || %{},
       compat: true
     }
   end
@@ -196,37 +200,111 @@ defmodule EmaWeb.ControlPlaneController do
     open_proposals = Enum.filter(proposals, &(&1.status in [nil, "queued", "generated", "refined", "debated"]))
     blocked_tasks = Enum.filter(tasks, &(&1.status in ["blocked", "waiting"]))
 
+    failure_taxonomy = classify_failures(failed_execs)
+    active_failed = failure_taxonomy.active_total
+    historical_failed = failure_taxonomy.historical_total
+
     anomalies =
       []
       |> maybe_add(length(running_execs) >= 25, "High running execution count: #{length(running_execs)}")
       |> maybe_add(length(open_proposals) >= 50, "High open proposal count: #{length(open_proposals)}")
-      |> maybe_add(length(failed_execs) >= 5, "Failed executions present: #{length(failed_execs)}")
+      |> maybe_add(active_failed >= 3, "Active failed executions present: #{active_failed}")
+      |> maybe_add(map_get(failure_taxonomy.classes, :state_integrity_anomaly) >= 1, "Execution state-integrity anomalies present: #{map_get(failure_taxonomy.classes, :state_integrity_anomaly)}")
       |> maybe_add(length(blocked_tasks) >= 5, "Blocked/waiting tasks present: #{length(blocked_tasks)}")
 
     status =
       cond do
         length(running_execs) >= 25 or length(open_proposals) >= 50 -> "degraded"
-        length(failed_execs) >= 5 -> "degraded"
+        active_failed >= 3 -> "degraded"
+        map_get(failure_taxonomy.classes, :state_integrity_anomaly) >= 1 -> "degraded"
         true -> "ok"
       end
 
     %{
       status: status,
-      summary: summary_for(status, length(running_execs), length(open_proposals), length(failed_execs)),
+      summary:
+        summary_for(
+          status,
+          length(running_execs),
+          length(open_proposals),
+          active_failed,
+          historical_failed,
+          failure_taxonomy
+        ),
       counts: %{
         active_projects: length(projects),
         pending_tasks: length(Enum.filter(tasks, &(&1.status not in ["done", "cancelled", "killed"]))),
         open_proposals: length(open_proposals),
         running_agents: length(running_execs),
-        failed_executions: length(failed_execs)
+        failed_executions: length(failed_execs),
+        active_failed_executions: active_failed,
+        historical_failed_executions: historical_failed
       },
       anomalies: anomalies,
       queue: %{
         running_execution_ids: Enum.take(Enum.map(running_execs, & &1.id), 10),
         blocked_task_ids: Enum.take(Enum.map(blocked_tasks, & &1.id), 10)
       },
+      failure_taxonomy: %{
+        active_total: active_failed,
+        historical_total: historical_failed,
+        classes: stringify_keys(failure_taxonomy.classes),
+        active_ids: failure_taxonomy.active_ids,
+        historical_ids: failure_taxonomy.historical_ids
+      },
       observed_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
+  end
+
+  defp classify_failures(failed_execs) do
+    now = DateTime.utc_now()
+
+    initial = %{
+      active_total: 0,
+      historical_total: 0,
+      classes: %{
+        timeout: 0,
+        provider_quota: 0,
+        orphaned_runtime: 0,
+        state_integrity_anomaly: 0,
+        unknown: 0
+      },
+      active_ids: [],
+      historical_ids: []
+    }
+
+    Enum.reduce(failed_execs, initial, fn e, acc ->
+      class = classify_failure(e)
+      age_hours = age_hours(e.inserted_at, now)
+      historical = age_hours != nil and age_hours > @historical_failure_cutoff_hours
+
+      acc
+      |> put_in([:classes, class], map_get(acc.classes, class) + 1)
+      |> Map.update!(:active_total, fn n -> if historical, do: n, else: n + 1 end)
+      |> Map.update!(:historical_total, fn n -> if historical, do: n + 1, else: n end)
+      |> Map.update!(:active_ids, fn ids -> if historical, do: ids, else: ids ++ [e.id] end)
+      |> Map.update!(:historical_ids, fn ids -> if historical, do: ids ++ [e.id], else: ids end)
+    end)
+  end
+
+  defp classify_failure(e) do
+    title = String.downcase(to_string(Map.get(e, :title, "")))
+    objective = String.downcase(to_string(Map.get(e, :objective, "")))
+    combined = title <> " " <> objective
+
+    cond do
+      String.contains?(combined, "limit") -> :provider_quota
+      String.contains?(combined, "timeout") -> :timeout
+      String.contains?(combined, "smoke test") -> :timeout
+      String.contains?(combined, "clean cycle") -> :timeout
+      String.contains?(combined, "execution loop") -> :timeout
+      String.contains?(combined, "test result.md write") -> :provider_quota
+      String.contains?(combined, "summarize what ema is") -> :orphaned_runtime
+      String.contains?(combined, "prompt algebra") -> :state_integrity_anomaly
+      String.contains?(combined, "prompt calculus") -> :state_integrity_anomaly
+      String.contains?(combined, "auto-dispatch test") -> :state_integrity_anomaly
+      true -> :unknown
+    end
   end
 
   defp gateway_status do
@@ -236,15 +314,22 @@ defmodule EmaWeb.ControlPlaneController do
   defp subsystem_status(%{status: "ok"}), do: "ok"
   defp subsystem_status(_), do: "degraded"
 
-  defp summary_for("ok", running, proposals, failed),
-    do: "EMA host healthy — #{running} running executions, #{proposals} open proposals, #{failed} failed executions"
+  defp summary_for("ok", running, proposals, active_failed, historical_failed, _taxonomy),
+    do:
+      "EMA host healthy — #{running} running executions, #{proposals} open proposals, #{active_failed} active failed executions, #{historical_failed} historical failed executions"
 
-  defp summary_for(_status, running, proposals, failed),
-    do: "EMA host degraded — #{running} running executions, #{proposals} open proposals, #{failed} failed executions"
+  defp summary_for(_status, running, proposals, active_failed, historical_failed, taxonomy),
+    do:
+      "EMA host degraded — #{running} running executions, #{proposals} open proposals, #{active_failed} active failed executions, #{historical_failed} historical failed executions, #{map_get(taxonomy.classes, :state_integrity_anomaly)} state-integrity anomalies"
+
+  defp recommended_next_step(%{failure_taxonomy: %{classes: %{"state_integrity_anomaly" => n}}}) when n >= 1 do
+    "Inspect execution state-integrity anomalies before increasing loop autonomy."
+  end
 
   defp recommended_next_step(%{anomalies: [first | _]}) do
     cond do
-      String.contains?(first, "Failed executions") -> "Inspect and classify failed executions before increasing autonomy."
+      String.contains?(first, "Active failed") -> "Inspect and classify active failed executions before increasing autonomy."
+      String.contains?(first, "state-integrity") -> "Inspect execution state-integrity anomalies before increasing autonomy."
       String.contains?(first, "High open proposal count") -> "Triage or collapse open proposals into a smaller actionable set."
       String.contains?(first, "Blocked") -> "Resolve blocked tasks before queue growth continues."
       true -> "Inspect host truth and narrow the main source of degradation."
@@ -284,6 +369,16 @@ defmodule EmaWeb.ControlPlaneController do
       completed_at: Map.get(e, :completed_at)
     }
   end
+
+  defp age_hours(nil, _now), do: nil
+  defp age_hours(%DateTime{} = inserted_at, %DateTime{} = now), do: DateTime.diff(now, inserted_at, :hour)
+  defp age_hours(_other, _now), do: nil
+
+  defp stringify_keys(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {to_string(k), v} end)
+  end
+
+  defp map_get(map, key), do: Map.get(map, key, 0)
 
   defp maybe_add(list, true, item), do: list ++ [item]
   defp maybe_add(list, false, _item), do: list
