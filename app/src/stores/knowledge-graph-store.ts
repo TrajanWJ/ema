@@ -80,7 +80,7 @@ export const useKnowledgeGraphStore = create<KnowledgeGraphState>(
     async loadViaRest() {
       set({ loading: true, error: null });
       try {
-        const data = await api.get<GraphResponse>("/intelligence/graph");
+        const data = await api.get<GraphResponse>("/vault/graph");
         set({ nodes: data.nodes, edges: data.edges, loading: false });
       } catch (err) {
         set({

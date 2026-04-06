@@ -346,15 +346,6 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#6b95f0",
     icon: "\u{1F464}",
   },
-  "goal-planner": {
-    title: "Goal Planner",
-    defaultWidth: 1000,
-    defaultHeight: 750,
-    minWidth: 800,
-    minHeight: 600,
-    accent: "#f59e0b",
-    icon: "\u{1F3AF}",
-  },
   // Chunk 5: Business/Organization
   "team-pulse": {
     title: "Team Pulse",
@@ -373,15 +364,6 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     minHeight: 550,
     accent: "#5865F2",
     icon: "\u{1F4C5}",
-  },
-  "project-portfolio": {
-    title: "Portfolio",
-    defaultWidth: 1100,
-    defaultHeight: 800,
-    minWidth: 900,
-    minHeight: 650,
-    accent: "#2dd4a8",
-    icon: "\u25A3",
   },
   "invoice-billing": {
     title: "Invoices",
@@ -492,15 +474,6 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     minWidth: 800,
     minHeight: 600,
     accent: "#22C55E",
-    icon: "\u{1F4CA}",
-  },
-  "outcome-dashboard": {
-    title: "Outcome Dashboard",
-    defaultWidth: 1100,
-    defaultHeight: 780,
-    minWidth: 900,
-    minHeight: 620,
-    accent: "#2dd4a8",
     icon: "\u{1F4CA}",
   },
   // Wave2 apps

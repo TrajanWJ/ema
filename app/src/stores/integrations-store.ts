@@ -68,12 +68,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set) => ({
   },
 
   async disconnect(service: string) {
-    set({ error: null });
-    try {
-      await api.delete(`/integrations/${service}/connect`);
-      set({ [service]: { connected: false } } as Partial<IntegrationsState>);
-    } catch {
-      set({ [service]: { connected: false } } as Partial<IntegrationsState>);
-    }
+    // No DELETE endpoint exists — just clear local state
+    set({ [service]: { connected: false } } as Partial<IntegrationsState>);
   },
 }));

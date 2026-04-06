@@ -30,10 +30,7 @@ export function MetaMindApp() {
     let cancelled = false;
     async function init() {
       try {
-        await Promise.all([
-          useMetaMindStore.getState().loadPrompts(),
-          useMetaMindStore.getState().loadStats(),
-        ]);
+        await useMetaMindStore.getState().loadPrompts();
       } catch (err) {
         if (!cancelled)
           setError(err instanceof Error ? err.message : "Failed to load MetaMind");

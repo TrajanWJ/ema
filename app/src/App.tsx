@@ -44,11 +44,10 @@ import { LifeDashboardApp } from "@/components/life-dashboard/LifeDashboardApp";
 import { RoutineBuilderApp } from "@/components/routine-builder/RoutineBuilderApp";
 import { FinanceTrackerApp } from "@/components/finance-tracker/FinanceTrackerApp";
 import { ContactsCRMApp } from "@/components/contacts-crm/ContactsCRMApp";
-import { GoalPlannerApp } from "@/components/goal-planner/GoalPlannerApp";
 // Chunk 5: Business/Organization Management
 import { TeamPulseApp } from "@/components/team-pulse/TeamPulseApp";
 import { MeetingRoomApp } from "@/components/meeting-room/MeetingRoomApp";
-import { ProjectPortfolioApp } from "@/components/project-portfolio/ProjectPortfolioApp";
+
 import { InvoiceBillingApp } from "@/components/invoice-billing/InvoiceBillingApp";
 import { AuditTrailApp } from "@/components/audit-trail/AuditTrailApp";
 // Monitoring & Intelligence
@@ -85,7 +84,7 @@ import { SoulEditorApp } from "@/components/soul-editor/SoulEditorApp";
 
 // Organizations & P2P
 import { OrgApp } from "@/components/org/OrgApp";
-import { OutcomeDashboard } from "@/components/outcome-dashboard/OutcomeDashboard";
+
 import { KnowledgeGraphApp } from "@/components/knowledge-graph/KnowledgeGraphApp";
 import { IntegrationsApp } from "@/components/integrations/IntegrationsApp";
 // Agent cross-pollination vApps
@@ -185,15 +184,11 @@ case "cli-manager":
       return <FinanceTrackerApp />;
     case "contacts-crm":
       return <ContactsCRMApp />;
-    case "goal-planner":
-      return <GoalPlannerApp />;
     // Chunk 5
     case "team-pulse":
       return <TeamPulseApp />;
     case "meeting-room":
       return <MeetingRoomApp />;
-    case "project-portfolio":
-      return <ProjectPortfolioApp />;
     case "invoice-billing":
       return <InvoiceBillingApp />;
     case "audit-trail":
@@ -219,8 +214,6 @@ case "cli-manager":
       return <ProjectGraphApp />;
     case "code-health":
       return <CodeHealthDashboard />;
-    case "outcome-dashboard":
-      return <OutcomeDashboard />;
     // Wave2 B1
     case "superman":
       return <SupermanApp />;

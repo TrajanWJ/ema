@@ -109,7 +109,7 @@ export function ReviewerPanel() {
   const interceptorStats = useMetaMindStore((s) => s.interceptorStats);
   const reviewerStats = useMetaMindStore((s) => s.reviewerStats);
   const researcherStats = useMetaMindStore((s) => s.researcherStats);
-  const triggerResearch = useMetaMindStore((s) => s.triggerResearch);
+  // triggerResearch endpoint removed — button is a no-op placeholder
 
   return (
     <div className="flex flex-col gap-4">
@@ -177,7 +177,7 @@ export function ReviewerPanel() {
               color: "#2dd4a8",
               border: "1px solid rgba(45,212,168,0.20)",
             }}
-            onClick={triggerResearch}
+            onClick={() => { /* research endpoint not available */ }}
           >
             Research Now
           </button>

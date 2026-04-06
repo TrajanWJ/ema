@@ -27,10 +27,6 @@ interface MessageHubState {
   error: string | null;
   loadViaRest: () => Promise<void>;
   loadConversations: () => Promise<void>;
-  createConversation: (attrs: {
-    platform: string;
-    title: string;
-  }) => Promise<void>;
   selectConversation: (id: string) => Promise<void>;
   sendMessage: (conversationId: string, content: string) => Promise<void>;
 }
@@ -56,18 +52,6 @@ export const useMessageHubStore = create<MessageHubState>((set) => ({
 
   async loadConversations() {
     await useMessageHubStore.getState().loadViaRest();
-  },
-
-  async createConversation(attrs) {
-    try {
-      await api.post<{ conversation: Conversation }>(
-        "/messages/conversations",
-        { conversation: attrs },
-      );
-      await useMessageHubStore.getState().loadViaRest();
-    } catch (e) {
-      set({ error: String(e) });
-    }
   },
 
   async selectConversation(id) {
