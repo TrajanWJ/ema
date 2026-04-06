@@ -71,6 +71,9 @@ defmodule Ema.CLI do
       {:ok, [:session | sub], parsed} ->
         dispatch(:session, sub, parsed)
 
+      {:ok, [:watch], parsed} ->
+        dispatch(:watch, [], parsed)
+
       {:ok, [:superman | sub], parsed} ->
         dispatch(:superman, sub, parsed)
 
@@ -238,6 +241,7 @@ defmodule Ema.CLI do
       :metrics -> Ema.CLI.Commands.Metrics.handle(sub, parsed, transport, opts)
       :feedback -> Ema.CLI.Commands.Feedback.handle(sub, parsed, transport, opts)
       :dashboard -> Ema.CLI.Commands.Dashboard.handle(sub, parsed, transport, opts)
+      :watch -> Ema.CLI.Commands.Watch.handle(sub, parsed, transport, opts)
       :dump -> Ema.CLI.Commands.Dump.handle(sub, parsed, transport, opts)
       :status -> Ema.CLI.Commands.Status.handle(sub, parsed, transport, opts)
     end
@@ -312,6 +316,7 @@ defmodule Ema.CLI do
         space: space_spec(),
         intent: intent_spec(),
         gap: gap_spec(),
+        watch: watch_spec(),
         dump: dump_spec(),
         status: status_spec()
       ]
@@ -1223,6 +1228,27 @@ defmodule Ema.CLI do
   defp dashboard_spec, do: [name: "dashboard", about: "Dashboard data", subcommands: [
     today: [name: "today", about: "Today's dashboard"]
   ]]
+
+  defp watch_spec do
+    [
+      name: "watch",
+      about: "Live event stream (Ctrl+C to exit)",
+      options: [
+        channel: [
+          short: "-c",
+          long: "--channel",
+          help: "Channel: all, babysitter, proposals, executions, focus, tasks, agents, pipeline, inbox",
+          parser: :string
+        ],
+        interval: [
+          short: "-i",
+          long: "--interval",
+          help: "Refresh interval in seconds (default: 5)",
+          parser: :integer
+        ]
+      ]
+    ]
+  end
 
   defp actor_spec, do: [name: "actor", about: "Actor management", subcommands: [
     list: [name: "list", about: "List actors"],
