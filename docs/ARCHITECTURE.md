@@ -121,9 +121,12 @@ Real-time sync pattern: REST load on mount → channel join → push events upda
 | `Ema.Tasks` | `Task`, `Comment` | Full task management with parent/child, blocking |
 | `Ema.Proposals` | `Proposal`, `Seed`, `ProposalTag` | Autonomous ideation pipeline |
 | `Ema.Executions` | `Execution`, `Event`, `AgentSession` | Runtime execution tracking |
-| `Ema.BrainDump` | `BrainDumpItem` | Zero-friction capture inbox |
-| `Ema.Goals` | `Goal`, `Milestone` | Objective tracking with milestones |
-| `Ema.SecondBrain` | `Note` | Vault/knowledge base integration |
+| `Ema.BrainDump` | `Item` | Zero-friction capture inbox |
+| `Ema.Goals` | `Goal` | Objective tracking |
+| `Ema.SecondBrain` | `Note`, `Link` | Vault/knowledge base + graph |
+| `Ema.Actors` | `Actor`, `Tag`, `EntityTag`, `EntityData`, `ContainerConfig`, `PhaseTransition`, `ActorCommand` | Actor/container model — human + agent actors |
+| `Ema.IntentionFarmer` | `HarvestedSession`, `HarvestedIntent` | Claude/Codex session harvesting |
+| `Ema.Ingestor` | `IngestJob` | External data import pipeline |
 
 ### Intelligence Layer (GenServers + Analysis)
 
@@ -158,7 +161,14 @@ Real-time sync pattern: REST load on mount → channel join → push events upda
 | `executions` | id, title, objective, status, mode, intent_slug, proposal_id, project_slug | Runtime execution objects |
 | `execution_events` | id, execution_id, event_type, payload | Event sourcing for executions |
 | `agent_sessions` | id, execution_id, agent_id, status, duration_ms, output_path | Agent run tracking |
-| `brain_dump_items` | id, content, source, processed, action, project_id | Capture inbox |
+| `inbox_items` | id, content, source, processed, action, project_id, container_type, container_id | Capture inbox |
+| `actors` | id, type, name, slug, space_id, capabilities, config, phase, status | Human + agent actors |
+| `tags` | id, name, slug, color, actor_id, space_id | Polymorphic tagging |
+| `entity_tags` | id, tag_id, entity_type, entity_id, actor_id | Tag-entity join |
+| `entity_data` | id, actor_id, entity_type, entity_id, key, value | Per-actor entity data |
+| `container_config` | id, container_type, container_id, key, value | Container config |
+| `phase_transitions` | id, actor_id, from_phase, to_phase, reason | Phase change history |
+| `actor_commands` | id, actor_id, command_name, handler_module, handler_function | Agent-registered CLI commands |
 | `intent_nodes` | id, title, level, parent_id, project_id, status | 5-level intent hierarchy |
 | `gaps` | id, source, gap_type, title, severity, status, project_id | System friction points |
 | `token_records` | id, model, input_tokens, output_tokens, cost, scope | API cost tracking |
@@ -167,7 +177,7 @@ Real-time sync pattern: REST load on mount → channel join → push events upda
 
 ```
 app/src/
-├── App.tsx                     # Route switch — maps 50+ app IDs to components
+├── App.tsx                     # Route switch — maps 100+ app IDs to components
 ├── components/
 │   ├── layout/                 # Shell, Dock, Launchpad, AmbientStrip, AppWindowChrome
 │   ├── executions/             # Execution tracking (HQ surface)
@@ -180,7 +190,7 @@ app/src/
 │   ├── finance-tracker/        # Income/expense
 │   ├── invoice-billing/        # Invoicing
 │   └── ...                     # 50+ total app components
-├── stores/                     # 60+ Zustand stores (one per domain)
+├── stores/                     # 84 Zustand stores (one per domain)
 ├── lib/
 │   ├── api.ts                  # REST client (Tauri HTTP plugin)
 │   └── ws.ts                   # Phoenix WebSocket singleton
