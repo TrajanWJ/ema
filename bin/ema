@@ -282,7 +282,7 @@ def cmd_task_get(client, args):
 
 
 def cmd_task_dispatch(client, args):
-    """Dispatch a task — routes through OpenClaw via /api/openclaw/dispatch."""
+    """Dispatch a task by creating an execution in EMA."""
     task_result = client.get(f"/api/tasks/{args.task_id}")
     task = task_result.get("task", task_result)
 
@@ -308,27 +308,20 @@ def cmd_task_dispatch(client, args):
     if args.agent:
         payload["agent"] = args.agent
 
-    try:
-        result = client.post("/api/openclaw/dispatch", payload)
-        if USE_JSON:
-            out_json(result)
-            return
-        exec_id = result.get("execution_id") or result.get("id") or "?"
-        agent = result.get("agent") or args.agent or "auto"
-        out(f"Dispatched {args.task_id} → agent: {agent} | execution: {exec_id}")
-    except SystemExit:
-        exec_payload = {
-            "objective": task.get("title", ""),
-            "mode": "implement",
-            "task_id": args.task_id,
-            "title": task.get("title", ""),
-        }
-        result = client.post("/api/executions", exec_payload)
-        if USE_JSON:
-            out_json(result)
-            return
-        exec_id = result.get("id") or "?"
-        out(f"Dispatched {args.task_id} → execution: {exec_id}")
+    exec_payload = {
+        "objective": objective or task.get("title", ""),
+        "mode": "implement",
+        "task_id": args.task_id,
+        "title": task.get("title", ""),
+    }
+    if args.agent:
+        exec_payload["agent"] = args.agent
+    result = client.post("/api/executions", exec_payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    exec_id = result.get("id") or "?"
+    out(f"Dispatched {args.task_id} → execution: {exec_id}")
 
 
 def cmd_task_status(client, args):
@@ -539,7 +532,7 @@ def cmd_proposal_list(client, args):
 
 
 def cmd_proposal_dispatch(client, args):
-    """Dispatch a proposal — approve then send to OpenClaw."""
+    """Dispatch a proposal — approve then create an execution."""
     result = client.get(f"/api/proposals/{args.proposal_id}")
     prop = result.get("proposal", result)  # API wraps in {"proposal": {...}}
     approve_result = client.post(f"/api/proposals/{args.proposal_id}/approve", {})
@@ -559,20 +552,17 @@ def cmd_proposal_dispatch(client, args):
     if args.agent:
         payload["agent"] = args.agent
 
-    try:
-        result = client.post("/api/openclaw/dispatch", payload)
-        exec_id = result.get("execution_id") or result.get("id") or "?"
-        out(f"→ Dispatched to OpenClaw | execution: {exec_id}")
-    except SystemExit:
-        exec_payload = {
-            "objective": prop.get("body") or prop.get("title", ""),
-            "proposal_id": args.proposal_id,
-            "mode": "implement",
-            "title": prop.get("title", ""),
-        }
-        result = client.post("/api/executions", exec_payload)
-        exec_id = result.get("id") or "?"
-        out(f"→ Created execution: {exec_id}")
+    exec_payload = {
+        "objective": prop.get("body") or prop.get("title", ""),
+        "proposal_id": args.proposal_id,
+        "mode": "implement",
+        "title": prop.get("title", ""),
+    }
+    if args.agent:
+        exec_payload["agent"] = args.agent
+    result = client.post("/api/executions", exec_payload)
+    exec_id = result.get("id") or "?"
+    out(f"→ Created execution: {exec_id}")
 
 
 # ── vault ─────────────────────────────────────────────────────────────────────
@@ -657,13 +647,6 @@ def cmd_status(client, args):
     out(f"╠═══════════════════════════════════════╣")
     out(f"║  Daemon      {daemon_info:<26} ║")
 
-    try:
-        client.get("/api/openclaw/status")
-        oc_status = "✓ connected"
-    except SystemExit:
-        oc_status = "— not checked"
-    out(f"║  OpenClaw    {oc_status:<26} ║")
-
     out(f"╠═══════════════════════════════════════╣")
 
     if daemon_ok:
@@ -739,19 +722,6 @@ def cmd_dispatch_logs(client, args):
         out(f"\nResult summary:\n{meta['result_summary'][:500]}")
     if exec_obj.get("result_path"):
         out(f"\nResult path: {exec_obj['result_path']}")
-
-
-# ── sync ──────────────────────────────────────────────────────────────────────
-
-def cmd_sync_openclaw(client, args):
-    result = client.get("/api/openclaw/status")
-    if USE_JSON:
-        out_json(result)
-        return
-    status = result.get("status", "unknown")
-    out(f"OpenClaw: {status}")
-    if result.get("agents"):
-        out(f"Agents: {', '.join(result['agents'])}")
 
 
 # ── dump (brain dump shortcut) ───────────────────────────────────────────────
@@ -1462,7 +1432,6 @@ Commands:
   ema watch [--channel heartbeat|pipeline|tasks|...]
   ema dispatch status|logs
   ema health check
-  ema sync openclaw
   ema status
 
 Examples:
@@ -1581,11 +1550,6 @@ Examples:
 
     disp_logs = disp_sub.add_parser("logs", help="Show execution logs")
     disp_logs.add_argument("execution_id", help="Execution ID")
-
-    # ── sync ──
-    sync_p = sub.add_parser("sync", help="External service sync", parents=[shared])
-    sync_sub = sync_p.add_subparsers(dest="action", metavar="ACTION")
-    sync_sub.add_parser("openclaw", help="Check OpenClaw sync status")
 
     # ── status ──
     sub.add_parser("status", help="System health overview", parents=[shared])
@@ -1843,12 +1807,6 @@ def main():
             cmd_dispatch_status(client, args)
         elif args.action == "logs":
             cmd_dispatch_logs(client, args)
-
-    elif args.group == "sync":
-        if not args.action:
-            parser.parse_args(["sync", "--help"])
-        elif args.action == "openclaw":
-            cmd_sync_openclaw(client, args)
 
     elif args.group == "dump":
         cmd_dump(client, args)

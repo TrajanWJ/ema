@@ -302,12 +302,6 @@ defmodule EmaWeb.Router do
     get("/onboarding/status", OnboardingController, :status)
     post("/onboarding/run", OnboardingController, :run)
 
-    # OpenClaw Gateway
-    get("/openclaw/status", OpenClawController, :status)
-    post("/openclaw/message", OpenClawController, :send_message)
-    get("/openclaw/sessions", OpenClawController, :sessions)
-    post("/openclaw/dispatch", OpenClawController, :dispatch)
-
     # Async dispatch — non-blocking Claude task dispatch
     post("/dispatch/async", DispatchController, :async)
 

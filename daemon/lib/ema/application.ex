@@ -67,8 +67,6 @@ defmodule Ema.Application do
         maybe_start_harvesters() ++
         maybe_start_intention_farmer() ++
         maybe_start_temporal() ++
-        maybe_start_openclaw() ++
-        maybe_start_openclaw_vault_sync() ++
         maybe_start_prompts() ++
         maybe_start_intelligence_workers() ++
         maybe_start_mcp() ++
@@ -84,7 +82,6 @@ defmodule Ema.Application do
     # Install fuse circuit breakers (safe if fuse not yet loaded)
     try do
       Ema.Intelligence.BudgetEnforcer.install()
-      Ema.Claude.Adapters.OpenClaw.install_fuse()
     rescue
       _ -> :ok
     end
@@ -93,12 +90,6 @@ defmodule Ema.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ema.Supervisor]
     result = Supervisor.start_link(children, opts)
-
-    # Seed and start OpenClaw agents after supervision tree is up
-    Task.start(fn ->
-      Process.sleep(2_000)
-      Ema.Agents.OpenClawSync.sync()
-    end)
 
     # Populate SecondBrain FTS index on every boot (async, non-blocking)
     if Application.get_env(:ema, :start_second_brain, true) do
@@ -251,14 +242,6 @@ defmodule Ema.Application do
     end
   end
 
-  defp maybe_start_openclaw do
-    if Application.get_env(:ema, :start_openclaw, true) do
-      [Ema.OpenClaw.AgentBridge, Ema.OpenClaw.EventIngester, Ema.OpenClaw.ChannelDelivery]
-    else
-      []
-    end
-  end
-
   defp maybe_start_evolution do
     if Application.get_env(:ema, :evolution_engine, true) do
       [Ema.Evolution.Supervisor]
@@ -294,14 +277,6 @@ defmodule Ema.Application do
   defp maybe_start_cluster do
     if Application.get_env(:ema, :start_cluster, false) do
       [Ema.Claude.NodeCoordinator]
-    else
-      []
-    end
-  end
-
-  defp maybe_start_openclaw_vault_sync do
-    if Application.get_env(:ema, :openclaw_vault_sync, [])[:enabled] do
-      [Ema.Integrations.OpenClaw.VaultSyncSupervisor]
     else
       []
     end
