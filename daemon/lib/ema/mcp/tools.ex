@@ -145,8 +145,8 @@ defmodule Ema.MCP.Tools do
           },
           "required" => ["task_id", "outcome", "feedback"]
         }
-      }
-      ,%{
+      },
+      %{
         "name" => "context_operator",
         "description" => "Fetch the canonical EMA operator context package from host EMA.",
         "inputSchema" => %{
