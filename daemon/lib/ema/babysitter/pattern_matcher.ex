@@ -94,7 +94,12 @@ defmodule Ema.Babysitter.PatternMatcher do
   defp detect_quiet_anomaly(events) do
     if length(events) > 0 do
       now_s = System.os_time(:second)
-      newest = events |> Enum.map(& &1.inserted_at) |> Enum.max(fn -> nil end)
+
+      newest =
+        events
+        |> Enum.map(&event_time/1)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.max(fn -> nil end)
 
       if newest do
         gap = now_s - DateTime.to_unix(newest)
@@ -115,11 +120,19 @@ defmodule Ema.Babysitter.PatternMatcher do
   defp recent_events(events, seconds_ago) do
     cutoff = System.os_time(:second) - seconds_ago
 
-    Enum.filter(events, fn
-      %{inserted_at: %DateTime{} = dt} -> DateTime.to_unix(dt) >= cutoff
-      _ -> true
+    Enum.filter(events, fn event ->
+      case event_time(event) do
+        %DateTime{} = dt -> DateTime.to_unix(dt) >= cutoff
+        _ -> true
+      end
     end)
   end
+
+  defp event_time(%{at: %DateTime{} = dt}), do: dt
+  defp event_time(%{inserted_at: %DateTime{} = dt}), do: dt
+  defp event_time(%{"at" => %DateTime{} = dt}), do: dt
+  defp event_time(%{"inserted_at" => %DateTime{} = dt}), do: dt
+  defp event_time(_), do: nil
 
   defp failure_event?(%{event: {tag, _}}) when tag in [:error, :failed, :crash], do: true
 

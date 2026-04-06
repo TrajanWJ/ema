@@ -141,6 +141,7 @@ defmodule Ema.Babysitter.VisibilityHub do
   # and match known message shapes.
   defp topic_from_message({:claude_session, _}), do: "claude_sessions"
   defp topic_from_message({:session_event, _}), do: "claude_sessions"
+  defp topic_from_message({:session_detected, _}), do: "claude_sessions"
   defp topic_from_message({:task_event, _}), do: "tasks"
   defp topic_from_message({:proposal_event, _}), do: "proposals"
   defp topic_from_message({:pipe_run, _}), do: "pipes:runs"
