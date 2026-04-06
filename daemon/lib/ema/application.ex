@@ -87,9 +87,10 @@ defmodule Ema.Application do
           EmaWeb.Endpoint
         ]
 
-    # Initialize plugin registry and hooks
+    # Initialize plugin registry, hooks, and session orchestrator table
     :ok = Ema.PluginRegistry.init()
     :ok = Ema.Hooks.init()
+    :ok = Ema.Sessions.Orchestrator.init_table()
 
     # Install fuse circuit breakers (safe if fuse not yet loaded)
     try do

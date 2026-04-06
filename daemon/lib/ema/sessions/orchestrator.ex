@@ -15,15 +15,27 @@ defmodule Ema.Sessions.Orchestrator do
 
   # -- List & Inspect --
 
-  @doc "List all sessions: active CLI runners + detected Claude sessions"
+  @doc "List all sessions: orchestrator-spawned + detected Claude sessions"
   def list_all(opts \\ []) do
     limit = Keyword.get(opts, :limit, 30)
 
-    cli_sessions =
-      case CliManager.active_sessions() do
-        {:ok, sessions} -> Enum.map(sessions, &normalize_cli_session/1)
-        _ -> []
-      end
+    orchestrator_sessions =
+      orchestrator_table()
+      |> :ets.tab2list()
+      |> Enum.map(fn {id, state} ->
+        %{
+          id: id,
+          type: :orchestrator,
+          status: state.status,
+          project_path: state.project_path,
+          project_slug: state.project_slug,
+          prompt: state.prompt,
+          model: state.model,
+          started_at: state.started_at,
+          exit_code: state.exit_code,
+          live: state.status == "running" and is_pid(state.task_pid) and Process.alive?(state.task_pid)
+        }
+      end)
 
     detected =
       case ClaudeSessions.list_sessions(limit: limit) do
@@ -32,38 +44,35 @@ defmodule Ema.Sessions.Orchestrator do
       end
 
     all =
-      (cli_sessions ++ detected)
+      (orchestrator_sessions ++ detected)
       |> Enum.uniq_by(& &1.id)
-      |> Enum.sort_by(& &1.updated_at, {:desc, DateTime})
 
     {:ok, Enum.take(all, limit)}
   end
 
-  @doc "List only currently active sessions (running CLI + active detected)"
+  @doc "List only currently active/running sessions"
   def list_active do
-    cli =
-      case CliManager.active_sessions() do
-        {:ok, sessions} -> Enum.map(sessions, &normalize_cli_session/1)
-        _ -> []
-      end
-
-    detected =
-      case ClaudeSessions.get_active_sessions() do
-        {:ok, sessions} -> Enum.map(sessions, &normalize_detected_session/1)
-        _ -> []
-      end
-
-    active_dirs = get_active_process_dirs()
-
-    all =
-      (cli ++ detected)
-      |> Enum.uniq_by(& &1.id)
-      |> Enum.map(fn s ->
-        live? = s.project_path != nil and s.project_path in active_dirs
-        %{s | live: live?}
+    running =
+      orchestrator_table()
+      |> :ets.tab2list()
+      |> Enum.filter(fn {_id, state} ->
+        state.status == "running" and is_pid(state.task_pid) and Process.alive?(state.task_pid)
+      end)
+      |> Enum.map(fn {id, state} ->
+        %{
+          id: id,
+          type: :orchestrator,
+          status: "running",
+          project_path: state.project_path,
+          project_slug: state.project_slug,
+          prompt: state.prompt,
+          model: state.model,
+          started_at: state.started_at,
+          live: true
+        }
       end)
 
-    {:ok, all}
+    {:ok, running}
   end
 
   @doc "Get detailed session info with EMA context overlay"
@@ -105,74 +114,83 @@ defmodule Ema.Sessions.Orchestrator do
         prompt
       end
 
-    # Ensure claude tool is discovered
-    ensure_claude_tool()
+    claude_path = resolve_claude_binary()
 
-    # Spawn via CliManager
-    spawn_opts = %{
-      "linked_task_id" => task_id,
-      "linked_proposal_id" => Keyword.get(opts, :proposal_id)
-    }
+    if claude_path == nil do
+      {:error, "claude binary not found in PATH or ~/.local/bin/claude"}
+    else
+      session_id = "orch_#{System.system_time(:millisecond)}_#{:rand.uniform(0xFFFF) |> Integer.to_string(16)}"
 
-    case CliManager.SessionRunner.spawn_session("claude", project_path, full_prompt, spawn_opts) do
-      {:ok, session} ->
-        Logger.info("[Orchestrator] Spawned session #{session.id} in #{project_path}")
+      # Spawn Claude Code as a background port process
+      task =
+        Task.Supervisor.async_nolink(Ema.TaskSupervisor, fn ->
+          run_claude_session(claude_path, project_path, full_prompt, model, session_id)
+        end)
 
-        Phoenix.PubSub.broadcast(
-          Ema.PubSub,
-          "sessions:orchestrator",
-          {:session_spawned, %{id: session.id, project_path: project_path, prompt: prompt}}
-        )
+      Logger.info("[Orchestrator] Spawned session #{session_id} in #{project_path}")
 
-        {:ok, %{
-          session_id: session.id,
-          project_path: project_path,
-          project_slug: project_slug,
-          model: model,
-          prompt: String.slice(prompt, 0, 200),
-          status: "running",
-          linked_task_id: task_id
-        }}
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "sessions:orchestrator",
+        {:session_spawned, %{id: session_id, project_path: project_path, prompt: prompt}}
+      )
 
-      {:error, reason} ->
-        {:error, reason}
+      # Track in ETS for check_session lookups
+      :ets.insert(orchestrator_table(), {session_id, %{
+        task_ref: task.ref,
+        task_pid: task.pid,
+        project_path: project_path,
+        project_slug: project_slug,
+        prompt: String.slice(prompt, 0, 500),
+        model: model,
+        status: "running",
+        started_at: DateTime.utc_now(),
+        linked_task_id: task_id,
+        output: nil,
+        exit_code: nil
+      }})
+
+      {:ok, %{
+        session_id: session_id,
+        project_path: project_path,
+        project_slug: project_slug,
+        model: model,
+        prompt: String.slice(prompt, 0, 200),
+        status: "running",
+        linked_task_id: task_id
+      }}
     end
   end
 
-  @doc "Resume an existing Claude Code session by passing a follow-up prompt"
+  @doc "Resume an existing session by spawning a follow-up in the same project"
   def resume(session_id, prompt, opts \\ []) do
-    case find_session(session_id) do
-      {:ok, session} ->
-        project_path = session.project_path || "."
+    case :ets.lookup(orchestrator_table(), session_id) do
+      [{^session_id, state}] ->
+        spawn(prompt, [
+          project_slug: state.project_slug,
+          task_id: Keyword.get(opts, :task_id) || state.linked_task_id,
+          inject_context: true
+        ])
 
-        spawn_opts = %{
-          "linked_task_id" => Keyword.get(opts, :task_id)
-        }
-
-        case CliManager.SessionRunner.spawn_session("claude", project_path, prompt, spawn_opts) do
-          {:ok, new_session} ->
-            {:ok, %{
-              session_id: new_session.id,
-              resumed_from: session_id,
-              project_path: project_path,
-              status: "running"
-            }}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, _} = err ->
-        err
+      [] ->
+        {:error, "Session #{session_id} not found"}
     end
   end
 
   @doc "Kill a running CLI session"
   def kill(session_id) do
-    case CliManager.SessionRunner.stop(session_id) do
-      :ok -> {:ok, %{session_id: session_id, status: "killed"}}
-      {:error, :not_running} -> {:error, "Session #{session_id} is not running"}
-      {:error, reason} -> {:error, reason}
+    case :ets.lookup(orchestrator_table(), session_id) do
+      [{^session_id, %{task_pid: pid} = state}] when is_pid(pid) ->
+        if Process.alive?(pid) do
+          Process.exit(pid, :kill)
+          update_session_state(session_id, %{status: "killed"})
+          {:ok, %{session_id: session_id, status: "killed"}}
+        else
+          {:error, "Session #{session_id} is not running (status: #{state.status})"}
+        end
+
+      _ ->
+        {:error, "Session #{session_id} not found"}
     end
   end
 
@@ -218,22 +236,23 @@ defmodule Ema.Sessions.Orchestrator do
 
   @doc "Check session output and decide if follow-up is needed"
   def check_session(session_id) do
-    case CliManager.get_session(session_id) do
-      nil ->
-        {:error, "Session not found"}
-
-      session ->
-        running? = CliManager.SessionRunner.running?(session_id)
+    # Check ETS first (orchestrator-spawned sessions)
+    case :ets.lookup(orchestrator_table(), session_id) do
+      [{^session_id, state}] ->
+        running? = state.status == "running" and Process.alive?(state.task_pid)
 
         %{
-          id: session.id,
-          status: session.status,
+          id: session_id,
+          status: if(running?, do: "running", else: state.status),
           running: running?,
-          exit_code: session.exit_code,
-          output_summary: session.output_summary,
-          project_path: session.project_path,
-          prompt: session.prompt
+          exit_code: state.exit_code,
+          output_summary: state.output,
+          project_path: state.project_path,
+          prompt: state.prompt
         }
+
+      [] ->
+        {:error, "Session #{session_id} not found"}
     end
   end
 
@@ -409,24 +428,76 @@ defmodule Ema.Sessions.Orchestrator do
     end
   end
 
-  # -- Private: Tool discovery --
+  # -- Private: Direct Claude spawn --
 
-  defp ensure_claude_tool do
-    case CliManager.get_tool_by_name("claude") do
-      nil ->
-        path = System.find_executable("claude") || Path.expand("~/.local/bin/claude")
+  defp resolve_claude_binary do
+    System.find_executable("claude") ||
+      (File.exists?(Path.expand("~/.local/bin/claude")) && Path.expand("~/.local/bin/claude")) ||
+      nil
+  end
 
-        if File.exists?(path) do
-          CliManager.upsert_tool(%{
-            "name" => "claude",
-            "binary_path" => path,
-            "capabilities" => Jason.encode!(["code", "chat", "edit"]),
-            "session_dir" => Path.expand("~/.claude/projects")
-          })
-        end
+  defp run_claude_session(claude_path, project_path, prompt, _model, session_id) do
+    # Write prompt to temp file to avoid stdin issues
+    tmp = Path.join(System.tmp_dir!(), "ema-prompt-#{session_id}.txt")
+    File.write!(tmp, prompt)
+
+    try do
+      {output, exit_code} =
+        System.cmd(
+          claude_path,
+          ["--print", "--output-format", "text", "--dangerously-skip-permissions", "-p", prompt],
+          cd: project_path,
+          stderr_to_stdout: true,
+          env: [{"CLAUDE_CODE_ENTRYPOINT", "ema-orchestrator"}]
+        )
+
+      # Update ETS with result
+      update_session_state(session_id, %{
+        status: if(exit_code == 0, do: "completed", else: "failed"),
+        exit_code: exit_code,
+        output: String.slice(output, -4000, 4000)
+      })
+
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "sessions:orchestrator",
+        {:session_completed, %{id: session_id, exit_code: exit_code}}
+      )
+
+      {output, exit_code}
+    after
+      File.rm(tmp)
+    end
+  rescue
+    e ->
+      update_session_state(session_id, %{status: "crashed", output: Exception.message(e)})
+      {:error, Exception.message(e)}
+  end
+
+  defp update_session_state(session_id, updates) do
+    case :ets.lookup(orchestrator_table(), session_id) do
+      [{^session_id, state}] ->
+        :ets.insert(orchestrator_table(), {session_id, Map.merge(state, updates)})
 
       _ ->
         :ok
+    end
+  end
+
+  @doc "Initialize the ETS table. Call once from application startup."
+  def init_table do
+    if :ets.whereis(:ema_orchestrator_sessions) == :undefined do
+      :ets.new(:ema_orchestrator_sessions, [:named_table, :public, :set])
+    end
+
+    :ok
+  end
+
+  @doc false
+  def orchestrator_table do
+    case :ets.whereis(:ema_orchestrator_sessions) do
+      :undefined -> init_table(); :ema_orchestrator_sessions
+      _ref -> :ema_orchestrator_sessions
     end
   end
 
