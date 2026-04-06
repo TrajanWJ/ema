@@ -22,6 +22,7 @@ defmodule EmaCli.CLI do
   defp parse(["-h"]), do: {:ok, "help", "all", %{}}
   defp parse([]), do: {:ok, "help", "all", %{}}
 
+  defp dispatch("vault", sub, opts), do: EmaCli.Vault.run(sub, opts)
   defp dispatch("intent", sub, opts), do: EmaCli.Intent.run(sub, opts)
   defp dispatch("proposal", sub, opts), do: EmaCli.Proposal.run(sub, opts)
   defp dispatch("session", sub, opts), do: EmaCli.Session.run(sub, opts)
@@ -146,7 +147,8 @@ defmodule EmaCli.CLI do
     USAGE: ema <feature> <subcommand> [options]
 
     FEATURES:
-      intent      search, graph, list, trace
+      intent      search, graph, list, trace, create, context, status, link
+      vault       tree, imports, stale, search
       proposal    list, show, validate, approve, reject, generate, genealogy
       session     state, list, crystallize, export
       quality     report, friction, gradient, budget, threats, improve

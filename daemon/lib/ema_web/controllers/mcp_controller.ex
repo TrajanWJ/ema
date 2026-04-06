@@ -24,12 +24,7 @@ defmodule EmaWeb.MCPController do
     arguments = Map.get(params, "arguments", %{})
     request_id = get_in(params, ["_meta", "requestId"]) || request_id()
 
-    result =
-      if String.starts_with?(name, "ema_") do
-        SessionTools.call(name, arguments, request_id)
-      else
-        Tools.call(name, arguments, request_id)
-      end
+    result = dispatch_tool(name, arguments, request_id)
 
     case result do
       {:ok, body} ->
@@ -50,6 +45,28 @@ defmodule EmaWeb.MCPController do
 
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)
+
+  defp dispatch_tool(name, arguments, request_id) do
+    cond do
+      name in ~w(
+        ema_get_intents
+        ema_create_intent
+        ema_get_intent_tree
+        ema_get_intent_context
+        ema_attach_intent_actor
+        ema_attach_intent_execution
+        ema_attach_intent_session
+        ema_get_intent_runtime
+      ) ->
+        Tools.call(name, arguments, request_id)
+
+      String.starts_with?(name, "ema_") ->
+        SessionTools.call(name, arguments, request_id)
+
+      true ->
+        Tools.call(name, arguments, request_id)
+    end
+  end
 
   defp request_id do
     "http-" <> (:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower))

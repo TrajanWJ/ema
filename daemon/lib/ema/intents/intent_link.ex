@@ -4,9 +4,24 @@ defmodule Ema.Intents.IntentLink do
 
   @primary_key {:id, :string, autogenerate: false}
 
-  @linkable_types ~w(execution proposal task goal brain_dump session harvest vault_note doc)
-  @roles ~w(origin evidence derived related superseded context)
-  @provenances ~w(manual approved execution harvest cluster import)
+  @linkable_types ~w(
+    execution
+    intent
+    proposal
+    task
+    goal
+    brain_dump
+    session
+    claude_session
+    ai_session
+    agent_session
+    actor
+    harvest
+    vault_note
+    doc
+  )
+  @roles ~w(origin evidence derived related superseded context owner assignee operator runtime)
+  @provenances ~w(manual approved execution session harvest cluster import inferred system)
 
   schema "intent_links" do
     belongs_to :intent, Ema.Intents.Intent, type: :string
@@ -33,10 +48,15 @@ defmodule Ema.Intents.IntentLink do
     )
   end
 
-  defp maybe_generate_id(%{data: %{id: nil}} = changeset) do
-    ts = System.system_time(:millisecond)
-    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-    put_change(changeset, :id, "il_#{ts}_#{rand}")
+  defp maybe_generate_id(changeset) do
+    case get_field(changeset, :id) do
+      nil ->
+        ts = System.system_time(:millisecond)
+        rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+        put_change(changeset, :id, "il_#{ts}_#{rand}")
+
+      _ ->
+        changeset
+    end
   end
-  defp maybe_generate_id(changeset), do: changeset
 end

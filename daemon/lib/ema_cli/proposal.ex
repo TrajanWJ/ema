@@ -65,10 +65,9 @@ defmodule EmaCli.Proposal do
 
   def run("reject", opts) do
     id = Map.get(opts, :_arg) || error("Usage: ema proposal reject <id>")
-    reason = Map.get(opts, :reason, "Rejected via CLI")
 
-    case api_post("/proposals/#{id}/reject", %{reason: reason}) do
-      {:ok, _} -> success("Proposal #{id} rejected")
+    case api_post("/proposals/#{id}/kill", %{}) do
+      {:ok, _} -> success("Proposal #{id} rejected (killed)")
       {:error, msg} -> error(msg)
     end
   end
@@ -123,7 +122,7 @@ defmodule EmaCli.Proposal do
   def run("genealogy", opts) do
     id = Map.get(opts, :_arg) || error("Usage: ema proposal genealogy <id>")
 
-    case api_get("/proposals/#{id}/genealogy") do
+    case api_get("/proposals/#{id}/lineage") do
       {:ok, %{"lineage" => lineage}} when is_list(lineage) ->
         IO.puts("\n\e[1mGenealogy for #{id}\e[0m")
 

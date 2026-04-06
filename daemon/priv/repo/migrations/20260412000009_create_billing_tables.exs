@@ -2,7 +2,7 @@ defmodule Ema.Repo.Migrations.CreateBillingTables do
   use Ecto.Migration
 
   def change do
-    create table(:billing_clients, primary_key: false) do
+    create_if_not_exists table(:billing_clients, primary_key: false) do
       add :id, :string, primary_key: true
       add :name, :string, null: false
       add :email, :string
@@ -14,24 +14,10 @@ defmodule Ema.Repo.Migrations.CreateBillingTables do
       timestamps(type: :utc_datetime)
     end
 
-    create table(:invoices, primary_key: false) do
-      add :id, :string, primary_key: true
-      add :client_id, :string
-      add :number, :string
-      add :status, :string, default: "draft"
-      add :items, :map, default: %{"items" => []}
-      add :subtotal, :float, default: 0.0
-      add :tax_rate, :float, default: 0.0
-      add :total, :float, default: 0.0
-      add :due_date, :date
-      add :paid_at, :utc_datetime
-      add :notes, :string
-
-      timestamps(type: :utc_datetime)
-    end
-
-    create unique_index(:invoices, [:number])
-    create index(:invoices, [:client_id])
-    create index(:invoices, [:status])
+    # invoices table already exists with a different column set.
+    # Skip both table creation and indexes that reference columns
+    # not present in the existing schema (e.g., :number, :client_id).
+    # The Billing.Invoice and Invoices.Invoice dual-schema issue
+    # is a known tech debt item — not resolved in this migration.
   end
 end

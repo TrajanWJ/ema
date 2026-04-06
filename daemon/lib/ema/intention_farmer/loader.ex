@@ -4,6 +4,7 @@ defmodule Ema.IntentionFarmer.Loader do
   require Logger
 
   alias Ema.IntentionFarmer
+  alias Ema.Intents
   alias Ema.ClaudeSessions
   alias Ema.ClaudeSessions.SessionLinker
 
@@ -15,6 +16,7 @@ defmodule Ema.IntentionFarmer.Loader do
     with {:ok, hs} <- load_session(parsed_result),
          {:ok, cs} <- maybe_load_claude_session(parsed_result, hs),
          {:ok, intents_loaded} <- load_intents(parsed_result, hs) do
+      maybe_create_canonical_intents(parsed_result, hs)
       broadcast_events(hs, intents_loaded)
 
       {:ok, %{session: hs, intents_loaded: intents_loaded, claude_session: cs}}
@@ -150,6 +152,62 @@ defmodule Ema.IntentionFarmer.Loader do
           :unlinked -> nil
         end
     end
+  end
+
+  defp maybe_create_canonical_intents(parsed, hs) do
+    intents = parsed[:intents] || []
+
+    Enum.each(intents, fn intent ->
+      # Build a dedup fingerprint scoped to this harvested session + content
+      harvest_fp =
+        intent[:source_fingerprint] ||
+          Ema.IntentionFarmer.Cleaner.intent_fingerprint(
+            intent.content,
+            intent.source_type,
+            parsed.session_id
+          )
+
+      canonical_fp = "harvest:#{harvest_fp}"
+
+      # Skip if a canonical intent already exists for this harvest
+      if Intents.get_intent_by_fingerprint(canonical_fp) == nil do
+        level = if intent.intent_type in ~w(goal), do: 4, else: 5
+
+        case Intents.create_intent(%{
+               title: String.slice(intent.content, 0, 200),
+               level: level,
+               kind: intent.intent_type || "task",
+               source_type: "harvest",
+               source_fingerprint: canonical_fp,
+               project_id: hs.project_id,
+               priority: 3,
+               confidence: parsed[:quality_score] || 0.5,
+               provenance_class: "low",
+               metadata:
+                 Jason.encode!(%{
+                   harvested_session_id: hs.id,
+                   harvest_source_type: hs.source_type
+                 })
+             }) do
+          {:ok, canonical} ->
+            # Link back to the harvested session
+            Intents.link_intent(canonical.id, "session", hs.id,
+              role: "origin",
+              provenance: "harvest"
+            )
+
+          {:error, reason} ->
+            Logger.debug(
+              "[Loader] Could not create canonical intent for harvest #{harvest_fp}: #{inspect(reason)}"
+            )
+        end
+      end
+    end)
+  rescue
+    e ->
+      Logger.warning(
+        "[Loader] Canonical intent creation failed (non-fatal): #{inspect(e)}"
+      )
   end
 
   defp broadcast_events(hs, intents_loaded) do

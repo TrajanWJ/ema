@@ -221,10 +221,24 @@ defmodule Ema.MCP.Server do
 
         result =
           RecursionGuard.with_depth_check(request_id, fn ->
-            if String.starts_with?(tool_name, "ema_") do
-              SessionTools.call(tool_name, arguments, request_id)
-            else
-              Tools.call(tool_name, arguments, request_id)
+            cond do
+              tool_name in ~w(
+                ema_get_intents
+                ema_create_intent
+                ema_get_intent_tree
+                ema_get_intent_context
+                ema_attach_intent_actor
+                ema_attach_intent_execution
+                ema_attach_intent_session
+                ema_get_intent_runtime
+              ) ->
+                Tools.call(tool_name, arguments, request_id)
+
+              String.starts_with?(tool_name, "ema_") ->
+                SessionTools.call(tool_name, arguments, request_id)
+
+              true ->
+                Tools.call(tool_name, arguments, request_id)
             end
           end)
 

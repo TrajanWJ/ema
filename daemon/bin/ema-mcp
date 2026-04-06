@@ -64,5 +64,12 @@ case "${1:-}" in
     ;;
 esac
 
-# Use the escript which doesn't compete for stdio with mix.
-exec ./ema mcp-serve 2>/dev/null
+# Run the native stdio server directly from compiled BEAM artifacts so the
+# launcher stays in sync with the canonical MCP implementation.
+paths=()
+for ebin in "$PWD"/_build/dev/lib/*/ebin; do
+  [ -d "$ebin" ] || continue
+  paths+=("-pa" "$ebin")
+done
+
+exec elixir "${paths[@]}" -e 'Ema.MCP.StdioRunner.run()' 2>/dev/null

@@ -12,8 +12,6 @@ defmodule Ema.Finance.Account do
     field :institution, :string
     field :last_synced_at, :utc_datetime
 
-    has_many :transactions, Ema.Finance.Transaction
-
     timestamps(type: :utc_datetime)
   end
 

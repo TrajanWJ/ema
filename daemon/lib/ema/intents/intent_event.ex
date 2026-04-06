@@ -39,12 +39,17 @@ defmodule Ema.Intents.IntentEvent do
     end
   end
 
-  defp maybe_generate_id(%{data: %{id: nil}} = changeset) do
-    ts = System.system_time(:millisecond)
-    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-    put_change(changeset, :id, "ie_#{ts}_#{rand}")
+  defp maybe_generate_id(changeset) do
+    case get_field(changeset, :id) do
+      nil ->
+        ts = System.system_time(:millisecond)
+        rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+        put_change(changeset, :id, "ie_#{ts}_#{rand}")
+
+      _ ->
+        changeset
+    end
   end
-  defp maybe_generate_id(changeset), do: changeset
 
   defp maybe_set_timestamp(changeset) do
     case get_change(changeset, :inserted_at) do

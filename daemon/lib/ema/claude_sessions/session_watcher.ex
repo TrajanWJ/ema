@@ -134,6 +134,7 @@ defmodule Ema.ClaudeSessions.SessionWatcher do
 
         case ClaudeSessions.create_session(attrs) do
           {:ok, session} ->
+            maybe_link_execution_session(session)
             broadcast(:session_detected, session)
 
           {:error, reason} ->
@@ -143,6 +144,7 @@ defmodule Ema.ClaudeSessions.SessionWatcher do
       existing ->
         case ClaudeSessions.update_session(existing, attrs) do
           {:ok, session} ->
+            maybe_link_execution_session(session)
             broadcast(:session_detected, session)
 
           {:error, reason} ->
@@ -157,6 +159,27 @@ defmodule Ema.ClaudeSessions.SessionWatcher do
       "claude_sessions",
       {event, %{id: session.id, session_id: session.session_id, status: session.status}}
     )
+  end
+
+  defp maybe_link_execution_session(session) do
+    case session.session_id do
+      "exec_" <> execution_id ->
+        case Ema.Executions.link_session(execution_id, session.id) do
+          {:ok, _} ->
+            :ok
+
+          {:error, :not_found} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning(
+              "SessionWatcher: failed to link session #{session.id} to execution #{execution_id}: #{inspect(reason)}"
+            )
+        end
+
+      _ ->
+        :ok
+    end
   end
 
   defp default_base_path do

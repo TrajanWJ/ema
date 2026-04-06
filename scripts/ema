@@ -270,6 +270,16 @@ def read_mcp_resource(client, uri):
         if not search:
             die("Resource ema://vault/search requires ?q=<query>")
         data = client.get("/api/vectors/query", params={"q": search, "k": 5})
+    elif base_uri == "ema://intents/active":
+        params = {"status": "active", "limit": 20}
+        project_id = (query.get("project_id") or [None])[0]
+        if project_id:
+            params["project_id"] = project_id
+        data = client.get("/api/intents", params=params)
+    elif base_uri == "ema://intents/tree":
+        project_id = (query.get("project_id") or [None])[0]
+        params = {"project_id": project_id} if project_id else None
+        data = client.get("/api/intents/tree", params=params)
     else:
         die(f"Unknown MCP resource URI: {uri}")
 
@@ -928,13 +938,7 @@ def cmd_status(client, args):
     out(f"║  EMA Status — {now}  ║")
     out(f"╠═══════════════════════════════════════╣")
     out(f"║  Daemon      {daemon_info:<26} ║")
-
-    try:
-        client.get("/api/openclaw/status")
-        oc_status = "✓ connected"
-    except SystemExit:
-        oc_status = "— not checked"
-    out(f"║  OpenClaw    {oc_status:<26} ║")
+    out(f"║  Integrations {'— not checked':<26} ║")
 
     out(f"╠═══════════════════════════════════════╣")
 

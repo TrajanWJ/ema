@@ -11,6 +11,18 @@ defmodule Ema.FileVault do
 
   def get_file(id), do: Repo.get(VaultFile, id)
 
+  def create_file(attrs) do
+    id = generate_id()
+
+    %VaultFile{}
+    |> VaultFile.changeset(
+      attrs
+      |> Map.put(:id, id)
+      |> Map.put_new_lazy(:name, fn -> Map.get(attrs, :filename, "unknown") end)
+    )
+    |> Repo.insert()
+  end
+
   def upload(name, mime_type, content, opts \\ []) do
     {_disk_path, hash, size} = Storage.store(content)
     id = generate_id()

@@ -11,8 +11,10 @@ defmodule EmaWeb.IngestController do
   end
 
   def show(conn, %{"id" => id}) do
-    job = Ingestor.get_job!(id)
-    json(conn, %{job: serialize(job)})
+    case Ingestor.get_job(id) do
+      nil -> {:error, :not_found}
+      job -> json(conn, %{job: serialize(job)})
+    end
   end
 
   def create(conn, params) do

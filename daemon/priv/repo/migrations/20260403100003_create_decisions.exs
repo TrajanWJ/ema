@@ -2,7 +2,7 @@ defmodule Ema.Repo.Migrations.CreateDecisions do
   use Ecto.Migration
 
   def change do
-    create table(:decisions, primary_key: false) do
+    create_if_not_exists table(:decisions, primary_key: false) do
       add :id, :string, primary_key: true
       add :title, :string, null: false
       add :context, :text
@@ -17,7 +17,7 @@ defmodule Ema.Repo.Migrations.CreateDecisions do
       timestamps(type: :utc_datetime)
     end
 
-    create index(:decisions, [:decided_by])
-    create index(:decisions, [:outcome_score])
+    create_if_not_exists index(:decisions, [:decided_by])
+    create_if_not_exists index(:decisions, [:outcome_score])
   end
 end

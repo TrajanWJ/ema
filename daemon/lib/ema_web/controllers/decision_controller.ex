@@ -11,8 +11,10 @@ defmodule EmaWeb.DecisionController do
   end
 
   def show(conn, %{"id" => id}) do
-    decision = Decisions.get_decision!(id)
-    json(conn, %{decision: serialize(decision)})
+    case Decisions.get_decision(id) do
+      nil -> {:error, :not_found}
+      decision -> json(conn, %{decision: serialize(decision)})
+    end
   end
 
   def create(conn, params) do
@@ -37,8 +39,11 @@ defmodule EmaWeb.DecisionController do
   end
 
   def update(conn, %{"id" => id} = params) do
-    decision = Decisions.get_decision!(id)
+    case Decisions.get_decision(id) do
+      nil ->
+        {:error, :not_found}
 
+      decision ->
     attrs = %{
       title: params["title"],
       context: params["context"],
@@ -56,13 +61,18 @@ defmodule EmaWeb.DecisionController do
     with {:ok, updated} <- Decisions.update_decision(decision, attrs) do
       json(conn, serialize(updated))
     end
+    end
   end
 
   def delete(conn, %{"id" => id}) do
-    decision = Decisions.get_decision!(id)
+    case Decisions.get_decision(id) do
+      nil ->
+        {:error, :not_found}
 
-    with {:ok, _} <- Decisions.delete_decision(decision) do
-      json(conn, %{ok: true})
+      decision ->
+        with {:ok, _} <- Decisions.delete_decision(decision) do
+          json(conn, %{ok: true})
+        end
     end
   end
 

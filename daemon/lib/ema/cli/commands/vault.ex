@@ -29,7 +29,7 @@ defmodule Ema.CLI.Commands.Vault do
 
         case transport.get("/vault/search", params: params) do
           {:ok, body} ->
-            Output.render(Helpers.extract_list(body, "results"), @search_columns, json: opts[:json])
+            Output.render(Helpers.extract_list(body, "notes"), @search_columns, json: opts[:json])
 
           {:error, reason} ->
             Output.error(reason)
@@ -192,10 +192,38 @@ defmodule Ema.CLI.Commands.Vault do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/vault/graph/neighbors/#{id}") do
-          {:ok, %{"data" => links}} -> Output.render(links, @search_columns, json: opts[:json])
+          {:ok, %{"notes" => links}} -> Output.render(links, @search_columns, json: opts[:json])
           {:ok, links} when is_list(links) -> Output.render(links, @search_columns, json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
+    end
+  end
+
+  def handle([:imports], _parsed, _transport, opts) do
+    vault_root = Application.get_env(:ema, :vault_path, "~/.local/share/ema/vault")
+    provenance = Path.expand("#{vault_root}/imports/_provenance.md")
+
+    if File.exists?(provenance) do
+      content = File.read!(provenance)
+
+      if opts[:json] do
+        Output.json(%{path: provenance, content: content})
+      else
+        IO.puts(content)
+      end
+    else
+      Output.warn("No provenance file at #{provenance}")
+    end
+  end
+
+  def handle([:stale], _parsed, _transport, opts) do
+    vault_root = Application.get_env(:ema, :vault_path, "~/.local/share/ema/vault")
+    intents_dir = Path.expand("#{vault_root}/intents")
+
+    if File.dir?(intents_dir) do
+      print_stale_files(intents_dir, vault_root, opts)
+    else
+      Output.warn("No intents directory at #{intents_dir}")
     end
   end
 
@@ -223,4 +251,50 @@ defmodule Ema.CLI.Commands.Vault do
   end
 
   defp print_tree(_, _), do: :ok
+
+  defp print_stale_files(intents_dir, vault_root, opts) do
+    files = list_files_recursive(intents_dir)
+
+    if files == [] do
+      Output.info("No intent projection files found.")
+    else
+      now = System.os_time(:second)
+      root = Path.expand(vault_root)
+
+      rows =
+        Enum.map(files, fn path ->
+          rel = Path.relative_to(path, root)
+          stat = File.stat!(path, time: :posix)
+          age_hours = div(now - stat.mtime, 3600)
+
+          %{"path" => rel, "age" => format_age(age_hours), "size" => "#{stat.size}b"}
+        end)
+        |> Enum.sort_by(& &1["age"], :desc)
+
+      columns = [{"Path", "path"}, {"Age", "age"}, {"Size", "size"}]
+
+      if opts[:json] do
+        Output.json(rows)
+      else
+        Output.render(rows, columns, json: false)
+      end
+    end
+  end
+
+  defp list_files_recursive(dir) do
+    case File.ls(dir) do
+      {:ok, entries} ->
+        Enum.flat_map(entries, fn entry ->
+          full = Path.join(dir, entry)
+          if File.dir?(full), do: list_files_recursive(full), else: [full]
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  defp format_age(hours) when hours < 1, do: "<1h"
+  defp format_age(hours) when hours < 24, do: "#{hours}h"
+  defp format_age(hours), do: "#{div(hours, 24)}d"
 end

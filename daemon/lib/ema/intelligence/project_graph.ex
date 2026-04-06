@@ -22,6 +22,7 @@ defmodule Ema.Intelligence.ProjectGraph do
   alias Ema.Proposals
   alias Ema.Executions
   alias Ema.Intelligence.IntentMap
+  alias Ema.Intents, as: NewIntents
   alias Ema.Tasks
 
   # ── Public API ────────────────────────────────────────────────────────────
@@ -58,8 +59,16 @@ defmodule Ema.Intelligence.ProjectGraph do
         |> Enum.map(&node_from_execution/1)
 
       intent_nodes =
-        IntentMap.list_nodes(project_id: project_id)
-        |> Enum.map(&node_from_intent_node/1)
+        case NewIntents.list_intents(project_id: project_id) do
+          [] ->
+            IntentMap.list_nodes(project_id: project_id)
+            |> Enum.map(&node_from_intent_node/1)
+
+          new_intents ->
+            new_intents
+            |> Enum.map(&intent_to_legacy_node/1)
+            |> Enum.map(&node_from_intent_node/1)
+        end
 
       nodes = [project_node | proposal_nodes ++ execution_nodes ++ intent_nodes]
       edges = build_edges(nodes)
@@ -102,9 +111,15 @@ defmodule Ema.Intelligence.ProjectGraph do
       String.starts_with?(node_id, "int-") ->
         id = String.replace_prefix(node_id, "int-", "")
 
-        case IntentMap.get_node(id) do
-          nil -> nil
-          node -> node_from_intent_node(node)
+        case NewIntents.get_intent(id) do
+          nil ->
+            case IntentMap.get_node(id) do
+              nil -> nil
+              node -> node_from_intent_node(node)
+            end
+
+          intent ->
+            intent |> intent_to_legacy_node() |> node_from_intent_node()
         end
 
       true ->
@@ -202,9 +217,30 @@ defmodule Ema.Intelligence.ProjectGraph do
   end
 
   defp collect_intent_nodes(acc) do
-    nodes = IntentMap.list_nodes()
+    # Try new Intents table first, fall back to legacy IntentMap during transition
+    new_intents = NewIntents.list_intents()
+
+    nodes =
+      if new_intents == [] do
+        IntentMap.list_nodes()
+      else
+        Enum.map(new_intents, &intent_to_legacy_node/1)
+      end
+
     intent_nodes = Enum.map(nodes, &node_from_intent_node/1)
     acc ++ intent_nodes
+  end
+
+  defp intent_to_legacy_node(%Ema.Intents.Intent{} = intent) do
+    %{
+      id: intent.id,
+      title: intent.title,
+      status: intent.status,
+      level: intent.level,
+      project_id: intent.project_id,
+      parent_id: intent.parent_id,
+      inserted_at: intent.inserted_at
+    }
   end
 
   # ── Edge Builder ──────────────────────────────────────────────────────────

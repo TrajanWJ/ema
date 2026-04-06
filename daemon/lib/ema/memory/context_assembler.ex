@@ -15,6 +15,7 @@ defmodule Ema.Memory.ContextAssembler do
 
   alias Ema.{Projects, Proposals, Executions}
   alias Ema.Intelligence.IntentMap
+  alias Ema.Intents, as: NewIntents
   alias Ema.Memory
 
   @default_max_tokens 4_000
@@ -228,10 +229,21 @@ defmodule Ema.Memory.ContextAssembler do
 
       open_intents =
         try do
-          IntentMap.list_nodes(project_id: project.id)
-          |> Enum.filter(&(&1.status in ["active", "open", "in_progress"]))
-          |> Enum.take(5)
-          |> Enum.map(&Map.take(&1, [:id, :title, :status, :level]))
+          # Try new Intents table first, fall back to legacy IntentMap during transition
+          new_intents =
+            NewIntents.list_intents(project_id: project.id)
+            |> Enum.filter(&(&1.status in ["active", "open", "in_progress", "implementing"]))
+            |> Enum.take(5)
+            |> Enum.map(&Map.take(&1, [:id, :title, :status, :level]))
+
+          if new_intents == [] do
+            IntentMap.list_nodes(project_id: project.id)
+            |> Enum.filter(&(&1.status in ["active", "open", "in_progress"]))
+            |> Enum.take(5)
+            |> Enum.map(&Map.take(&1, [:id, :title, :status, :level]))
+          else
+            new_intents
+          end
         rescue
           _ -> []
         end

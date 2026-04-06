@@ -1,30 +1,39 @@
 defmodule Ema.Babysitter.VisibilityHub do
   @moduledoc """
-  Subscribes to all EMA PubSub topics and maintains a ring buffer of recent events.
+  Subscribes to EMA PubSub topics and maintains a ring buffer of recent events.
 
-  Categories:
-    - :sessions       ← claude_sessions
-    - :pipeline       ← tasks, proposals, pipes:runs
-    - :build          ← brain_dump, projects
-    - :intelligence   ← intelligence:*
+  Active categories:
+    - :build          ← brain_dump
+    - :pipeline       ← executions, task_events, goals
     - :system         ← pipes:config
+
+  Planned (not yet wired — see TODO in @active_topics):
+    - :sessions       ← claude_sessions
+    - :intelligence   ← intelligence:routing
     - :control        ← babysitter:control
   """
 
   use GenServer
   require Logger
 
-  @topics [
-    "claude_sessions",
-    "tasks",
-    "proposals",
-    "pipes:runs",
+  # Active topics (have actual PubSub broadcasters)
+  @active_topics [
     "brain_dump",
-    "projects",
-    "intelligence:routing",
-    "pipes:config",
-    "babysitter:control"
+    "executions",
+    "task_events",
+    "goals",
+    "pipes:config"
   ]
+
+  # TODO: Planned topics — no PubSub broadcasters yet.
+  # These domains broadcast via Endpoint.broadcast to Phoenix channels, not PubSub.
+  # Add PubSub broadcasts in the respective context modules when needed:
+  #   "claude_sessions"      — SessionWatcher uses Endpoint.broadcast
+  #   "proposals"            — Proposal engine uses Endpoint.broadcast
+  #   "pipes:runs"           — PipeExecutor uses Endpoint.broadcast
+  #   "projects"             — Projects context uses Endpoint.broadcast
+  #   "intelligence:routing" — not yet implemented
+  #   "babysitter:control"   — not yet implemented
 
   @default_buffer_size 100
 
@@ -62,7 +71,7 @@ defmodule Ema.Babysitter.VisibilityHub do
 
   @impl true
   def init(_opts) do
-    for topic <- @topics do
+    for topic <- @active_topics do
       Phoenix.PubSub.subscribe(Ema.PubSub, topic)
     end
 
@@ -139,27 +148,22 @@ defmodule Ema.Babysitter.VisibilityHub do
   # Since Elixir's PubSub doesn't include topic in the message itself,
   # we use a metadata wrapper approach: store the topic when subscribing
   # and match known message shapes.
-  defp topic_from_message({:claude_session, _}), do: "claude_sessions"
-  defp topic_from_message({:session_event, _}), do: "claude_sessions"
-  defp topic_from_message({:session_detected, _}), do: "claude_sessions"
-  defp topic_from_message({:task_event, _}), do: "tasks"
-  defp topic_from_message({:proposal_event, _}), do: "proposals"
-  defp topic_from_message({:pipe_run, _}), do: "pipes:runs"
-  defp topic_from_message({:brain_dump, _}), do: "brain_dump"
-  defp topic_from_message({:project_event, _}), do: "projects"
-  defp topic_from_message({:routing, _}), do: "intelligence:routing"
-  defp topic_from_message({:pipes_config, _}), do: "pipes:config"
-  defp topic_from_message({:babysitter_control, _}), do: "babysitter:control"
+  # brain_dump broadcasts {:brain_dump, :item_created, item}
+  defp topic_from_message({:brain_dump, _, _}), do: "brain_dump"
+  # executions broadcasts {"execution:*", payload}
+  defp topic_from_message({"execution:" <> _, _}), do: "executions"
+  # task_events broadcasts {:task_completed, payload}
+  defp topic_from_message({:task_completed, _}), do: "task_events"
+  # goals broadcasts {:goals, :created, goal}
+  defp topic_from_message({:goals, _, _}), do: "goals"
+  # pipes:config broadcasts :pipes_changed atom
+  defp topic_from_message(:pipes_changed), do: "pipes:config"
   defp topic_from_message(_), do: nil
 
-  defp categorize("claude_sessions"), do: :sessions
-  defp categorize("tasks"), do: :pipeline
-  defp categorize("proposals"), do: :pipeline
-  defp categorize("pipes:runs"), do: :pipeline
   defp categorize("brain_dump"), do: :build
-  defp categorize("projects"), do: :build
-  defp categorize("intelligence:" <> _), do: :intelligence
+  defp categorize("executions"), do: :pipeline
+  defp categorize("task_events"), do: :pipeline
+  defp categorize("goals"), do: :pipeline
   defp categorize("pipes:config"), do: :system
-  defp categorize("babysitter:control"), do: :control
   defp categorize(_), do: :unknown
 end

@@ -15,6 +15,8 @@ defmodule Ema.Executions do
   import Ecto.Query
   alias Ema.Repo
   alias Ema.Executions.{Execution, Event, AgentSession, Router}
+  alias Ema.Intents
+  alias Ema.Intents.IntentLink
   require Logger
 
   # ── Public API ──────────────────────────────────────────────────────────────
@@ -54,6 +56,8 @@ defmodule Ema.Executions do
     |> Execution.changeset(attrs)
     |> Repo.insert()
     |> tap_ok(fn execution ->
+      maybe_sync_intent_runtime(execution)
+
       record_event(execution.id, "created", %{
         mode: execution.mode,
         intent_slug: execution.intent_slug
@@ -89,6 +93,7 @@ defmodule Ema.Executions do
         |> Execution.changeset(%{proposal_id: proposal_id, status: "proposed"})
         |> Repo.update()
         |> tap_ok(fn updated ->
+          maybe_sync_intent_runtime(updated)
           record_event(updated.id, "proposal_linked", %{proposal_id: proposal_id})
           broadcast("execution:updated", updated)
         end)
@@ -142,6 +147,7 @@ defmodule Ema.Executions do
         |> Execution.changeset(%{session_id: session_id, status: "running"})
         |> Repo.update()
         |> tap_ok(fn updated ->
+          maybe_sync_intent_runtime(updated)
           record_event(updated.id, "session_linked", %{session_id: session_id})
           broadcast("execution:updated", updated)
         end)
@@ -165,6 +171,7 @@ defmodule Ema.Executions do
         })
         |> Repo.update()
         |> tap_ok(fn updated ->
+          maybe_sync_intent_runtime(updated)
           record_event(updated.id, "completed", %{signal: signal})
           broadcast("execution:completed", %{execution: updated, signal: signal})
           Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
@@ -192,6 +199,7 @@ defmodule Ema.Executions do
         })
         |> Repo.update()
         |> tap_ok(fn updated ->
+          maybe_sync_intent_runtime(updated)
           record_event(updated.id, "completed", %{signal: signal, result_path: result_path})
           broadcast("execution:completed", %{execution: updated, signal: signal})
           Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
@@ -244,6 +252,9 @@ defmodule Ema.Executions do
       |> Map.put(:execution_id, execution_id)
     )
     |> Repo.insert()
+    |> tap_ok(fn session ->
+      maybe_sync_agent_session(execution_id, session)
+    end)
   end
 
   def list_agent_sessions(execution_id) do
@@ -274,6 +285,9 @@ defmodule Ema.Executions do
           metadata: merged_metadata
         })
         |> Repo.update()
+        |> tap_ok(fn updated ->
+          maybe_sync_agent_session(updated.execution_id, updated)
+        end)
     end
   end
 
@@ -429,6 +443,107 @@ defmodule Ema.Executions do
   end
 
   defp tap_ok(error, _fun), do: error
+
+  defp maybe_sync_intent_runtime(%Execution{} = execution) do
+    case resolve_intent_for_execution(execution) do
+      nil ->
+        :ok
+
+      intent ->
+        _ =
+          Intents.attach_execution(intent.id, execution.id,
+            role: "runtime",
+            provenance: "execution"
+          )
+
+        maybe_link_runtime_record(intent.id, "brain_dump", execution.brain_dump_item_id, "origin", "manual")
+        maybe_link_runtime_record(intent.id, "proposal", execution.proposal_id, "derived", "approved")
+        maybe_link_runtime_record(intent.id, "task", execution.task_id, "related", "manual")
+
+        if is_binary(execution.actor_id) and execution.actor_id != "" do
+          _ =
+            Intents.attach_actor(intent.id, execution.actor_id,
+              role: "assignee",
+              provenance: "execution"
+            )
+        end
+
+        if is_binary(execution.session_id) and execution.session_id != "" do
+          _ =
+            Intents.attach_session(intent.id, "claude_session", execution.session_id,
+              role: "runtime",
+              provenance: "session"
+            )
+        end
+
+        :ok
+    end
+  rescue
+    e ->
+      Logger.warning("[Executions] intent runtime sync failed for #{execution.id}: #{inspect(e)}")
+      :ok
+  end
+
+  defp maybe_sync_agent_session(execution_id, %AgentSession{} = session) do
+    case get_execution(execution_id) do
+      %Execution{} = execution ->
+        case resolve_intent_for_execution(execution) do
+          nil ->
+            :ok
+
+          intent ->
+            _ =
+              Intents.attach_session(intent.id, "agent_session", session.id,
+                role: "runtime",
+                provenance: "execution"
+              )
+
+            :ok
+        end
+
+      _ ->
+        :ok
+    end
+  rescue
+    e ->
+      Logger.warning("[Executions] agent session sync failed for #{execution_id}: #{inspect(e)}")
+      :ok
+  end
+
+  defp resolve_intent_for_execution(%Execution{} = execution) do
+    cond do
+      is_binary(execution.intent_slug) and execution.intent_slug != "" ->
+        Intents.get_intent_by_slug(execution.intent_slug) || linked_intent_by_anchor("brain_dump", execution.brain_dump_item_id) ||
+          linked_intent_by_anchor("proposal", execution.proposal_id) || linked_intent_by_anchor("task", execution.task_id)
+
+      true ->
+        linked_intent_by_anchor("brain_dump", execution.brain_dump_item_id) ||
+          linked_intent_by_anchor("proposal", execution.proposal_id) || linked_intent_by_anchor("task", execution.task_id)
+    end
+  end
+
+  defp linked_intent_by_anchor(_type, nil), do: nil
+  defp linked_intent_by_anchor(_type, ""), do: nil
+
+  defp linked_intent_by_anchor(type, id) do
+    case Repo.one(
+           from l in IntentLink,
+             where: l.linkable_type == ^type and l.linkable_id == ^id,
+             select: l.intent_id,
+             limit: 1
+         ) do
+      nil -> nil
+      intent_id -> Intents.get_intent(intent_id)
+    end
+  end
+
+  defp maybe_link_runtime_record(_intent_id, _type, nil, _role, _provenance), do: :ok
+  defp maybe_link_runtime_record(_intent_id, _type, "", _role, _provenance), do: :ok
+
+  defp maybe_link_runtime_record(intent_id, type, record_id, role, provenance) do
+    _ = Intents.link_intent(intent_id, type, record_id, role: role, provenance: provenance)
+    :ok
+  end
 
   defp dispatch_if_ready(%{requires_approval: false, status: "approved"} = execution) do
     Phoenix.PubSub.broadcast(Ema.PubSub, "executions:dispatch", {:dispatch, execution})

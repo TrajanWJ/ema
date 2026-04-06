@@ -60,6 +60,18 @@ defmodule Ema.MCP.Resources do
         "name" => "Vault Search",
         "description" => "Semantic search over the EMA knowledge vault. Add ?q=your+query to the URI.",
         "mimeType" => "application/json"
+      },
+      %{
+        "uri" => "ema://intents/active",
+        "name" => "Active Intents",
+        "description" => "Active intents from the Intent Engine with context — the current semantic truth of what's in progress.",
+        "mimeType" => "application/json"
+      },
+      %{
+        "uri" => "ema://intents/tree",
+        "name" => "Intent Tree",
+        "description" => "Full intent hierarchy as a nested tree. Add ?project_id=X to filter by project.",
+        "mimeType" => "application/json"
       }
     ]
   end
@@ -112,6 +124,23 @@ defmodule Ema.MCP.Resources do
     else
       degraded_response("vault/search", "Query parameter 'q' is required. Use ema://vault/search?q=your+query")
     end
+  end
+
+  def read("ema://intents/active") do
+    fetch_resource("/api/intents?status=active&limit=20", "intents/active")
+  end
+
+  def read("ema://intents/tree" <> query_string) do
+    project_id = parse_query_param(query_string, "project_id")
+
+    path =
+      if project_id && project_id != "" do
+        "/api/intents/tree?project_id=#{URI.encode(project_id)}"
+      else
+        "/api/intents/tree"
+      end
+
+    fetch_resource(path, "intents/tree")
   end
 
   def read(uri) do

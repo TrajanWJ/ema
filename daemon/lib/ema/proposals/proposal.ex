@@ -40,6 +40,8 @@ defmodule Ema.Proposals.Proposal do
     field :validation_gates_passed, :string
     field :validation_gates_failed, :string
 
+    field :source_intent_id, :string
+
     belongs_to :parent_proposal, __MODULE__, type: :string
 
     has_many :tags, Ema.Proposals.ProposalTag
@@ -88,7 +90,8 @@ defmodule Ema.Proposals.Proposal do
       :genealogy_path,
       :validation_score,
       :validation_gates_passed,
-      :validation_gates_failed
+      :validation_gates_failed,
+      :source_intent_id
     ])
     |> validate_required([:id, :title])
     |> validate_inclusion(:status, @valid_statuses)

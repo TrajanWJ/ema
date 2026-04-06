@@ -9,6 +9,11 @@ defmodule Ema.Intents do
   import Ecto.Query
   alias Ema.Repo
   alias Ema.Intents.{Intent, IntentLink, IntentEvent}
+  alias Ema.Actors
+  alias Ema.Executions
+  alias Ema.Executions.AgentSession
+  alias Ema.ClaudeSessions
+  alias Ema.Claude.AiSession
 
   # ── CRUD ─────────────────────────────────────────────────────────
 
@@ -20,6 +25,7 @@ defmodule Ema.Intents do
     |> maybe_filter(:kind, opts[:kind])
     |> maybe_filter(:parent_id, opts[:parent_id])
     |> maybe_filter(:source_type, opts[:source_type])
+    |> maybe_search(opts[:search])
     |> order_by([i], [asc: i.level, desc: i.inserted_at])
     |> maybe_limit(opts[:limit])
     |> Repo.all()
@@ -90,6 +96,60 @@ defmodule Ema.Intents do
     Enum.map(roots, &build_subtree/1)
   end
 
+  def get_intent_detail(id) do
+    case get_intent(id) do
+      nil ->
+        nil
+
+      intent ->
+        serialize(intent)
+        |> Map.put(:links, Enum.map(get_links(intent.id), &serialize_link/1))
+        |> Map.put(:lineage, Enum.map(get_lineage(intent.id), &serialize_event/1))
+    end
+  end
+
+  def get_runtime_bundle(id) do
+    case get_intent(id) do
+      nil ->
+        nil
+
+      intent ->
+        links = get_links(intent.id)
+
+        %{
+          intent: serialize(intent),
+          actors: links |> Enum.filter(&(&1.linkable_type == "actor")) |> Enum.map(&hydrate_link/1),
+          executions: links |> Enum.filter(&(&1.linkable_type == "execution")) |> Enum.map(&hydrate_link/1),
+          sessions:
+            links
+            |> Enum.filter(&(&1.linkable_type in ~w(session claude_session ai_session agent_session)))
+            |> Enum.map(&hydrate_link/1),
+          links: Enum.map(links, &serialize_link/1),
+          lineage: Enum.map(get_lineage(intent.id, limit: 20), &serialize_event/1)
+        }
+    end
+  end
+
+  def status_summary(opts \\ []) do
+    intents = list_intents(opts)
+
+    counts =
+      Enum.reduce(intents, %{}, fn intent, acc ->
+        Map.update(acc, intent.status, 1, &(&1 + 1))
+      end)
+
+    %{
+      total: length(intents),
+      planned: Map.get(counts, "planned", 0),
+      active: Map.get(counts, "active", 0) + Map.get(counts, "implementing", 0),
+      blocked: Map.get(counts, "blocked", 0),
+      complete: Map.get(counts, "complete", 0),
+      researched: Map.get(counts, "researched", 0),
+      outlined: Map.get(counts, "outlined", 0),
+      archived: Map.get(counts, "archived", 0)
+    }
+  end
+
   defp build_subtree(node) do
     children =
       Intent
@@ -136,6 +196,21 @@ defmodule Ema.Intents do
     end
   end
 
+  defp maybe_search(query, nil), do: query
+  defp maybe_search(query, ""), do: query
+
+  defp maybe_search(query, term) do
+    pattern = "%" <> term <> "%"
+
+    where(
+      query,
+      [i],
+      fragment("lower(?) like lower(?)", i.title, ^pattern) or
+        fragment("lower(coalesce(?, '')) like lower(?)", i.description, ^pattern) or
+        fragment("lower(coalesce(?, '')) like lower(?)", i.slug, ^pattern)
+    )
+  end
+
   # ── Links (semantic ↔ operational bridge) ─────────────────────────
 
   def link_intent(intent_id, linkable_type, linkable_id, opts \\ []) do
@@ -156,7 +231,63 @@ defmodule Ema.Intents do
         linkable_id: link.linkable_id,
         role: link.role
       })
+
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "intents",
+        {"intents:linked",
+         %{
+           intent_id: intent_id,
+           link: serialize_link(link)
+         }}
+      )
     end)
+  end
+
+  def attach_actor(intent_id, actor_id, opts \\ []) do
+    with %Intent{} <- get_intent(intent_id),
+         actor when not is_nil(actor) <- Actors.get_actor(actor_id) || Actors.get_actor_by_slug(actor_id),
+         {:ok, link} <-
+           link_intent(intent_id, "actor", actor.id,
+             role: opts[:role] || "assignee",
+             provenance: opts[:provenance] || "manual"
+           ) do
+      {:ok, link}
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
+  end
+
+  def attach_execution(intent_id, execution_id, opts \\ []) do
+    with %Intent{} <- get_intent(intent_id),
+         %Executions.Execution{} <- Executions.get_execution(execution_id),
+         {:ok, link} <-
+           link_intent(intent_id, "execution", execution_id,
+             role: opts[:role] || "runtime",
+             provenance: opts[:provenance] || "execution"
+           ) do
+      {:ok, link}
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
+  end
+
+  def attach_session(intent_id, session_type, session_id, opts \\ []) do
+    with %Intent{} <- get_intent(intent_id),
+         {:ok, canonical_type} <- normalize_session_type(session_type),
+         {:ok, _record} <- fetch_session_record(canonical_type, session_id),
+         {:ok, link} <-
+           link_intent(intent_id, canonical_type, session_id,
+             role: opts[:role] || "runtime",
+             provenance: opts[:provenance] || session_provenance(canonical_type)
+           ) do
+      {:ok, link}
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
   end
 
   def unlink_intent(intent_id, linkable_type, linkable_id) do
@@ -237,6 +368,34 @@ defmodule Ema.Intents do
     }
   end
 
+  def serialize_tree(%Intent{} = intent) do
+    serialize(intent)
+    |> Map.put(:children, Enum.map(Map.get(intent, :children, []), &serialize_tree/1))
+  end
+
+  def serialize_link(%IntentLink{} = link) do
+    %{
+      id: link.id,
+      intent_id: link.intent_id,
+      linkable_type: link.linkable_type,
+      linkable_id: link.linkable_id,
+      role: link.role,
+      provenance: link.provenance,
+      inserted_at: link.inserted_at
+    }
+  end
+
+  def serialize_event(%IntentEvent{} = event) do
+    %{
+      id: event.id,
+      intent_id: event.intent_id,
+      event_type: event.event_type,
+      payload: IntentEvent.decode_payload(event),
+      actor: event.actor,
+      inserted_at: event.inserted_at
+    }
+  end
+
   def export_markdown(opts \\ []) do
     tree(opts)
     |> Enum.map_join("\n", &render_md_node(&1, 0))
@@ -261,6 +420,88 @@ defmodule Ema.Intents do
   defp status_icon("implementing"), do: "~"
   defp status_icon("blocked"), do: "!"
   defp status_icon(_), do: "o"
+
+  defp hydrate_link(%IntentLink{} = link) do
+    serialize_link(link)
+    |> Map.put(:record, linked_record_summary(link))
+  end
+
+  defp linked_record_summary(%IntentLink{linkable_type: "actor", linkable_id: id}) do
+    case Actors.get_actor(id) do
+      nil -> nil
+      actor -> %{id: actor.id, slug: actor.slug, name: actor.name, type: actor.actor_type, phase: actor.phase, status: actor.status}
+    end
+  end
+
+  defp linked_record_summary(%IntentLink{linkable_type: "execution", linkable_id: id}) do
+    case Executions.get_execution(id) do
+      nil -> nil
+      execution ->
+        %{
+          id: execution.id,
+          title: execution.title,
+          status: execution.status,
+          mode: execution.mode,
+          actor_id: execution.actor_id,
+          session_id: execution.session_id,
+          task_id: execution.task_id,
+          proposal_id: execution.proposal_id
+        }
+    end
+  end
+
+  defp linked_record_summary(%IntentLink{linkable_type: "claude_session", linkable_id: id}) do
+    case ClaudeSessions.get_session(id) do
+      nil -> nil
+      session -> %{id: session.id, session_id: session.session_id, status: session.status, project_id: session.project_id, last_active: session.last_active}
+    end
+  end
+
+  defp linked_record_summary(%IntentLink{linkable_type: "ai_session", linkable_id: id}) do
+    case Repo.get(AiSession, id) do
+      nil -> nil
+      session -> %{id: session.id, model: session.model, status: session.status, agent_id: session.agent_id, project_path: session.project_path}
+    end
+  end
+
+  defp linked_record_summary(%IntentLink{linkable_type: "agent_session", linkable_id: id}) do
+    case Repo.get(AgentSession, id) do
+      nil -> nil
+      session -> %{id: session.id, execution_id: session.execution_id, agent_role: session.agent_role, status: session.status, started_at: session.started_at}
+    end
+  end
+
+  defp linked_record_summary(_link), do: nil
+
+  defp normalize_session_type(type) when type in ~w(session claude_session ai_session agent_session),
+    do: {:ok, if(type == "session", do: "claude_session", else: type)}
+
+  defp normalize_session_type(_), do: {:error, "session_type must be one of: claude_session, ai_session, agent_session"}
+
+  defp fetch_session_record("claude_session", id) do
+    case ClaudeSessions.get_session(id) do
+      nil -> {:error, :not_found}
+      record -> {:ok, record}
+    end
+  end
+
+  defp fetch_session_record("ai_session", id) do
+    case Repo.get(AiSession, id) do
+      nil -> {:error, :not_found}
+      record -> {:ok, record}
+    end
+  end
+
+  defp fetch_session_record("agent_session", id) do
+    case Repo.get(AgentSession, id) do
+      nil -> {:error, :not_found}
+      record -> {:ok, record}
+    end
+  end
+
+  defp session_provenance("claude_session"), do: "session"
+  defp session_provenance("ai_session"), do: "session"
+  defp session_provenance("agent_session"), do: "execution"
 
   # ── Helpers ──────────────────────────────────────────────────────
 

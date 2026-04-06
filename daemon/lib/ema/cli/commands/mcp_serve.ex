@@ -162,7 +162,7 @@ defmodule Ema.CLI.Commands.McpServe do
   defp call_tool("ema_health", _args), do: api_get("/health")
   defp call_tool("ema_get_projects", _args), do: api_get("/projects")
   defp call_tool("ema_get_tasks", args), do: api_get("/tasks", args)
-  defp call_tool("ema_create_task", args), do: api_post("/tasks", %{"task" => args})
+  defp call_tool("ema_create_task", args), do: api_post("/tasks", args)
   defp call_tool("ema_brain_dump", args), do: api_post("/brain-dump/items", args)
   defp call_tool("ema_search_vault", %{"query" => q} = args), do: api_get("/vault/search", %{"q" => q, "space" => args["space"]})
   defp call_tool("ema_search_vault", _), do: {:error, "query is required"}

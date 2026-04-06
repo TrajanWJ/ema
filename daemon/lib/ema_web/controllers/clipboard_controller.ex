@@ -5,13 +5,8 @@ defmodule EmaWeb.ClipboardController do
 
   action_fallback EmaWeb.FallbackController
 
-  def index(conn, params) do
-    opts =
-      []
-      |> maybe_add(:content_type, params["content_type"])
-      |> maybe_add(:pinned, parse_bool(params["pinned"]))
-
-    clips = Clipboard.list_clips(opts) |> Enum.map(&serialize/1)
+  def index(conn, _params) do
+    clips = Clipboard.list_clips() |> Enum.map(&serialize/1)
     json(conn, %{clips: clips})
   end
 
@@ -45,7 +40,7 @@ defmodule EmaWeb.ClipboardController do
   end
 
   def pin(conn, %{"id" => id}) do
-    with {:ok, clip} <- Clipboard.pin(id) do
+    with {:ok, clip} <- Clipboard.toggle_pin(id) do
       json(conn, %{clip: serialize(clip)})
     end
   end

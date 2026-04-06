@@ -523,6 +523,14 @@ defmodule Ema.CLI do
           name: "backlinks",
           about: "Show backlinks for a note",
           args: [id: [required: true, help: "Note ID", parser: :integer]]
+        ],
+        imports: [
+          name: "imports",
+          about: "List imported content with provenance"
+        ],
+        stale: [
+          name: "stale",
+          about: "Show vault intent projections with file ages"
         ]
       ]
     ]
@@ -1438,14 +1446,56 @@ defmodule Ema.CLI do
       ]]
   ]]
 
-  defp intent_spec, do: [name: "intent", about: "Intent map", subcommands: [
-    list: [name: "list", about: "List intent nodes",
+  defp intent_spec, do: [name: "intent", about: "Intent engine", subcommands: [
+    list: [name: "list", about: "List intents",
       options: [project: [short: "-p", long: "--project", help: "Filter by project", parser: :string]]],
-    show: [name: "show", about: "Show intent node", args: [id: [required: true, help: "Node ID"]]],
+    show: [name: "show", about: "Show intent", args: [id: [required: true, help: "Intent ID"]]],
+    create: [name: "create", about: "Create intent",
+      args: [title: [required: true, help: "Intent title"]],
+      options: [
+        project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
+        level: [short: "-l", long: "--level", help: "Intent level", parser: :integer],
+        kind: [short: "-k", long: "--kind", help: "Intent kind", parser: :string],
+        description: [short: "-d", long: "--description", help: "Intent description", parser: :string]
+      ]],
     tree: [name: "tree", about: "Show intent tree",
       options: [project: [short: "-p", long: "--project", help: "Project ID", parser: :string]]],
+    status: [name: "status", about: "Show intent status summary",
+      options: [project: [short: "-p", long: "--project", help: "Project ID", parser: :string]]],
     export: [name: "export", about: "Export intents as markdown",
-      options: [project: [short: "-p", long: "--project", help: "Project ID", parser: :string]]]
+      options: [project: [short: "-p", long: "--project", help: "Project ID", parser: :string]]],
+    context: [name: "context", about: "Show assembled context for an intent (details + links + lineage)",
+      args: [id: [required: true, help: "Intent ID"]]],
+    runtime: [name: "runtime", about: "Show actor/session/execution runtime bundle for an intent",
+      args: [id: [required: true, help: "Intent ID"]]],
+    link: [name: "link", about: "Create a typed edge between intents",
+      args: [id: [required: true, help: "Source intent ID"]],
+      options: [
+        depends_on: [long: "--depends-on", help: "Target intent ID", parser: :string],
+        role: [short: "-r", long: "--role", help: "Link role (default: depends_on)", parser: :string]
+      ]],
+    "attach-actor": [name: "attach-actor", about: "Attach an actor to an intent",
+      args: [id: [required: true, help: "Intent ID"]],
+      options: [
+        actor: [short: "-a", long: "--actor", help: "Actor ID or slug", parser: :string],
+        role: [short: "-r", long: "--role", help: "Link role (default: assignee)", parser: :string],
+        provenance: [long: "--provenance", help: "Link provenance", parser: :string]
+      ]],
+    "attach-execution": [name: "attach-execution", about: "Attach an execution to an intent",
+      args: [id: [required: true, help: "Intent ID"]],
+      options: [
+        execution: [short: "-e", long: "--execution", help: "Execution ID", parser: :string],
+        role: [short: "-r", long: "--role", help: "Link role (default: runtime)", parser: :string],
+        provenance: [long: "--provenance", help: "Link provenance", parser: :string]
+      ]],
+    "attach-session": [name: "attach-session", about: "Attach a session to an intent",
+      args: [id: [required: true, help: "Intent ID"]],
+      options: [
+        session: [short: "-s", long: "--session", help: "Session ID", parser: :string],
+        session_type: [long: "--session-type", help: "claude_session | ai_session | agent_session", parser: :string],
+        role: [short: "-r", long: "--role", help: "Link role (default: runtime)", parser: :string],
+        provenance: [long: "--provenance", help: "Link provenance", parser: :string]
+      ]]
   ]]
 
   defp gap_spec, do: [name: "gap", about: "Gap/friction tracking", subcommands: [

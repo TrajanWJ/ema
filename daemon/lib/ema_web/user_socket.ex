@@ -34,6 +34,7 @@ defmodule EmaWeb.UserSocket do
   channel "memory:*", EmaWeb.MemoryChannel
   channel "gaps:*", EmaWeb.GapChannel
   channel "intent:*", EmaWeb.IntentChannel
+  channel "intents:*", EmaWeb.IntentsChannel
   channel "executions:*", EmaWeb.ExecutionChannel
   channel "intelligence:*", EmaWeb.IntelligenceChannel
   channel "prompts:*", EmaWeb.PromptsChannel

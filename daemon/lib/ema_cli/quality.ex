@@ -121,17 +121,10 @@ defmodule EmaCli.Quality do
     end
   end
 
-  def run("improve", _opts) do
-    case api_post("/quality/improve", %{}) do
-      {:ok, _} -> success("Improvement cycle triggered")
-      {:error, _} -> warn("Improvement engine not available")
-    end
-  end
-
   def run(unknown, _),
     do:
       error(
-        "Unknown quality subcommand: #{unknown}. Try: report, friction, gradient, budget, threats, improve"
+        "Unknown quality subcommand: #{unknown}. Try: report, friction, gradient, budget, threats"
       )
 
   defp section(name, fun) do

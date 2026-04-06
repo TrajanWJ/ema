@@ -2,7 +2,6 @@ defmodule EmaWeb.IntentsController do
   use EmaWeb, :controller
 
   alias Ema.Intents
-  alias Ema.Intents.IntentEvent
 
   action_fallback EmaWeb.FallbackController
 
@@ -13,6 +12,7 @@ defmodule EmaWeb.IntentsController do
       |> maybe_add(:level, parse_int(params["level"]))
       |> maybe_add(:status, params["status"])
       |> maybe_add(:kind, params["kind"])
+      |> maybe_add(:search, params["search"])
       |> maybe_add(:limit, parse_int(params["limit"]))
 
     intents = Intents.list_intents(opts) |> Enum.map(&Intents.serialize/1)
@@ -20,19 +20,12 @@ defmodule EmaWeb.IntentsController do
   end
 
   def show(conn, %{"id" => id}) do
-    case Intents.get_intent(id) do
+    case Intents.get_intent_detail(id) do
       nil ->
         {:error, :not_found}
 
-      intent ->
-        links = Intents.get_links(intent.id) |> Enum.map(&serialize_link/1)
-        lineage = Intents.get_lineage(intent.id, limit: 20) |> Enum.map(&serialize_event/1)
-
-        json(conn, %{
-          intent: Intents.serialize(intent),
-          links: links,
-          lineage: lineage
-        })
+      detail ->
+        json(conn, detail)
     end
   end
 
@@ -41,7 +34,7 @@ defmodule EmaWeb.IntentsController do
       title: params["title"],
       slug: params["slug"],
       description: params["description"],
-      level: params["level"] || 4,
+      level: parse_int(params["level"]) || 4,
       kind: params["kind"] || "task",
       parent_id: params["parent_id"],
       project_id: params["project_id"],
@@ -110,8 +103,16 @@ defmodule EmaWeb.IntentsController do
       []
       |> maybe_add(:project_id, params["project_id"] || params["id"])
 
-    tree = Intents.tree(opts) |> Enum.map(&serialize_tree_node/1)
+    tree = Intents.tree(opts) |> Enum.map(&Intents.serialize_tree/1)
     json(conn, %{tree: tree})
+  end
+
+  def status(conn, params) do
+    opts =
+      []
+      |> maybe_add(:project_id, params["project_id"])
+
+    json(conn, Intents.status_summary(opts))
   end
 
   def lineage(conn, %{"id" => id}) do
@@ -120,41 +121,107 @@ defmodule EmaWeb.IntentsController do
         {:error, :not_found}
 
       _intent ->
-        events = Intents.get_lineage(id) |> Enum.map(&serialize_event/1)
+        events = Intents.get_lineage(id) |> Enum.map(&Intents.serialize_event/1)
         json(conn, %{events: events})
     end
   end
 
-  # ── Serializers ──────────────────────────────────────────────────
+  def runtime(conn, %{"id" => id}) do
+    case Intents.get_runtime_bundle(id) do
+      nil ->
+        {:error, :not_found}
 
-  defp serialize_link(link) do
-    %{
-      id: link.id,
-      intent_id: link.intent_id,
-      linkable_type: link.linkable_type,
-      linkable_id: link.linkable_id,
-      role: link.role,
-      provenance: link.provenance,
-      inserted_at: link.inserted_at
-    }
+      bundle ->
+        json(conn, bundle)
+    end
   end
 
-  defp serialize_event(%IntentEvent{} = event) do
-    %{
-      id: event.id,
-      intent_id: event.intent_id,
-      event_type: event.event_type,
-      payload: IntentEvent.decode_payload(event),
-      actor: event.actor,
-      inserted_at: event.inserted_at
-    }
+  def attach_actor(conn, %{"id" => id, "actor_id" => actor_id} = params) do
+    case Intents.attach_actor(id, actor_id,
+           role: params["role"] || "assignee",
+           provenance: params["provenance"] || "manual"
+         ) do
+      {:ok, link} ->
+        conn
+        |> put_status(:created)
+        |> json(Intents.serialize_link(link))
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: inspect(reason)})
+    end
   end
 
-  defp serialize_tree_node(node) do
-    children = Map.get(node, :children, [])
+  def attach_execution(conn, %{"id" => id, "execution_id" => execution_id} = params) do
+    case Intents.attach_execution(id, execution_id,
+           role: params["role"] || "runtime",
+           provenance: params["provenance"] || "execution"
+         ) do
+      {:ok, link} ->
+        conn
+        |> put_status(:created)
+        |> json(Intents.serialize_link(link))
 
-    Intents.serialize(node)
-    |> Map.put(:children, Enum.map(children, &serialize_tree_node/1))
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: inspect(reason)})
+    end
+  end
+
+  def attach_session(conn, %{"id" => id, "session_id" => session_id} = params) do
+    case Intents.attach_session(id, params["session_type"] || "claude_session", session_id,
+           role: params["role"] || "runtime",
+           provenance: params["provenance"]
+         ) do
+      {:ok, link} ->
+        conn
+        |> put_status(:created)
+        |> json(Intents.serialize_link(link))
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: inspect(reason)})
+    end
+  end
+
+  def create_link(conn, %{"id" => id} = params) do
+    case Intents.get_intent(id) do
+      nil ->
+        {:error, :not_found}
+
+      _intent ->
+        linkable_type = params["linkable_type"] || params["type"] || "execution"
+        linkable_id = params["linkable_id"] || params["target_id"]
+        role = params["role"] || "related"
+        provenance = params["provenance"] || "manual"
+
+        case Intents.link_intent(id, linkable_type, linkable_id,
+               role: role,
+               provenance: provenance
+             ) do
+          {:ok, link} ->
+            conn
+            |> put_status(:created)
+            |> json(Intents.serialize_link(link))
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_errors(changeset)})
+        end
+    end
   end
 
   # ── Helpers ──────────────────────────────────────────────────────

@@ -158,6 +158,7 @@ defmodule Ema.Executions.Dispatcher do
         Ema.Executions.on_execution_completed(execution.id, result_text)
         OutcomeTracker.record(execution)
         capture_and_store_diff(execution)
+        maybe_link_intent_to_execution(execution)
 
       {:error, reason} ->
         Logger.error("[Dispatcher] All dispatch paths failed for #{execution.id}: #{inspect(reason)}")
@@ -167,6 +168,29 @@ defmodule Ema.Executions.Dispatcher do
         failed_execution = %{execution | status: "failed"}
         OutcomeTracker.record(failed_execution)
     end
+  end
+
+  defp maybe_link_intent_to_execution(execution) do
+    intent_slug = execution.intent_slug
+
+    intent =
+      if is_binary(intent_slug) and intent_slug != "" do
+        Ema.Intents.get_intent_by_slug(intent_slug)
+      end
+
+    if intent do
+      Ema.Intents.link_intent(intent.id, "execution", execution.id,
+        role: "derived",
+        provenance: "execution"
+      )
+
+      Logger.debug("[Dispatcher] Linked intent #{intent.id} to execution #{execution.id}")
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "[Dispatcher] Intent linking failed for execution #{execution.id} (non-fatal): #{inspect(e)}"
+      )
   end
 
   defp local_claude_run(execution, prompt) do

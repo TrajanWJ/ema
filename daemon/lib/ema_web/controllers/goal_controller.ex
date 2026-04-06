@@ -21,7 +21,7 @@ defmodule EmaWeb.GoalController do
       nil ->
         {:error, :not_found}
 
-      {goal, children} ->
+      %{goal: goal, children: children} ->
         json(conn, %{
           goal: serialize(goal),
           children: Enum.map(children, &serialize/1)

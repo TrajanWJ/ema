@@ -84,7 +84,7 @@ defmodule EmaCli.TestRunner do
         end
       end),
       t("Intent nodes API", fn ->
-        case api_get("/intelligence/intent_nodes") do
+        case api_get("/intents") do
           {:ok, _} -> :pass
           {:error, _} -> {:skip, "route not added yet"}
         end
@@ -111,18 +111,21 @@ defmodule EmaCli.TestRunner do
       end),
       t("Budget ledger API (F4)", fn ->
         case api_get("/quality/budget") do
+          {:ok, %{"budget" => %{"token_limit" => _}}} -> :pass
           {:ok, %{"daily_tokens" => _}} -> :pass
           {:error, _} -> {:skip, "F4 not deployed"}
         end
       end),
       t("Routing engine API (F5)", fn ->
         case api_get("/orchestration/stats") do
+          {:ok, %{"routing" => %{"total_routed" => _}}} -> :pass
           {:ok, %{"total_routed" => _}} -> :pass
           {:error, _} -> {:skip, "F5 not deployed"}
         end
       end),
       t("Agent fitness API (F5)", fn ->
         case api_get("/orchestration/fitness") do
+          {:ok, %{"fitness" => scores}} when is_list(scores) -> :pass
           {:ok, scores} when is_list(scores) -> :pass
           {:error, _} -> {:skip, "F5 not deployed"}
         end
@@ -149,7 +152,7 @@ defmodule EmaCli.TestRunner do
       t("Intent + project linkage", fn ->
         case api_get("/projects?limit=1") do
           {:ok, %{"projects" => [p | _]}} ->
-            case api_get("/intelligence/intent_nodes?project_id=#{p["id"]}") do
+            case api_get("/intents?project_id=#{p["id"]}") do
               {:ok, _} -> :pass
               {:error, _} -> {:skip, "intent API not available"}
             end
@@ -183,9 +186,27 @@ defmodule EmaCli.TestRunner do
       end),
       t("Session crystallize -> fetch roundtrip (F3)", fn ->
         case api_post("/context/crystallize", %{}) do
+          {:ok, %{"session" => %{"session_id" => sid}}} ->
+            case api_get("/context/sessions") do
+              {:ok, sessions} when is_list(sessions) ->
+                found = Enum.any?(sessions, fn s -> s["session_id"] == sid end)
+                if found, do: :pass, else: {:fail, "crystallized session not in list"}
+
+              {:ok, %{"sessions" => sessions}} when is_list(sessions) ->
+                found = Enum.any?(sessions, fn s -> s["session_id"] == sid end)
+                if found, do: :pass, else: {:fail, "crystallized session not in list"}
+
+              _ ->
+                {:skip, "session list not available"}
+            end
+
           {:ok, %{"session_id" => sid}} ->
             case api_get("/context/sessions") do
               {:ok, sessions} when is_list(sessions) ->
+                found = Enum.any?(sessions, fn s -> s["session_id"] == sid end)
+                if found, do: :pass, else: {:fail, "crystallized session not in list"}
+
+              {:ok, %{"sessions" => sessions}} when is_list(sessions) ->
                 found = Enum.any?(sessions, fn s -> s["session_id"] == sid end)
                 if found, do: :pass, else: {:fail, "crystallized session not in list"}
 

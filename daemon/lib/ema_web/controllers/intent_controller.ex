@@ -2,6 +2,7 @@ defmodule EmaWeb.IntentController do
   use EmaWeb, :controller
 
   alias Ema.Intelligence.IntentMap
+  alias Ema.Intents
 
   action_fallback EmaWeb.FallbackController
 
@@ -11,8 +12,15 @@ defmodule EmaWeb.IntentController do
       |> maybe_add(:project_id, params["project_id"])
       |> maybe_add(:level, parse_int(params["level"]))
 
-    nodes = IntentMap.list_nodes(opts) |> Enum.map(&IntentMap.serialize/1)
-    json(conn, %{nodes: nodes})
+    # Dual source: old IntentMap nodes + new Intents, deduplicated by id
+    old_nodes = IntentMap.list_nodes(opts) |> Enum.map(&IntentMap.serialize/1)
+    new_intents = Intents.list_intents(opts) |> Enum.map(&Intents.serialize/1)
+
+    merged =
+      (old_nodes ++ new_intents)
+      |> Enum.uniq_by(& &1.id)
+
+    json(conn, %{nodes: merged})
   end
 
   def tree(conn, %{"project_id" => project_id}) do
@@ -21,30 +29,39 @@ defmodule EmaWeb.IntentController do
   end
 
   def show(conn, %{"id" => id}) do
-    case IntentMap.get_node(id) do
-      nil -> {:error, :not_found}
-      node -> json(conn, IntentMap.serialize(node))
+    # Try new system first, fall back to old
+    case Intents.get_intent(id) do
+      %Intents.Intent{} = intent ->
+        json(conn, Intents.serialize(intent))
+
+      nil ->
+        case IntentMap.get_node(id) do
+          nil -> {:error, :not_found}
+          node -> json(conn, IntentMap.serialize(node))
+        end
     end
   end
 
   def create(conn, params) do
-    attrs = %{
+    # Delegate creation to the new Intents system
+    intent_attrs = %{
       title: params["title"],
       description: params["description"],
       level: params["level"] || 0,
+      kind: params["kind"] || "task",
       parent_id: params["parent_id"],
       project_id: params["project_id"],
       status: params["status"] || "planned",
-      linked_task_ids: Jason.encode!(params["linked_task_ids"] || []),
-      linked_wiki_path: params["linked_wiki_path"]
+      source_type: "manual"
     }
 
-    with {:ok, node} <- IntentMap.create_node(attrs) do
-      EmaWeb.Endpoint.broadcast("intent:live", "node_created", IntentMap.serialize(node))
+    with {:ok, intent} <- Intents.create_intent(intent_attrs) do
+      serialized = Intents.serialize(intent)
+      EmaWeb.Endpoint.broadcast("intent:live", "node_created", serialized)
 
       conn
       |> put_status(:created)
-      |> json(IntentMap.serialize(node))
+      |> json(serialized)
     end
   end
 

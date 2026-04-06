@@ -5,12 +5,8 @@ defmodule EmaWeb.FileVaultController do
 
   action_fallback EmaWeb.FallbackController
 
-  def index(conn, params) do
-    opts =
-      []
-      |> maybe_add(:project_id, params["project_id"])
-
-    files = FileVault.list_files(opts) |> Enum.map(&serialize/1)
+  def index(conn, _params) do
+    files = FileVault.list_files() |> Enum.map(&serialize/1)
     json(conn, %{files: files})
   end
 

@@ -7,7 +7,7 @@ defmodule Ema.Intents.Intent do
   @levels %{0 => :vision, 1 => :goal, 2 => :project, 3 => :feature, 4 => :task, 5 => :execution}
   @kinds ~w(goal question task exploration fix audit system)
   @statuses ~w(planned active researched outlined implementing complete blocked archived)
-  @source_types ~w(brain_dump proposal execution harvest goal structural crystallized manual)
+  @source_types ~w(brain_dump proposal execution harvest goal structural crystallized manual mcp)
   @provenance_classes ~w(high medium low)
 
   schema "intents" do
@@ -83,12 +83,17 @@ defmodule Ema.Intents.Intent do
     end
   end
 
-  defp maybe_generate_id(%{data: %{id: nil}} = changeset) do
-    ts = System.system_time(:millisecond)
-    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-    put_change(changeset, :id, "int_#{ts}_#{rand}")
+  defp maybe_generate_id(changeset) do
+    case get_field(changeset, :id) do
+      nil ->
+        ts = System.system_time(:millisecond)
+        rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+        put_change(changeset, :id, "int_#{ts}_#{rand}")
+
+      _ ->
+        changeset
+    end
   end
-  defp maybe_generate_id(changeset), do: changeset
 
   defp maybe_generate_slug(changeset) do
     case get_change(changeset, :slug) do

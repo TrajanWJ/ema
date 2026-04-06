@@ -331,6 +331,10 @@ defmodule EmaWeb.Router do
     post("/focus/break", FocusController, :take_break)
     post("/focus/resume-work", FocusController, :resume_work)
 
+    # Intelligence — MCP audit logging + outcome tracking
+    post("/intelligence/outcomes", IntelligenceController, :log_outcome)
+    post("/intelligence/mcp-calls", IntelligenceController, :log_mcp_call)
+
     # Git Sync / Intelligence
     get("/intelligence/git-events", GitSyncController, :index)
     get("/intelligence/git-events/:id/suggestions", GitSyncController, :suggestions)
@@ -414,9 +418,15 @@ defmodule EmaWeb.Router do
     delete("/intent/nodes/:id", IntentController, :delete)
 
     # Intents (Intent Engine) — specific routes before resources
+    get("/intents/status", IntentsController, :status)
     get("/intents/tree", IntentsController, :tree)
     get("/intents/:id/tree", IntentsController, :tree)
     get("/intents/:id/lineage", IntentsController, :lineage)
+    get("/intents/:id/runtime", IntentsController, :runtime)
+    post("/intents/:id/actors", IntentsController, :attach_actor)
+    post("/intents/:id/executions", IntentsController, :attach_execution)
+    post("/intents/:id/sessions", IntentsController, :attach_session)
+    post("/intents/:id/links", IntentsController, :create_link)
     resources("/intents", IntentsController, except: [:new, :edit])
 
     # Gap Inbox

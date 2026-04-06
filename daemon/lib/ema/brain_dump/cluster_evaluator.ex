@@ -206,6 +206,21 @@ defmodule Ema.BrainDump.ClusterEvaluator do
         Item
         |> where([i], i.id in ^item_ids)
         |> Repo.update_all(set: [cluster_id: cluster_record.id])
+
+        # Bridge: also link cluster to a canonical intent (best-effort)
+        try do
+          if cluster_record.intent_node_id do
+            Ema.Intents.link_intent(
+              cluster_record.intent_node_id,
+              "intent_cluster",
+              cluster_record.id,
+              role: "cluster_source",
+              provenance: "cluster_evaluator"
+            )
+          end
+        rescue
+          e -> Logger.debug("ClusterEvaluator intent link skipped: #{inspect(e)}")
+        end
       end)
     end)
   end

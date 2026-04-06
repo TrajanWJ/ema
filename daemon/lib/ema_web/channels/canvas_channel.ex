@@ -17,9 +17,12 @@ defmodule EmaWeb.CanvasChannel do
         end
 
         # Subscribe to domain PubSub topics for cross-domain pushes
-        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "tasks:updates")
-        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
-        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "focus:updates")
+        # NOTE: tasks context broadcasts on "task_events", not "tasks:updates"
+        :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "task_events")
+        # TODO: proposals pipeline does not broadcast on PubSub yet — uses Endpoint.broadcast
+        # :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
+        # TODO: focus module does not broadcast on PubSub yet (scaffolded, no GenServer)
+        # :ok = Phoenix.PubSub.subscribe(Ema.PubSub, "focus:updates")
 
         send(self(), {:send_canvas, canvas})
         {:ok, socket}
@@ -113,9 +116,9 @@ defmodule EmaWeb.CanvasChannel do
   end
 
   # Domain event handlers — notify canvas clients when linked data changes
+  # task_events PubSub broadcasts {:task_completed, %{...}}
   @impl true
-  def handle_info({:task_created, _task}, socket), do: push_domain_event(socket, "tasks")
-  def handle_info({:task_updated, _task}, socket), do: push_domain_event(socket, "tasks")
+  def handle_info({:task_completed, _payload}, socket), do: push_domain_event(socket, "tasks")
 
   def handle_info({:proposals, _stage, _proposal}, socket),
     do: push_domain_event(socket, "proposals")

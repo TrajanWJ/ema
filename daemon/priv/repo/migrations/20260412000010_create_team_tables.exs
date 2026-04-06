@@ -2,7 +2,7 @@ defmodule Ema.Repo.Migrations.CreateTeamTables do
   use Ecto.Migration
 
   def change do
-    create table(:team_members, primary_key: false) do
+    create_if_not_exists table(:team_members, primary_key: false) do
       add :id, :string, primary_key: true
       add :name, :string, null: false
       add :capacity_hours, :float, default: 40.0
@@ -13,7 +13,7 @@ defmodule Ema.Repo.Migrations.CreateTeamTables do
       timestamps(type: :utc_datetime)
     end
 
-    create table(:standups, primary_key: false) do
+    create_if_not_exists table(:standups, primary_key: false) do
       add :id, :string, primary_key: true
       add :member_id, :string
       add :date, :date
@@ -25,7 +25,7 @@ defmodule Ema.Repo.Migrations.CreateTeamTables do
       timestamps(type: :utc_datetime)
     end
 
-    create index(:standups, [:member_id])
-    create index(:standups, [:date])
+    create_if_not_exists index(:standups, [:member_id])
+    create_if_not_exists index(:standups, [:date])
   end
 end

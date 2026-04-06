@@ -2,7 +2,7 @@ defmodule Ema.Repo.Migrations.CreateGoalKeyResultsAndCheckIns do
   use Ecto.Migration
 
   def change do
-    create table(:goal_key_results, primary_key: false) do
+    create_if_not_exists table(:goal_key_results, primary_key: false) do
       add :id, :string, primary_key: true
       add :goal_id, references(:goals, type: :string, on_delete: :delete_all), null: false
       add :description, :string, null: false
@@ -15,7 +15,7 @@ defmodule Ema.Repo.Migrations.CreateGoalKeyResultsAndCheckIns do
       timestamps(type: :utc_datetime)
     end
 
-    create table(:goal_check_ins, primary_key: false) do
+    create_if_not_exists table(:goal_check_ins, primary_key: false) do
       add :id, :string, primary_key: true
       add :goal_id, references(:goals, type: :string, on_delete: :delete_all), null: false
       add :note, :text
@@ -24,7 +24,7 @@ defmodule Ema.Repo.Migrations.CreateGoalKeyResultsAndCheckIns do
       timestamps(type: :utc_datetime)
     end
 
-    create index(:goal_key_results, [:goal_id])
-    create index(:goal_check_ins, [:goal_id])
+    create_if_not_exists index(:goal_key_results, [:goal_id])
+    create_if_not_exists index(:goal_check_ins, [:goal_id])
   end
 end
