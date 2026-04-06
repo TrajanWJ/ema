@@ -274,7 +274,7 @@ defmodule EmaWeb.Router do
     get("/actors/:id/tags", ActorController, :list_tags)
     get("/actors/:id/commands", ActorController, :list_commands)
     post("/actors/:id/commands", ActorController, :register_command)
-    get("/actors/:id/phases", ActorController, :phases)
+    get("/actors/:id/phases", ActorController, :list_phases)
 
     get("/tags", TagController, :index)
     post("/tags", TagController, :create)

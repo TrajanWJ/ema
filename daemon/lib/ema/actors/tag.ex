@@ -6,21 +6,20 @@ defmodule Ema.Actors.Tag do
   @timestamps_opts [type: :utc_datetime]
 
   schema "tags" do
-    field :entity_type, :string
-    field :entity_id, :string
-    field :tag, :string
-    field :namespace, :string, default: "default"
+    field :name, :string
+    field :slug, :string
+    field :color, :string
 
     belongs_to :actor, Ema.Actors.Actor, type: :string
+    belongs_to :space, Ema.Spaces.Space, type: :string
 
     timestamps()
   end
 
   def changeset(tag, attrs) do
     tag
-    |> cast(attrs, [:id, :entity_type, :entity_id, :tag, :actor_id, :namespace])
-    |> validate_required([:entity_type, :entity_id, :tag, :actor_id])
-    |> validate_length(:tag, min: 1, max: 50)
-    |> unique_constraint([:entity_type, :entity_id, :tag, :actor_id])
+    |> cast(attrs, [:id, :name, :slug, :color, :actor_id, :space_id])
+    |> validate_required([:name, :slug])
+    |> unique_constraint([:space_id, :slug])
   end
 end

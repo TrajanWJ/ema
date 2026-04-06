@@ -7,6 +7,7 @@ alias Ema.Repo
 alias Ema.Projects.Project
 alias Ema.Proposals.Seed
 alias Ema.Responsibilities.Responsibility
+alias Ema.Actors.Actor
 
 require Logger
 
@@ -79,6 +80,33 @@ defmodule Seeds.Helpers do
         existing
     end
   end
+end
+
+# ============================================================
+# Task 1: Default Human Actor
+# ============================================================
+Logger.info("\n=== Seeding Default Actor ===")
+
+case Repo.get_by(Actor, slug: "trajan") do
+  nil ->
+    id = :crypto.strong_rand_bytes(6) |> Base.encode16(case: :lower)
+
+    case Repo.insert(Actor.changeset(%Actor{}, %{
+      id: id,
+      actor_type: "human",
+      name: "Trajan",
+      slug: "trajan",
+      capabilities: %{},
+      config: %{},
+      phase: "idle",
+      status: "active"
+    })) do
+      {:ok, _} -> Logger.info("Created default actor: trajan")
+      {:error, cs} -> Logger.warning("Failed to create actor trajan: #{inspect(cs.errors)}")
+    end
+
+  existing ->
+    Logger.info("Actor already exists: #{existing.name}")
 end
 
 # ============================================================

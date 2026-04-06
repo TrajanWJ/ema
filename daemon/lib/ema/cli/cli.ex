@@ -98,6 +98,15 @@ defmodule Ema.CLI do
       {:ok, [:config | sub], parsed} ->
         dispatch(:config, sub, parsed)
 
+      {:ok, [:em | sub], parsed} ->
+        dispatch(:em, sub, parsed)
+
+      {:ok, [:tag | sub], parsed} ->
+        dispatch(:tag, sub, parsed)
+
+      {:ok, [:data | sub], parsed} ->
+        dispatch(:data, sub, parsed)
+
       {:ok, [:canvas | sub], parsed} ->
         dispatch(:canvas, sub, parsed)
 
@@ -221,6 +230,9 @@ defmodule Ema.CLI do
       :dispatch_board -> Ema.CLI.Commands.DispatchBoard.handle(sub, parsed, transport, opts)
       :tokens -> Ema.CLI.Commands.Tokens.handle(sub, parsed, transport, opts)
       :config -> Ema.CLI.Commands.Config.handle(sub, parsed, transport, opts)
+      :em -> Ema.CLI.Commands.Em.handle(sub, parsed, transport, opts)
+      :tag -> Ema.CLI.Commands.Tag.handle(sub, parsed, transport, opts)
+      :data -> Ema.CLI.Commands.Data.handle(sub, parsed, transport, opts)
       :canvas -> Ema.CLI.Commands.Canvas.handle(sub, parsed, transport, opts)
       :note -> Ema.CLI.Commands.Note.handle(sub, parsed, transport, opts)
       :voice -> Ema.CLI.Commands.Voice.handle(sub, parsed, transport, opts)
@@ -296,6 +308,9 @@ defmodule Ema.CLI do
         "dispatch-board": dispatch_board_spec(),
         tokens: tokens_spec(),
         config: config_spec(),
+        em: em_spec(),
+        tag: tag_spec(),
+        data: data_spec(),
         canvas: canvas_spec(),
         note: note_spec(),
         voice: voice_spec(),
@@ -1135,8 +1150,48 @@ defmodule Ema.CLI do
   ]]
 
   defp config_spec, do: [name: "config", about: "Configuration", subcommands: [
-    view: [name: "view", about: "Show config"],
-    set: [name: "set", about: "Set value", args: [key: [required: true, help: "Key"], value: [required: true, help: "Value"]]]
+    view: [name: "view", about: "Show app settings"],
+    list: [name: "list", about: "List container config", args: [entity: [required: true, help: "Container ref like project:ema"]]],
+    get: [name: "get", about: "Get container config value",
+      args: [entity: [required: true, help: "Container ref like project:ema"], key: [required: true, help: "Config key"]]],
+    set: [name: "set", about: "Set container config value",
+      args: [entity: [required: true, help: "Container ref like project:ema"], key: [required: true, help: "Config key"], value: [required: true, help: "JSON or string value"]]]
+  ]]
+
+  defp em_spec, do: [name: "em", about: "Executive management actor views", subcommands: [
+    status: [name: "status", about: "Show actor EM status",
+      args: [actor: [required: false, help: "Optional actor ID or slug"]],
+      options: [
+        space: [long: "--space", help: "Filter by space ID", parser: :string],
+        type: [long: "--type", help: "Filter by actor type", parser: :string]
+      ]],
+    phases: [name: "phases", about: "Show phase transitions", args: [actor: [required: true, help: "Actor ID or slug"]]],
+    velocity: [name: "velocity", about: "Show actor velocity summary", args: [actor: [required: true, help: "Actor ID or slug"]]]
+  ]]
+
+  defp tag_spec, do: [name: "tag", about: "Universal entity tagging", subcommands: [
+    list: [name: "list", about: "List tags on an entity", args: [entity: [required: true, help: "Entity ref like task:123"]]],
+    add: [name: "add", about: "Add a tag", args: [entity: [required: true, help: "Entity ref like task:123"], tag: [required: true, help: "Tag"]],
+      options: [
+        actor: [long: "--actor", help: "Actor ID", parser: :string],
+        namespace: [long: "--namespace", help: "Namespace", parser: :string]
+      ]],
+    remove: [name: "remove", about: "Remove a tag", args: [entity: [required: true, help: "Entity ref like task:123"], tag: [required: true, help: "Tag"]],
+      options: [actor: [long: "--actor", help: "Actor ID", parser: :string]]]
+  ]]
+
+  defp data_spec, do: [name: "data", about: "Per-actor entity data", subcommands: [
+    list: [name: "list", about: "List entity data", args: [entity: [required: true, help: "Entity ref like task:123"]],
+      options: [actor: [long: "--actor", help: "Actor ID", parser: :string]]],
+    get: [name: "get", about: "Get one entity data value",
+      args: [entity: [required: true, help: "Entity ref like task:123"], key: [required: true, help: "Key"]],
+      options: [actor: [long: "--actor", help: "Actor ID", parser: :string]]],
+    set: [name: "set", about: "Set entity data value",
+      args: [entity: [required: true, help: "Entity ref like task:123"], key: [required: true, help: "Key"], value: [required: true, help: "JSON or string value"]],
+      options: [actor: [long: "--actor", help: "Actor ID", parser: :string]]],
+    delete: [name: "delete", about: "Delete entity data value",
+      args: [entity: [required: true, help: "Entity ref like task:123"], key: [required: true, help: "Key"]],
+      options: [actor: [long: "--actor", help: "Actor ID", parser: :string]]]
   ]]
 
   defp canvas_spec, do: [name: "canvas", about: "Visual workspaces", subcommands: [
@@ -1251,17 +1306,30 @@ defmodule Ema.CLI do
   end
 
   defp actor_spec, do: [name: "actor", about: "Actor management", subcommands: [
-    list: [name: "list", about: "List actors"],
+    list: [name: "list", about: "List actors", options: [
+      space: [long: "--space", help: "Space ID", parser: :string],
+      type: [long: "--type", help: "Actor type", parser: :string],
+      status: [long: "--status", help: "Status", parser: :string]
+    ]],
     show: [name: "show", about: "Show actor", args: [id: [required: true, help: "Actor ID or slug"]]],
     create: [name: "create", about: "Create actor", args: [name: [required: true, help: "Actor name"]],
       options: [
         type: [long: "--type", help: "Actor type (human/agent)", parser: :string],
-        space: [long: "--space", help: "Space ID", parser: :string]
+        space: [long: "--space", help: "Space ID", parser: :string],
+        capabilities: [long: "--capabilities", help: "JSON array or object", parser: :string]
       ]],
     transition: [name: "transition", about: "Transition phase",
       args: [id: [required: true, help: "Actor ID"], phase: [required: true, help: "Target phase (idle/plan/execute/review/retro)"]],
       options: [reason: [long: "--reason", help: "Reason for transition", parser: :string]]],
-    commands: [name: "commands", about: "List actor commands", args: [id: [required: true, help: "Actor ID"]]]
+    commands: [name: "commands", about: "List actor commands", args: [id: [required: true, help: "Actor ID"]]],
+    phases: [name: "phases", about: "List actor phase transitions", args: [id: [required: true, help: "Actor ID or slug"]]],
+    register: [name: "register", about: "Register actor command",
+      args: [
+        id: [required: true, help: "Actor ID"],
+        command: [required: true, help: "Command string"],
+        handler: [required: true, help: "Handler identifier"]
+      ],
+      options: [description: [long: "--description", help: "Description", parser: :string]]]
   ]]
 
   defp space_spec, do: [name: "space", about: "Space management", subcommands: [
@@ -1270,7 +1338,8 @@ defmodule Ema.CLI do
     create: [name: "create", about: "Create space", args: [name: [required: true, help: "Space name"]],
       options: [
         org: [long: "--org", help: "Organization ID", parser: :string],
-        type: [long: "--type", help: "Space type (personal/team/project)", parser: :string]
+        type: [long: "--type", help: "Space type (personal/team/project)", parser: :string],
+        portable: [long: "--portable", help: "Portable personal space", parser: :boolean]
       ]]
   ]]
 
@@ -1300,4 +1369,20 @@ defmodule Ema.CLI do
 
   defp put_lines(lines) when is_list(lines), do: Enum.each(lines, &IO.puts/1)
   defp put_lines(line), do: IO.puts(line)
+
+  defp em_spec, do: [name: "em", about: "Executive management status", subcommands: [
+    status: [name: "status", about: "Show EM status", args: [actor: [required: false, help: "Actor ID or slug"]]]
+  ]]
+
+  defp tag_spec, do: [name: "tag", about: "Entity tagging", subcommands: [
+    add: [name: "add", about: "Tag an entity", args: [entity: [required: true, help: "type:id"], tag: [required: true, help: "Tag"]]],
+    remove: [name: "remove", about: "Remove tag", args: [entity: [required: true, help: "type:id"], tag: [required: true, help: "Tag"]]],
+    list: [name: "list", about: "List tags", args: [entity: [required: false, help: "type:id"]]]
+  ]]
+
+  defp data_spec, do: [name: "data", about: "Entity data", subcommands: [
+    get: [name: "get", about: "Get data", args: [entity: [required: true, help: "type:id"], key: [required: true, help: "Key"]]],
+    set: [name: "set", about: "Set data", args: [entity: [required: true, help: "type:id"], key: [required: true, help: "Key"], value: [required: true, help: "JSON"]]],
+    list: [name: "list", about: "List data", args: [entity: [required: true, help: "type:id"]]]
+  ]]
 end

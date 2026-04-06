@@ -6,10 +6,11 @@ defmodule Ema.Actors.ActorCommand do
   @timestamps_opts [type: :utc_datetime]
 
   schema "actor_commands" do
-    field :command, :string
+    field :command_name, :string
     field :description, :string
-    field :handler, :string
-    field :args_schema, :map, default: %{}
+    field :handler_module, :string
+    field :handler_function, :string
+    field :args_spec, :map, default: %{}
 
     belongs_to :actor, Ema.Actors.Actor, type: :string
 
@@ -18,9 +19,8 @@ defmodule Ema.Actors.ActorCommand do
 
   def changeset(command, attrs) do
     command
-    |> cast(attrs, [:id, :actor_id, :command, :description, :handler, :args_schema])
-    |> validate_required([:actor_id, :command, :handler])
-    |> validate_format(:command, ~r/^[a-z][a-z0-9 _:-]*$/)
-    |> unique_constraint([:actor_id, :command])
+    |> cast(attrs, [:id, :actor_id, :command_name, :description, :handler_module, :handler_function, :args_spec])
+    |> validate_required([:actor_id, :command_name, :handler_module, :handler_function])
+    |> unique_constraint([:actor_id, :command_name])
   end
 end

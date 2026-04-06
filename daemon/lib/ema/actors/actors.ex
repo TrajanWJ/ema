@@ -24,13 +24,8 @@ defmodule Ema.Actors do
   def get_actor(id), do: Repo.get(Actor, id)
   def get_actor!(id), do: Repo.get!(Actor, id)
 
-  def get_actor_by_slug(slug) do
-    Repo.get_by(Actor, slug: slug)
-  end
-
-  def get_actor_by_slug!(slug) do
-    Repo.get_by!(Actor, slug: slug)
-  end
+  def get_actor_by_slug(slug), do: Repo.get_by(Actor, slug: slug)
+  def get_actor_by_slug!(slug), do: Repo.get_by!(Actor, slug: slug)
 
   def create_actor(attrs) do
     %Actor{id: generate_id()}
@@ -46,9 +41,7 @@ defmodule Ema.Actors do
     |> tap_ok(&broadcast("actors", {"actor:updated", &1}))
   end
 
-  def delete_actor(%Actor{} = actor) do
-    Repo.delete(actor)
-  end
+  def delete_actor(%Actor{} = actor), do: Repo.delete(actor)
 
   def transition_phase(%Actor{} = actor, new_phase, reason \\ nil) do
     old_phase = actor.phase
@@ -73,6 +66,21 @@ defmodule Ema.Actors do
     end
   end
 
+  @doc "Record a phase transition from a params map (used by PhaseTransitionController)."
+  def record_phase_transition(%{"actor_id" => actor_id, "to_phase" => to_phase} = params) do
+    case get_actor(actor_id) do
+      nil -> {:error, :not_found}
+      actor -> transition_phase(actor, to_phase, params["reason"])
+    end
+  end
+
+  def record_phase_transition(%{actor_id: actor_id, to_phase: to_phase} = params) do
+    case get_actor(actor_id) do
+      nil -> {:error, :not_found}
+      actor -> transition_phase(actor, to_phase, Map.get(params, :reason))
+    end
+  end
+
   def list_phase_transitions(actor_id) do
     PhaseTransition
     |> where([t], t.actor_id == ^actor_id)
@@ -83,11 +91,26 @@ defmodule Ema.Actors do
   # ── Tags ──
 
   def list_tags(opts \\ []) do
-    Tag
-    |> maybe_filter_space(opts[:space_id])
-    |> order_by([t], asc: t.name)
-    |> Repo.all()
+    query = Tag |> maybe_filter_space(opts[:space_id]) |> order_by([t], asc: t.name)
+
+    if opts[:entity_type] || opts[:entity_id] || opts[:actor_id] do
+      query
+      |> join(:inner, [t], et in EntityTag, on: et.tag_id == t.id)
+      |> maybe_where_field(:entity_type, opts[:entity_type])
+      |> maybe_where_field(:entity_id, opts[:entity_id])
+      |> maybe_where_actor(opts[:actor_id])
+      |> Repo.all()
+    else
+      Repo.all(query)
+    end
   end
+
+  defp maybe_where_field(query, _field, nil), do: query
+  defp maybe_where_field(query, :entity_type, val), do: where(query, [_t, et], et.entity_type == ^val)
+  defp maybe_where_field(query, :entity_id, val), do: where(query, [_t, et], et.entity_id == ^val)
+
+  defp maybe_where_actor(query, nil), do: query
+  defp maybe_where_actor(query, actor_id), do: where(query, [_t, et], et.actor_id == ^actor_id)
 
   def get_tag(id), do: Repo.get(Tag, id)
 
@@ -97,16 +120,37 @@ defmodule Ema.Actors do
     |> Repo.insert()
   end
 
-  def tag_entity(tag_id, entity_type, entity_id, actor_id \\ nil) do
+  @doc "Tag an entity. Finds or creates the tag by name, then creates entity_tag link."
+  def tag_entity(entity_type, entity_id, tag_name, actor_id \\ "human", _namespace \\ "default") do
+    slug = tag_name |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-")
+
+    tag =
+      case Repo.get_by(Tag, slug: slug) do
+        nil ->
+          {:ok, t} = create_tag(%{name: tag_name, slug: slug})
+          t
+        existing -> existing
+      end
+
     %EntityTag{id: generate_id()}
-    |> EntityTag.changeset(%{tag_id: tag_id, entity_type: entity_type, entity_id: entity_id, actor_id: actor_id})
+    |> EntityTag.changeset(%{tag_id: tag.id, entity_type: entity_type, entity_id: entity_id, actor_id: actor_id})
     |> Repo.insert(on_conflict: :nothing)
+    |> case do
+      {:ok, et} -> {:ok, Map.merge(Map.from_struct(et), %{tag: tag_name, namespace: "default"})}
+      error -> error
+    end
   end
 
-  def untag_entity(tag_id, entity_type, entity_id) do
-    EntityTag
-    |> where([et], et.tag_id == ^tag_id and et.entity_type == ^entity_type and et.entity_id == ^entity_id)
-    |> Repo.delete_all()
+  def untag_entity(entity_type, entity_id, tag_name, _actor_id \\ "human") do
+    slug = tag_name |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-")
+
+    case Repo.get_by(Tag, slug: slug) do
+      nil -> {0, nil}
+      tag ->
+        EntityTag
+        |> where([et], et.tag_id == ^tag.id and et.entity_type == ^entity_type and et.entity_id == ^entity_id)
+        |> Repo.delete_all()
+    end
   end
 
   def tags_for_entity(entity_type, entity_id) do
@@ -198,6 +242,22 @@ defmodule Ema.Actors do
     |> preload(:actor)
     |> order_by([c], asc: c.command_name)
     |> Repo.all()
+  end
+
+  # ── Bootstrap ──
+
+  def ensure_default_human_actor do
+    case get_actor_by_slug("trajan") do
+      nil ->
+        create_actor(%{
+          name: "Trajan",
+          slug: "trajan",
+          actor_type: "human",
+          status: "active",
+          phase: "idle"
+        })
+      actor -> {:ok, actor}
+    end
   end
 
   # ── Private ──

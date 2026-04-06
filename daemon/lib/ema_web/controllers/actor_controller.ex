@@ -74,6 +74,13 @@ defmodule EmaWeb.ActorController do
     end)})
   end
 
+  def list_phases(conn, %{"id" => id}) do
+    transitions = Actors.list_phase_transitions(id)
+    json(conn, %{transitions: Enum.map(transitions, fn t ->
+      %{id: t.id, actor_id: t.actor_id, from_phase: t.from_phase, to_phase: t.to_phase, reason: t.reason, inserted_at: t.inserted_at}
+    end)})
+  end
+
   def list_commands(conn, %{"id" => id}) do
     commands = Actors.list_commands(id)
     json(conn, %{commands: Enum.map(commands, &serialize_command/1)})
