@@ -4,13 +4,24 @@ defmodule Ema.CLI do
   alias Ema.CLI.{Output, Transport}
 
   @version "3.0.0"
+  @builtin_roots ~w(
+    task proposal vault focus agent exec goal brain-dump habit journal resp seed engine
+    pipe campaign evolution channel project babysitter session watch superman metamind
+    ralph vectors quality dispatch-board tokens config em tag data canvas note voice
+    org actor space intent gap integration reflexion ai-session routing git-sync tunnel
+    file-vault messages team-pulse metrics feedback dashboard dump status
+  )
+  @actor_dispatch_switches [json: :boolean, host: :string, actor: :string, space: :string, project: :string, task: :string]
+  @actor_dispatch_aliases [j: :json, H: :host, a: :actor, s: :space, p: :project, t: :task]
 
   def main(args) do
     {:ok, _} = Application.ensure_all_started(:req)
 
-    optimus = build_optimus()
+    case maybe_dispatch_actor_command(args) do
+      :continue ->
+        optimus = build_optimus()
 
-    case Optimus.parse(optimus, args) do
+        case Optimus.parse(optimus, args) do
       {:ok, [:task | sub], parsed} ->
         dispatch(:task, sub, parsed)
 
@@ -190,9 +201,13 @@ defmodule Ema.CLI do
         Enum.each(List.wrap(errors), &Output.error/1)
         System.halt(1)
 
-      _ ->
-        Output.error("Unknown command. Run 'ema --help' for usage.")
-        System.halt(1)
+          _ ->
+            Output.error("Unknown command. Run 'ema --help' for usage.")
+            System.halt(1)
+        end
+
+      {:halt, code} ->
+        System.halt(code)
     end
   end
 
@@ -578,6 +593,8 @@ defmodule Ema.CLI do
           options: [
             status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
             project: [short: "-p", long: "--project", help: "Filter by project", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Reserved actor scope", parser: :string],
+            space: [long: "--space", help: "Reserved space scope", parser: :string],
             limit: [short: "-l", long: "--limit", help: "Max results", parser: :integer]
           ]
         ],
@@ -593,7 +610,9 @@ defmodule Ema.CLI do
           options: [
             title: [long: "--title", help: "Title", parser: :string],
             mode: [short: "-m", long: "--mode", help: "Mode (research/implement/review)", parser: :string],
-            project: [short: "-p", long: "--project", help: "Project slug", parser: :string]
+            project: [short: "-p", long: "--project", help: "Project slug", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Reserved actor scope", parser: :string],
+            space: [long: "--space", help: "Reserved space scope", parser: :string]
           ]
         ],
         approve: [
@@ -930,7 +949,13 @@ defmodule Ema.CLI do
       name: "campaign",
       about: "Campaign management",
       subcommands: [
-        list: [name: "list", about: "List campaigns"],
+        list: [
+          name: "list",
+          about: "List campaigns",
+          options: [
+            project: [short: "-p", long: "--project", help: "Filter by project ID", parser: :string]
+          ]
+        ],
         show: [
           name: "show",
           about: "Show campaign detail",
@@ -1152,7 +1177,13 @@ defmodule Ema.CLI do
     [
       name: "dump",
       about: "Quick brain dump",
-      args: [thought: [required: true, help: "Thought to capture"]]
+      args: [thought: [required: true, help: "Thought to capture"]],
+      options: [
+        actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
+        space: [long: "--space", help: "Space ID", parser: :string],
+        project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
+        task: [short: "-t", long: "--task", help: "Task ID", parser: :string]
+      ]
     ]
   end
 
@@ -1351,11 +1382,11 @@ defmodule Ema.CLI do
           help: "Channel: all, babysitter, proposals, executions, focus, tasks, agents, pipeline, inbox",
           parser: :string
         ],
-        interval: [
-          short: "-i",
-          long: "--interval",
-          help: "Refresh interval in seconds (default: 5)",
-          parser: :integer
+        format: [
+          short: "-f",
+          long: "--format",
+          help: "Output format: compact or pretty",
+          parser: :string
         ]
       ]
     ]
@@ -1383,9 +1414,12 @@ defmodule Ema.CLI do
       args: [
         id: [required: true, help: "Actor ID"],
         command: [required: true, help: "Command string"],
-        handler: [required: true, help: "Handler identifier"]
+        handler: [required: true, help: "Handler as Module.function or Module:function"]
       ],
-      options: [description: [long: "--description", help: "Description", parser: :string]]]
+      options: [
+        description: [long: "--description", help: "Description", parser: :string],
+        args_spec: [long: "--args-spec", help: "Optional JSON args spec", parser: :string]
+      ]]
   ]]
 
   defp space_spec, do: [name: "space", about: "Space management", subcommands: [
@@ -1416,6 +1450,185 @@ defmodule Ema.CLI do
     scan: [name: "scan", about: "Trigger gap scan"]
   ]]
 
+  defp maybe_dispatch_actor_command([root | _rest]) when root in @builtin_roots, do: :continue
+  defp maybe_dispatch_actor_command([]), do: :continue
+
+  defp maybe_dispatch_actor_command([first | _] = args) do
+    if actor_command_root?(first) do
+      {parsed_opts, rest, invalid} =
+        OptionParser.parse(
+          args,
+          strict: @actor_dispatch_switches,
+          aliases: @actor_dispatch_aliases
+        )
+
+      case {invalid, rest} do
+        {[], [actor_ref | words]} when words != [] ->
+          dispatch_actor_command(actor_ref, words, parsed_opts)
+
+        {[], [_actor_ref]} ->
+          Output.error("Missing actor command")
+          {:halt, 1}
+
+        {[_ | _], _} ->
+          Enum.each(invalid, fn {flag, _} -> Output.error("Unknown option: #{flag}") end)
+          {:halt, 1}
+      end
+    else
+      :continue
+    end
+  end
+
+  defp dispatch_actor_command(actor_ref, words, parsed_opts) do
+    transport = Transport.resolve(host: parsed_opts[:host])
+    opts = parsed_opts |> Enum.into(%{}) |> Map.put(:json, parsed_opts[:json] || false)
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        with {:ok, actor} <- lookup_actor(actor_ref, transport),
+             {:ok, command, remaining_args} <- lookup_registered_command(actor, words, transport),
+             {:ok, result} <- execute_registered_command(actor, command, remaining_args, transport, opts) do
+          emit_actor_command_result(result, opts)
+          {:halt, 0}
+        else
+          {:error, reason} ->
+            Output.error(reason)
+            {:halt, 1}
+        end
+
+      Ema.CLI.Transport.Http ->
+        Output.error("Actor commands require a direct runtime; HTTP dispatch is not implemented")
+        {:halt, 1}
+    end
+  end
+
+  defp lookup_actor(actor_ref, transport) do
+    case transport.call(Ema.Actors, :get_actor, [actor_ref]) do
+      {:ok, nil} ->
+        case transport.call(Ema.Actors, :get_actor_by_slug, [actor_ref]) do
+          {:ok, nil} -> {:error, "Actor #{actor_ref} not found"}
+          {:ok, actor} -> {:ok, actor}
+          {:error, reason} -> {:error, inspect(reason)}
+        end
+
+      {:ok, actor} ->
+        {:ok, actor}
+
+      {:error, reason} ->
+        {:error, inspect(reason)}
+    end
+  end
+
+  defp lookup_registered_command(actor, words, transport) do
+    phrase = Enum.join(words, " ")
+
+    case transport.call(Ema.Actors, :list_commands, [actor.id]) do
+      {:ok, commands} ->
+        commands
+        |> Enum.filter(fn command ->
+          phrase == command.command_name or String.starts_with?(phrase, command.command_name <> " ")
+        end)
+        |> Enum.max_by(&String.length(&1.command_name), fn -> nil end)
+        |> case do
+          nil ->
+            {:error, "No registered command matched #{inspect(phrase)} for #{actor.slug || actor.id}"}
+
+          command ->
+            remaining_args =
+              phrase
+              |> String.trim_leading(command.command_name)
+              |> String.trim()
+              |> case do
+                "" -> []
+                rest -> String.split(rest, " ", trim: true)
+              end
+
+            {:ok, command, remaining_args}
+        end
+
+      {:error, reason} ->
+        {:error, inspect(reason)}
+    end
+  end
+
+  defp execute_registered_command(actor, command, remaining_args, transport, opts) do
+    with {:ok, module, function} <- parse_registered_handler(command) do
+      Code.ensure_loaded(module)
+
+      result =
+        cond do
+          function_exported?(module, function, 4) ->
+            apply(module, function, [actor, remaining_args, transport, opts])
+
+          function_exported?(module, function, 3) ->
+            apply(module, function, [actor, remaining_args, opts])
+
+          function_exported?(module, function, 2) ->
+            apply(module, function, [actor, remaining_args])
+
+          function_exported?(module, function, 1) ->
+            apply(module, function, [actor])
+
+          true ->
+            {:error, "Handler #{inspect(module)}.#{function} is not exported with a supported arity"}
+        end
+
+      case result do
+        {:ok, _} = ok -> ok
+        {:error, reason} -> {:error, inspect(reason)}
+        other -> {:ok, other}
+      end
+    end
+  end
+
+  defp parse_registered_handler(command) do
+    cond do
+      not blank?(Map.get(command, :handler) || Map.get(command, "handler")) ->
+        parse_handler_string(command.command_name, Map.get(command, :handler) || Map.get(command, "handler"))
+
+      blank?(command.handler_module) and blank?(command.handler_function) ->
+        {:error, "Registered command #{command.command_name} is missing its handler"}
+
+      not blank?(command.handler_module) and not blank?(command.handler_function) ->
+        {:ok, parse_module(command.handler_module), String.to_atom(command.handler_function)}
+
+      true ->
+        {:error, "Registered command #{command.command_name} has an incomplete handler"}
+    end
+  rescue
+    error ->
+      {:error, Exception.message(error)}
+  end
+
+  defp parse_handler_string(command_name, handler) do
+    case Regex.run(~r/^(.*)[:.]([^.:\s]+)$/, handler, capture: :all_but_first) do
+      [module_name, function_name] when module_name != "" ->
+        {:ok, parse_module(module_name), String.to_atom(function_name)}
+
+      _ ->
+        {:error, "Registered command #{command_name} has an invalid handler #{inspect(handler)}"}
+    end
+  end
+
+  defp emit_actor_command_result(:ok, _opts), do: :ok
+  defp emit_actor_command_result({:ok, value}, opts), do: emit_actor_command_result(value, opts)
+
+  defp emit_actor_command_result(value, opts) do
+    cond do
+      opts[:json] ->
+        Ema.CLI.Output.json(value)
+
+      is_binary(value) ->
+        IO.puts(value)
+
+      is_map(value) or is_list(value) ->
+        Ema.CLI.Output.detail(value)
+
+      true ->
+        IO.puts(inspect(value))
+    end
+  end
+
   defp columns do
     case :io.columns() do
       {:ok, cols} -> cols
@@ -1425,5 +1638,10 @@ defmodule Ema.CLI do
 
   defp put_lines(lines) when is_list(lines), do: Enum.each(lines, &IO.puts/1)
   defp put_lines(line), do: IO.puts(line)
+  defp actor_command_root?(value) when is_binary(value), do: String.trim(value) != "" and value not in @builtin_roots
+  defp parse_module(module_name), do: module_name |> String.split(".", trim: true) |> drop_elixir_prefix() |> Module.concat()
+  defp drop_elixir_prefix(["Elixir" | rest]), do: rest
+  defp drop_elixir_prefix(rest), do: rest
+  defp blank?(value), do: value in [nil, ""]
 
 end

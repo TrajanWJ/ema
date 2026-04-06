@@ -13,7 +13,7 @@ defmodule Ema.CLI.Commands.Actor do
   ]
 
   @command_columns [
-    {"Command", :command},
+    {"Command", :command_name},
     {"Handler", :handler},
     {"Description", :description}
   ]
@@ -32,7 +32,7 @@ defmodule Ema.CLI.Commands.Actor do
         filter =
           Helpers.compact_keyword(
             space_id: parsed.options[:space],
-            actor_type: parsed.options[:type],
+            type: parsed.options[:type],
             status: parsed.options[:status]
           )
 
@@ -45,7 +45,7 @@ defmodule Ema.CLI.Commands.Actor do
         params =
           Helpers.compact_keyword(
             space_id: parsed.options[:space],
-            actor_type: parsed.options[:type],
+            type: parsed.options[:type],
             status: parsed.options[:status]
           )
 
@@ -185,7 +185,7 @@ defmodule Ema.CLI.Commands.Actor do
 
         Ema.CLI.Transport.Http ->
           case transport.get("/actors/#{actor_id}/phases") do
-            {:ok, body} -> Output.render(body["phase_transitions"] || [], @phase_columns, json: opts[:json])
+            {:ok, body} -> Output.render(body["transitions"] || body["phase_transitions"] || [], @phase_columns, json: opts[:json])
             {:error, reason} -> Output.error(inspect(reason))
           end
       end
@@ -195,19 +195,22 @@ defmodule Ema.CLI.Commands.Actor do
   end
 
   def handle([:register], parsed, transport, opts) do
+    handler = normalize_handler(parsed.args.handler)
+
     attrs =
       Helpers.compact_map([
         {:actor_id, parsed.args.id},
-        {:command, parsed.args.command},
-        {:handler, parsed.args.handler},
-        {:description, parsed.options[:description]}
+        {:command_name, parsed.args.command},
+        {:handler, handler},
+        {:description, parsed.options[:description]},
+        {:args_spec, parse_args_spec(parsed.options[:args_spec])}
       ])
 
     case transport do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Actors, :register_command, [attrs]) do
           {:ok, command} ->
-            Output.success("Registered #{command.command} on #{command.actor_id}")
+            Output.success("Registered #{command.command_name} on #{command.actor_id}")
             if opts[:json], do: Output.json(command)
 
           {:error, reason} ->
@@ -220,7 +223,7 @@ defmodule Ema.CLI.Commands.Actor do
         case transport.post("/actors/#{parsed.args.id}/commands", body) do
           {:ok, resp} ->
             command = resp["command"] || resp
-            Output.success("Registered #{command["command"]} on #{command["actor_id"]}")
+            Output.success("Registered #{command["command_name"]} on #{command["actor_id"]}")
             if opts[:json], do: Output.json(command)
 
           {:error, reason} ->
@@ -259,4 +262,9 @@ defmodule Ema.CLI.Commands.Actor do
         end
     end
   end
+
+  defp normalize_handler(handler), do: String.replace(handler, ":", ".")
+
+  defp parse_args_spec(nil), do: nil
+  defp parse_args_spec(raw), do: Helpers.parse_cli_value(raw)
 end

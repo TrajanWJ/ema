@@ -102,3 +102,35 @@
   - `daemon/lib/ema/cli/commands/tag.ex`
   - `daemon/lib/ema/cli/commands/task.ex`
   - `docs/cli/changelog.md`
+
+## 2026-04-06 Phase 3
+
+- Added direct actor-command dispatch at the CLI root for any non-builtin first token, so registered commands can resolve as `ema <actor> <command...>` instead of only through explicit subcommand groups.
+- Added `Ema.CLI.ActorCommands` as the first native handler module for actor-registered commands and verified `human status --json` through the `actor_commands` table.
+- Reworked the direct actor-command path to parse the live `actor_commands` schema correctly:
+  - the database still stores `command`, `handler`, and `args_schema`
+  - the Ecto schema now maps those columns instead of assuming `command_name`, `handler_module`, and `handler_function` exist physically
+- Reworked `actor register` and actor-command listing around the live `handler` field instead of the aspirational split module/function columns.
+- Added direct PubSub watch mode for `watch`; it subscribes to Phoenix topics and streams events without polling.
+- Added scoped quick-capture support to `dump` and fixed the source enum to use `shortcut`.
+- Fixed the `inbox_items` schema to actually cast and persist `space_id`, `actor_id`, `container_type`, and `container_id`, which the Phase 2/3 CLI was already sending.
+- Added project scoping to `campaign list`.
+- Verified:
+  - `mix run -e 'Ema.CLI.main(["dump", ...])'` now creates a brain dump with persisted `actor_id` and container fields
+  - `sqlite3 ~/.local/share/ema/ema_dev.db` shows the scoped dump row as `shortcut|human|task|task_42`
+  - `timeout 5 mix run -e ... Ema.CLI.main(["watch","--channel=goals","--format=compact"]) ...` prints a live PubSub event
+  - `mix run --no-compile -e ... Ema.CLI.main(["human","status","--json"]) ...` resolves through `actor_commands` and returns actor EM JSON
+- Residual blocker:
+  - full `mix compile` became blocked by unrelated worktree changes in `daemon/lib/ema/sessions/orchestrator.ex` during this session; the Phase 3 verification after that point used targeted `elixirc` recompilation plus `mix run --no-compile` to avoid touching the user’s unrelated broken file
+- Files:
+  - `daemon/lib/ema/actors/actor_command.ex`
+  - `daemon/lib/ema/brain_dump/item.ex`
+  - `daemon/lib/ema/cli/actor_commands.ex`
+  - `daemon/lib/ema/cli/cli.ex`
+  - `daemon/lib/ema/cli/commands/actor.ex`
+  - `daemon/lib/ema/cli/commands/campaign.ex`
+  - `daemon/lib/ema/cli/commands/dump.ex`
+  - `daemon/lib/ema/cli/commands/em.ex`
+  - `daemon/lib/ema/cli/commands/watch.ex`
+  - `daemon/lib/ema_web/controllers/actor_controller.ex`
+  - `docs/cli/changelog.md`

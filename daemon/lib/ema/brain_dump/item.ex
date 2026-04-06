@@ -10,6 +10,8 @@ defmodule Ema.BrainDump.Item do
     field :processed, :boolean, default: false
     field :action, :string
     field :processed_at, :utc_datetime
+    field :space_id, :string
+    field :actor_id, :string
 
     # Embedding fields for brain-dump-to-proposal clustering
     field :embedding, :binary
@@ -31,7 +33,7 @@ defmodule Ema.BrainDump.Item do
 
   def create_changeset(item, attrs) do
     item
-    |> cast(attrs, [:id, :content, :source])
+    |> cast(attrs, [:id, :content, :source, :project_id, :space_id, :actor_id, :container_type, :container_id])
     |> validate_required([:id, :content])
     |> validate_inclusion(:source, @valid_sources)
   end

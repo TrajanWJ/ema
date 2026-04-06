@@ -120,8 +120,7 @@ defmodule EmaWeb.ActorController do
       actor_id: c.actor_id,
       command_name: c.command_name,
       description: c.description,
-      handler_module: c.handler_module,
-      handler_function: c.handler_function,
+      handler: c.handler,
       args_spec: c.args_spec
     }
   end

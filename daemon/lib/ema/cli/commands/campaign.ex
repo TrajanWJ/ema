@@ -19,16 +19,24 @@ defmodule Ema.CLI.Commands.Campaign do
     {"Started", :inserted_at}
   ]
 
-  def handle([:list], _parsed, transport, opts) do
+  def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Campaigns, :list_campaigns, []) do
+        result =
+          case parsed.options[:project] do
+            nil -> transport.call(Ema.Campaigns, :list_campaigns, [])
+            project_id -> transport.call(Ema.Campaigns, :list_campaigns_for_project, [project_id])
+          end
+
+        case result do
           {:ok, campaigns} -> Output.render(campaigns, @columns, json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
 
       Ema.CLI.Transport.Http ->
-        case transport.get("/campaigns") do
+        params = Helpers.compact_keyword([{:project_id, parsed.options[:project]}])
+
+        case transport.get("/campaigns", params: params) do
           {:ok, body} -> Output.render(Helpers.extract_list(body, "campaigns"), @columns, json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end

@@ -69,7 +69,7 @@ defmodule Ema.CLI.Commands.Em do
         filter =
           Helpers.compact_keyword(
             space_id: parsed.options[:space],
-            actor_type: parsed.options[:type]
+            type: parsed.options[:type]
           )
 
         case transport.call(Ema.Actors, :list_actors, [filter]) do
@@ -85,7 +85,7 @@ defmodule Ema.CLI.Commands.Em do
         params =
           Helpers.compact_keyword(
             space_id: parsed.options[:space],
-            actor_type: parsed.options[:type]
+            type: parsed.options[:type]
           )
 
         case transport.get("/actors", params: params) do

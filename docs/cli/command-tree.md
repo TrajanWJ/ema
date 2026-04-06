@@ -66,3 +66,19 @@ Architectural note:
 
 - this command tree extends the existing `Ema.CLI` implementation under `daemon/lib/ema/cli/`
 - it does not create a parallel `EmaCli.CLI` namespace
+
+Phase 3 runtime behavior:
+
+- Any non-builtin root token is now treated as a potential actor command first.
+- Registered actor commands resolve from `actor_commands.command` and execute the stored `handler`.
+- Current native handler module:
+  - `Ema.CLI.ActorCommands.em_status/4`
+- Verified actor-command form:
+  - `ema human status --json`
+- `watch` now uses direct Phoenix PubSub subscriptions instead of HTTP polling.
+- `dump` now persists:
+  - `source=shortcut`
+  - `actor_id`
+  - `container_type`
+  - `container_id`
+- `campaign list --project=<id>` now scopes in direct and HTTP transport.
