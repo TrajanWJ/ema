@@ -59,6 +59,67 @@ defmodule Ema.CLI.Commands.Em do
     end
   end
 
+  def handle([:advance], parsed, transport, opts) do
+    with {:ok, actor} <- resolve_actor(parsed.args.actor, transport) do
+      actor_id = Map.get(actor, :id) || actor["id"]
+      phase = Map.get(parsed.args, :phase) || next_phase(actor)
+      reason = Map.get(parsed.options, :reason, "manual")
+      week = Map.get(parsed.options, :week)
+
+      case transport do
+        Ema.CLI.Transport.Direct ->
+          case transport.call(Ema.Actors, :transition_phase, [actor, phase, [reason: reason, week_number: week]]) do
+            {:ok, updated} ->
+              Output.success("#{actor_name(actor)} → #{phase}")
+              if opts[:json], do: Output.json(%{phase: Map.get(updated, :phase)})
+            {:error, reason} ->
+              Output.error(inspect(reason))
+          end
+
+        Ema.CLI.Transport.Http ->
+          body = %{"to_phase" => phase, "reason" => reason}
+          body = if week, do: Map.put(body, "week_number", week), else: body
+
+          case transport.post("/actors/#{actor_id}/transition", body) do
+            {:ok, body} ->
+              Output.success("Advanced to #{phase}")
+              if opts[:json], do: Output.json(body)
+            {:error, reason} ->
+              Output.error(inspect(reason))
+          end
+      end
+    else
+      {:error, reason} -> Output.error(reason)
+    end
+  end
+
+  def handle([:retro], parsed, transport, opts) do
+    with {:ok, actor} <- resolve_actor(parsed.args.actor, transport),
+         {:ok, transitions} <- list_phases(Map.get(actor, :id) || actor["id"], transport) do
+      week = Map.get(parsed.options, :week)
+
+      filtered =
+        if week do
+          Enum.filter(transitions, fn t ->
+            wn = Map.get(t, :week_number) || Map.get(t, "week_number")
+            wn != nil and to_string(wn) == to_string(week)
+          end)
+        else
+          transitions
+        end
+
+      retro_columns = @phase_columns ++ [{"Summary", :summary}]
+
+      if filtered == [] do
+        Output.error("No transitions#{if week, do: " for week #{week}", else: ""}")
+      else
+        Output.render(filtered, retro_columns, json: opts[:json])
+      end
+    else
+      {:error, reason} -> Output.error(reason)
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown em subcommand: #{inspect(sub)}")
   end
@@ -170,7 +231,7 @@ defmodule Ema.CLI.Commands.Em do
   defp list_phases(actor_id, transport) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        transport.call(Ema.PhaseTransitions, :list_for, [actor_id])
+        transport.call(Ema.Actors, :list_phase_transitions, [actor_id])
 
       Ema.CLI.Transport.Http ->
         case transport.get("/actors/#{actor_id}/phases") do
@@ -200,5 +261,17 @@ defmodule Ema.CLI.Commands.Em do
   defp average_transitions(rows) do
     weeks = completed_weeks(rows)
     if weeks == 0, do: length(rows), else: Float.round(length(rows) / weeks, 2)
+  end
+
+  @phase_order ~w(idle plan execute review retro)
+
+  defp next_phase(actor) do
+    current = Map.get(actor, :phase) || Map.get(actor, "phase") || "idle"
+    idx = Enum.find_index(@phase_order, &(&1 == current)) || 0
+    Enum.at(@phase_order, rem(idx + 1, length(@phase_order)))
+  end
+
+  defp actor_name(actor) do
+    Map.get(actor, :name) || Map.get(actor, "name") || Map.get(actor, :id) || actor["id"]
   end
 end

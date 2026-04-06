@@ -13,7 +13,7 @@ defmodule Ema.Actors.Actor do
     field :actor_type, :string, source: :type
     field :name, :string
     field :slug, :string
-    field :capabilities, :map, default: %{}
+    field :capabilities, {:array, :string}, default: []
     field :config, :map, default: %{}
     field :phase, :string, default: "idle"
     field :phase_started_at, :utc_datetime

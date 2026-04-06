@@ -107,7 +107,7 @@ defmodule Ema.Actors do
   def list_phase_transitions(actor_id) do
     PhaseTransition
     |> where([t], t.actor_id == ^actor_id)
-    |> order_by([t], desc: t.inserted_at)
+    |> order_by([t], desc: t.transitioned_at)
     |> Repo.all()
   end
 
@@ -167,7 +167,7 @@ defmodule Ema.Actors do
   def set_data(actor_id, entity_type, entity_id, key, value) do
     attrs = %{actor_id: actor_id, entity_type: entity_type, entity_id: entity_id, key: key, value: value}
 
-    %EntityData{id: generate_id()}
+    %EntityData{}
     |> EntityData.changeset(attrs)
     |> Repo.insert(
       on_conflict: {:replace, [:value, :updated_at]},
@@ -198,7 +198,7 @@ defmodule Ema.Actors do
   def set_config(container_type, container_id, key, value) do
     attrs = %{container_type: container_type, container_id: container_id, key: key, value: value}
 
-    %ContainerConfig{id: generate_id()}
+    %ContainerConfig{}
     |> ContainerConfig.changeset(attrs)
     |> Repo.insert(
       on_conflict: {:replace, [:value, :updated_at]},

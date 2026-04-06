@@ -3,7 +3,6 @@ defmodule Ema.Actors.PhaseTransition do
   import Ecto.Changeset
 
   @primary_key {:id, :string, autogenerate: false}
-  @timestamps_opts [type: :utc_datetime]
 
   schema "phase_transitions" do
     field :space_id, :string
@@ -16,12 +15,13 @@ defmodule Ema.Actors.PhaseTransition do
     field :metadata, :map, default: %{}
     field :transitioned_at, :utc_datetime
 
-    belongs_to :actor, Ema.Actors.Actor, type: :string
+    belongs_to :actor, Ema.Actors.Actor, type: :string, define_field: false
+    field :actor_id, :string
   end
 
   def changeset(transition, attrs) do
     transition
     |> cast(attrs, [:id, :actor_id, :space_id, :project_id, :from_phase, :to_phase, :week_number, :reason, :summary, :metadata, :transitioned_at])
-    |> validate_required([:actor_id, :to_phase, :transitioned_at])
+    |> validate_required([:actor_id, :to_phase])
   end
 end
