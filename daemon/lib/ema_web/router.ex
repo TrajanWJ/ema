@@ -9,6 +9,11 @@ defmodule EmaWeb.Router do
     pipe_through(:api)
 
     get("/health", HealthController, :index)
+    get("/status", ControlPlaneController, :status)
+    get("/surfaces", ControlPlaneController, :surfaces)
+    get("/surfaces/host-truth", ControlPlaneController, :host_truth)
+    get("/surfaces/gateway", ControlPlaneController, :gateway)
+    get("/surfaces/peers", ControlPlaneController, :peers)
     get("/dashboard/today", DashboardController, :today)
 
     # Organizations
