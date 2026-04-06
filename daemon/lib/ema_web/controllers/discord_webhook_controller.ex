@@ -1,6 +1,6 @@
 defmodule EmaWeb.DiscordWebhookController do
   @moduledoc """
-  Receives Discord messages from OpenClaw (or any webhook caller) and
+  Receives Discord messages from webhook callers and
   routes them through EMA's Voice/Jarvis pipeline.
 
   POST /api/discord/message

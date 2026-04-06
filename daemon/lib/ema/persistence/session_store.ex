@@ -10,12 +10,6 @@ defmodule Ema.Persistence.SessionStore do
   - On init, all DCC records are loaded from SQLite into ETS
   - PubSub broadcasts on `"context:sessions"` for crystallization events
 
-  ## OpenClaw Session Mapping
-
-  A second ETS table `:ema_openclaw_sessions` maps OpenClaw session IDs
-  (ephemeral, file-based) to EMA agent/DCC contexts. This is in-memory only
-  (no persistence needed — reconstructed from AgentBridge on reconnect).
-  Use `put_openclaw_session/3`, `get_openclaw_session/1`, `list_openclaw_sessions/0`.
   """
 
   use GenServer
@@ -28,7 +22,6 @@ defmodule Ema.Persistence.SessionStore do
   import Ecto.Query
 
   @table :ema_session_store
-  @oc_table :ema_openclaw_sessions
   @persist_interval :timer.seconds(30)
 
   # Client API
@@ -85,65 +78,11 @@ defmodule Ema.Persistence.SessionStore do
     :ets.info(@table, :size)
   end
 
-  # --- OpenClaw Session Mapping (ETS only, no SQLite) ---
-
-  @doc """
-  Register an OpenClaw session ID → EMA agent/DCC context mapping.
-  Call this when EMA first sees a message from an OpenClaw session.
-
-  Options:
-    - :dcc_session_id - linked DCC session
-    - :conversation_id - EMA conversation to append messages into
-    - :channel_type - "discord" | "telegram" | "webchat"
-  """
-  def put_openclaw_session(oc_session_id, agent_id, opts \\ []) do
-    entry = %{
-      agent_id: agent_id,
-      dcc_session_id: Keyword.get(opts, :dcc_session_id),
-      conversation_id: Keyword.get(opts, :conversation_id),
-      channel_type: Keyword.get(opts, :channel_type, "discord"),
-      created_at: DateTime.utc_now()
-    }
-    :ets.insert(@oc_table, {oc_session_id, entry})
-    Logger.debug("[SessionStore] Mapped OC session #{oc_session_id} → agent #{agent_id}")
-    :ok
-  end
-
-  @doc """
-  Look up the EMA context for an OpenClaw session ID.
-  Returns {:ok, map} or :error.
-  """
-  def get_openclaw_session(oc_session_id) do
-    case :ets.lookup(@oc_table, oc_session_id) do
-      [{^oc_session_id, entry}] -> {:ok, entry}
-      [] -> :error
-    end
-  end
-
-  @doc "List all known OpenClaw session mappings."
-  def list_openclaw_sessions do
-    :ets.tab2list(@oc_table)
-    |> Enum.map(fn {oc_id, entry} -> Map.put(entry, :oc_session_id, oc_id) end)
-    |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
-  end
-
-  @doc "Remove an OpenClaw session mapping."
-  def delete_openclaw_session(oc_session_id) do
-    :ets.delete(@oc_table, oc_session_id)
-    :ok
-  end
-
-  @doc "Count of tracked OpenClaw sessions."
-  def openclaw_session_count do
-    :ets.info(@oc_table, :size)
-  end
-
   # Server
 
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    _oc_table = :ets.new(@oc_table, [:named_table, :set, :public, read_concurrency: true])
     loaded = load_from_db()
     schedule_persist()
     {:ok, %{table: table, current_session_id: nil, dirty: MapSet.new(), loaded: loaded}}

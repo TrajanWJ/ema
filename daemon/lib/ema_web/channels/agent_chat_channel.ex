@@ -2,9 +2,7 @@ defmodule EmaWeb.AgentChatChannel do
   @moduledoc """
   Phoenix channel for `agents:chat:*` — webchat interface per agent.
 
-  Supports two flows:
-  - Standard agents: delegates to AgentWorker (blocking, returns full response)
-  - OpenClaw agents: streams response deltas back via `message_delta` events
+  Delegates to AgentWorker (blocking, returns full response).
   """
 
   use Phoenix.Channel
@@ -12,7 +10,6 @@ defmodule EmaWeb.AgentChatChannel do
 
   alias Ema.Agents
   alias Ema.Agents.WebchatChannelBridge
-  alias Ema.Claude.Adapters.OpenClaw, as: OpenClawAdapter
 
   @impl true
   def join("agents:chat:" <> slug, _payload, socket) do
@@ -38,77 +35,12 @@ defmodule EmaWeb.AgentChatChannel do
 
   def handle_in("message", %{"content" => content} = payload, socket) do
     slug = socket.assigns.agent_slug
-    agent_id = socket.assigns.agent_id
-    settings = socket.assigns.agent_settings
     metadata = Map.get(payload, "metadata", %{})
 
     # Send typing indicator
     push(socket, "typing", %{agent: slug})
 
-    if Map.get(settings, "backend") == "openclaw" do
-      handle_openclaw_message(socket, agent_id, slug, content, metadata, settings)
-    else
-      handle_standard_message(socket, slug, content, metadata)
-    end
-  end
-
-  # -- OpenClaw streaming flow ------------------------------------------------
-
-  defp handle_openclaw_message(socket, agent_id, slug, content, metadata, settings) do
-    openclaw_agent_id = Map.get(settings, "openclaw_agent_id", "main")
-    channel_pid = self()
-
-    # Store user message
-    case Agents.get_or_create_conversation(agent_id, "webchat", "webchat:#{slug}", "webchat_user") do
-      {:ok, conversation} ->
-        Agents.add_message(%{
-          conversation_id: conversation.id,
-          role: "user",
-          content: content,
-          metadata: metadata
-        })
-
-        # Stream in a separate task so we don't block the channel
-        Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
-          accumulated = stream_openclaw_response(channel_pid, openclaw_agent_id, content)
-
-          # Store the full assistant message
-          Agents.add_message(%{
-            conversation_id: conversation.id,
-            role: "assistant",
-            content: accumulated,
-            metadata: %{"backend" => "openclaw", "agent" => openclaw_agent_id}
-          })
-        end)
-
-      {:error, reason} ->
-        Logger.error("Failed to get/create conversation for #{slug}: #{inspect(reason)}")
-        push(socket, "error", %{message: "Failed to start conversation"})
-    end
-
-    {:noreply, socket}
-  end
-
-  defp stream_openclaw_response(channel_pid, agent_id, message) do
-    {:ok, buffer_pid} = Agent.start_link(fn -> "" end)
-
-    callback = fn
-      {:delta, text} ->
-        send(channel_pid, {:push_delta, text})
-        Agent.update(buffer_pid, fn buf -> buf <> text end)
-
-      {:tool_call, event} ->
-        send(channel_pid, {:push_tool_call, event})
-
-      :done ->
-        send(channel_pid, :push_complete)
-    end
-
-    OpenClawAdapter.stream(message, agent_id, callback)
-
-    result = Agent.get(buffer_pid, & &1)
-    Agent.stop(buffer_pid)
-    result
+    handle_standard_message(socket, slug, content, metadata)
   end
 
   # -- Standard (Runner-based) flow -------------------------------------------

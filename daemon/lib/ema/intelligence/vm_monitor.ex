@@ -203,8 +203,6 @@ defmodule Ema.Intelligence.VmMonitor do
 
     claude_available = check_claude_cli()
     daemon_healthy = check_daemon_health()
-    openclaw_available = check_local_openclaw()
-
     total_latency = System.monotonic_time(:millisecond) - start
 
     status =
@@ -216,7 +214,7 @@ defmodule Ema.Intelligence.VmMonitor do
 
     %{
       status: status,
-      openclaw_up: openclaw_available or claude_available,
+      openclaw_up: claude_available,
       ssh_up: true,
       containers_json: "[]",
       latency_ms: round(total_latency),
@@ -273,10 +271,6 @@ defmodule Ema.Intelligence.VmMonitor do
   defp check_daemon_health do
     # Self-check: verify the Ecto repo and PubSub are alive
     is_pid(Process.whereis(Ema.Repo)) and is_pid(Process.whereis(Ema.PubSub))
-  end
-
-  defp check_local_openclaw do
-    System.find_executable("openclaw") != nil
   end
 
   defp parse_containers(json_str) do
@@ -343,7 +337,7 @@ defmodule Ema.Intelligence.VmMonitor do
       current.status == "online" and latency_ratio >= 1.25,
       "latency drifted from #{round(baseline_latency)}ms to #{round(recent_latency)}ms"
     )
-    |> maybe_add_note(not current.openclaw_up, "agent backend is unavailable")
+    |> maybe_add_note(not current.openclaw_up, "AI backend is unavailable")
     |> maybe_add_note(not current.ssh_up, "ssh probe is failing")
     |> Enum.take(3)
   end

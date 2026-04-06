@@ -150,22 +150,7 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp attempt_local_claude(execution, agent_session, prompt) do
-    # Try OpenClaw first if connected, fall back to local Claude
-    result =
-      if Ema.OpenClaw.AgentBridge.connected?() do
-        Logger.info("[Dispatcher] Routing #{execution.id} via OpenClaw agent bridge")
-        case Ema.OpenClaw.Dispatcher.dispatch(execution, timeout: 300_000) do
-          {:ok, text} -> {:ok, text}
-          {:error, :openclaw_unavailable} ->
-            Logger.info("[Dispatcher] OpenClaw unavailable, falling back to local Claude")
-            local_claude_run(execution, prompt)
-          {:error, reason} ->
-            Logger.warning("[Dispatcher] OpenClaw failed (#{inspect(reason)}), falling back to local Claude")
-            local_claude_run(execution, prompt)
-        end
-      else
-        local_claude_run(execution, prompt)
-      end
+    result = local_claude_run(execution, prompt)
 
     case result do
       {:ok, result_text} ->

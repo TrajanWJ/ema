@@ -26,7 +26,6 @@ defmodule EmaWeb.UserSocket do
   channel "goals:*", EmaWeb.GoalChannel
   channel "focus:*", EmaWeb.FocusChannel
   channel "notes:*", EmaWeb.NotesChannel
-  channel "openclaw:*", EmaWeb.OpenClawChannel
   channel "cli_manager:*", EmaWeb.CliManagerChannel
   channel "dispatch_board:*", EmaWeb.DispatchBoardChannel
   channel "superman:*", EmaWeb.SupermanChannel

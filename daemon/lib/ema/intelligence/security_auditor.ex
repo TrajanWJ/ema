@@ -1,7 +1,7 @@
 defmodule Ema.Intelligence.SecurityAuditor do
   @moduledoc """
-  Calculates security posture score based on VM configuration,
-  OpenClaw deployment settings, and known threat model checks.
+  Calculates security posture score based on local configuration
+  and known threat model checks.
   Inspired by JarvisAI vault/Security/Threat Model.md.
   """
 
@@ -15,7 +15,7 @@ defmodule Ema.Intelligence.SecurityAuditor do
     containers = VmMonitor.containers()
 
     checks = [
-      check_openclaw_in_vm(vm_health),
+      check_local_health(vm_health),
       check_nat_only(),
       check_no_published_ports(containers),
       check_cap_drop(containers),
@@ -39,7 +39,7 @@ defmodule Ema.Intelligence.SecurityAuditor do
 
   # --- Individual checks ---
 
-  defp check_openclaw_in_vm(vm_health) do
+  defp check_local_health(vm_health) do
     passed = vm_health != nil and vm_health.status in ["online", "degraded"]
 
     %{
@@ -96,7 +96,7 @@ defmodule Ema.Intelligence.SecurityAuditor do
 
     %{
       id: "no_published_ports",
-      name: "No published ports on OpenClaw containers",
+      name: "No published ports on containers",
       passed: passed,
       points: if(passed, do: 15, else: 0),
       max_points: 15,
@@ -186,14 +186,6 @@ defmodule Ema.Intelligence.SecurityAuditor do
   end
 
   defp supply_chain_warnings do
-    [
-      %{
-        id: "clawhavoc",
-        severity: "high",
-        title: "ClawHavoc Supply Chain Risk",
-        description: "OpenClaw's ClawHavoc agent framework uses community-contributed agent definitions that could contain malicious prompts or tool configurations. Always review agent definitions before deployment.",
-        mitigation: "Pin agent definition versions, review tool permissions, use allowlists for agent capabilities."
-      }
-    ]
+    []
   end
 end

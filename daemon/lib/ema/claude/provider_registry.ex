@@ -11,7 +11,7 @@ defmodule Ema.Claude.ProviderRegistry do
 
   - `:claude_cli`  — Claude Code CLI subprocess (Max plan)
   - `:codex_cli`   — Codex CLI subprocess
-  - `:openclaw`    — OpenClaw gateway
+
   - `:openrouter`  — OpenRouter HTTP API
   - `:ollama`      — Local Ollama instance
   - `:custom`      — Any command speaking stream-json or JSONL
@@ -474,16 +474,6 @@ defmodule Ema.Claude.ProviderRegistry do
             models: Map.get(config, :models, ["gpt-5.2-codex"])
           }
 
-        :openclaw ->
-          %{
-            streaming: true,
-            code_execution: false,
-            tool_use: true,
-            file_access: false,
-            web_search: true,
-            models: Map.get(config, :models, [])
-          }
-
         :openrouter ->
           %{
             streaming: true,
@@ -554,7 +544,6 @@ defmodule Ema.Claude.ProviderRegistry do
     %{
       claude_cli: Ema.Claude.Adapters.ClaudeCli,
       codex_cli: Ema.Claude.Adapters.CodexCli,
-      openclaw: Ema.Claude.Adapters.OpenClaw,
       openrouter: Ema.Claude.Adapters.OpenRouter,
       ollama: Ema.Claude.Adapters.Ollama
     }

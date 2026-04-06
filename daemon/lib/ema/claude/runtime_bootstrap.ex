@@ -15,20 +15,18 @@ defmodule Ema.Claude.RuntimeBootstrap do
   @spec build() :: %{providers: [map()], accounts: [map()], distribution: keyword()}
   def build do
     oauth_sources = discover_claude_oauth_sources()
-    openclaw_node = build_openclaw_node()
 
     provider_defs =
       [
         build_claude_provider(oauth_sources),
-        build_codex_provider(),
-        build_openclaw_provider(openclaw_node)
+        build_codex_provider()
       ]
       |> Enum.reject(&is_nil/1)
 
     %{
       providers: Enum.map(provider_defs, & &1.provider),
       accounts: Enum.flat_map(provider_defs, & &1.accounts),
-      distribution: build_distribution(openclaw_node)
+      distribution: build_distribution()
     }
   end
 
@@ -108,32 +106,6 @@ defmodule Ema.Claude.RuntimeBootstrap do
     end
   end
 
-  defp build_openclaw_provider(nil), do: nil
-
-  defp build_openclaw_provider(node) do
-    provider =
-      Config.build_provider(
-        id: "openclaw-vm",
-        type: :openclaw,
-        name: "OpenClaw VM",
-        accounts: [%{name: node[:id], auth: :system}],
-        models: [],
-        capabilities: %{web_search: true, tool_use: true, streaming: true}
-      )
-
-    accounts = [
-      %{
-        id: "openclaw-vm:#{node[:id]}",
-        provider_id: "openclaw-vm",
-        name: node[:id],
-        auth: %{type: :system, ssh_host: node[:host], role: node[:role]},
-        priority: 1
-      }
-    ]
-
-    %{provider: provider, accounts: accounts}
-  end
-
   defp discover_claude_oauth_sources do
     configured_paths =
       System.get_env("EMA_CLAUDE_OAUTH_PATHS")
@@ -193,25 +165,8 @@ defmodule Ema.Claude.RuntimeBootstrap do
     end
   end
 
-  defp build_openclaw_node do
-    host = System.get_env("OPENCLAW_SSH_HOST", "localhost")
-
-    if host == "" do
-      nil
-    else
-      [
-        id: System.get_env("EMA_OPENCLAW_NODE_ID", "agent-vm"),
-        host: host,
-        role: System.get_env("EMA_OPENCLAW_NODE_ROLE", "gateway"),
-        weight: parse_integer(System.get_env("EMA_OPENCLAW_NODE_WEIGHT"), 100),
-        providers: ["openclaw-vm"]
-      ]
-    end
-  end
-
-  defp build_distribution(openclaw_node) do
-    extra_nodes = parse_nodes(System.get_env("EMA_CLAUDE_NODES", ""))
-    nodes = Enum.reject([openclaw_node | extra_nodes], &is_nil/1)
+  defp build_distribution do
+    nodes = parse_nodes(System.get_env("EMA_CLAUDE_NODES", ""))
 
     spaces = parse_org_spaces(System.get_env("EMA_CLAUDE_ORG_SPACES", ""))
 

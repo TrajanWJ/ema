@@ -83,7 +83,7 @@ defmodule Ema.Claude.NodeCoordinator do
 
   @doc """
   Register the providers available on this local node.
-  Providers are atoms like :claude_cli, :openclaw, :openai, etc.
+  Providers are atoms like :claude_cli, :openrouter, :ollama, etc.
   """
   def register_local_providers(providers) when is_list(providers) do
     GenServer.call(__MODULE__, {:register_local_providers, providers})

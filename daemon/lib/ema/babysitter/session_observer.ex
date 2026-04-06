@@ -10,8 +10,6 @@ defmodule Ema.Babysitter.SessionObserver do
   - Completed sessions (last message type is "result")
   - What each session is actually doing (last tool call / assistant message)
 
-  Also probes the OpenClaw Gateway VM for active agent sessions.
-
   Broadcasts to "babysitter:sessions" topic with:
     %{event: :session_snapshot, sessions: [...], stalled: [...], just_completed: [...]}
   """
@@ -24,8 +22,6 @@ defmodule Ema.Babysitter.SessionObserver do
   @stale_threshold_s 300
   @pubsub Ema.PubSub
   @topic "babysitter:sessions"
-  @openclaw_gateway_url System.get_env("OPENCLAW_GATEWAY_URL", "http://192.168.122.10:18789")
-
   # --- Public API ---
 
   def start_link(opts \\ []) do
@@ -76,40 +72,10 @@ defmodule Ema.Babysitter.SessionObserver do
       |> Enum.map(&parse_session_file/1)
       |> Enum.reject(&is_nil/1)
 
-    vm_sessions = fetch_vm_sessions()
-    sessions = sessions ++ vm_sessions
-
     stalled = sessions |> Enum.filter(&stalled?(&1, now))
     just_completed = sessions |> Enum.filter(&(&1.status == :completed))
 
     %{sessions: sessions, stalled: stalled, just_completed: just_completed}
-  end
-
-  defp fetch_vm_sessions do
-    url = @openclaw_gateway_url <> "/api/sessions/active"
-    try do
-      case Req.get(url, receive_timeout: 5_000) do
-        {:ok, %{status: 200, body: body}} when is_list(body) ->
-          Enum.map(body, fn s ->
-            %{
-              session_id: Map.get(s, "sessionKey") || Map.get(s, "id"),
-              project_path: "vm:" <> (Map.get(s, "agentId") || Map.get(s, "label") || "unknown"),
-              path: nil,
-              status: :active,
-              last_type: "assistant",
-              last_text: Map.get(s, "lastMessage") || Map.get(s, "status"),
-              last_tool: nil,
-              last_ts: Map.get(s, "updatedAt"),
-              mtime: System.os_time(:second),
-              entry_count: 0,
-              source: :openclaw_vm
-            }
-          end)
-        _ -> []
-      end
-    rescue
-      _ -> []
-    end
   end
 
   defp list_recent_sessions(now) do

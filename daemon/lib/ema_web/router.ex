@@ -298,12 +298,6 @@ defmodule EmaWeb.Router do
     post("/cli-manager/sessions/:id/stop", CliManagerController, :stop_session)
     post("/cli-manager/scan", CliManagerController, :scan)
 
-    # OpenClaw Gateway
-    get("/openclaw/status", OpenClawController, :status)
-    post("/openclaw/message", OpenClawController, :send_message)
-    get("/openclaw/sessions", OpenClawController, :sessions)
-    post("/openclaw/dispatch", OpenClawController, :dispatch)
-
     # Async dispatch — non-blocking Claude task dispatch
     post("/dispatch/async", DispatchController, :async)
 

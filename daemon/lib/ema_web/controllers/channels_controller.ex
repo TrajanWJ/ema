@@ -211,23 +211,11 @@ defmodule EmaWeb.ChannelsController do
   end
 
   # POST /api/channels/send
-  def send_cross_platform(conn, %{"platform" => _platform, "channel" => channel_ref, "content" => content}) do
-    # Proxy to OpenClaw gateway via HTTP client
-    # channel_ref is used as the OpenClaw session ID
-    case Ema.OpenClaw.Client.send_message(channel_ref, content) do
-      {:ok, result} ->
-        json(conn, %{ok: true, result: result})
-
-      {:error, reason} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "send_failed", message: inspect(reason)})
-    end
-  rescue
-    _ ->
-      conn
-      |> put_status(:service_unavailable)
-      |> json(%{error: "openclaw_unavailable", message: "OpenClaw gateway not running"})
+  def send_cross_platform(conn, %{"platform" => _platform, "channel" => _channel_ref, "content" => _content}) do
+    # Cross-platform send is not yet implemented
+    conn
+    |> put_status(:not_implemented)
+    |> json(%{error: "not_implemented", message: "Cross-platform send not yet available"})
   end
 
   # --- Private helpers ---

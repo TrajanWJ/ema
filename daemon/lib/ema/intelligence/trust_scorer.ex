@@ -1,6 +1,6 @@
 defmodule Ema.Intelligence.TrustScorer do
   @moduledoc """
-  GenServer that calculates trust scores for OpenClaw agents.
+  GenServer that calculates trust scores for agents.
   Scores are based on task completion rate, response latency, error rate,
   session count, and days active. Updated daily.
   """

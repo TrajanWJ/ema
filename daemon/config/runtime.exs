@@ -29,32 +29,12 @@ if discord_token = System.get_env("DISCORD_BOT_TOKEN") do
   config :ema, :discord_bot_token, discord_token
 end
 
-# OpenClaw agent gateway (local-first, no VM dependency)
-config :ema, :openclaw,
-  gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://localhost:18789"),
-  default_agent: System.get_env("OPENCLAW_DEFAULT_AGENT", "main"),
-  timeout: String.to_integer(System.get_env("OPENCLAW_TIMEOUT", "120"))
-
 config :ema, Ema.Claude,
   default_strategy: :balanced,
   providers: claude_runtime.providers,
   distribution: claude_runtime.distribution
 
 config :ema, :accounts, claude_runtime.accounts
-
-# OpenClaw vault sync — one-way rsync from QMD vault on agent-vm
-config :ema, :openclaw_vault_sync,
-  enabled: System.get_env("OPENCLAW_VAULT_SYNC", "false") == "true",
-  source_host: System.get_env("OPENCLAW_VAULT_HOST", "192.168.122.10"),
-  source_root:
-    System.get_env(
-      "OPENCLAW_VAULT_ROOT",
-      "projects/openclaw/intents/int_1775263900943_1678626d"
-    ),
-  intent_node_id:
-    System.get_env("OPENCLAW_VAULT_INTENT", "int_1775263900943_1678626d"),
-  interval: String.to_integer(System.get_env("OPENCLAW_VAULT_INTERVAL", "30000")),
-  reconcile_interval: String.to_integer(System.get_env("OPENCLAW_VAULT_RECONCILE", "900000"))
 
 # Git repositories to watch for wiki sync
 config :ema, :git_watch_paths,
