@@ -133,17 +133,13 @@ defmodule Ema.MCP.SessionTools do
         Orchestrator.list_all()
       end
 
-    case result do
-      {:ok, sessions} ->
-        {:ok, %{
-          sessions: Enum.map(sessions, &serialize_session/1),
-          count: length(sessions),
-          message: "#{length(sessions)} session(s) found"
-        }}
+    {:ok, sessions} = result
 
-      {:error, reason} ->
-        {:error, inspect(reason)}
-    end
+    {:ok, %{
+      sessions: Enum.map(sessions, &serialize_session/1),
+      count: length(sessions),
+      message: "#{length(sessions)} session(s) found"
+    }}
   end
 
   def call("ema_spawn_session", args, _request_id) do
@@ -170,10 +166,8 @@ defmodule Ema.MCP.SessionTools do
   def call("ema_session_context", args, _request_id) do
     opts = [project_slug: Map.get(args, "project_slug")]
 
-    case Orchestrator.build_context(opts) do
-      {:ok, context} -> {:ok, context}
-      {:error, reason} -> {:error, inspect(reason)}
-    end
+    {:ok, context} = Orchestrator.build_context(opts)
+    {:ok, context}
   end
 
   def call("ema_check_session", args, _request_id) do

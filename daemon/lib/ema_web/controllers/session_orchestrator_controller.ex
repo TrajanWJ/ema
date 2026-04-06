@@ -13,13 +13,8 @@ defmodule EmaWeb.SessionOrchestratorController do
         Orchestrator.list_all(limit: parse_int(params["limit"], 30))
       end
 
-    case result do
-      {:ok, sessions} ->
-        json(conn, %{sessions: sessions, count: length(sessions)})
-
-      {:error, reason} ->
-        conn |> put_status(500) |> json(%{error: inspect(reason)})
-    end
+    {:ok, sessions} = result
+    json(conn, %{sessions: sessions, count: length(sessions)})
   end
 
   def show(conn, %{"id" => id}) do
@@ -87,25 +82,15 @@ defmodule EmaWeb.SessionOrchestratorController do
   def context(conn, params) do
     opts = [project_slug: params["project_slug"]]
 
-    case Orchestrator.build_context(opts) do
-      {:ok, context} ->
-        json(conn, %{context: context})
-
-      {:error, reason} ->
-        conn |> put_status(500) |> json(%{error: inspect(reason)})
-    end
+    {:ok, context} = Orchestrator.build_context(opts)
+    json(conn, %{context: context})
   end
 
   def context_prompt(conn, params) do
     opts = [project_slug: params["project_slug"]]
 
-    case Orchestrator.context_prompt(opts) do
-      {:ok, prompt} ->
-        json(conn, %{prompt: prompt})
-
-      {:error, reason} ->
-        conn |> put_status(500) |> json(%{error: inspect(reason)})
-    end
+    {:ok, prompt} = Orchestrator.context_prompt(opts)
+    json(conn, %{prompt: prompt})
   end
 
   defp parse_int(nil, default), do: default
