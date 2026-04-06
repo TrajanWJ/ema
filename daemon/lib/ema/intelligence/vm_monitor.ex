@@ -139,6 +139,7 @@ defmodule Ema.Intelligence.VmMonitor do
     %{
       status: current.status,
       openclaw_up: current.openclaw_up,
+      backend_available: current.openclaw_up,
       ssh_up: current.ssh_up,
       latency_ms: current.latency_ms,
       checked_at: current.checked_at,
@@ -347,7 +348,7 @@ defmodule Ema.Intelligence.VmMonitor do
       current.status == "online" and latency_ratio >= 1.25,
       "latency drifted from #{round(baseline_latency)}ms to #{round(recent_latency)}ms"
     )
-    |> maybe_add_note(not current.openclaw_up, "AI backend is unavailable")
+    |> maybe_add_note(not current.openclaw_up, "host-local AI backend is unavailable")
     |> maybe_add_note(not current.ssh_up, "ssh probe is failing")
     |> Enum.take(3)
   end
@@ -361,23 +362,23 @@ defmodule Ema.Intelligence.VmMonitor do
 
     case heartbeat_state do
       "healthy" ->
-        "holding steady; #{latency} and the last window stayed clean"
+        "host looks steady; #{latency} and the last window stayed clean"
 
       "warming" ->
-        "still online, but warming up; #{latency} with a rising latency slope"
+        "host is still online, but warming up; #{latency} with a rising latency slope"
 
       "backing_up" ->
-        "pressure is building; #{consecutive_bad} unhealthy checks in a row and babysitter should watch backlog"
+        "host pressure is building; #{consecutive_bad} unhealthy checks in a row and babysitter should watch backlog"
 
       "recovering" ->
-        "recovering after recent misses; now at #{latency} with #{recent_bad} rough checks still in the rearview"
+        "host is recovering after recent misses; now at #{latency} with #{recent_bad} rough checks still in the rearview"
 
       _ ->
         detail =
           cond do
-            current.status == "offline" -> "core checks are failing"
+            current.status == "offline" -> "host-local core checks are failing"
             latency_ratio >= 1.5 -> "response time has spiked"
-            true -> "core services are degraded"
+            true -> "host-local core services are degraded"
           end
 
         "degraded; #{detail}"

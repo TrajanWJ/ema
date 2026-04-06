@@ -679,7 +679,7 @@ defmodule Ema.Babysitter.StreamTicker do
         status: heartbeat.status,
         heartbeat_state: heartbeat.heartbeat_state,
         trend: heartbeat.trend,
-        openclaw_up: heartbeat.openclaw_up,
+        backend_available: heartbeat.backend_available || heartbeat.openclaw_up,
         narrative: heartbeat.narrative,
         notes: heartbeat.notes || []
       }
