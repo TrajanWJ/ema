@@ -8,6 +8,8 @@ defmodule Ema.CLI.Commands.Goal do
     {"Title", :title},
     {"Status", :status},
     {"Timeframe", :timeframe},
+    {"Actor", :actor_id},
+    {"Space", :space_id},
     {"Parent", :parent_id},
     {"Updated", :updated_at}
   ]
@@ -18,7 +20,9 @@ defmodule Ema.CLI.Commands.Goal do
         filter = Helpers.compact_keyword([
           {:status, parsed.options[:status]},
           {:timeframe, parsed.options[:timeframe]},
-          {:project_id, parsed.options[:project]}
+          {:project_id, parsed.options[:project]},
+          {:space_id, parsed.options[:space]},
+          {:actor_id, parsed.options[:actor]}
         ])
 
         case transport.call(Ema.Goals, :list_goals, [filter]) do
@@ -30,7 +34,9 @@ defmodule Ema.CLI.Commands.Goal do
         params = Helpers.compact_keyword([
           {:status, parsed.options[:status]},
           {:timeframe, parsed.options[:timeframe]},
-          {:project_id, parsed.options[:project]}
+          {:project_id, parsed.options[:project]},
+          {:space_id, parsed.options[:space]},
+          {:actor_id, parsed.options[:actor]}
         ])
 
         case transport.get("/goals", params: params) do
@@ -71,7 +77,9 @@ defmodule Ema.CLI.Commands.Goal do
           {:status, parsed.options[:status] || "active"},
           {:timeframe, parsed.options[:timeframe]},
           {:parent_id, parsed.options[:parent]},
-          {:project_id, parsed.options[:project]}
+          {:project_id, parsed.options[:project]},
+          {:space_id, parsed.options[:space]},
+          {:actor_id, parsed.options[:actor]}
         ])
 
         case transport.call(Ema.Goals, :create_goal, [attrs]) do
@@ -90,7 +98,9 @@ defmodule Ema.CLI.Commands.Goal do
           {"status", parsed.options[:status] || "active"},
           {"timeframe", parsed.options[:timeframe]},
           {"parent_id", parsed.options[:parent]},
-          {"project_id", parsed.options[:project]}
+          {"project_id", parsed.options[:project]},
+          {"space_id", parsed.options[:space]},
+          {"actor_id", parsed.options[:actor]}
         ])}
 
         case transport.post("/goals", body) do

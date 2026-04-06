@@ -65,3 +65,40 @@
   - `daemon/lib/ema_web/controllers/phase_transition_controller.ex`
   - `daemon/lib/ema_web/controllers/tag_controller.ex`
   - `docs/cli/changelog.md`
+
+## 2026-04-06 Phase 2
+
+- Extended the existing `Ema.CLI` parser surface for actor/container scope flags on `task`, `proposal`, `goal`, `project`, `brain-dump`, `actor`, `space`, and `config`.
+- Added native command groups for `em`, `tag`, and `data`.
+- Reworked `actor`, `space`, and `config` commands to match the new actor/container schemas and routes.
+- Wired `task`, `proposal`, `project`, `goal`, and `brain-dump` commands to pass `actor_id`, `space_id`, and container-scoping params where the backing contexts support them.
+- Added shared CLI helpers for entity refs like `task:123` and JSON-ish value parsing.
+- Kept the transport model pragmatic:
+  - `mix run` exercises direct in-node context calls when the app is already started
+  - the packaged escript still prefers HTTP fallback unless a direct runtime is already present
+- Verified:
+  - `mix compile` succeeds
+  - `mix escript.build` succeeds
+  - `ema --help` includes `em`, `tag`, `data`, `actor`, `space`, and `config`
+  - `mix run -e 'Ema.CLI.main([\"em\",\"status\",\"--json\"])'` returns actor EM JSON in the app runtime
+- Residual blockers:
+  - the packaged escript still cannot boot the full app directly because the bundled `exqlite` NIF path breaks under `app: nil`
+  - direct `actor list --json` exposed tuple-shaped data in runtime structs, so JSON normalization now coerces tuples to lists; broader CLI output cleanup may still be needed on other legacy domains
+  - running the CLI inside `mix run` still emits heavy background log noise from unrelated app startup processes
+- Files:
+  - `daemon/lib/ema/cli/cli.ex`
+  - `daemon/lib/ema/cli/helpers.ex`
+  - `daemon/lib/ema/cli/output.ex`
+  - `daemon/lib/ema/cli/transport.ex`
+  - `daemon/lib/ema/cli/commands/actor.ex`
+  - `daemon/lib/ema/cli/commands/brain_dump.ex`
+  - `daemon/lib/ema/cli/commands/config.ex`
+  - `daemon/lib/ema/cli/commands/data.ex`
+  - `daemon/lib/ema/cli/commands/em.ex`
+  - `daemon/lib/ema/cli/commands/goal.ex`
+  - `daemon/lib/ema/cli/commands/project.ex`
+  - `daemon/lib/ema/cli/commands/proposal.ex`
+  - `daemon/lib/ema/cli/commands/space.ex`
+  - `daemon/lib/ema/cli/commands/tag.ex`
+  - `daemon/lib/ema/cli/commands/task.ex`
+  - `docs/cli/changelog.md`

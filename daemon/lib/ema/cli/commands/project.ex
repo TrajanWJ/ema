@@ -7,20 +7,25 @@ defmodule Ema.CLI.Commands.Project do
     {"ID", :id},
     {"Slug", :slug},
     {"Name", :name},
+    {"Space", :space_id},
     {"Status", :status},
     {"Updated", :updated_at}
   ]
 
-  def handle([:list], _parsed, transport, opts) do
+  def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Projects, :list_projects, []) do
+        filter = Helpers.compact_keyword(status: parsed.options[:status], space_id: parsed.options[:space])
+
+        case transport.call(Ema.Projects, :list_projects, [filter]) do
           {:ok, projects} -> Output.render(projects, @columns, json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
 
       Ema.CLI.Transport.Http ->
-        case transport.get("/projects") do
+        params = Helpers.compact_keyword(status: parsed.options[:status], space_id: parsed.options[:space])
+
+        case transport.get("/projects", params: params) do
           {:ok, body} -> Output.render(Helpers.extract_list(body, "projects"), @columns, json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
@@ -55,9 +60,10 @@ defmodule Ema.CLI.Commands.Project do
         attrs = Helpers.compact_map([
           {:name, name},
           {:slug, parsed.options[:slug]},
-          {:path, parsed.options[:path]},
-          {:repo_url, parsed.options[:repo]},
-          {:description, parsed.options[:description]}
+          {:linked_path, parsed.options[:path]},
+          {:github_repo_url, parsed.options[:repo]},
+          {:description, parsed.options[:description]},
+          {:space_id, parsed.options[:space]}
         ])
 
         case transport.call(Ema.Projects, :create_project, [attrs]) do
@@ -73,9 +79,10 @@ defmodule Ema.CLI.Commands.Project do
         body = %{"project" => Helpers.compact_map([
           {"name", name},
           {"slug", parsed.options[:slug]},
-          {"path", parsed.options[:path]},
-          {"repo_url", parsed.options[:repo]},
-          {"description", parsed.options[:description]}
+          {"linked_path", parsed.options[:path]},
+          {"github_repo_url", parsed.options[:repo]},
+          {"description", parsed.options[:description]},
+          {"space_id", parsed.options[:space]}
         ])}
 
         case transport.post("/projects", body) do

@@ -7,7 +7,9 @@ defmodule Ema.CLI.Commands.Proposal do
     {"ID", :id},
     {"Title", :title},
     {"Status", :status},
-    {"Confidence", :confidence_score},
+    {"Actor", :actor_id},
+    {"Space", :space_id},
+    {"Confidence", :confidence},
     {"Project", :project_id},
     {"Updated", :updated_at}
   ]
@@ -150,6 +152,8 @@ defmodule Ema.CLI.Commands.Proposal do
     []
     |> maybe_append(:status, options[:status])
     |> maybe_append(:project_id, options[:project])
+    |> maybe_append(:space_id, options[:space])
+    |> maybe_append(:actor_id, options[:actor])
     |> maybe_append(:limit, options[:limit])
   end
 
@@ -157,6 +161,8 @@ defmodule Ema.CLI.Commands.Proposal do
     []
     |> maybe_append(:status, options[:status])
     |> maybe_append(:project_id, options[:project])
+    |> maybe_append(:space_id, options[:space])
+    |> maybe_append(:actor_id, options[:actor])
     |> maybe_append(:limit, options[:limit])
   end
 

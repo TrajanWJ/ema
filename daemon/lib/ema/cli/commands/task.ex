@@ -1,13 +1,15 @@
 defmodule Ema.CLI.Commands.Task do
   @moduledoc "CLI commands for task management."
 
-  alias Ema.CLI.Output
+  alias Ema.CLI.{Helpers, Output}
 
   @columns [
     {"ID", :id},
     {"Title", :title},
     {"Status", :status},
     {"Priority", :priority},
+    {"Actor", :actor_id},
+    {"Space", :space_id},
     {"Project", :project_id},
     {"Updated", :updated_at}
   ]
@@ -39,7 +41,15 @@ defmodule Ema.CLI.Commands.Task do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Tasks, :get_with_subtasks, [id]) do
           {:ok, nil} -> Output.error("Task #{id} not found")
-          {:ok, task} -> Output.detail(task, json: opts[:json])
+          {:ok, task} ->
+            details = %{
+              task: task,
+              tags: Ema.Tags.list_for("task", to_string(id)),
+              actor_data: Ema.EntityData.list_for("task", to_string(id), parsed.options[:actor] || "human")
+            }
+
+            Output.detail(details, json: opts[:json])
+
           {:error, reason} -> Output.error(reason)
         end
 
@@ -59,6 +69,8 @@ defmodule Ema.CLI.Commands.Task do
       Ema.CLI.Transport.Direct ->
         attrs = %{title: title}
         attrs = maybe_put(attrs, :project_id, parsed.options[:project])
+        attrs = maybe_put(attrs, :space_id, parsed.options[:space])
+        attrs = maybe_put(attrs, :actor_id, parsed.options[:actor])
         attrs = maybe_put(attrs, :priority, parsed.options[:priority])
         attrs = maybe_put(attrs, :description, parsed.options[:description])
 
@@ -74,10 +86,12 @@ defmodule Ema.CLI.Commands.Task do
       Ema.CLI.Transport.Http ->
         body = %{"title" => title}
         body = maybe_put(body, "project_id", parsed.options[:project])
+        body = maybe_put(body, "space_id", parsed.options[:space])
+        body = maybe_put(body, "actor_id", parsed.options[:actor])
         body = maybe_put(body, "priority", parsed.options[:priority])
         body = maybe_put(body, "description", parsed.options[:description])
 
-        case transport.post("/tasks", %{"task" => body}) do
+        case transport.post("/tasks", body) do
           {:ok, resp} ->
             task = extract_record(resp, "task")
             Output.success("Created task ##{task["id"]}: #{task["title"]}")
@@ -192,12 +206,16 @@ defmodule Ema.CLI.Commands.Task do
     []
     |> maybe_append(:status, options[:status])
     |> maybe_append(:project_id, options[:project])
+    |> maybe_append(:space_id, options[:space])
+    |> maybe_append(:actor_id, options[:actor])
   end
 
   defp build_http_params(options) do
     []
     |> maybe_append(:status, options[:status])
     |> maybe_append(:project_id, options[:project])
+    |> maybe_append(:space_id, options[:space])
+    |> maybe_append(:actor_id, options[:actor])
     |> maybe_append(:limit, options[:limit])
   end
 
@@ -207,13 +225,6 @@ defmodule Ema.CLI.Commands.Task do
   defp maybe_append(list, _key, nil), do: list
   defp maybe_append(list, key, value), do: [{key, value} | list]
 
-  defp extract_list(body, key) when is_map(body) do
-    Map.get(body, key) || Map.get(body, "data") || if(is_list(body), do: body, else: [body])
-  end
-
-  defp extract_list(body, _key) when is_list(body), do: body
-
-  defp extract_record(body, key) when is_map(body) do
-    Map.get(body, key) || Map.get(body, "data") || body
-  end
+  defp extract_list(body, key), do: Helpers.extract_list(body, key)
+  defp extract_record(body, key), do: Helpers.extract_record(body, key)
 end
