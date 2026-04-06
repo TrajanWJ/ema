@@ -14,9 +14,18 @@ defmodule Mix.Tasks.Ema.Mcp.Stdio do
   def run(_args) do
     Application.put_env(:logger, :backends, [])
     Application.put_env(:logger, :level, :error)
+    Application.put_env(:logger, :default_handler, false)
     System.put_env("EMA_MCP_STDIO", "1")
 
     Mix.Task.run("app.config")
+
+    try do
+      :logger.remove_handler(:default)
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
 
     repo_cfg = Application.get_env(:ema, Ema.Repo, [])
     repo_cfg = Keyword.merge(repo_cfg, log: false, stacktrace: false)
