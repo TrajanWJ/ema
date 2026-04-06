@@ -346,7 +346,11 @@ defmodule Ema.Focus.Timer do
           0
 
         block ->
-          DateTime.diff(DateTime.utc_now() |> DateTime.truncate(:second), block.started_at, :millisecond)
+          DateTime.diff(
+            DateTime.utc_now() |> DateTime.truncate(:second),
+            block.started_at,
+            :millisecond
+          )
       end
 
     ref = if phase in [:focusing, :break], do: schedule_tick(), else: nil

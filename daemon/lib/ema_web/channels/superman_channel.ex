@@ -22,8 +22,11 @@ defmodule EmaWeb.SupermanChannel do
   @impl true
   def handle_in("check_health", _params, socket) do
     case SupermanClient.health_check() do
-      {:ok, body} -> {:reply, {:ok, %{status: "connected", server: body}}, socket}
-      {:error, reason} -> {:reply, {:ok, %{status: "disconnected", error: inspect(reason)}}, socket}
+      {:ok, body} ->
+        {:reply, {:ok, %{status: "connected", server: body}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:ok, %{status: "disconnected", error: inspect(reason)}}, socket}
     end
   end
 

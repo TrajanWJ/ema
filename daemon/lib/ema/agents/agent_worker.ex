@@ -68,7 +68,8 @@ defmodule Ema.Agents.AgentWorker do
              %{type: :domain_request, agent: agent_slug, message: user_message},
              requested_keys
            ),
-         full_prompt <- build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context)),
+         full_prompt <-
+           build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context)),
          {:ok, response} <-
            Bridge.run(
              full_prompt,

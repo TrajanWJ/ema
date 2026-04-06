@@ -65,8 +65,7 @@ defmodule EmaWeb.ProposalChannel do
            status: proposal.status,
            pipeline_stage: Map.get(proposal, :pipeline_stage),
            pipeline_iteration: Map.get(proposal, :pipeline_iteration, 1)
-         },
-         assign(socket, :proposal_id, id)}
+         }, assign(socket, :proposal_id, id)}
     end
   end
 

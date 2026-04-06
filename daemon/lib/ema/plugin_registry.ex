@@ -60,7 +60,11 @@ defmodule Ema.PluginRegistry do
     :ets.insert(@table, {action_id, plugin_id, module})
     # Track plugin metadata
     :ets.insert(@plugins_table, {plugin_id, %{registered_at: DateTime.utc_now()}})
-    Logger.debug("[PluginRegistry] Registered action #{action_id} from plugin #{plugin_id} (#{inspect(module)})")
+
+    Logger.debug(
+      "[PluginRegistry] Registered action #{action_id} from plugin #{plugin_id} (#{inspect(module)})"
+    )
+
     :ok
   end
 
@@ -84,6 +88,7 @@ defmodule Ema.PluginRegistry do
     ensure_tables()
 
     actions_for_plugin = :ets.match(@table, {:"$1", plugin_id, :_})
+
     Enum.each(actions_for_plugin, fn [action_id] ->
       :ets.delete(@table, action_id)
     end)
@@ -147,7 +152,10 @@ defmodule Ema.PluginRegistry do
           end
         rescue
           e ->
-            Logger.error("[PluginRegistry] Plugin action #{action_id} raised: #{inspect(e)}\n#{Exception.format(:error, e, __STACKTRACE__)}")
+            Logger.error(
+              "[PluginRegistry] Plugin action #{action_id} raised: #{inspect(e)}\n#{Exception.format(:error, e, __STACKTRACE__)}"
+            )
+
             {:error, {:plugin_action_raised, e}}
         end
     end

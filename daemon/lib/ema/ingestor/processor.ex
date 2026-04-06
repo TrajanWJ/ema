@@ -52,11 +52,43 @@ defmodule Ema.Ingestor.Processor do
   # Stub: actual extraction would parse content, extract metadata, write to vault.
   # For now, just mark as done with placeholder metadata.
   defp run_extraction(job) do
+    parsed =
+      if String.starts_with?(job.source_uri || "", "/") and File.exists?(job.source_uri) do
+        Ema.IntentionFarmer.Parser.parse_external_import(job.source_uri)
+      else
+        {:error, :missing_source}
+      end
+
+    {title, summary, tags} =
+      case parsed do
+        {:ok, result} ->
+          metadata = result[:metadata] || %{}
+
+          {
+            Path.basename(job.source_uri || "import"),
+            Map.get(metadata, "preview", "Auto-imported from #{job.source_type}"),
+            [
+              "imported",
+              job.source_type,
+              Map.get(metadata, "provider_guess"),
+              Map.get(metadata, "dataset_guess")
+            ]
+            |> Enum.reject(&is_nil/1)
+          }
+
+        _ ->
+          {
+            "Imported: #{job.source_uri}",
+            "Auto-imported from #{job.source_type}",
+            ["imported", job.source_type]
+          }
+      end
+
     Ingestor.update_job(job, %{
       status: "done",
-      extracted_title: "Imported: #{job.source_uri}",
-      extracted_summary: "Auto-imported from #{job.source_type}",
-      extracted_tags: ["imported", job.source_type]
+      extracted_title: title,
+      extracted_summary: summary,
+      extracted_tags: tags
     })
   end
 end

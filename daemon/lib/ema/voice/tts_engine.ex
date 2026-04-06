@@ -116,7 +116,7 @@ defmodule Ema.Voice.TtsEngine do
              :post,
              {~c"#{@tts_url}", headers, ~c"application/json", String.to_charlist(body)},
              [timeout: 30_000],
-             [body_format: :binary]
+             body_format: :binary
            ) do
         {:ok, {{_, 200, _}, _headers, audio_data}} ->
           {:ok, :erlang.list_to_binary(audio_data)}

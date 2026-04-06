@@ -113,7 +113,9 @@ defmodule Ema.ProposalEngine.Scheduler do
       Logger.info("ProposalEngine.Scheduler: dispatched #{dispatched} seed(s) at #{now}")
     end
 
-    Ema.ProposalEngine.Diagnostics.record_scheduler_tick(%{last_scheduler_tick_at: DateTime.to_iso8601(now)})
+    Ema.ProposalEngine.Diagnostics.record_scheduler_tick(%{
+      last_scheduler_tick_at: DateTime.to_iso8601(now)
+    })
 
     schedule_tick()
 

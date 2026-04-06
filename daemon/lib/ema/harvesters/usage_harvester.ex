@@ -128,7 +128,15 @@ defmodule Ema.Harvesters.UsageHarvester do
           ds -> Float.round(Enum.sum(ds) / length(ds), 2)
         end
 
-      {key, %{count: count, success_count: success_count, success_rate: rate, avg_duration_minutes: avg_dur, agent: agent, mode: mode}}
+      {key,
+       %{
+         count: count,
+         success_count: success_count,
+         success_rate: rate,
+         avg_duration_minutes: avg_dur,
+         agent: agent,
+         mode: mode
+       }}
     end)
     |> Map.new()
   end
@@ -174,9 +182,14 @@ defmodule Ema.Harvesters.UsageHarvester do
     end)
     |> Enum.reduce(0, fn {{agent, mode}, data}, acc ->
       case create_low_success_seed(agent, mode, data) do
-        {:ok, _} -> acc + 1
+        {:ok, _} ->
+          acc + 1
+
         {:error, reason} ->
-          Logger.warning("[UsageHarvester] Failed to create seed for #{agent}/#{mode}: #{inspect(reason)}")
+          Logger.warning(
+            "[UsageHarvester] Failed to create seed for #{agent}/#{mode}: #{inspect(reason)}"
+          )
+
           acc
       end
     end)

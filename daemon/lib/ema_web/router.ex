@@ -298,6 +298,10 @@ defmodule EmaWeb.Router do
     post("/cli-manager/sessions/:id/stop", CliManagerController, :stop_session)
     post("/cli-manager/scan", CliManagerController, :scan)
 
+    # Onboarding / imports / provider status
+    get("/onboarding/status", OnboardingController, :status)
+    post("/onboarding/run", OnboardingController, :run)
+
     # OpenClaw Gateway
     get("/openclaw/status", OpenClawController, :status)
     post("/openclaw/message", OpenClawController, :send_message)
@@ -446,7 +450,7 @@ defmodule EmaWeb.Router do
     post("/babysitter/config", BabysitterController, :config)
     post("/babysitter/nudge", BabysitterController, :nudge)
     post("/babysitter/tick", BabysitterController, :tick)
-    
+
     # Feedback stream — Discord delivery + EMA internal visibility
     get("/feedback", FeedbackController, :index)
     get("/feedback/status", FeedbackController, :status)

@@ -69,6 +69,7 @@ defmodule EmaWeb.ObsidianVaultController do
       _ -> default
     end
   end
+
   defp parse_int(val, _) when is_integer(val), do: val
   defp parse_int(_, default), do: default
 end

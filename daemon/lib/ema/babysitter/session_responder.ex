@@ -31,7 +31,10 @@ defmodule Ema.Babysitter.SessionResponder do
   end
 
   @impl true
-  def handle_info(%{event: :session_snapshot, stalled: stalled, just_completed: completed} = _snap, state) do
+  def handle_info(
+        %{event: :session_snapshot, stalled: stalled, just_completed: completed} = _snap,
+        state
+      ) do
     now_ms = System.monotonic_time(:millisecond)
 
     due_stalled =
@@ -58,8 +61,12 @@ defmodule Ema.Babysitter.SessionResponder do
           "  └ **#{project}** stalled >5m — last active #{elapsed}"
         end)
 
-      extra = if length(due_stalled) > 5, do: "
-  └ +#{length(due_stalled) - 5} more stalled sessions", else: ""
+      extra =
+        if length(due_stalled) > 5,
+          do: "
+  └ +#{length(due_stalled) - 5} more stalled sessions",
+          else: ""
+
       msg = "⚠️ **stalled sessions**
 " <> Enum.join(lines, "
 ") <> extra
@@ -70,7 +77,9 @@ defmodule Ema.Babysitter.SessionResponder do
     Enum.each(completed, fn session ->
       project = Map.get(session, :project_path, Map.get(session, :project, "unknown"))
       last_msg = Map.get(session, :last_text, Map.get(session, :last_message, "")) || ""
-      snippet = if String.length(last_msg) > 100, do: String.slice(last_msg, 0, 97) <> "…", else: last_msg
+
+      snippet =
+        if String.length(last_msg) > 100, do: String.slice(last_msg, 0, 97) <> "…", else: last_msg
 
       msg =
         if snippet != "" do
@@ -91,25 +100,34 @@ defmodule Ema.Babysitter.SessionResponder do
   # --- Helpers ---
 
   defp post(channel_id, message) do
-    Phoenix.PubSub.broadcast(Ema.PubSub, "discord:outbound:#{channel_id}", {:post, String.trim(message)})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "discord:outbound:#{channel_id}",
+      {:post, String.trim(message)}
+    )
   end
 
   defp format_elapsed(nil), do: "unknown"
+
   defp format_elapsed(mtime) when is_integer(mtime) do
     diff = System.os_time(:second) - mtime
+
     cond do
       diff < 60 -> "#{diff}s ago"
       diff < 3600 -> "#{div(diff, 60)}m ago"
       true -> "#{div(diff, 3600)}h ago"
     end
   end
+
   defp format_elapsed(%DateTime{} = dt) do
     diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
     cond do
       diff < 60 -> "#{diff}s ago"
       diff < 3600 -> "#{div(diff, 60)}m ago"
       true -> "#{div(diff, 3600)}h ago"
     end
   end
+
   defp format_elapsed(_), do: "unknown"
 end

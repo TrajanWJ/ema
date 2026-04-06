@@ -116,9 +116,13 @@ defmodule EmaWeb.CanvasChannel do
   @impl true
   def handle_info({:task_created, _task}, socket), do: push_domain_event(socket, "tasks")
   def handle_info({:task_updated, _task}, socket), do: push_domain_event(socket, "tasks")
-  def handle_info({:proposals, _stage, _proposal}, socket), do: push_domain_event(socket, "proposals")
+
+  def handle_info({:proposals, _stage, _proposal}, socket),
+    do: push_domain_event(socket, "proposals")
+
   def handle_info({:session_started, _session}, socket), do: push_domain_event(socket, "focus")
   def handle_info({:session_ended, _session}, socket), do: push_domain_event(socket, "focus")
+
   def handle_info({:send_canvas, canvas}, socket) do
     elements = Enum.map(canvas.elements, &serialize_element/1)
 

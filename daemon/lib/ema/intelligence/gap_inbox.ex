@@ -14,7 +14,14 @@ defmodule Ema.Intelligence.GapInbox do
     query =
       Gap
       |> where([g], g.status == "open")
-      |> order_by([g], [asc: fragment("CASE ? WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END", g.severity), desc: g.inserted_at])
+      |> order_by([g],
+        asc:
+          fragment(
+            "CASE ? WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END",
+            g.severity
+          ),
+        desc: g.inserted_at
+      )
 
     query =
       case Keyword.get(opts, :source) do

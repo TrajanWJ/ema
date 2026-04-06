@@ -42,7 +42,8 @@ defmodule Ema.Invoices do
 
   def update_invoice(id, attrs) do
     case get_invoice(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       invoice ->
         invoice

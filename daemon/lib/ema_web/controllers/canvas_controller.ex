@@ -113,7 +113,11 @@ defmodule EmaWeb.CanvasController do
       name: params["name"],
       description: params["description"],
       category: params["category"] || "general",
-      layout_json: if(is_map(params["layout_json"]), do: Jason.encode!(params["layout_json"]), else: params["layout_json"]),
+      layout_json:
+        if(is_map(params["layout_json"]),
+          do: Jason.encode!(params["layout_json"]),
+          else: params["layout_json"]
+        ),
       thumbnail: params["thumbnail"]
     }
 

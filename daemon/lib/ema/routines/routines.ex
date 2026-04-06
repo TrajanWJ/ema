@@ -36,7 +36,8 @@ defmodule Ema.Routines do
 
   def update_routine(id, attrs) do
     case get_routine(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       routine ->
         routine
@@ -55,7 +56,8 @@ defmodule Ema.Routines do
 
   def toggle(id) do
     case get_routine(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       routine ->
         routine

@@ -1,10 +1,16 @@
 defmodule EmaWeb.PromptOptimizerControllerTest do
   use EmaWeb.ConnCase, async: false
+  @moduletag :requires_prompts
 
   alias Ema.Prompts.Store
 
   test "GET /api/prompts/optimizer/status returns optimizer status payload", %{conn: conn} do
-    {:ok, control} = Store.create_prompt(%{kind: "controller_prompt_status", content: "control", a_b_test_group: "control"})
+    {:ok, control} =
+      Store.create_prompt(%{
+        kind: "controller_prompt_status",
+        content: "control",
+        a_b_test_group: "control"
+      })
 
     {:ok, _variant} =
       Store.create_new_version("controller_prompt_status", "variant",

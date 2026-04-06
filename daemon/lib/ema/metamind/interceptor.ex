@@ -59,13 +59,21 @@ defmodule Ema.MetaMind.Interceptor do
       GenServer.cast(__MODULE__, {:review_complete, intercept_id, from, result, opts})
     end)
 
-    pending = Map.put(state.pending, intercept_id, %{prompt: prompt, from: from, started_at: DateTime.utc_now()})
+    pending =
+      Map.put(state.pending, intercept_id, %{
+        prompt: prompt,
+        from: from,
+        started_at: DateTime.utc_now()
+      })
+
     {:noreply, %{state | total_intercepted: state.total_intercepted + 1, pending: pending}}
   end
 
   @impl true
   def handle_call(:stats, _from, state) do
-    stats = Map.take(state, [:total_intercepted, :total_approved, :total_modified, :total_bypassed])
+    stats =
+      Map.take(state, [:total_intercepted, :total_approved, :total_modified, :total_bypassed])
+
     {:reply, stats, state}
   end
 

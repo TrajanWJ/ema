@@ -24,7 +24,9 @@ defmodule Ema.Intelligence.ReflectionLoop do
 
     AgentFitnessStore.record_outcome(effective_agent, execution.mode, outcome, duration_ms)
 
-    Logger.info("[ReflectionLoop] #{execution_id} outcome=#{outcome} agent=#{effective_agent} #{duration_ms}ms")
+    Logger.info(
+      "[ReflectionLoop] #{execution_id} outcome=#{outcome} agent=#{effective_agent} #{duration_ms}ms"
+    )
 
     if outcome in [:success, :partial] do
       lesson = extract_lesson_keywords(result_text, execution.mode)

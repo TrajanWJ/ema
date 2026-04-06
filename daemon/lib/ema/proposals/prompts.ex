@@ -226,14 +226,16 @@ defmodule Ema.Proposals.Prompts do
 
   defp extract_vars(:risk_analyzer, %{project: project, prior_outputs: prior}) do
     %{
-      "refiner_output" => Map.get(prior, :refiner, Map.get(prior, :generator, "[No prior output]")),
+      "refiner_output" =>
+        Map.get(prior, :refiner, Map.get(prior, :generator, "[No prior output]")),
       "project_context" => project_context(project)
     }
   end
 
   defp extract_vars(:formatter, %{prior_outputs: prior}) do
     %{
-      "refiner_output" => Map.get(prior, :refiner, Map.get(prior, :generator, "[No prior output]")),
+      "refiner_output" =>
+        Map.get(prior, :refiner, Map.get(prior, :generator, "[No prior output]")),
       "risk_output" => Map.get(prior, :risk_analyzer, "[No risk analysis]")
     }
   end
@@ -274,23 +276,26 @@ defmodule Ema.Proposals.Prompts do
   defp project_context(project) when is_map(project) do
     parts = []
 
-    parts = if name = Map.get(project, :name) || Map.get(project, "name") do
-      ["**Project:** #{name}" | parts]
-    else
-      parts
-    end
+    parts =
+      if name = Map.get(project, :name) || Map.get(project, "name") do
+        ["**Project:** #{name}" | parts]
+      else
+        parts
+      end
 
-    parts = if desc = Map.get(project, :description) || Map.get(project, "description") do
-      ["**Description:** #{String.slice(desc, 0..200)}" | parts]
-    else
-      parts
-    end
+    parts =
+      if desc = Map.get(project, :description) || Map.get(project, "description") do
+        ["**Description:** #{String.slice(desc, 0..200)}" | parts]
+      else
+        parts
+      end
 
-    parts = if path = Map.get(project, :path) || Map.get(project, "path") do
-      ["**Path:** #{path}" | parts]
-    else
-      parts
-    end
+    parts =
+      if path = Map.get(project, :path) || Map.get(project, "path") do
+        ["**Path:** #{path}" | parts]
+      else
+        parts
+      end
 
     case parts do
       [] -> "No specific project context provided."
@@ -299,37 +304,43 @@ defmodule Ema.Proposals.Prompts do
   end
 
   defp additional_context(nil), do: "No additional context."
-  defp additional_context(ctx) when is_map(ctx) and map_size(ctx) == 0, do: "No additional context."
+
+  defp additional_context(ctx) when is_map(ctx) and map_size(ctx) == 0,
+    do: "No additional context."
 
   defp additional_context(ctx) when is_map(ctx) do
     parts = []
 
-    parts = if goals = Map.get(ctx, :goals) || Map.get(ctx, "goals") do
-      formatted = format_list(goals, "Active Goals")
-      [formatted | parts]
-    else
-      parts
-    end
+    parts =
+      if goals = Map.get(ctx, :goals) || Map.get(ctx, "goals") do
+        formatted = format_list(goals, "Active Goals")
+        [formatted | parts]
+      else
+        parts
+      end
 
-    parts = if vault = Map.get(ctx, :vault) || Map.get(ctx, "vault") do
-      formatted = format_list(vault, "Relevant Vault Entries")
-      [formatted | parts]
-    else
-      parts
-    end
+    parts =
+      if vault = Map.get(ctx, :vault) || Map.get(ctx, "vault") do
+        formatted = format_list(vault, "Relevant Vault Entries")
+        [formatted | parts]
+      else
+        parts
+      end
 
-    parts = if tasks = Map.get(ctx, :tasks) || Map.get(ctx, "tasks") do
-      formatted = format_list(tasks, "Recent Tasks")
-      [formatted | parts]
-    else
-      parts
-    end
+    parts =
+      if tasks = Map.get(ctx, :tasks) || Map.get(ctx, "tasks") do
+        formatted = format_list(tasks, "Recent Tasks")
+        [formatted | parts]
+      else
+        parts
+      end
 
-    parts = if energy = Map.get(ctx, :energy) || Map.get(ctx, "energy") do
-      ["**Energy Level:** #{energy}" | parts]
-    else
-      parts
-    end
+    parts =
+      if energy = Map.get(ctx, :energy) || Map.get(ctx, "energy") do
+        ["**Energy Level:** #{energy}" | parts]
+      else
+        parts
+      end
 
     case parts do
       [] -> "No additional context."
@@ -345,9 +356,14 @@ defmodule Ema.Proposals.Prompts do
       items
       |> Enum.take(5)
       |> Enum.map(fn
-        item when is_binary(item) -> "- #{String.slice(item, 0..120)}"
-        item when is_map(item) -> "- #{Map.get(item, :name) || Map.get(item, "name") || inspect(item)}"
-        item -> "- #{inspect(item)}"
+        item when is_binary(item) ->
+          "- #{String.slice(item, 0..120)}"
+
+        item when is_map(item) ->
+          "- #{Map.get(item, :name) || Map.get(item, "name") || inspect(item)}"
+
+        item ->
+          "- #{inspect(item)}"
       end)
       |> Enum.join("\n")
 

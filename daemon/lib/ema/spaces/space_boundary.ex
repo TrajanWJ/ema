@@ -60,10 +60,11 @@ defmodule Ema.AI.SpaceBoundary do
   def accessible_project_ids(space_id) do
     context = build_context(space_id)
 
-    space_ids = case context do
-      %{peer_space_ids: peers} -> [space_id | peers]
-      _ -> [space_id]
-    end
+    space_ids =
+      case context do
+        %{peer_space_ids: peers} -> [space_id | peers]
+        _ -> [space_id]
+      end
 
     Repo.all(
       from p in Ema.Projects.Project,

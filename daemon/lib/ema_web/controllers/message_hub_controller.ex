@@ -19,6 +19,7 @@ defmodule EmaWeb.MessageHubController do
       |> Enum.flat_map(fn agent ->
         try do
           convs = Agents.list_conversations_by_agent(agent.id)
+
           Enum.flat_map(convs, fn conv ->
             Agents.list_messages_by_conversation(conv.id)
             |> Enum.map(fn msg ->

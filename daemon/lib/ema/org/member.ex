@@ -25,8 +25,15 @@ defmodule Ema.Org.Member do
   def changeset(member, attrs) do
     member
     |> cast(attrs, [
-      :id, :organization_id, :display_name, :email, :role,
-      :public_key, :status, :joined_at, :last_seen_at
+      :id,
+      :organization_id,
+      :display_name,
+      :email,
+      :role,
+      :public_key,
+      :status,
+      :joined_at,
+      :last_seen_at
     ])
     |> validate_required([:organization_id, :display_name, :role, :status])
     |> validate_inclusion(:role, @roles)

@@ -48,7 +48,14 @@ defmodule Ema.Integrations.OpenClaw.SyncEntry do
       :vault_note_id,
       :missing_count
     ])
-    |> validate_required([:id, :integration, :intent_node_id, :source_host, :source_root, :relative_path])
+    |> validate_required([
+      :id,
+      :integration,
+      :intent_node_id,
+      :source_host,
+      :source_root,
+      :relative_path
+    ])
     |> validate_inclusion(:status, @valid_statuses)
     |> unique_constraint(:relative_path, name: :external_vault_sync_entries_unique_path)
   end

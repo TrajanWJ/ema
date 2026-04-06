@@ -145,7 +145,10 @@ defmodule Ema.Agents.OpenClawSync do
                 {:created, agent.slug}
 
               {:error, changeset} ->
-                Logger.warning("Failed to create agent #{agent_def.slug}: #{inspect(changeset.errors)}")
+                Logger.warning(
+                  "Failed to create agent #{agent_def.slug}: #{inspect(changeset.errors)}"
+                )
+
                 {:error, agent_def.slug}
             end
 

@@ -5,10 +5,10 @@ defmodule Ema.Executions.Event do
   @primary_key {:id, :string, autogenerate: false}
 
   schema "execution_events" do
-    field :type,       :string
+    field :type, :string
     field :actor_kind, :string, default: "system"
-    field :payload,    :map, default: %{}
-    field :at,         :utc_datetime
+    field :payload, :map, default: %{}
+    field :at, :utc_datetime
 
     belongs_to :execution, Ema.Executions.Execution, type: :string
   end

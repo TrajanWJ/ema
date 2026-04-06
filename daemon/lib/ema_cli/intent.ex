@@ -18,9 +18,14 @@ defmodule EmaCli.Intent do
     params = build_params(opts, [:project, :level, :parent_id, :limit])
 
     case api_get("/intelligence/intent_nodes#{params}") do
-      {:ok, %{"nodes" => nodes}} -> format_output(nodes, opts)
-      {:ok, nodes} when is_list(nodes) -> format_output(nodes, opts)
-      {:error, _} -> warn("Intent nodes not available -- may need to add /api/intelligence/intent_nodes route")
+      {:ok, %{"nodes" => nodes}} ->
+        format_output(nodes, opts)
+
+      {:ok, nodes} when is_list(nodes) ->
+        format_output(nodes, opts)
+
+      {:error, _} ->
+        warn("Intent nodes not available -- may need to add /api/intelligence/intent_nodes route")
     end
   end
 

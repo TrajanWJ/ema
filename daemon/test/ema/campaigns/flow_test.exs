@@ -43,11 +43,13 @@ defmodule Ema.Campaigns.FlowTest do
     end
 
     test "accepts optional title and metadata" do
-      {:ok, flow} = Campaigns.create_flow(%{
-        campaign_id: unique_campaign_id(),
-        title: "My Campaign",
-        state_metadata: %{"source" => "proposal"}
-      })
+      {:ok, flow} =
+        Campaigns.create_flow(%{
+          campaign_id: unique_campaign_id(),
+          title: "My Campaign",
+          state_metadata: %{"source" => "proposal"}
+        })
+
       assert flow.title == "My Campaign"
     end
 
@@ -262,21 +264,21 @@ defmodule Ema.Campaigns.FlowTest do
     end
 
     test "returns false for all invalid transitions" do
-      assert Flow.valid_transition?("forming", "testing")   == false
-      assert Flow.valid_transition?("developing", "done")   == false
-      assert Flow.valid_transition?("testing", "forming")   == false
-      assert Flow.valid_transition?("done", "forming")      == false
-      assert Flow.valid_transition?("done", "developing")   == false
-      assert Flow.valid_transition?("done", "testing")      == false
-      assert Flow.valid_transition?("done", "done")         == false
+      assert Flow.valid_transition?("forming", "testing") == false
+      assert Flow.valid_transition?("developing", "done") == false
+      assert Flow.valid_transition?("testing", "forming") == false
+      assert Flow.valid_transition?("done", "forming") == false
+      assert Flow.valid_transition?("done", "developing") == false
+      assert Flow.valid_transition?("done", "testing") == false
+      assert Flow.valid_transition?("done", "done") == false
     end
   end
 
   describe "Flow.valid_transitions/1" do
     test "returns correct allowed states for each state" do
-      assert Enum.sort(Flow.valid_transitions("forming"))    == Enum.sort(~w(developing done))
+      assert Enum.sort(Flow.valid_transitions("forming")) == Enum.sort(~w(developing done))
       assert Enum.sort(Flow.valid_transitions("developing")) == Enum.sort(~w(testing forming))
-      assert Enum.sort(Flow.valid_transitions("testing"))    == Enum.sort(~w(done developing))
+      assert Enum.sort(Flow.valid_transitions("testing")) == Enum.sort(~w(done developing))
       assert Flow.valid_transitions("done") == []
     end
   end
@@ -314,11 +316,11 @@ defmodule Ema.Campaigns.FlowTest do
       {:ok, _} = Campaigns.transition(f2, "developing")
 
       forming = Campaigns.list_flows_by_state("forming")
-      assert Enum.any?(forming, & &1.id == f1.id)
-      refute Enum.any?(forming, & &1.id == f2.id)
+      assert Enum.any?(forming, &(&1.id == f1.id))
+      refute Enum.any?(forming, &(&1.id == f2.id))
 
       developing = Campaigns.list_flows_by_state("developing")
-      assert Enum.any?(developing, & &1.id == f2.id)
+      assert Enum.any?(developing, &(&1.id == f2.id))
     end
   end
 

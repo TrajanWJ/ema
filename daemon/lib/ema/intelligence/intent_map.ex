@@ -107,14 +107,20 @@ defmodule Ema.Intelligence.IntentMap do
   defp render_markdown(nodes, depth) do
     Enum.map_join(nodes, "\n", fn node ->
       prefix = String.duplicate("  ", depth)
-      status_icon = case node.status do
-        "complete" -> "[x]"
-        "partial" -> "[-]"
-        _ -> "[ ]"
-      end
+
+      status_icon =
+        case node.status do
+          "complete" -> "[x]"
+          "partial" -> "[-]"
+          _ -> "[ ]"
+        end
+
       line = "#{prefix}- #{status_icon} **#{node.title}**"
       desc = if node.description, do: "\n#{prefix}  #{node.description}", else: ""
-      children = if node.children != [], do: "\n" <> render_markdown(node.children, depth + 1), else: ""
+
+      children =
+        if node.children != [], do: "\n" <> render_markdown(node.children, depth + 1), else: ""
+
       line <> desc <> children
     end)
   end

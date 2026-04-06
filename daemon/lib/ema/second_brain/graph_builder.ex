@@ -189,7 +189,9 @@ defmodule Ema.SecondBrain.GraphBuilder do
   defp extract_context(content, link_text) do
     content
     |> String.split(~r/\n/, trim: true)
-    |> Enum.find(fn line -> String.contains?(line, link_text) and String.contains?(line, "[[") end)
+    |> Enum.find(fn line ->
+      String.contains?(line, link_text) and String.contains?(line, "[[")
+    end)
     |> case do
       nil -> nil
       line -> String.slice(line, 0, 200)

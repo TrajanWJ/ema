@@ -49,7 +49,8 @@ defmodule Ema.Clipboard do
 
   def pin(id) do
     case get_clip(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       clip ->
         clip
@@ -61,7 +62,8 @@ defmodule Ema.Clipboard do
 
   def unpin(id) do
     case get_clip(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       clip ->
         clip

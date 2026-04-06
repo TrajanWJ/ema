@@ -32,7 +32,10 @@ defmodule Ema.Pipes.Actions.NotifyAction do
     config = normalize_config(config)
 
     with {:ok, message} <- render_message(payload, config.message_template) do
-      Logger.debug("[NotifyAction] Sending via #{config.channel}: #{String.slice(message, 0, 80)}...")
+      Logger.debug(
+        "[NotifyAction] Sending via #{config.channel}: #{String.slice(message, 0, 80)}..."
+      )
+
       dispatch(config.channel, config.target, message, config.topic, payload)
     end
   end
@@ -43,7 +46,8 @@ defmodule Ema.Pipes.Actions.NotifyAction do
     %{
       channel: config["channel"] || config[:channel] || "pubsub",
       target: config["target"] || config[:target],
-      message_template: config["message_template"] || config[:message_template] || "Pipe event: {{event_type}}",
+      message_template:
+        config["message_template"] || config[:message_template] || "Pipe event: {{event_type}}",
       topic: config["topic"] || config[:topic] || @default_topic
     }
   end
@@ -74,7 +78,10 @@ defmodule Ema.Pipes.Actions.NotifyAction do
   end
 
   defp dispatch("discord", nil, message, topic, _payload) do
-    Logger.warning("[NotifyAction] Discord notify with no target — falling back to PubSub topic #{topic}")
+    Logger.warning(
+      "[NotifyAction] Discord notify with no target — falling back to PubSub topic #{topic}"
+    )
+
     fallback_pubsub(topic, message)
   end
 
@@ -84,7 +91,10 @@ defmodule Ema.Pipes.Actions.NotifyAction do
   end
 
   defp dispatch("telegram", nil, message, topic, _payload) do
-    Logger.warning("[NotifyAction] Telegram notify with no target — falling back to PubSub topic #{topic}")
+    Logger.warning(
+      "[NotifyAction] Telegram notify with no target — falling back to PubSub topic #{topic}"
+    )
+
     fallback_pubsub(topic, message)
   end
 

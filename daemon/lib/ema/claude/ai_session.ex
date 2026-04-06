@@ -31,9 +31,19 @@ defmodule Ema.Claude.AiSession do
   def changeset(session, attrs) do
     session
     |> cast(attrs, [
-      :id, :model, :status, :message_count, :total_input_tokens,
-      :total_output_tokens, :cost_usd, :title, :project_path,
-      :parent_session_id, :fork_point_message_id, :agent_id, :metadata
+      :id,
+      :model,
+      :status,
+      :message_count,
+      :total_input_tokens,
+      :total_output_tokens,
+      :cost_usd,
+      :title,
+      :project_path,
+      :parent_session_id,
+      :fork_point_message_id,
+      :agent_id,
+      :metadata
     ])
     |> validate_required([:id, :model, :status])
     |> validate_inclusion(:status, ~w(active paused completed error))

@@ -79,7 +79,8 @@ defmodule Ema.Claude.Bridge do
   Broadcasts result to "claude:task:<task_id>" when done.
   Optional on_complete callback is called with the result.
   """
-  @spec spawn_async(String.t(), keyword(), (any() -> any()) | nil) :: {:ok, String.t()} | {:error, any()}
+  @spec spawn_async(String.t(), keyword(), (any() -> any()) | nil) ::
+          {:ok, String.t()} | {:error, any()}
   def spawn_async(prompt, opts \\ [], on_complete \\ nil)
       when is_binary(prompt) and is_list(opts) do
     task_id = generate_task_id()
@@ -382,10 +383,14 @@ defmodule Ema.Claude.Bridge do
       claude_path,
       "--print",
       "--verbose",
-      "--output-format", "stream-json",
-      "--input-format", "stream-json",
-      "--model", model,
-      "--permission-mode", "bypassPermissions"
+      "--output-format",
+      "stream-json",
+      "--input-format",
+      "stream-json",
+      "--model",
+      model,
+      "--permission-mode",
+      "bypassPermissions"
     ]
 
     Port.open(
@@ -420,11 +425,12 @@ defmodule Ema.Claude.Bridge do
   end
 
   defp extract_result(events, exit_status) do
-    result_event = Enum.find(events, fn
-      {:result, _} -> true
-      {:error, _} -> true
-      _ -> false
-    end)
+    result_event =
+      Enum.find(events, fn
+        {:result, _} -> true
+        {:error, _} -> true
+        _ -> false
+      end)
 
     case result_event do
       {:result, data} -> {:ok, data}

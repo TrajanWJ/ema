@@ -24,10 +24,15 @@ defmodule EmaWeb.ExecutionChannel do
 
       [execution_id] ->
         case Executions.get_execution(execution_id) do
-          nil -> {:error, %{reason: "not_found"}}
+          nil ->
+            {:error, %{reason: "not_found"}}
+
           execution ->
             events = Executions.list_events(execution_id) |> Enum.map(&serialize_event/1)
-            sessions = Executions.list_agent_sessions(execution_id) |> Enum.map(&serialize_session/1)
+
+            sessions =
+              Executions.list_agent_sessions(execution_id) |> Enum.map(&serialize_session/1)
+
             {:ok, %{execution: serialize(execution), events: events, sessions: sessions}, socket}
         end
 
@@ -59,7 +64,10 @@ defmodule EmaWeb.ExecutionChannel do
   end
 
   # Relay live stream chunks to subscribed WebSocket clients
-  def handle_info({:stream_chunk, %{execution_id: execution_id, chunk: chunk, timestamp: ts}}, socket) do
+  def handle_info(
+        {:stream_chunk, %{execution_id: execution_id, chunk: chunk, timestamp: ts}},
+        socket
+      ) do
     push(socket, "stream_chunk", %{execution_id: execution_id, chunk: chunk, timestamp: ts})
     {:noreply, socket}
   end
@@ -72,6 +80,7 @@ defmodule EmaWeb.ExecutionChannel do
       {:ok, execution} ->
         broadcast!(socket, "execution_updated", %{execution: serialize(execution)})
         {:reply, {:ok, %{execution: serialize(execution)}}, socket}
+
       {:error, reason} ->
         {:reply, {:error, %{reason: inspect(reason)}}, socket}
     end
@@ -83,6 +92,7 @@ defmodule EmaWeb.ExecutionChannel do
       {:ok, execution} ->
         broadcast!(socket, "execution_updated", %{execution: serialize(execution)})
         {:reply, {:ok, %{execution: serialize(execution)}}, socket}
+
       {:error, reason} ->
         {:reply, {:error, %{reason: inspect(reason)}}, socket}
     end
@@ -91,10 +101,12 @@ defmodule EmaWeb.ExecutionChannel do
   @impl true
   def handle_in("complete", %{"id" => id} = params, socket) do
     result_summary = params["result_summary"] || ""
+
     case Executions.on_execution_completed(id, result_summary) do
       {:ok, execution} ->
         broadcast!(socket, "execution_updated", %{execution: serialize(execution)})
         {:reply, {:ok, %{execution: serialize(execution)}}, socket}
+
       {:error, reason} ->
         {:reply, {:error, %{reason: inspect(reason)}}, socket}
     end

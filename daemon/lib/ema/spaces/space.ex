@@ -25,7 +25,17 @@ defmodule Ema.Spaces.Space do
 
   def changeset(space, attrs) do
     space
-    |> cast(attrs, [:id, :org_id, :name, :space_type, :ai_privacy, :icon, :color, :settings, :archived_at])
+    |> cast(attrs, [
+      :id,
+      :org_id,
+      :name,
+      :space_type,
+      :ai_privacy,
+      :icon,
+      :color,
+      :settings,
+      :archived_at
+    ])
     |> validate_required([:org_id, :name])
     |> validate_inclusion(:space_type, @space_types)
     |> validate_inclusion(:ai_privacy, @ai_privacy_opts)

@@ -63,6 +63,7 @@ defmodule EmaWeb.FeedbackController do
   end
 
   defp parse_int(nil, default), do: default
+
   defp parse_int(s, default) do
     case Integer.parse(s) do
       {n, _} -> n

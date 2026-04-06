@@ -25,7 +25,17 @@ defmodule Ema.Intelligence.IntentNode do
 
   def changeset(node, attrs) do
     node
-    |> cast(attrs, [:id, :title, :description, :level, :parent_id, :status, :project_id, :linked_task_ids, :linked_wiki_path])
+    |> cast(attrs, [
+      :id,
+      :title,
+      :description,
+      :level,
+      :parent_id,
+      :status,
+      :project_id,
+      :linked_task_ids,
+      :linked_wiki_path
+    ])
     |> validate_required([:id, :title, :level])
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_number(:level, greater_than_or_equal_to: 0, less_than_or_equal_to: 4)

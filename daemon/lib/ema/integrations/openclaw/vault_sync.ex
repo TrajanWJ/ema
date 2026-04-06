@@ -358,11 +358,12 @@ defmodule Ema.Integrations.OpenClaw.VaultSync do
 
     %{
       source_host: Keyword.get(openclaw_vault, :source_host, "192.168.122.10"),
-      source_root: Keyword.get(
-        openclaw_vault,
-        :source_root,
-        "projects/openclaw/intents/int_1775263900943_1678626d"
-      ),
+      source_root:
+        Keyword.get(
+          openclaw_vault,
+          :source_root,
+          "projects/openclaw/intents/int_1775263900943_1678626d"
+        ),
       intent_node_id: Keyword.get(openclaw_vault, :intent_node_id, "int_1775263900943_1678626d")
     }
   end

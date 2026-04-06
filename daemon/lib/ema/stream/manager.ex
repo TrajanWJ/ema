@@ -25,18 +25,27 @@ defmodule Ema.Stream.Manager do
   alias Ema.Pipes.PipeRun
 
   # Cadence: how many ticks between emissions (base tick = 5 min)
-  @base_tick_ms        5 * 60 * 1_000   # 5 min
-  @heartbeat_every     1                 # every tick (5 min)
-  @pipeline_every      4                 # every 20 min
-  @agent_thoughts_every 2               # every 10 min
-  @intent_stream_every 3                # every 15 min
-  @intelligence_every  8                # every 40 min
-  @digest_every        4                # every 20 min (adaptive: skips if quiet)
+  # 5 min
+  @base_tick_ms 5 * 60 * 1_000
+  # every tick (5 min)
+  @heartbeat_every 1
+  # every 20 min
+  @pipeline_every 4
+  # every 10 min
+  @agent_thoughts_every 2
+  # every 15 min
+  @intent_stream_every 3
+  # every 40 min
+  @intelligence_every 8
+  # every 20 min (adaptive: skips if quiet)
+  @digest_every 4
 
-  @incident_window_ms  3_600_000        # 1 hour
+  # 1 hour
+  @incident_window_ms 3_600_000
 
   # Degrade state tracking
-  @degrade_threshold   3                # N consecutive degraded checks before escalation
+  # N consecutive degraded checks before escalation
+  @degrade_threshold 3
 
   # Public API
 
@@ -135,6 +144,7 @@ defmodule Ema.Stream.Manager do
 
   def handle_cast({:record_thought, session_id, summary}, state) do
     thoughts = Map.put(state.pending_thoughts, session_id, summary)
+
     # Wire real activity into babysitter monitor — session emitted a thought (significant activity)
     maybe_record_activity(session_id, %{source: "agent_thought", body: summary, weight: 2.0})
     {:noreply, %{state | pending_thoughts: thoughts}}
@@ -168,29 +178,35 @@ defmodule Ema.Stream.Manager do
     state = update_degrade_tracking(state, sys, now)
 
     # Per-channel cadence gates
-    state = if rem(tick, @heartbeat_every) == 0,
-      do: emit_heartbeat(state, sys, now, tick),
-      else: state
+    state =
+      if rem(tick, @heartbeat_every) == 0,
+        do: emit_heartbeat(state, sys, now, tick),
+        else: state
 
-    state = if rem(tick, @agent_thoughts_every) == 0,
-      do: emit_agent_thoughts(state, sys),
-      else: state
+    state =
+      if rem(tick, @agent_thoughts_every) == 0,
+        do: emit_agent_thoughts(state, sys),
+        else: state
 
-    state = if rem(tick, @intent_stream_every) == 0,
-      do: emit_intent_stream(state),
-      else: state
+    state =
+      if rem(tick, @intent_stream_every) == 0,
+        do: emit_intent_stream(state),
+        else: state
 
-    state = if rem(tick, @pipeline_every) == 0,
-      do: emit_pipeline_flow(state),
-      else: state
+    state =
+      if rem(tick, @pipeline_every) == 0,
+        do: emit_pipeline_flow(state),
+        else: state
 
-    state = if rem(tick, @intelligence_every) == 0,
-      do: emit_intelligence_layer(state, sys, now),
-      else: state
+    state =
+      if rem(tick, @intelligence_every) == 0,
+        do: emit_intelligence_layer(state, sys, now),
+        else: state
 
-    state = if rem(tick, @digest_every) == 0 or state.digest_has_content,
-      do: emit_digest(state, sys, now),
-      else: state
+    state =
+      if rem(tick, @digest_every) == 0 or state.digest_has_content,
+        do: emit_digest(state, sys, now),
+        else: state
 
     %{state | tick_count: tick}
   end
@@ -224,12 +240,18 @@ defmodule Ema.Stream.Manager do
         %{state | consecutive_degraded: 1, degrade_started_at: now, last_known_status: :degraded}
 
       degraded? ->
-        %{state | consecutive_degraded: state.consecutive_degraded + 1, last_known_status: :degraded}
+        %{
+          state
+          | consecutive_degraded: state.consecutive_degraded + 1,
+            last_known_status: :degraded
+        }
 
       not degraded? and state.last_known_status == :degraded ->
-        duration = if state.degrade_started_at,
-          do: DateTime.diff(now, state.degrade_started_at, :minute),
-          else: 0
+        duration =
+          if state.degrade_started_at,
+            do: DateTime.diff(now, state.degrade_started_at, :minute),
+            else: 0
+
         Logger.info("[Stream.Manager] System recovered after #{duration}m degraded")
         %{state | consecutive_degraded: 0, degrade_started_at: nil, last_known_status: :ok}
 
@@ -255,7 +277,9 @@ defmodule Ema.Stream.Manager do
     if msg, do: Broadcast.emit(:system_heartbeat, msg)
 
     # Track for digest
-    digest_event = if degraded?, do: "🟠 DEGRADED (#{state.consecutive_degraded} checks)", else: nil
+    digest_event =
+      if degraded?, do: "🟠 DEGRADED (#{state.consecutive_degraded} checks)", else: nil
+
     add_digest_event(state, digest_event)
   end
 
@@ -266,26 +290,29 @@ defmodule Ema.Stream.Manager do
     lines = [
       "#{status_icon(sys.vm_status)} **Heartbeat ##{tick}** · #{ts}",
       status_line,
-      "Gateway: #{sys.gateway_status}  ·  Sessions: #{sys.session_count}  ·  Queue: #{sys.queued_proposals} proposals",
+      "Gateway: #{sys.gateway_status}  ·  Sessions: #{sys.session_count}  ·  Queue: #{sys.queued_proposals} proposals"
     ]
 
-    lines = if sys.active_tasks > 0,
-      do: lines ++ ["Active tasks: #{sys.active_tasks}"],
-      else: lines
+    lines =
+      if sys.active_tasks > 0,
+        do: lines ++ ["Active tasks: #{sys.active_tasks}"],
+        else: lines
 
-    lines = if length(sys.pipe_run_failures) > 0 do
-      fail_ids = sys.pipe_run_failures |> Enum.take(3) |> Enum.join(", ")
-      lines ++ ["⚠️ Pipe failures: #{fail_ids} — investigate"]
-    else
-      lines
-    end
+    lines =
+      if length(sys.pipe_run_failures) > 0 do
+        fail_ids = sys.pipe_run_failures |> Enum.take(3) |> Enum.join(", ")
+        lines ++ ["⚠️ Pipe failures: #{fail_ids} — investigate"]
+      else
+        lines
+      end
 
-    lines = if state.degrade_started_at do
-      since = DateTime.diff(now, state.degrade_started_at, :minute)
-      lines ++ ["-# degraded #{since}m · #{state.consecutive_degraded} consecutive checks"]
-    else
-      lines
-    end
+    lines =
+      if state.degrade_started_at do
+        since = DateTime.diff(now, state.degrade_started_at, :minute)
+        lines ++ ["-# degraded #{since}m · #{state.consecutive_degraded} consecutive checks"]
+      else
+        lines
+      end
 
     Enum.join(lines, "\n")
   end
@@ -316,9 +343,12 @@ defmodule Ema.Stream.Manager do
       completion_lines =
         if length(thought_lines) > 0, do: ["", "Recent reasoning:"] ++ thought_lines, else: []
 
-      all_lines = lines ++ (if length(session_lines) > 0,
-        do: ["Active sessions (#{length(org_sessions)}):"] ++ session_lines,
-        else: []) ++ completion_lines
+      all_lines =
+        lines ++
+          if(length(session_lines) > 0,
+            do: ["Active sessions (#{length(org_sessions)}):"] ++ session_lines,
+            else: []
+          ) ++ completion_lines
 
       msg = Enum.join(all_lines, "\n")
       Broadcast.emit(:agent_thoughts, msg)
@@ -333,6 +363,7 @@ defmodule Ema.Stream.Manager do
       state
     else
       ts = format_time(DateTime.utc_now())
+
       intent_lines =
         state.pending_intents
         |> Enum.reverse()
@@ -371,6 +402,7 @@ defmodule Ema.Stream.Manager do
 
   defp emit_intelligence_layer(state, sys, now) do
     cutoff = DateTime.add(now, -@incident_window_ms, :millisecond)
+
     recent_incidents =
       state.incidents
       |> Enum.filter(fn i -> DateTime.compare(i.at, cutoff) != :lt end)
@@ -385,8 +417,13 @@ defmodule Ema.Stream.Manager do
       obs_lines = observations |> Enum.map(&"  └ #{&1}") |> Enum.join("\n")
 
       recommendations = build_recommendations(sys, state)
-      rec_lines = if Enum.empty?(recommendations), do: "",
-        else: "\n\nRecommendation:\n" <> (recommendations |> Enum.map(&"  └ #{&1}") |> Enum.join("\n"))
+
+      rec_lines =
+        if Enum.empty?(recommendations),
+          do: "",
+          else:
+            "\n\nRecommendation:\n" <>
+              (recommendations |> Enum.map(&"  └ #{&1}") |> Enum.join("\n"))
 
       msg = "🧠 **Intelligence Snapshot** · #{ts}\n\nPatterns detected:\n#{obs_lines}#{rec_lines}"
       Broadcast.emit(:intelligence_layer, msg)
@@ -422,27 +459,32 @@ defmodule Ema.Stream.Manager do
           n -> "#{n}m"
         end
 
-      status_emoji = case {state.consecutive_degraded, length(sys.pipe_run_failures)} do
-        {d, _} when d > @degrade_threshold -> "🔴"
-        {d, _} when d > 0 -> "🟠"
-        {_, f} when f > 0 -> "🟡"
-        _ -> "🟢"
-      end
+      status_emoji =
+        case {state.consecutive_degraded, length(sys.pipe_run_failures)} do
+          {d, _} when d > @degrade_threshold -> "🔴"
+          {d, _} when d > 0 -> "🟠"
+          {_, f} when f > 0 -> "🟡"
+          _ -> "🟢"
+        end
 
-      degrade_line = if state.consecutive_degraded > 0 do
-        since = if state.degrade_started_at,
-          do: "#{DateTime.diff(now, state.degrade_started_at, :minute)}m",
-          else: "unknown"
-        "System: #{status_emoji} DEGRADED (#{since}) — #{sys.vm_status}"
-      else
-        "System: 🟢 OK — gateway #{sys.gateway_status}"
-      end
+      degrade_line =
+        if state.consecutive_degraded > 0 do
+          since =
+            if state.degrade_started_at,
+              do: "#{DateTime.diff(now, state.degrade_started_at, :minute)}m",
+              else: "unknown"
 
-      pipe_line = case {sys.active_tasks, length(sys.pipe_run_failures), sys.queued_proposals} do
-        {0, 0, 0} -> "Pipeline: idle"
-        {a, 0, q} -> "Pipeline: #{a} active · #{q} queued"
-        {a, f, q} -> "Pipeline: #{a} active · #{f} failures · #{q} queued ⚠️"
-      end
+          "System: #{status_emoji} DEGRADED (#{since}) — #{sys.vm_status}"
+        else
+          "System: 🟢 OK — gateway #{sys.gateway_status}"
+        end
+
+      pipe_line =
+        case {sys.active_tasks, length(sys.pipe_run_failures), sys.queued_proposals} do
+          {0, 0, 0} -> "Pipeline: idle"
+          {a, 0, q} -> "Pipeline: #{a} active · #{q} queued"
+          {a, f, q} -> "Pipeline: #{a} active · #{f} failures · #{q} queued ⚠️"
+        end
 
       session_line = "Agents: #{sys.session_count} sessions · last: #{sys.last_task}"
 
@@ -452,14 +494,20 @@ defmodule Ema.Stream.Manager do
         |> Enum.uniq()
         |> Enum.take(3)
 
-      event_line = case recent_events do
-        [] -> nil
-        events -> "Events: " <> Enum.join(events, " · ")
-      end
+      event_line =
+        case recent_events do
+          [] -> nil
+          events -> "Events: " <> Enum.join(events, " · ")
+        end
 
       recommendations = build_recommendations(sys, state)
-      rec_section = if Enum.empty?(recommendations), do: "",
-        else: "\n\n🔧 **Next actions:**\n" <> (recommendations |> Enum.map(&"  #{&1}") |> Enum.join("\n"))
+
+      rec_section =
+        if Enum.empty?(recommendations),
+          do: "",
+          else:
+            "\n\n🔧 **Next actions:**\n" <>
+              (recommendations |> Enum.map(&"  #{&1}") |> Enum.join("\n"))
 
       lines = [
         "📋 **Babysitter Digest** · #{ts}",
@@ -469,16 +517,13 @@ defmodule Ema.Stream.Manager do
         pipe_line,
         session_line
       ]
+
       lines = if event_line, do: lines ++ [event_line], else: lines
 
       msg = Enum.join(lines, "\n") <> rec_section
       Broadcast.emit(:babysitter_digest, msg)
 
-      %{state |
-        last_digest_at: now,
-        digest_has_content: false,
-        digest_events: []
-      }
+      %{state | last_digest_at: now, digest_has_content: false, digest_events: []}
     end
   end
 
@@ -487,28 +532,39 @@ defmodule Ema.Stream.Manager do
   defp build_observations(sys, state, recent_incidents, now) do
     obs = []
 
-    obs = if state.consecutive_degraded >= @degrade_threshold do
-      since = if state.degrade_started_at,
-        do: " for #{DateTime.diff(now, state.degrade_started_at, :minute)} minutes",
-        else: ""
-      [("VM has been in #{sys.vm_status} state#{since} (#{state.consecutive_degraded} consecutive checks)") | obs]
-    else
-      obs
-    end
+    obs =
+      if state.consecutive_degraded >= @degrade_threshold do
+        since =
+          if state.degrade_started_at,
+            do: " for #{DateTime.diff(now, state.degrade_started_at, :minute)} minutes",
+            else: ""
 
-    obs = if length(sys.pipe_run_failures) >= 2 do
-      ["#{length(sys.pipe_run_failures)} consecutive pipe run failures — same executor, different proposals → executor issue not proposal issue" | obs]
-    else
-      obs
-    end
+        [
+          "VM has been in #{sys.vm_status} state#{since} (#{state.consecutive_degraded} consecutive checks)"
+          | obs
+        ]
+      else
+        obs
+      end
 
-    obs = if length(recent_incidents) >= 2 do
-      count = length(recent_incidents)
-      sample = recent_incidents |> Enum.take(1) |> Enum.map(& &1.description) |> Enum.join("")
-      ["#{count} incident(s) in last hour — most recent: #{sample}" | obs]
-    else
-      obs
-    end
+    obs =
+      if length(sys.pipe_run_failures) >= 2 do
+        [
+          "#{length(sys.pipe_run_failures)} consecutive pipe run failures — same executor, different proposals → executor issue not proposal issue"
+          | obs
+        ]
+      else
+        obs
+      end
+
+    obs =
+      if length(recent_incidents) >= 2 do
+        count = length(recent_incidents)
+        sample = recent_incidents |> Enum.take(1) |> Enum.map(& &1.description) |> Enum.join("")
+        ["#{count} incident(s) in last hour — most recent: #{sample}" | obs]
+      else
+        obs
+      end
 
     Enum.reverse(obs)
   end
@@ -516,18 +572,24 @@ defmodule Ema.Stream.Manager do
   defp build_recommendations(sys, state) do
     recs = []
 
-    recs = if length(sys.pipe_run_failures) >= 2,
-      do: ["Investigate pipe executor (failures are cross-proposal — executor is the common factor)" | recs],
-      else: recs
+    recs =
+      if length(sys.pipe_run_failures) >= 2,
+        do: [
+          "Investigate pipe executor (failures are cross-proposal — executor is the common factor)"
+          | recs
+        ],
+        else: recs
 
-    recs = if state.consecutive_degraded >= @degrade_threshold,
-      do: ["Check backing_up cause (IO overload? backup process hung? disk pressure?)" | recs],
-      else: recs
+    recs =
+      if state.consecutive_degraded >= @degrade_threshold,
+        do: ["Check backing_up cause (IO overload? backup process hung? disk pressure?)" | recs],
+        else: recs
 
     Enum.reverse(recs)
   end
 
   defp add_digest_event(state, nil), do: state
+
   defp add_digest_event(state, event) do
     events = [event | state.digest_events] |> Enum.take(20)
     %{state | digest_events: events, digest_has_content: true}
@@ -552,20 +614,26 @@ defmodule Ema.Stream.Manager do
       recent = snapshot[:sessions] || []
       count = length(recent)
 
-      sessions = recent |> Enum.map(fn e ->
-        attrs = Map.get(e, :attrs, %{}) || %{}
-        token_count = Map.get(attrs, :token_count, 0) || 0
-        %{
-          id: Map.get(e, :session_id, "unknown"),
-          tokens: div(token_count, 1000),
-          last_tool: Map.get(e, :last_tool, "unknown") || "unknown"
-        }
-      end)
+      sessions =
+        recent
+        |> Enum.map(fn e ->
+          attrs = Map.get(e, :attrs, %{}) || %{}
+          token_count = Map.get(attrs, :token_count, 0) || 0
 
-      last = recent |> List.first() |> case do
-        nil -> "none"
-        e -> "#{Map.get(e, :session_id, "unknown")} @ #{format_time(Map.get(e, :last_ts))}"
-      end
+          %{
+            id: Map.get(e, :session_id, "unknown"),
+            tokens: div(token_count, 1000),
+            last_tool: Map.get(e, :last_tool, "unknown") || "unknown"
+          }
+        end)
+
+      last =
+        recent
+        |> List.first()
+        |> case do
+          nil -> "none"
+          e -> "#{Map.get(e, :session_id, "unknown")} @ #{format_time(Map.get(e, :last_ts))}"
+        end
 
       {count, sessions, last}
     rescue
@@ -596,7 +664,9 @@ defmodule Ema.Stream.Manager do
 
   defp org_session?(session) do
     # Filter to sessions belonging to Trajan's org — exclude other tenant sessions
-    org_prefixes = Application.get_env(:ema, :org_session_prefixes, ["trajan", "right-hand", "main"])
+    org_prefixes =
+      Application.get_env(:ema, :org_session_prefixes, ["trajan", "right-hand", "main"])
+
     Enum.any?(org_prefixes, &String.starts_with?(session.id, &1))
   end
 
@@ -616,18 +686,20 @@ defmodule Ema.Stream.Manager do
 
   defp format_vm_status(:backing_up, state) do
     if state.consecutive_degraded > 0,
-      do: "VM: **degraded** / `backing_up` · #{state.consecutive_degraded} consecutive unhealthy checks",
+      do:
+        "VM: **degraded** / `backing_up` · #{state.consecutive_degraded} consecutive unhealthy checks",
       else: "VM: **backing_up** (new)"
   end
+
   defp format_vm_status(:degraded, state) do
     "VM: **degraded** · #{state.consecutive_degraded} consecutive checks"
   end
+
   defp format_vm_status(status, _state), do: "VM: #{status}"
 
   defp schedule_tick(tick_ms) do
     Process.send_after(self(), :tick, tick_ms)
   end
-
 
   defp maybe_record_activity(_stream, _attrs), do: :ok
 
@@ -649,7 +721,9 @@ defmodule Ema.Stream.Manager do
   end
 
   defp vm_status do
-    case System.cmd("systemctl", ["--user", "is-active", "ema-daemon.service"], stderr_to_stdout: true) do
+    case System.cmd("systemctl", ["--user", "is-active", "ema-daemon.service"],
+           stderr_to_stdout: true
+         ) do
       {"active\n", 0} -> :ok
       {"activating\n", 0} -> :backing_up
       {_out, _code} -> :offline
@@ -657,5 +731,4 @@ defmodule Ema.Stream.Manager do
   rescue
     _ -> :unknown
   end
-
 end

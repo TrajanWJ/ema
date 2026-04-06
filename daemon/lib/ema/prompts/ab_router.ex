@@ -32,7 +32,8 @@ defmodule Ema.Prompts.ABRouter do
     end
   end
 
-  def record_execution_variant(execution_id, selection) when is_binary(execution_id) and is_map(selection) do
+  def record_execution_variant(execution_id, selection)
+      when is_binary(execution_id) and is_map(selection) do
     maybe_record_execution_variant(execution_id, selection)
   end
 
@@ -62,9 +63,14 @@ defmodule Ema.Prompts.ABRouter do
 
   defp bucket_label(bucket, prompt) do
     cond do
-      prompt.a_b_test_group in ["variant_A", "variant_a"] and bucket <= @variant_a_share -> "variant_A"
-      prompt.a_b_test_group in ["variant_B", "variant_b"] and bucket <= @variant_b_share -> "variant_B"
-      true -> prompt.a_b_test_group || "control"
+      prompt.a_b_test_group in ["variant_A", "variant_a"] and bucket <= @variant_a_share ->
+        "variant_A"
+
+      prompt.a_b_test_group in ["variant_B", "variant_b"] and bucket <= @variant_b_share ->
+        "variant_B"
+
+      true ->
+        prompt.a_b_test_group || "control"
     end
   end
 

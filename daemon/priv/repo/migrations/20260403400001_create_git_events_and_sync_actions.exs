@@ -20,8 +20,10 @@ defmodule Ema.Repo.Migrations.CreateGitEventsAndSyncActions do
 
     create table(:wiki_sync_actions, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :git_event_id, references(:git_events, type: :string, on_delete: :delete_all),
         null: false
+
       add :action_type, :string, null: false
       add :wiki_path, :string, null: false
       add :suggestion, :text, null: false

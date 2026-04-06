@@ -33,6 +33,7 @@ defmodule Ema.OpenClaw.Config do
       config -> Keyword.get(config, key, Map.get(@defaults, key))
     end
   end
+
   def default_agent do
     case Application.get_env(:ema, :openclaw) do
       nil -> System.get_env("OPENCLAW_DEFAULT_AGENT", "main")
@@ -46,5 +47,4 @@ defmodule Ema.OpenClaw.Config do
       config -> Keyword.get(config, :timeout, 120) * 1000
     end
   end
-
 end

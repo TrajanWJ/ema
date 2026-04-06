@@ -84,7 +84,9 @@ defmodule Ema.Proposals.VaultSeeder do
 
       %{template: template} ->
         attrs = Map.merge(template, overrides)
-        id = "seed_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
+
+        id =
+          "seed_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
 
         Proposals.create_seed(%{
           id: id,
@@ -131,7 +133,8 @@ defmodule Ema.Proposals.VaultSeeder do
   end
 
   defp create_seed(%{title: title, source: source}) do
-    id = "seed_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
+    id =
+      "seed_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
 
     Proposals.create_seed(%{
       id: id,

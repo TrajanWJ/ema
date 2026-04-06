@@ -48,7 +48,8 @@ defmodule Ema.Finance do
 
   def update_transaction(id, attrs) do
     case get_transaction(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       txn ->
         txn

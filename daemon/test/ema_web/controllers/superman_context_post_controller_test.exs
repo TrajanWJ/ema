@@ -10,7 +10,9 @@ defmodule EmaWeb.SupermanContextPostControllerTest do
     :ok
   end
 
-  test "POST /api/superman/context returns the structured bundle with provider status", %{conn: conn} do
+  test "POST /api/superman/context returns the structured bundle with provider status", %{
+    conn: conn
+  } do
     project = insert!(:project, %{name: "Daily Planet", slug: "daily-planet"})
     KnowledgeGraph.clear(project.id)
     KnowledgeGraph.clear(project.slug)

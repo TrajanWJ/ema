@@ -110,7 +110,8 @@ defmodule Ema.Pipes.Actions.HttpRequestAction do
   defp build_body(_payload, %{body_template: nil}), do: {:ok, nil}
   defp build_body(payload, %{body_template: template}), do: render_template(template, payload)
 
-  defp maybe_add_body(opts, method, body) when method in ["post", "put", "patch"] and not is_nil(body) do
+  defp maybe_add_body(opts, method, body)
+       when method in ["post", "put", "patch"] and not is_nil(body) do
     Keyword.put(opts, :body, body)
   end
 
@@ -125,6 +126,7 @@ defmodule Ema.Pipes.Actions.HttpRequestAction do
 
   defp parse_response_body(body) when is_map(body), do: body
   defp parse_response_body(body) when is_list(body), do: body
+
   defp parse_response_body(body) when is_binary(body) do
     case Jason.decode(body) do
       {:ok, parsed} -> parsed

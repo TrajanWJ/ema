@@ -3,12 +3,12 @@ defmodule Ema.Repo.Migrations.CreatePrompts do
 
   def change do
     create table(:prompts, primary_key: false) do
-      add :id,            :string,  primary_key: true
-      add :version,       :integer, null: false, default: 1
-      add :kind,          :string,  null: false
-      add :content,       :text,    null: false
+      add :id, :string, primary_key: true
+      add :version, :integer, null: false, default: 1
+      add :kind, :string, null: false
+      add :content, :text, null: false
       add :a_b_test_group, :string
-      add :metrics,       :text,    default: "{}"
+      add :metrics, :text, default: "{}"
 
       timestamps(type: :utc_datetime)
     end

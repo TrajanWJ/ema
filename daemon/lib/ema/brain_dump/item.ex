@@ -22,7 +22,7 @@ defmodule Ema.BrainDump.Item do
     timestamps(type: :utc_datetime)
   end
 
-  @valid_sources ~w(text shortcut clipboard)
+  @valid_sources ~w(text shortcut clipboard harvested)
   @valid_actions ~w(task journal archive note processing)
 
   def create_changeset(item, attrs) do

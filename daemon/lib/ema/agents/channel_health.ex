@@ -134,7 +134,10 @@ defmodule Ema.Agents.ChannelHealth do
   end
 
   defp resolve_uptime_start(:connected, nil, now), do: now
-  defp resolve_uptime_start(:connected, %{status: :connected, uptime_start: start}, _now), do: start
+
+  defp resolve_uptime_start(:connected, %{status: :connected, uptime_start: start}, _now),
+    do: start
+
   defp resolve_uptime_start(:connected, _previous, now), do: now
   defp resolve_uptime_start(_status, _previous, _now), do: nil
 

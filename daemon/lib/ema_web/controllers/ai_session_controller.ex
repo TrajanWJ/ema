@@ -6,7 +6,9 @@ defmodule EmaWeb.AiSessionController do
   def index(conn, params) do
     filters = %{}
     filters = if params["status"], do: Map.put(filters, :status, params["status"]), else: filters
-    filters = if params["agent_id"], do: Map.put(filters, :agent_id, params["agent_id"]), else: filters
+
+    filters =
+      if params["agent_id"], do: Map.put(filters, :agent_id, params["agent_id"]), else: filters
 
     case SessionManager.list_sessions(filters) do
       {:ok, sessions} ->

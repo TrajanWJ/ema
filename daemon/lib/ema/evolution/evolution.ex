@@ -59,9 +59,12 @@ defmodule Ema.Evolution do
               # If there's a previous version, reactivate it
               if rule.previous_rule_id do
                 case get_rule(rule.previous_rule_id) do
-                  nil -> rolled_back
-                  prev -> update_rule(prev, %{status: "active"})
-                         rolled_back
+                  nil ->
+                    rolled_back
+
+                  prev ->
+                    update_rule(prev, %{status: "active"})
+                    rolled_back
                 end
               else
                 rolled_back

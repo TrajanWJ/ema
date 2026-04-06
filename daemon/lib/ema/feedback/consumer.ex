@@ -38,12 +38,13 @@ defmodule Ema.Feedback.Consumer do
 
   @impl true
   def handle_call(:status, _from, state) do
-    {:reply, %{
-      running: true,
-      received: state.received,
-      last_at: state.last_at,
-      store_size: Store.size()
-    }, state}
+    {:reply,
+     %{
+       running: true,
+       received: state.received,
+       last_at: state.last_at,
+       store_size: Store.size()
+     }, state}
   end
 
   @impl true
@@ -55,7 +56,9 @@ defmodule Ema.Feedback.Consumer do
     Phoenix.PubSub.broadcast(@pubsub, @hq_topic, {:hq_feedback, event})
 
     # 3. Structured log
-    Logger.debug("[Feedback] #{event.source} → ch:#{event.channel_id || "internal"} | #{truncate(event.message, 80)}")
+    Logger.debug(
+      "[Feedback] #{event.source} → ch:#{event.channel_id || "internal"} | #{truncate(event.message, 80)}"
+    )
 
     {:noreply, %{state | received: state.received + 1, last_at: event.timestamp}}
   end
@@ -65,7 +68,6 @@ defmodule Ema.Feedback.Consumer do
   defp truncate(s, max) when byte_size(s) > max, do: String.slice(s, 0, max) <> "…"
   defp truncate(s, _), do: s
 end
-
 
 defmodule Ema.Feedback.Store do
   @moduledoc """
@@ -85,12 +87,15 @@ defmodule Ema.Feedback.Store do
   def push(event) do
     q = :persistent_term.get(@key, :queue.new())
     q2 = :queue.in(event, q)
-    q3 = if :queue.len(q2) > @max_size do
-      {_, q_trimmed} = :queue.out(q2)
-      q_trimmed
-    else
-      q2
-    end
+
+    q3 =
+      if :queue.len(q2) > @max_size do
+        {_, q_trimmed} = :queue.out(q2)
+        q_trimmed
+      else
+        q2
+      end
+
     :persistent_term.put(@key, q3)
   end
 

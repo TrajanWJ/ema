@@ -1,7 +1,8 @@
 defmodule EmaCli.Proposal do
   @moduledoc "CLI commands for Proposals"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("list", opts) do
     params = build_query(opts)
@@ -73,7 +74,10 @@ defmodule EmaCli.Proposal do
   end
 
   def run("generate", opts) do
-    seed = Map.get(opts, :seed) || Map.get(opts, :_arg) || error("Usage: ema proposal generate --seed=\"...\"")
+    seed =
+      Map.get(opts, :seed) || Map.get(opts, :_arg) ||
+        error("Usage: ema proposal generate --seed=\"...\"")
+
     project_id = Map.get(opts, :project)
     count = String.to_integer(to_string(Map.get(opts, :count, "1")))
     measure = Map.get(opts, :"measure-latency", false)

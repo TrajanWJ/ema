@@ -58,7 +58,10 @@ defmodule Ema.Discord.Bridge do
 
       {:error, :not_found} ->
         # Session died — create a new one and retry once
-        Logger.warning("Discord session #{session_id} not found, recreating for channel #{channel_id}")
+        Logger.warning(
+          "Discord session #{session_id} not found, recreating for channel #{channel_id}"
+        )
+
         state = drop_session(channel_id, state)
         {session_id, state} = ensure_session(channel_id, state)
 
@@ -80,13 +83,16 @@ defmodule Ema.Discord.Bridge do
   @impl true
   def handle_cast({:clear_session, channel_id}, state) do
     case Map.get(state.sessions, channel_id) do
-      nil -> {:noreply, state}
+      nil ->
+        {:noreply, state}
+
       session_id ->
         try do
           VoiceCore.stop(session_id)
         catch
           :exit, _ -> :ok
         end
+
         {:noreply, drop_session(channel_id, state)}
     end
   end
@@ -106,7 +112,10 @@ defmodule Ema.Discord.Bridge do
 
           [] ->
             # Session died silently — recreate
-            Logger.info("Discord session #{session_id} gone, recreating for channel #{channel_id}")
+            Logger.info(
+              "Discord session #{session_id} gone, recreating for channel #{channel_id}"
+            )
+
             state = drop_session(channel_id, state)
             create_session(channel_id, state)
         end
@@ -126,6 +135,7 @@ defmodule Ema.Discord.Bridge do
 
       {:error, reason} ->
         Logger.error("Failed to start Discord VoiceCore session: #{inspect(reason)}")
+
         raise "Cannot start VoiceCore session for Discord channel #{channel_id}: #{inspect(reason)}"
     end
   end

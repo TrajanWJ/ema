@@ -75,7 +75,9 @@ defmodule Ema.Integrations.OpenClaw.VaultReconciler do
     new_paths = MapSet.difference(local_files, db_paths) |> MapSet.to_list()
 
     if new_paths != [] do
-      Logger.info("VaultReconciler: found #{length(new_paths)} untracked file(s), triggering sync")
+      Logger.info(
+        "VaultReconciler: found #{length(new_paths)} untracked file(s), triggering sync"
+      )
 
       Phoenix.PubSub.broadcast(
         Ema.PubSub,
@@ -117,7 +119,8 @@ defmodule Ema.Integrations.OpenClaw.VaultReconciler do
       |> Repo.update()
     end)
 
-    stale_count = Enum.count(missing_entries, fn e -> (e.missing_count || 0) + 1 >= @stale_threshold end)
+    stale_count =
+      Enum.count(missing_entries, fn e -> (e.missing_count || 0) + 1 >= @stale_threshold end)
 
     if stale_count > 0 do
       Logger.info("VaultReconciler: #{stale_count} entry/entries marked stale")
@@ -161,8 +164,9 @@ defmodule Ema.Integrations.OpenClaw.VaultReconciler do
   end
 
   defp schedule_reconcile do
-    interval = Application.get_env(:ema, :openclaw_vault_sync, [])
-               |> Keyword.get(:reconcile_interval, @default_interval)
+    interval =
+      Application.get_env(:ema, :openclaw_vault_sync, [])
+      |> Keyword.get(:reconcile_interval, @default_interval)
 
     Process.send_after(self(), :reconcile, interval)
   end

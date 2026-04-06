@@ -137,6 +137,7 @@ defmodule Ema.ProposalEngine.Generator do
               gap_list
               |> Enum.map(fn {entry, sim} ->
                 path = entry[:path] || "unknown"
+
                 "- #{path} (coverage: #{Float.round(sim * 100, 0)}%): #{String.slice(entry.text, 0..120)}"
               end)
               |> Enum.join("\n")
@@ -193,7 +194,8 @@ defmodule Ema.ProposalEngine.Generator do
   defp normalize_estimated_scope(_), do: nil
 
   defp create_proposal_from_result(seed, result, preflight_diagnostics) do
-    preflight_score = preflight_diagnostics[:enriched_score] || preflight_diagnostics[:initial_score]
+    preflight_score =
+      preflight_diagnostics[:enriched_score] || preflight_diagnostics[:initial_score]
 
     attrs = %{
       title: result["title"] || "Untitled Proposal from #{seed.name}",
@@ -205,7 +207,8 @@ defmodule Ema.ProposalEngine.Generator do
       project_id: seed.project_id,
       seed_id: seed.id,
       prompt_quality_score: preflight_score && preflight_score / 100.0,
-      score_breakdown: preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown],
+      score_breakdown:
+        preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown],
       generation_log: %{
         "generator" => result,
         "preflight" => sanitize_diagnostics(preflight_diagnostics)

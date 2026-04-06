@@ -49,7 +49,11 @@ defmodule Ema.Executions do
     |> Execution.changeset(attrs)
     |> Repo.insert()
     |> tap_ok(fn execution ->
-      record_event(execution.id, "created", %{mode: execution.mode, intent_slug: execution.intent_slug})
+      record_event(execution.id, "created", %{
+        mode: execution.mode,
+        intent_slug: execution.intent_slug
+      })
+
       broadcast("execution:created", execution)
       # Auto-dispatch when no approval needed
       if not execution.requires_approval do
@@ -95,14 +99,17 @@ defmodule Ema.Executions do
 
         if proposal do
           case create(%{
-            title: proposal.title,
-            objective: proposal.summary || proposal.body,
-            mode: Router.infer_mode_from_text((proposal.body || "") <> " " <> (proposal.summary || "")),
-            status: "created",
-            proposal_id: proposal_id,
-            project_slug: proposal.project_id,
-            requires_approval: false
-          }) do
+                 title: proposal.title,
+                 objective: proposal.summary || proposal.body,
+                 mode:
+                   Router.infer_mode_from_text(
+                     (proposal.body || "") <> " " <> (proposal.summary || "")
+                   ),
+                 status: "created",
+                 proposal_id: proposal_id,
+                 project_slug: proposal.project_id,
+                 requires_approval: false
+               }) do
             {:ok, ex} -> ex
             _ -> nil
           end
@@ -165,6 +172,7 @@ defmodule Ema.Executions do
       nil ->
         Logger.warning("[Executions] on_execution_completed: no execution #{execution_id}")
         {:error, :not_found}
+
       execution ->
         signal = Router.classify_outcome(result_summary)
         result_path = write_result_artifact(execution, result_summary)
@@ -186,7 +194,7 @@ defmodule Ema.Executions do
     end
   end
 
-    # ── Events ───────────────────────────────────────────────────────────────────
+  # ── Events ───────────────────────────────────────────────────────────────────
 
   def list_events(execution_id) do
     Event
@@ -207,7 +215,9 @@ defmodule Ema.Executions do
     })
     |> Repo.insert()
     |> case do
-      {:ok, _} -> :ok
+      {:ok, _} ->
+        :ok
+
       {:error, reason} ->
         Logger.warning("[Executions] Failed to record event #{type}: #{inspect(reason)}")
         :error
@@ -233,15 +243,25 @@ defmodule Ema.Executions do
     |> Repo.all()
   end
 
-  def complete_agent_session(session_id, result_summary) do
+  def complete_agent_session(session_id, result_summary, metadata \\ nil) do
     case Repo.get_by(AgentSession, id: session_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       session ->
+        merged_metadata =
+          if is_map(metadata) do
+            Map.merge(session.metadata || %{}, metadata)
+          else
+            session.metadata || %{}
+          end
+
         session
         |> AgentSession.changeset(%{
           status: "completed",
           result_summary: result_summary,
-          ended_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          ended_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: merged_metadata
         })
         |> Repo.update()
     end
@@ -251,13 +271,17 @@ defmodule Ema.Executions do
 
   def approve_execution(id) do
     case get_execution(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       execution ->
         case transition(execution, "approved") do
           {:ok, updated} ->
             dispatch_if_ready(updated)
             {:ok, updated}
-          error -> error
+
+          error ->
+            error
         end
     end
   end
@@ -277,6 +301,7 @@ defmodule Ema.Executions do
     case execution.status do
       s when s in ["running", "completed", "failed", "cancelled", "delegated"] ->
         {:ok, execution}
+
       _ ->
         {:ok, approved} = transition(execution, "approved")
         dispatch_if_ready(approved)
@@ -301,11 +326,13 @@ defmodule Ema.Executions do
     fun.(val)
     result
   end
+
   defp tap_ok(error, _fun), do: error
 
   defp dispatch_if_ready(%{requires_approval: false, status: "approved"} = execution) do
     Phoenix.PubSub.broadcast(Ema.PubSub, "executions:dispatch", {:dispatch, execution})
   end
+
   defp dispatch_if_ready(_), do: :ok
 
   # ── Intent Status ─────────────────────────────────────────────────────────────
@@ -340,27 +367,30 @@ defmodule Ema.Executions do
       }
     else
       # Best terminal outcome per mode (completed beats failed for same mode)
-      completed_modes = executions
+      completed_modes =
+        executions
         |> Enum.filter(&(&1.status == "completed"))
-        |> Enum.map(&(&1.mode))
+        |> Enum.map(& &1.mode)
         |> MapSet.new()
 
       # Latest status per mode (for modes_executed map — useful for UI)
-      modes_executed = executions
-        |> Enum.uniq_by(&(&1.mode))
+      modes_executed =
+        executions
+        |> Enum.uniq_by(& &1.mode)
         |> Map.new(fn e -> {e.mode, e.status} end)
 
       active = Enum.find(executions, fn e -> e.status in active_statuses end)
       latest = hd(executions)
 
-      {status, pct} = cond do
-        active != nil                                -> {"in_progress", 50}
-        MapSet.member?(completed_modes, "implement") -> {"completed", 100}
-        MapSet.member?(completed_modes, "outline")   -> {"outlined", 75}
-        MapSet.member?(completed_modes, "research")  -> {"researched", 40}
-        latest.status == "failed"                    -> {"blocked", 0}
-        true -> {execution_to_status(latest.status), estimate_completion(latest.status)}
-      end
+      {status, pct} =
+        cond do
+          active != nil -> {"in_progress", 50}
+          MapSet.member?(completed_modes, "implement") -> {"completed", 100}
+          MapSet.member?(completed_modes, "outline") -> {"outlined", 75}
+          MapSet.member?(completed_modes, "research") -> {"researched", 40}
+          latest.status == "failed" -> {"blocked", 0}
+          true -> {execution_to_status(latest.status), estimate_completion(latest.status)}
+        end
 
       %{
         status: status,
@@ -381,7 +411,6 @@ defmodule Ema.Executions do
   defp estimate_completion("running"), do: 50
   defp estimate_completion("approved"), do: 10
   defp estimate_completion(_), do: 0
-
 
   # Always write a result artifact to disk, regardless of intent_path.
   # Returns the path written, or nil on failure.
@@ -411,13 +440,17 @@ defmodule Ema.Executions do
           :ok ->
             Logger.info("[Executions] Result written to #{path}")
             path
+
           {:error, reason} ->
             Logger.error("[Executions] Failed to write result to #{path}: #{inspect(reason)}")
             nil
         end
 
       {:error, reason} ->
-        Logger.error("[Executions] Failed to create results dir #{results_dir}: #{inspect(reason)}")
+        Logger.error(
+          "[Executions] Failed to create results dir #{results_dir}: #{inspect(reason)}"
+        )
+
         nil
     end
   end
@@ -428,21 +461,36 @@ defmodule Ema.Executions do
 
   defp patch_intent_file(%{intent_path: nil}, _), do: :ok
   defp patch_intent_file(%{intent_path: ""}, _), do: :ok
+
   defp patch_intent_file(execution, result_summary) do
     project_path = resolve_project_path(execution.project_slug) || File.cwd!()
     slug = execution.intent_slug || Path.basename(execution.intent_path)
 
-    case Ema.Executions.IntentFolder.append_log(project_path, slug, execution.id, execution.mode, result_summary) do
-      :ok -> :ok
-      {:error, reason} -> Logger.error("[IntentFolder] append_log failed for #{slug}: #{inspect(reason)}")
+    case Ema.Executions.IntentFolder.append_log(
+           project_path,
+           slug,
+           execution.id,
+           execution.mode,
+           result_summary
+         ) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error("[IntentFolder] append_log failed for #{slug}: #{inspect(reason)}")
     end
 
     case Ema.Executions.IntentFolder.write_result(project_path, slug, result_summary) do
-      :ok -> :ok
-      {:error, reason} -> Logger.error("[IntentFolder] write_result failed for #{slug}: #{inspect(reason)}")
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error("[IntentFolder] write_result failed for #{slug}: #{inspect(reason)}")
     end
   end
+
   defp resolve_project_path(nil), do: nil
+
   defp resolve_project_path(slug) do
     case Ema.Projects.get_project(slug) do
       nil -> nil

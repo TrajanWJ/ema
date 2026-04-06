@@ -23,8 +23,16 @@ defmodule Ema.Org.Invitation do
   def changeset(invitation, attrs) do
     invitation
     |> cast(attrs, [
-      :id, :organization_id, :token, :role, :created_by,
-      :expires_at, :max_uses, :use_count, :used_by, :revoked
+      :id,
+      :organization_id,
+      :token,
+      :role,
+      :created_by,
+      :expires_at,
+      :max_uses,
+      :use_count,
+      :used_by,
+      :revoked
     ])
     |> validate_required([:organization_id, :token, :role, :created_by])
     |> validate_inclusion(:role, Ema.Org.Member.roles())

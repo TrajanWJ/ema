@@ -86,9 +86,7 @@ defmodule Ema.Agents.TelegramChannel do
   def handle_info(:connect, state) do
     case fetch_bot_info(state.bot_token) do
       {:ok, username} ->
-        Logger.info(
-          "TelegramChannel connected for agent #{state.agent_id}, bot @#{username}"
-        )
+        Logger.info("TelegramChannel connected for agent #{state.agent_id}, bot @#{username}")
 
         new_state = %{
           state

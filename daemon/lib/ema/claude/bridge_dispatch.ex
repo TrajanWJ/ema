@@ -294,7 +294,17 @@ defmodule Ema.Claude.BridgeDispatch do
     %{
       request_id: request_id,
       prompt: prompt,
-      opts: Keyword.drop(opts, [:request_id, :callback_topic, :callback_event, :timeout_ms, :max_retries, :proposal_id, :execution_id, :session_id]),
+      opts:
+        Keyword.drop(opts, [
+          :request_id,
+          :callback_topic,
+          :callback_event,
+          :timeout_ms,
+          :max_retries,
+          :proposal_id,
+          :execution_id,
+          :session_id
+        ]),
       callback_topic: Keyword.get(opts, :callback_topic),
       callback_event: Keyword.get(opts, :callback_event, :ai_result),
       proposal_id: Keyword.get(opts, :proposal_id),

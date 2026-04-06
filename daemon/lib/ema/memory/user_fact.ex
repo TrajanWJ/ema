@@ -32,7 +32,17 @@ defmodule Ema.Memory.UserFact do
 
   def changeset(fact, attrs) do
     fact
-    |> cast(attrs, [:id, :user_id, :key, :value, :category, :weight, :source, :project_slug, :metadata])
+    |> cast(attrs, [
+      :id,
+      :user_id,
+      :key,
+      :value,
+      :category,
+      :weight,
+      :source,
+      :project_slug,
+      :metadata
+    ])
     |> validate_required([:id, :key, :value])
     |> validate_inclusion(:category, @categories)
     |> validate_inclusion(:source, @sources)

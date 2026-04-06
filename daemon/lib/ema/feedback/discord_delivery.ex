@@ -66,18 +66,24 @@ defmodule Ema.Feedback.DiscordDelivery do
         :ok
 
       [] ->
-        case DynamicSupervisor.start_child(__MODULE__, {Worker, channel_id: channel_id, name: name}) do
+        case DynamicSupervisor.start_child(
+               __MODULE__,
+               {Worker, channel_id: channel_id, name: name}
+             ) do
           {:ok, _pid} ->
             Logger.info("[DiscordDelivery] Worker started for ##{name} (#{channel_id})")
             :ok
+
           {:error, reason} ->
-            Logger.warning("[DiscordDelivery] Failed to start worker for #{channel_id}: #{inspect(reason)}")
+            Logger.warning(
+              "[DiscordDelivery] Failed to start worker for #{channel_id}: #{inspect(reason)}"
+            )
+
             {:error, reason}
         end
     end
   end
 end
-
 
 defmodule Ema.Feedback.DiscordDelivery.Worker do
   @moduledoc """

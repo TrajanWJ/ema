@@ -98,7 +98,10 @@ defmodule Ema.Evolution.Applier do
       Enum.reduce(rules, state, fn rule, acc ->
         case do_apply_rule(rule.id) do
           {:ok, _} ->
-            Logger.info("Applier: auto-activated rule #{rule.id} from approved proposal #{proposal.id}")
+            Logger.info(
+              "Applier: auto-activated rule #{rule.id} from approved proposal #{proposal.id}"
+            )
+
             %{acc | total_applied: acc.total_applied + 1}
 
           {:error, reason} ->

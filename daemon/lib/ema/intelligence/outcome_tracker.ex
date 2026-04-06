@@ -156,8 +156,11 @@ defmodule Ema.Intelligence.OutcomeTracker do
     dir = Path.dirname(tracker_path())
 
     case File.mkdir_p(dir) do
-      :ok -> :ok
-      {:error, reason} -> Logger.warning("[OutcomeTracker] Could not create dir #{dir}: #{inspect(reason)}")
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[OutcomeTracker] Could not create dir #{dir}: #{inspect(reason)}")
     end
   end
 

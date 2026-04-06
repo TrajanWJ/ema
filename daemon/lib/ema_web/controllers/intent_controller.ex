@@ -83,6 +83,7 @@ defmodule EmaWeb.IntentController do
 
   defp parse_int(nil), do: nil
   defp parse_int(val) when is_integer(val), do: val
+
   defp parse_int(val) when is_binary(val) do
     case Integer.parse(val) do
       {n, _} -> n

@@ -26,8 +26,10 @@ defmodule Ema.Repo.Migrations.CreateAiSessions do
 
     create table(:ai_session_messages, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :session_id, references(:ai_sessions, type: :string, on_delete: :delete_all),
         null: false
+
       add :role, :string, null: false
       add :content, :text
       add :token_count, :integer, default: 0

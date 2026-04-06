@@ -18,8 +18,12 @@ defmodule EmaWeb.EngineController do
       active_seeds
       |> Enum.count(fn seed ->
         case seed.schedule do
-          nil -> false
-          _ when is_nil(seed.last_run_at) -> true
+          nil ->
+            false
+
+          _ when is_nil(seed.last_run_at) ->
+            true
+
           "every_" <> rest ->
             interval_seconds =
               case Integer.parse(rest) do
@@ -30,20 +34,27 @@ defmodule EmaWeb.EngineController do
               end
 
             DateTime.diff(now, seed.last_run_at, :second) >= interval_seconds
-          _ -> false
+
+          _ ->
+            false
         end
       end)
 
     diagnostics = Ema.ProposalEngine.Diagnostics.snapshot()
-    derived = Ema.ProposalEngine.Diagnostics.derived_status(status, length(active_seeds), due_now_count)
 
-    json(conn, %{engine: Map.merge(status, %{
-      active_seed_count: length(active_seeds),
-      due_now_count: due_now_count,
-      diagnostics: diagnostics,
-      derived_state: derived.state,
-      fail_closed: derived.fail_closed
-    })})
+    derived =
+      Ema.ProposalEngine.Diagnostics.derived_status(status, length(active_seeds), due_now_count)
+
+    json(conn, %{
+      engine:
+        Map.merge(status, %{
+          active_seed_count: length(active_seeds),
+          due_now_count: due_now_count,
+          diagnostics: diagnostics,
+          derived_state: derived.state,
+          fail_closed: derived.fail_closed
+        })
+    })
   end
 
   def pause(conn, _params) do

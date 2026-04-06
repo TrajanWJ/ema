@@ -211,7 +211,11 @@ defmodule EmaWeb.ChannelsController do
   end
 
   # POST /api/channels/send
-  def send_cross_platform(conn, %{"platform" => _platform, "channel" => channel_ref, "content" => content}) do
+  def send_cross_platform(conn, %{
+        "platform" => _platform,
+        "channel" => channel_ref,
+        "content" => content
+      }) do
     # Proxy to OpenClaw gateway via HTTP client
     # channel_ref is used as the OpenClaw session ID
     case Ema.OpenClaw.Client.send_message(channel_ref, content) do
@@ -247,6 +251,7 @@ defmodule EmaWeb.ChannelsController do
   end
 
   defp redact_config(nil), do: %{}
+
   defp redact_config(config) when is_map(config) do
     config
     |> Map.drop(["token", "api_key", "secret", "password", "webhook_url"])
@@ -258,6 +263,7 @@ defmodule EmaWeb.ChannelsController do
       end
     end)
   end
+
   defp redact_config(_), do: %{}
 
   defp build_servers(agents) do

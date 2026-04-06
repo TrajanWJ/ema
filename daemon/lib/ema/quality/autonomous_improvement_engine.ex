@@ -88,13 +88,28 @@ defmodule Ema.Quality.AutonomousImprovementEngine do
       if gradient.trend == :degrading do
         cond do
           gradient.gradient.approval_rate < -0.1 ->
-            [%{type: :declining_approval, message: "Proposal approval rate declining — review quality gates"} | suggestions]
+            [
+              %{
+                type: :declining_approval,
+                message: "Proposal approval rate declining — review quality gates"
+              }
+              | suggestions
+            ]
 
           gradient.gradient.completion_rate < -0.1 ->
-            [%{type: :declining_completion, message: "Task completion rate declining — investigate blockers"} | suggestions]
+            [
+              %{
+                type: :declining_completion,
+                message: "Task completion rate declining — investigate blockers"
+              }
+              | suggestions
+            ]
 
           true ->
-            [%{type: :general_degradation, message: "Overall quality trend degrading"} | suggestions]
+            [
+              %{type: :general_degradation, message: "Overall quality trend degrading"}
+              | suggestions
+            ]
         end
       else
         suggestions
@@ -102,7 +117,13 @@ defmodule Ema.Quality.AutonomousImprovementEngine do
 
     suggestions =
       if friction.severity == :high do
-        [%{type: :high_friction, message: "High friction detected (score: #{friction.friction_score})"} | suggestions]
+        [
+          %{
+            type: :high_friction,
+            message: "High friction detected (score: #{friction.friction_score})"
+          }
+          | suggestions
+        ]
       else
         suggestions
       end
@@ -111,7 +132,8 @@ defmodule Ema.Quality.AutonomousImprovementEngine do
   end
 
   defp create_improvement_proposal(suggestion) do
-    id = "prop_imp_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
+    id =
+      "prop_imp_#{System.system_time(:second)}_#{:crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)}"
 
     try do
       Proposals.create_proposal(%{

@@ -23,7 +23,8 @@ defmodule Ema.Intelligence.SupermanContinuityHook do
   Enrich Superman call options with current session context.
   Returns the opts map with `:session_context` added.
   """
-  def before_call(session_id, superman_opts) when is_binary(session_id) and is_map(superman_opts) do
+  def before_call(session_id, superman_opts)
+      when is_binary(session_id) and is_map(superman_opts) do
     context = SessionManager.build_context_summary(session_id)
     Map.put(superman_opts, :session_context, context)
   end

@@ -12,7 +12,8 @@ defmodule Ema.Projects.ProjectWorker do
 
   alias Ema.Projects.ContextDoc
 
-  @cache_ttl_ms 30 * 60 * 1_000  # 30 minutes
+  # 30 minutes
+  @cache_ttl_ms 30 * 60 * 1_000
 
   # ── Public API ───────────────────────────────────────────────────────────────
 
@@ -56,11 +57,13 @@ defmodule Ema.Projects.ProjectWorker do
   @impl true
   def init(project_id) do
     Logger.debug("[ProjectWorker] Started for #{project_id}")
+
     state = %{
       project_id: project_id,
       context_doc_cache: nil,
       last_generated_at: nil
     }
+
     {:ok, state}
   end
 
@@ -91,14 +94,19 @@ defmodule Ema.Projects.ProjectWorker do
 
       case ContextDoc.generate(state.project_id) do
         {:ok, doc} ->
-          new_state = %{state |
-            context_doc_cache: doc,
-            last_generated_at: System.monotonic_time(:millisecond)
+          new_state = %{
+            state
+            | context_doc_cache: doc,
+              last_generated_at: System.monotonic_time(:millisecond)
           }
+
           {:ok, new_state}
 
         {:error, reason} ->
-          Logger.warning("[ProjectWorker] Failed to generate context for #{state.project_id}: #{inspect(reason)}")
+          Logger.warning(
+            "[ProjectWorker] Failed to generate context for #{state.project_id}: #{inspect(reason)}"
+          )
+
           # Return error but preserve old cache if any
           {:error, reason, state}
       end
@@ -123,8 +131,12 @@ defmodule Ema.Projects.ProjectWorker do
                Ema.Projects.ProjectWorkerSupervisor,
                child_spec(project_id)
              ) do
-          {:ok, pid} -> pid
-          {:error, {:already_started, pid}} -> pid
+          {:ok, pid} ->
+            pid
+
+          {:error, {:already_started, pid}} ->
+            pid
+
           {:error, reason} ->
             raise "Failed to start ProjectWorker for #{project_id}: #{inspect(reason)}"
         end

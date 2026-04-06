@@ -8,22 +8,22 @@ defmodule Ema.Pipeline.CampaignFlow do
   @states ~w(created planning researching outlining implementing reviewing completed failed cancelled)
 
   @transitions %{
-    "created"      => ["planning", "cancelled"],
-    "planning"     => ["researching", "outlining", "cancelled"],
-    "researching"  => ["outlining", "failed", "cancelled"],
-    "outlining"    => ["implementing", "failed", "cancelled"],
+    "created" => ["planning", "cancelled"],
+    "planning" => ["researching", "outlining", "cancelled"],
+    "researching" => ["outlining", "failed", "cancelled"],
+    "outlining" => ["implementing", "failed", "cancelled"],
     "implementing" => ["reviewing", "failed", "cancelled"],
-    "reviewing"    => ["completed", "implementing", "failed", "cancelled"],
-    "completed"    => [],
-    "failed"       => ["planning"],
-    "cancelled"    => []
+    "reviewing" => ["completed", "implementing", "failed", "cancelled"],
+    "completed" => [],
+    "failed" => ["planning"],
+    "cancelled" => []
   }
 
   @mode_to_state %{
-    "research"  => "researching",
-    "outline"   => "outlining",
+    "research" => "researching",
+    "outline" => "outlining",
     "implement" => "implementing",
-    "review"    => "reviewing"
+    "review" => "reviewing"
   }
 
   def states, do: @states

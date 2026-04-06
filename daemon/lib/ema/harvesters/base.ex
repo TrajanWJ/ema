@@ -34,14 +34,15 @@ defmodule Ema.Harvesters.Base do
         paused = Keyword.get(opts, :paused, false)
         unless paused, do: schedule_tick(interval)
 
-        {:ok, %{
-          paused: paused,
-          interval: interval,
-          running: false,
-          last_run_at: nil,
-          last_result: nil,
-          run_count: 0
-        }}
+        {:ok,
+         %{
+           paused: paused,
+           interval: interval,
+           running: false,
+           last_run_at: nil,
+           last_result: nil,
+           run_count: 0
+         }}
       end
 
       @impl GenServer
@@ -68,6 +69,7 @@ defmodule Ema.Harvesters.Base do
           run_count: state.run_count,
           interval_ms: state.interval
         }
+
         {:reply, status, state}
       end
 
@@ -104,11 +106,12 @@ defmodule Ema.Harvesters.Base do
       def handle_info({:harvest_complete, result}, state) do
         now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-        state = %{state |
-          running: false,
-          last_run_at: now,
-          last_result: result,
-          run_count: state.run_count + 1
+        state = %{
+          state
+          | running: false,
+            last_run_at: now,
+            last_result: result,
+            run_count: state.run_count + 1
         }
 
         Phoenix.PubSub.broadcast(
@@ -137,13 +140,19 @@ defmodule Ema.Harvesters.Base do
                     entities_created: stats[:entities_created] || 0,
                     metadata: stats[:metadata] || %{}
                   })
-                  %{status: "success", items_found: stats[:items_found] || 0, seeds_created: stats[:seeds_created] || 0}
+
+                  %{
+                    status: "success",
+                    items_found: stats[:items_found] || 0,
+                    seeds_created: stats[:seeds_created] || 0
+                  }
 
                 {:error, reason} ->
                   Ema.Harvesters.complete_run(run, %{
                     status: "failed",
                     error: inspect(reason)
                   })
+
                   %{status: "failed", error: inspect(reason)}
               end
             rescue
@@ -152,6 +161,7 @@ defmodule Ema.Harvesters.Base do
                   status: "failed",
                   error: Exception.message(e)
                 })
+
                 %{status: "failed", error: Exception.message(e)}
             end
 

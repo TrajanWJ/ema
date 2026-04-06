@@ -169,12 +169,14 @@ defmodule Ema.Intelligence.SignalProcessor do
     update_state(state, signal)
   end
 
-  defp process_signal(%{
-         agent_id: agent_id,
-         task_type: task_type,
-         outcome: outcome,
-         duration_ms: duration_ms
-       } = signal) do
+  defp process_signal(
+         %{
+           agent_id: agent_id,
+           task_type: task_type,
+           outcome: outcome,
+           duration_ms: duration_ms
+         } = signal
+       ) do
     Logger.debug("[SignalProcessor] signal #{agent_id}/#{task_type} -> #{outcome}")
     AgentFitnessStore.record_outcome(agent_id, task_type, outcome, duration_ms)
 
@@ -186,7 +188,12 @@ defmodule Ema.Intelligence.SignalProcessor do
 
     # Update PromptVariantStore if a variant_id is present in the signal
     if variant_id = Map.get(signal, :variant_id) do
-      Ema.Intelligence.PromptVariantStore.record_outcome(ucb_agent, ucb_task, variant_id, ucb_outcome)
+      Ema.Intelligence.PromptVariantStore.record_outcome(
+        ucb_agent,
+        ucb_task,
+        variant_id,
+        ucb_outcome
+      )
     end
 
     Phoenix.PubSub.broadcast(Ema.PubSub, "signals:processed", {:signal, signal})

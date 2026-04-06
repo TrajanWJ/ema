@@ -44,35 +44,74 @@ defmodule Ema.BrainDump do
 
           # Create intent folder on disk
           case Ema.Executions.IntentFolder.create(project_path, intent_slug, item.content) do
-            :ok -> :ok
+            :ok ->
+              :ok
+
             {:error, reason} ->
               require Logger
-              Logger.warning("[BrainDump] IntentFolder create failed for #{intent_slug}: #{inspect(reason)}")
+
+              Logger.warning(
+                "[BrainDump] IntentFolder create failed for #{intent_slug}: #{inspect(reason)}"
+              )
           end
 
           # Create execution with semantic anchor
           case Ema.Executions.create(%{
-            title: String.slice(item.content, 0, 120),
-            objective: item.content,
-            mode: "research",
-            status: "created",
-            brain_dump_item_id: item.id,
-            intent_slug: intent_slug,
-            intent_path: intent_path,
-            requires_approval: false
-          }) do
+                 title: String.slice(item.content, 0, 120),
+                 objective: item.content,
+                 mode: "research",
+                 status: "created",
+                 brain_dump_item_id: item.id,
+                 intent_slug: intent_slug,
+                 intent_path: intent_path,
+                 requires_approval: false
+               }) do
             {:ok, ex} ->
               # Auto-approve so dispatch_if_ready fires for requires_approval: false
               Ema.Executions.approve_execution(ex.id)
+
             {:error, reason} ->
               require Logger
-              Logger.warning("[BrainDump] Failed to create execution for item #{item.id}: #{inspect(reason)}")
+
+              Logger.warning(
+                "[BrainDump] Failed to create execution for item #{item.id}: #{inspect(reason)}"
+              )
           end
         end)
+
         Ema.Pipes.EventBus.broadcast_event("brain_dump:item_created", %{
           item_id: item.id,
           content: item.content,
           source: item.source
+        })
+
+        {:ok, item}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Create a brain dump item without triggering async execution creation,
+  intent folder creation, or auto-approval. Used by the IntentionFarmer
+  to load historical intents without spawning agent executions.
+  """
+  def create_item_quiet(attrs) do
+    id = generate_id()
+
+    result =
+      %Item{}
+      |> Item.create_changeset(Map.put(attrs, :id, id))
+      |> Repo.insert()
+
+    case result do
+      {:ok, item} ->
+        Ema.Pipes.EventBus.broadcast_event("brain_dump:item_created", %{
+          item_id: item.id,
+          content: item.content,
+          source: item.source,
+          quiet: true
         })
 
         {:ok, item}

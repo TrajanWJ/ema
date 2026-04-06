@@ -38,7 +38,10 @@ defmodule EmaWeb.CliManagerController do
     json(conn, %{sessions: sessions})
   end
 
-  def create_session(conn, %{"tool_name" => tool_name, "project_path" => project_path, "prompt" => prompt} = params) do
+  def create_session(
+        conn,
+        %{"tool_name" => tool_name, "project_path" => project_path, "prompt" => prompt} = params
+      ) do
     opts = Map.take(params, ["linked_task_id", "linked_proposal_id"])
 
     case SessionRunner.spawn_session(tool_name, project_path, prompt, opts) do

@@ -21,12 +21,10 @@ defmodule EmaWeb.ProjectContextTest do
                "executions" => _,
                "proposals" => _,
                "tasks" => _,
-               "stats" => stats
+               "generated_at" => _
              } = json_response(conn, 200)
 
       assert proj["slug"] == project.slug
-      assert is_integer(stats["total_executions"])
-      assert is_integer(stats["active_tasks"])
     end
 
     test "returns 404 for unknown slug", %{conn: conn} do
@@ -34,22 +32,16 @@ defmodule EmaWeb.ProjectContextTest do
       assert conn.status == 404
     end
 
-    test "includes active_campaign field", %{conn: conn, project: project} do
+    test "includes brain_dump field", %{conn: conn, project: project} do
       conn = get(conn, "/api/projects/#{project.slug}/context")
       body = json_response(conn, 200)
-      assert Map.has_key?(body, "active_campaign")
+      assert Map.has_key?(body, "brain_dump")
     end
 
-    test "active_campaign is nil when no running executions", %{conn: conn, project: project} do
+    test "includes vault field", %{conn: conn, project: project} do
       conn = get(conn, "/api/projects/#{project.slug}/context")
       body = json_response(conn, 200)
-      assert body["active_campaign"] == nil
-    end
-
-    test "includes intent_threads field", %{conn: conn, project: project} do
-      conn = get(conn, "/api/projects/#{project.slug}/context")
-      body = json_response(conn, 200)
-      assert is_list(body["intent_threads"])
+      assert Map.has_key?(body, "vault")
     end
   end
 end

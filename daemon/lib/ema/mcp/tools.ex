@@ -376,7 +376,8 @@ defmodule Ema.MCP.Tools do
          logged_at: DateTime.utc_now() |> DateTime.to_iso8601(),
          insights: Map.get(body, "insights", []),
          patterns_detected: Map.get(body, "patterns_detected", []),
-         message: "Outcome logged. #{length(Map.get(body, "patterns_detected", []))} pattern(s) detected."
+         message:
+           "Outcome logged. #{length(Map.get(body, "patterns_detected", []))} pattern(s) detected."
        }}
     else
       {:error, reason} ->
@@ -512,8 +513,11 @@ defmodule Ema.MCP.Tools do
              receive_timeout: 5_000,
              headers: [{"x-mcp-internal", "true"}]
            ) do
-        {:ok, _} -> :ok
-        {:error, reason} -> Logger.debug("[MCP Tools] Cost log failed (non-critical): #{inspect(reason)}")
+        {:ok, _} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.debug("[MCP Tools] Cost log failed (non-critical): #{inspect(reason)}")
       end
     end)
   end

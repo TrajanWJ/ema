@@ -9,9 +9,14 @@ defmodule EmaWeb.PromptController do
   def index(conn, params) do
     prompts =
       cond do
-        truthy_param?(params["all"]) -> Store.list_prompts()
-        is_binary(params["kind"]) and params["kind"] != "" -> Store.list_prompts_by_kind(params["kind"])
-        true -> Store.list_latest_per_kind()
+        truthy_param?(params["all"]) ->
+          Store.list_prompts()
+
+        is_binary(params["kind"]) and params["kind"] != "" ->
+          Store.list_prompts_by_kind(params["kind"])
+
+        true ->
+          Store.list_latest_per_kind()
       end
 
     serialized = PromptJSON.prompts(prompts)

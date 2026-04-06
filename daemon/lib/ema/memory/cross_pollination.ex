@@ -22,7 +22,14 @@ defmodule Ema.Memory.CrossPollination do
 
   def changeset(cp, attrs) do
     cp
-    |> cast(attrs, [:id, :source_project_slug, :target_project_slug, :fact_id, :rationale, :applied_at])
+    |> cast(attrs, [
+      :id,
+      :source_project_slug,
+      :target_project_slug,
+      :fact_id,
+      :rationale,
+      :applied_at
+    ])
     |> validate_required([:id, :source_project_slug, :target_project_slug, :fact_id])
   end
 end

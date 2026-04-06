@@ -92,7 +92,9 @@ defmodule Ema.Projects do
 
     # ── Campaigns ──────────────────────────────────────────────────────────────
     campaigns = Ema.Campaigns.list_campaigns_for_project(project.id)
-    active_campaign = Enum.find(campaigns, fn c -> c.status in ["forming", "ready", "running"] end)
+
+    active_campaign =
+      Enum.find(campaigns, fn c -> c.status in ["forming", "ready", "running"] end)
 
     active_campaign_flow =
       if active_campaign,
@@ -103,6 +105,7 @@ defmodule Ema.Projects do
     campaigns_with_runs =
       Enum.map(campaigns, fn c ->
         recent_runs = Ema.Campaigns.list_runs_for_campaign(c.id) |> Enum.take(3)
+
         %{
           id: c.id,
           name: c.name,
@@ -110,19 +113,21 @@ defmodule Ema.Projects do
           status: c.status,
           run_count: c.run_count,
           step_count: length(c.steps || []),
-          steps: Enum.map(c.steps || [], fn s ->
-            %{id: s["id"], label: s["label"], type: s["type"]}
-          end),
+          steps:
+            Enum.map(c.steps || [], fn s ->
+              %{id: s["id"], label: s["label"], type: s["type"]}
+            end),
           inserted_at: c.inserted_at,
-          recent_runs: Enum.map(recent_runs, fn r ->
-            %{
-              id: r.id,
-              name: r.name,
-              status: r.status,
-              started_at: r.started_at,
-              completed_at: r.completed_at
-            }
-          end)
+          recent_runs:
+            Enum.map(recent_runs, fn r ->
+              %{
+                id: r.id,
+                name: r.name,
+                status: r.status,
+                started_at: r.started_at,
+                completed_at: r.completed_at
+              }
+            end)
         }
       end)
 
@@ -130,7 +135,7 @@ defmodule Ema.Projects do
     all_execs = Ema.Executions.list_executions(project_slug: project.slug)
     recent_execs = Enum.take(all_execs, 10)
     success_count = Enum.count(all_execs, &(&1.status == "completed"))
-    failed_count  = Enum.count(all_execs, &(&1.status == "failed"))
+    failed_count = Enum.count(all_execs, &(&1.status == "failed"))
     running_count = Enum.count(all_execs, &(&1.status in ["running", "approved", "delegated"]))
 
     success_rate =
@@ -146,15 +151,16 @@ defmodule Ema.Projects do
 
     reflexion_summary = %{
       total_lessons: length(reflexion_entries),
-      recent: Enum.map(reflexion_entries, fn e ->
-        %{
-          agent: e.agent,
-          domain: e.domain,
-          lesson: String.slice(e.lesson, 0, 300),
-          outcome_status: e.outcome_status,
-          recorded_at: e.inserted_at
-        }
-      end)
+      recent:
+        Enum.map(reflexion_entries, fn e ->
+          %{
+            agent: e.agent,
+            domain: e.domain,
+            lesson: String.slice(e.lesson, 0, 300),
+            outcome_status: e.outcome_status,
+            recorded_at: e.inserted_at
+          }
+        end)
     }
 
     # ── Open Gaps (blockers) ───────────────────────────────────────────────────
@@ -220,7 +226,13 @@ defmodule Ema.Projects do
         by_status: Map.new(task_by_status, fn {k, v} -> {k, length(v)} end),
         recent:
           Enum.map(recent_tasks, fn t ->
-            %{id: t.id, title: t.title, status: t.status, priority: t.priority, updated_at: t.updated_at}
+            %{
+              id: t.id,
+              title: t.title,
+              status: t.status,
+              priority: t.priority,
+              updated_at: t.updated_at
+            }
           end)
       },
       proposals: %{
@@ -229,6 +241,7 @@ defmodule Ema.Projects do
         recent:
           Enum.map(recent_proposals, fn p ->
             body_preview = if p.body, do: String.slice(p.body, 0, 200), else: nil
+
             %{
               id: p.id,
               title: p.title,
@@ -266,6 +279,7 @@ defmodule Ema.Projects do
         recent:
           Enum.map(recent_execs, fn e ->
             result_summary = get_in(e.metadata || %{}, ["result_summary"])
+
             %{
               id: e.id,
               title: e.title,
@@ -274,7 +288,8 @@ defmodule Ema.Projects do
               intent_slug: e.intent_slug,
               project_slug: e.project_slug,
               requires_approval: e.requires_approval,
-              result_summary: if(result_summary, do: String.slice(result_summary, 0, 300), else: nil),
+              result_summary:
+                if(result_summary, do: String.slice(result_summary, 0, 300), else: nil),
               result_path: e.result_path,
               started_at: e.inserted_at,
               completed_at: e.completed_at
@@ -289,7 +304,13 @@ defmodule Ema.Projects do
           critical_gaps
           |> Enum.take(5)
           |> Enum.map(fn g ->
-            %{id: g.id, title: g.title, severity: g.severity, gap_type: g.gap_type, source: g.source}
+            %{
+              id: g.id,
+              title: g.title,
+              severity: g.severity,
+              gap_type: g.gap_type,
+              source: g.source
+            }
           end)
       },
       health: %{

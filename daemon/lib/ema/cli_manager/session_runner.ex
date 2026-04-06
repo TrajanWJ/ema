@@ -52,9 +52,12 @@ defmodule Ema.CliManager.SessionRunner do
 
       case DynamicSupervisor.start_child(
              Ema.CliManager.RunnerSupervisor,
-             {__MODULE__, session_id: session.id, tool: tool, project_path: project_path, prompt: prompt}
+             {__MODULE__,
+              session_id: session.id, tool: tool, project_path: project_path, prompt: prompt}
            ) do
-        {:ok, _pid} -> {:ok, session}
+        {:ok, _pid} ->
+          {:ok, session}
+
         {:error, reason} ->
           CliManager.update_session(session, %{"status" => "crashed"})
           {:error, reason}

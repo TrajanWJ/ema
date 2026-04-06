@@ -65,11 +65,13 @@ defmodule Ema.Orchestration.RoutingEngine do
     new_state = %{
       state
       | total_routed: state.total_routed + 1,
-        strategy_counts:
-          Map.update(state.strategy_counts, strategy, 1, &(&1 + 1)),
+        strategy_counts: Map.update(state.strategy_counts, strategy, 1, &(&1 + 1)),
         recent_decisions:
           Enum.take(
-            [%{task_type: task_type, strategy: strategy, at: DateTime.utc_now()} | state.recent_decisions],
+            [
+              %{task_type: task_type, strategy: strategy, at: DateTime.utc_now()}
+              | state.recent_decisions
+            ],
             50
           )
     }
@@ -98,16 +100,19 @@ defmodule Ema.Orchestration.RoutingEngine do
 
   defp select_agent(agents, task_type, :best_fit) do
     agents
-    |> Enum.max_by(fn agent ->
-      case AgentFitnessStore.get_fitness(agent.id) do
-        {:ok, fitness} ->
-          affinity = Map.get(fitness.task_affinity, task_type, 0.5)
-          fitness.composite_score * 0.5 + affinity * 0.5
+    |> Enum.max_by(
+      fn agent ->
+        case AgentFitnessStore.get_fitness(agent.id) do
+          {:ok, fitness} ->
+            affinity = Map.get(fitness.task_affinity, task_type, 0.5)
+            fitness.composite_score * 0.5 + affinity * 0.5
 
-        _ ->
-          0.5
-      end
-    end, fn -> nil end)
+          _ ->
+            0.5
+        end
+      end,
+      fn -> nil end
+    )
   end
 
   defp select_agent(agents, _task_type, :round_robin) do
@@ -116,12 +121,15 @@ defmodule Ema.Orchestration.RoutingEngine do
 
   defp select_agent(agents, _task_type, :least_loaded) do
     agents
-    |> Enum.min_by(fn agent ->
-      case AgentFitnessStore.get_fitness(agent.id) do
-        {:ok, fitness} -> fitness.total_runs
-        _ -> 0
-      end
-    end, fn -> nil end)
+    |> Enum.min_by(
+      fn agent ->
+        case AgentFitnessStore.get_fitness(agent.id) do
+          {:ok, fitness} -> fitness.total_runs
+          _ -> 0
+        end
+      end,
+      fn -> nil end
+    )
   end
 
   defp select_agent(agents, task_type, :specialized) do

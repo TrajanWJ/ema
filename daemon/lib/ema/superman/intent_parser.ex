@@ -51,7 +51,12 @@ defmodule Ema.Superman.IntentParser do
           [key, raw_value] = String.split(trimmed, ":", parts: 2)
           parsed_value = parse_frontmatter_value(raw_value)
           next_key = if parsed_value == :list, do: key, else: nil
-          next_acc = if parsed_value == :list, do: Map.put(acc, key, []), else: Map.put(acc, key, parsed_value)
+
+          next_acc =
+            if parsed_value == :list,
+              do: Map.put(acc, key, []),
+              else: Map.put(acc, key, parsed_value)
+
           {next_acc, next_key}
 
         true ->
@@ -142,7 +147,14 @@ defmodule Ema.Superman.IntentParser do
   end
 
   defp build_nodes("prior_outcomes", content, title, base_tags, inserted_at) do
-    build_list_like_nodes("prior_outcomes", "Prior Outcome", content, title, base_tags, inserted_at)
+    build_list_like_nodes(
+      "prior_outcomes",
+      "Prior Outcome",
+      content,
+      title,
+      base_tags,
+      inserted_at
+    )
   end
 
   defp build_nodes(section, content, title, base_tags, inserted_at) do

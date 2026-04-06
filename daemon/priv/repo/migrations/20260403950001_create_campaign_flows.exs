@@ -3,13 +3,13 @@ defmodule Ema.Repo.Migrations.CreateCampaignFlows do
 
   def change do
     create table(:campaign_flows, primary_key: false) do
-      add :id,               :string, primary_key: true
-      add :campaign_id,      :string, null: false
-      add :title,            :string
-      add :state,            :string, null: false, default: "forming"
+      add :id, :string, primary_key: true
+      add :campaign_id, :string, null: false
+      add :title, :string
+      add :state, :string, null: false, default: "forming"
       add :state_entered_at, :utc_datetime
-      add :state_metadata,   :text,   default: "{}"
-      add :state_history,    :text,   default: "[]"
+      add :state_metadata, :text, default: "{}"
+      add :state_history, :text, default: "[]"
 
       timestamps(type: :utc_datetime)
     end

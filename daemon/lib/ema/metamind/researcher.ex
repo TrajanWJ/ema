@@ -69,7 +69,8 @@ defmodule Ema.MetaMind.Researcher do
 
   @impl true
   def handle_call(:stats, _from, state) do
-    {:reply, Map.take(state, [:paused, :last_run_at, :total_discoveries, :topics_researched]), state}
+    {:reply, Map.take(state, [:paused, :last_run_at, :total_discoveries, :topics_researched]),
+     state}
   end
 
   @impl true
@@ -97,8 +98,7 @@ defmodule Ema.MetaMind.Researcher do
 
     timer_ref = schedule_tick(state.interval)
 
-    {:noreply,
-     %{state | timer_ref: timer_ref, last_run_at: DateTime.utc_now()}}
+    {:noreply, %{state | timer_ref: timer_ref, last_run_at: DateTime.utc_now()}}
   end
 
   @impl true
@@ -141,7 +141,11 @@ defmodule Ema.MetaMind.Researcher do
               category: template["category"] || "technique",
               tags: (template["tags"] || []) ++ ["researched", "auto-discovered"],
               template_vars: template["template_vars"] || [],
-              metadata: %{"source" => "researcher", "topic" => topic, "rationale" => template["rationale"]}
+              metadata: %{
+                "source" => "researcher",
+                "topic" => topic,
+                "rationale" => template["rationale"]
+              }
             })
           end)
 

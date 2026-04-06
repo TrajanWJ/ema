@@ -34,7 +34,10 @@ defmodule Ema.Intelligence.BudgetEnforcer do
 
   @doc "Notify of a spend update. Melts fuse if over daily limit."
   def notify_spend(current_usd, daily_limit_usd) when current_usd >= daily_limit_usd do
-    Logger.warning("[BudgetEnforcer] Daily budget exceeded: $#{current_usd} >= $#{daily_limit_usd}")
+    Logger.warning(
+      "[BudgetEnforcer] Daily budget exceeded: $#{current_usd} >= $#{daily_limit_usd}"
+    )
+
     :fuse.melt(@fuse_name)
     :ok
   rescue

@@ -146,8 +146,10 @@ defmodule Ema.Babysitter.TickPolicy do
 
   def global_config do
     %{
-      quieting_factor: get_float("babysitter.global.quieting_factor", @global_defaults.quieting_factor),
-      token_pressure: get_float("babysitter.global.token_pressure", @global_defaults.token_pressure)
+      quieting_factor:
+        get_float("babysitter.global.quieting_factor", @global_defaults.quieting_factor),
+      token_pressure:
+        get_float("babysitter.global.token_pressure", @global_defaults.token_pressure)
     }
   end
 
@@ -177,16 +179,35 @@ defmodule Ema.Babysitter.TickPolicy do
 
   def configure_stream(stream, attrs) when is_atom(stream) and is_map(attrs) do
     Enum.each(attrs, fn
-      {:mode, value} when not is_nil(value) -> Settings.set(key(stream, :mode), normalize_mode(value))
-      {:min_ms, value} -> maybe_put_int(key(stream, :min_ms), value)
-      {:max_ms, value} -> maybe_put_int(key(stream, :max_ms), value)
-      {:base_ms, value} -> maybe_put_int(key(stream, :base_ms), value)
-      {:manual_ms, value} -> maybe_put_int(key(stream, :manual_ms), value)
-      {:window_s, value} -> maybe_put_int(key(stream, :window_s), value)
-      {:hot_threshold, value} -> maybe_put_float(key(stream, :hot_threshold), value)
-      {:hysteresis_pct, value} -> maybe_put_float(key(stream, :hysteresis_pct), value)
-      {:step_pct, value} -> maybe_put_float(key(stream, :step_pct), value)
-      _ -> :ok
+      {:mode, value} when not is_nil(value) ->
+        Settings.set(key(stream, :mode), normalize_mode(value))
+
+      {:min_ms, value} ->
+        maybe_put_int(key(stream, :min_ms), value)
+
+      {:max_ms, value} ->
+        maybe_put_int(key(stream, :max_ms), value)
+
+      {:base_ms, value} ->
+        maybe_put_int(key(stream, :base_ms), value)
+
+      {:manual_ms, value} ->
+        maybe_put_int(key(stream, :manual_ms), value)
+
+      {:window_s, value} ->
+        maybe_put_int(key(stream, :window_s), value)
+
+      {:hot_threshold, value} ->
+        maybe_put_float(key(stream, :hot_threshold), value)
+
+      {:hysteresis_pct, value} ->
+        maybe_put_float(key(stream, :hysteresis_pct), value)
+
+      {:step_pct, value} ->
+        maybe_put_float(key(stream, :step_pct), value)
+
+      _ ->
+        :ok
     end)
 
     :ok
@@ -269,7 +290,10 @@ defmodule Ema.Babysitter.TickPolicy do
         |> Kernel.*(1.0 + max(globals.token_pressure, 0.0))
 
       target = clamp(round(base_target * quiet_scale), profile.min_ms, profile.max_ms)
-      current = clamp(Map.get(runtime, :current_ms, profile.base_ms), profile.min_ms, profile.max_ms)
+
+      current =
+        clamp(Map.get(runtime, :current_ms, profile.base_ms), profile.min_ms, profile.max_ms)
+
       hysteresis = max(1_000, round(current * profile.hysteresis_pct))
       step = max(1_000, round(span * profile.step_pct))
 
@@ -333,7 +357,10 @@ defmodule Ema.Babysitter.TickPolicy do
     active_sessions = num(Map.get(signals, :active_sessions, 0))
     pending_tasks = num(Map.get(signals, :pending_tasks, 0))
 
-    Float.round(event_count * 1.0 + recent_count * 1.5 + active_sessions * 0.75 + pending_tasks * 0.25, 3)
+    Float.round(
+      event_count * 1.0 + recent_count * 1.5 + active_sessions * 0.75 + pending_tasks * 0.25,
+      3
+    )
   end
 
   defp effective_interval(profile, value) do
@@ -363,50 +390,74 @@ defmodule Ema.Babysitter.TickPolicy do
 
   defp get_int(key, default) do
     case Settings.get(key) do
-      nil -> default
-      value when is_integer(value) -> value
+      nil ->
+        default
+
+      value when is_integer(value) ->
+        value
+
       value when is_binary(value) ->
         case Integer.parse(value) do
           {n, ""} -> n
           _ -> default
         end
-      _ -> default
+
+      _ ->
+        default
     end
   end
 
   defp get_float(key, default) do
     case Settings.get(key) do
-      nil -> default
-      value when is_float(value) -> value
-      value when is_integer(value) -> value / 1
+      nil ->
+        default
+
+      value when is_float(value) ->
+        value
+
+      value when is_integer(value) ->
+        value / 1
+
       value when is_binary(value) ->
         case Float.parse(value) do
           {n, ""} -> n
           _ -> default
         end
-      _ -> default
+
+      _ ->
+        default
     end
   end
 
   defp maybe_put_int(_key, nil), do: :ok
-  defp maybe_put_int(key, value) when is_integer(value), do: Settings.set(key, Integer.to_string(value))
+
+  defp maybe_put_int(key, value) when is_integer(value),
+    do: Settings.set(key, Integer.to_string(value))
+
   defp maybe_put_int(key, value) when is_binary(value) do
     case Integer.parse(value) do
       {n, ""} -> Settings.set(key, Integer.to_string(n))
       _ -> :ok
     end
   end
+
   defp maybe_put_int(_key, _value), do: :ok
 
   defp maybe_put_float(_key, nil), do: :ok
-  defp maybe_put_float(key, value) when is_float(value), do: Settings.set(key, :erlang.float_to_binary(value, decimals: 3))
-  defp maybe_put_float(key, value) when is_integer(value), do: Settings.set(key, :erlang.float_to_binary(value / 1, decimals: 3))
+
+  defp maybe_put_float(key, value) when is_float(value),
+    do: Settings.set(key, :erlang.float_to_binary(value, decimals: 3))
+
+  defp maybe_put_float(key, value) when is_integer(value),
+    do: Settings.set(key, :erlang.float_to_binary(value / 1, decimals: 3))
+
   defp maybe_put_float(key, value) when is_binary(value) do
     case Float.parse(value) do
       {n, ""} -> Settings.set(key, :erlang.float_to_binary(n, decimals: 3))
       _ -> :ok
     end
   end
+
   defp maybe_put_float(_key, _value), do: :ok
 
   defp clamp(value, min_value, max_value) when is_integer(value) do

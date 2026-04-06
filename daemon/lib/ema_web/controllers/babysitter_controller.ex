@@ -33,7 +33,8 @@ defmodule EmaWeb.BabysitterController do
         category: topology.stream_category(),
         active_streams: Enum.map(topology.active_streams(), &serialize_stream/1),
         dormant_streams: Enum.map(topology.dormant_streams(), &serialize_stream/1),
-        delivery_only_channels: Enum.map(topology.delivery_only_channels(), &serialize_delivery_channel/1),
+        delivery_only_channels:
+          Enum.map(topology.delivery_only_channels(), &serialize_delivery_channel/1),
         control_topics: topology.control_topics()
       }
     })
@@ -86,12 +87,14 @@ defmodule EmaWeb.BabysitterController do
   end
 
   defp parse_int(val) when is_integer(val), do: val
+
   defp parse_int(val) when is_binary(val) do
     case Integer.parse(val) do
       {n, ""} -> n
       _ -> nil
     end
   end
+
   defp parse_int(_), do: nil
 
   defp serialize_stream(stream) do

@@ -15,7 +15,8 @@ defmodule Ema.Prompts.OptimizerTest do
     friday = DateTime.from_naive!(~N[2026-04-10 12:30:00], "Etc/UTC")
     sunday_after_run = DateTime.from_naive!(~N[2026-04-12 03:00:00], "Etc/UTC")
 
-    assert Optimizer.next_run_after(friday) == DateTime.from_naive!(~N[2026-04-12 02:00:00], "Etc/UTC")
+    assert Optimizer.next_run_after(friday) ==
+             DateTime.from_naive!(~N[2026-04-12 02:00:00], "Etc/UTC")
 
     assert Optimizer.next_run_after(sunday_after_run) ==
              DateTime.from_naive!(~N[2026-04-19 02:00:00], "Etc/UTC")
@@ -23,7 +24,9 @@ defmodule Ema.Prompts.OptimizerTest do
 
   test "creates testing variants for underperforming prompts" do
     kind = unique_kind()
-    {:ok, control} = Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
+
+    {:ok, control} =
+      Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
 
     insert_execution_for_prompt(control.id, "completed")
     insert_execution_for_prompt(control.id, "failed")
@@ -55,7 +58,9 @@ defmodule Ema.Prompts.OptimizerTest do
 
   test "promotes the winning variant after seven days of test data" do
     kind = unique_kind()
-    {:ok, control} = Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
+
+    {:ok, control} =
+      Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
 
     {:ok, variant_a} =
       Store.create_new_version(kind, "variant a",
@@ -75,7 +80,9 @@ defmodule Ema.Prompts.OptimizerTest do
 
     old_time = DateTime.from_naive!(~N[2026-04-04 00:00:00], "Etc/UTC")
 
-    Repo.update_all(from(p in Ema.Prompts.Prompt, where: p.id in ^[variant_a.id, variant_b.id]), set: [inserted_at: old_time])
+    Repo.update_all(from(p in Ema.Prompts.Prompt, where: p.id in ^[variant_a.id, variant_b.id]),
+      set: [inserted_at: old_time]
+    )
 
     insert_execution_for_prompt(control.id, "completed")
     insert_execution_for_prompt(control.id, "failed")
@@ -121,7 +128,9 @@ defmodule Ema.Prompts.OptimizerTest do
     })
     |> Repo.insert!()
     |> then(fn execution ->
-      Repo.update_all(from(e in Execution, where: e.id == ^execution.id), set: [inserted_at: now, updated_at: now])
+      Repo.update_all(from(e in Execution, where: e.id == ^execution.id),
+        set: [inserted_at: now, updated_at: now]
+      )
     end)
   end
 end

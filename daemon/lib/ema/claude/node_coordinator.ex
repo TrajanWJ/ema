@@ -102,7 +102,9 @@ defmodule Ema.Claude.NodeCoordinator do
   The callback receives streaming chunks: {:chunk, data} | {:done, result} | {:error, reason}.
   """
   def execute_remote(node, prompt, task_type, opts \\ []) do
-    GenServer.call(__MODULE__, {:execute_remote, node, prompt, task_type, opts},
+    GenServer.call(
+      __MODULE__,
+      {:execute_remote, node, prompt, task_type, opts},
       @remote_call_timeout_ms
     )
   end
@@ -164,7 +166,7 @@ defmodule Ema.Claude.NodeCoordinator do
     # Seed local state
     state = %State{
       local_node: Node.self(),
-      local_providers: [],
+      local_providers: local_task_types_from_config(),
       local_load: %{active_sessions: 0, queue_depth: 0},
       remote_nodes: %{},
       pending_remote: %{},
@@ -211,7 +213,9 @@ defmodule Ema.Claude.NodeCoordinator do
 
       {:error, reason} ->
         # Failed immediately — retry fallback
-        {reply, state} = handle_remote_failure(task_id, target_node, prompt, task_type, opts, reason, state)
+        {reply, state} =
+          handle_remote_failure(task_id, target_node, prompt, task_type, opts, reason, state)
+
         {:reply, reply, state}
     end
   end
@@ -253,7 +257,10 @@ defmodule Ema.Claude.NodeCoordinator do
 
   @impl true
   def handle_cast({:capability_advertisement, node_info}, state) do
-    Logger.debug("[NodeCoordinator] Capability advertisement from #{node_info.node}: #{inspect(node_info.providers)}")
+    Logger.debug(
+      "[NodeCoordinator] Capability advertisement from #{node_info.node}: #{inspect(node_info.providers)}"
+    )
+
     state = upsert_remote_node(state, node_info)
     {:noreply, state}
   end
@@ -361,7 +368,9 @@ defmodule Ema.Claude.NodeCoordinator do
 
   # Node went down (Erlang distribution event)
   def handle_info({:nodedown, node, _info}, state) do
-    Logger.warning("[NodeCoordinator] Node down: #{node} — marking :disconnected (may be sleeping)")
+    Logger.warning(
+      "[NodeCoordinator] Node down: #{node} — marking :disconnected (may be sleeping)"
+    )
 
     # Mark as disconnected, NOT dead — laptops sleep all the time
     state =
@@ -389,6 +398,7 @@ defmodule Ema.Claude.NodeCoordinator do
         case :net_adm.ping(node) do
           :pong ->
             Logger.info("[NodeCoordinator] Probe succeeded for #{node} — connection restored")
+
           :pang ->
             # Still down — schedule next probe (back off slightly)
             Process.send_after(self(), {:probe_node, node}, @reconnect_interval_ms * 2)
@@ -537,16 +547,39 @@ defmodule Ema.Claude.NodeCoordinator do
   end
 
   defp execute_locally(prompt, task_type, opts) do
-    # Delegate to local SmartRouter if available, otherwise direct bridge call
     try do
-      if Code.ensure_loaded?(Ema.Claude.SmartRouter) do
-        Ema.Claude.SmartRouter.execute(prompt, task_type, opts)
-      else
-        Ema.Claude.Bridge.run(prompt, opts)
-      end
+      Ema.Claude.AI.run(
+        prompt,
+        Keyword.merge(
+          opts,
+          task_type: task_type,
+          provider_id: provider_for_task(task_type),
+          allow_fallback: true
+        )
+      )
     rescue
       e -> {:error, Exception.message(e)}
     end
+  end
+
+  defp provider_for_task(task_type) do
+    case task_type do
+      t when t in [:research, :summarization] -> "openclaw-vm"
+      :code_generation -> "codex-local"
+      :code_review -> "claude-local"
+      _ -> "claude-local"
+    end
+  end
+
+  defp local_task_types_from_config do
+    Application.get_env(:ema, Ema.Claude, [])
+    |> Keyword.get(:providers, [])
+    |> Enum.flat_map(fn provider ->
+      provider
+      |> Map.get(:capabilities, %{})
+      |> Map.get(:task_types, [])
+    end)
+    |> Enum.uniq()
   end
 
   defp handle_remote_failure(task_id, _failed_node, prompt, task_type, opts, reason, state) do
@@ -582,7 +615,10 @@ defmodule Ema.Claude.NodeCoordinator do
       Enum.split_with(state.pending_remote, fn {_id, %{node: n}} -> n == node end)
 
     for {task_id, %{from: from}} <- to_fail do
-      Logger.warning("[NodeCoordinator] Failing pending task #{task_id} — node #{node} disconnected")
+      Logger.warning(
+        "[NodeCoordinator] Failing pending task #{task_id} — node #{node} disconnected"
+      )
+
       GenServer.reply(from, {:error, :node_disconnected})
     end
 

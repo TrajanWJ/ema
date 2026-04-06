@@ -38,12 +38,13 @@ defmodule Ema.Intelligence.GitWatcher do
     }
 
     # Initialize last_seen with current HEAD for each repo
-    state = Enum.reduce(paths, state, fn path, acc ->
-      case git_head_sha(path) do
-        {:ok, sha} -> put_in(acc, [:last_seen, path], sha)
-        _ -> acc
-      end
-    end)
+    state =
+      Enum.reduce(paths, state, fn path, acc ->
+        case git_head_sha(path) do
+          {:ok, sha} -> put_in(acc, [:last_seen, path], sha)
+          _ -> acc
+        end
+      end)
 
     schedule_poll()
     Logger.info("[GitWatcher] Watching #{length(paths)} repos")
@@ -159,7 +160,9 @@ defmodule Ema.Intelligence.GitWatcher do
             Ema.Intelligence.WikiSync.analyze(event)
           end)
 
-          Logger.info("[GitWatcher] Recorded commit #{String.slice(sha, 0, 8)} in #{Path.basename(repo_path)}")
+          Logger.info(
+            "[GitWatcher] Recorded commit #{String.slice(sha, 0, 8)} in #{Path.basename(repo_path)}"
+          )
 
         {:error, reason} ->
           Logger.warning("[GitWatcher] Failed to record commit #{sha}: #{inspect(reason)}")

@@ -162,7 +162,14 @@ defmodule Ema.Intelligence.SessionMemory do
 
     fragments =
       if session.summary && String.length(session.summary) > 10 do
-        [Map.merge(base, %{fragment_type: "insight", content: session.summary, importance_score: 0.6}) | fragments]
+        [
+          Map.merge(base, %{
+            fragment_type: "insight",
+            content: session.summary,
+            importance_score: 0.6
+          })
+          | fragments
+        ]
       else
         fragments
       end
@@ -170,7 +177,11 @@ defmodule Ema.Intelligence.SessionMemory do
     fragments =
       if session.token_count && session.token_count > 50_000 do
         content = "Large session (#{session.token_count} tokens) on #{session.project_path}"
-        [Map.merge(base, %{fragment_type: "insight", content: content, importance_score: 0.4}) | fragments]
+
+        [
+          Map.merge(base, %{fragment_type: "insight", content: content, importance_score: 0.4})
+          | fragments
+        ]
       else
         fragments
       end

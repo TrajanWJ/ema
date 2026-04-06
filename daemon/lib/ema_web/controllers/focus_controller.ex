@@ -48,7 +48,9 @@ defmodule EmaWeb.FocusController do
 
   def stop(conn, _params) do
     case Timer.stop_session() do
-      {:ok, session} -> json(conn, serialize_session(session))
+      {:ok, session} ->
+        json(conn, serialize_session(session))
+
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -58,7 +60,9 @@ defmodule EmaWeb.FocusController do
 
   def pause(conn, _params) do
     case Timer.pause() do
-      :ok -> json(conn, %{status: "paused"})
+      :ok ->
+        json(conn, %{status: "paused"})
+
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -68,7 +72,9 @@ defmodule EmaWeb.FocusController do
 
   def resume(conn, _params) do
     case Timer.resume() do
-      :ok -> json(conn, %{status: "focusing"})
+      :ok ->
+        json(conn, %{status: "focusing"})
+
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -78,7 +84,9 @@ defmodule EmaWeb.FocusController do
 
   def take_break(conn, _params) do
     case Timer.take_break() do
-      :ok -> json(conn, %{status: "break"})
+      :ok ->
+        json(conn, %{status: "break"})
+
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -88,7 +96,9 @@ defmodule EmaWeb.FocusController do
 
   def resume_work(conn, _params) do
     case Timer.resume_work() do
-      :ok -> json(conn, %{status: "focusing"})
+      :ok ->
+        json(conn, %{status: "focusing"})
+
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)

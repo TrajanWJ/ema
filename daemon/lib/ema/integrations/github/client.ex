@@ -43,7 +43,8 @@ defmodule Ema.Integrations.GitHub.Client do
     ]
   end
 
-  defp handle_response({:ok, %Req.Response{status: status, body: body}}) when status in 200..299 do
+  defp handle_response({:ok, %Req.Response{status: status, body: body}})
+       when status in 200..299 do
     {:ok, body}
   end
 

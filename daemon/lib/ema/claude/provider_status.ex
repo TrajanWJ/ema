@@ -106,8 +106,16 @@ defmodule Ema.Claude.ProviderStatus do
   end
 
   defp missing_credentials?(:ok), do: false
-  defp missing_credentials?({:error, reason}), do: reason_text(reason) =~ "missing_api_key" or reason_text(reason) =~ "missing api key" or reason_text(reason) =~ "no_api_key"
-  defp missing_credentials?(reason), do: reason_text(reason) =~ "missing_api_key" or reason_text(reason) =~ "missing api key" or reason_text(reason) =~ "no_api_key"
+
+  defp missing_credentials?({:error, reason}),
+    do:
+      reason_text(reason) =~ "missing_api_key" or reason_text(reason) =~ "missing api key" or
+        reason_text(reason) =~ "no_api_key"
+
+  defp missing_credentials?(reason),
+    do:
+      reason_text(reason) =~ "missing_api_key" or reason_text(reason) =~ "missing api key" or
+        reason_text(reason) =~ "no_api_key"
 
   defp auth_failed?(:ok), do: false
   defp auth_failed?({:error, reason}), do: auth_text?(reason_text(reason))

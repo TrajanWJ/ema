@@ -65,7 +65,9 @@ defmodule Ema.Intelligence.SessionMemoryWatcher do
             end
 
           {:error, reason} ->
-            Logger.warning("Failed to extract fragments from session #{session.id}: #{inspect(reason)}")
+            Logger.warning(
+              "Failed to extract fragments from session #{session.id}: #{inspect(reason)}"
+            )
         end
       end
     end

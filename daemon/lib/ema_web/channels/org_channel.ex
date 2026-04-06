@@ -18,8 +18,7 @@ defmodule EmaWeb.OrgChannel do
       org ->
         members = Org.list_members(org.id) |> Enum.map(&serialize_member/1)
 
-        {:ok, %{org: serialize_org(org), members: members},
-         assign(socket, :org_id, org_id)}
+        {:ok, %{org: serialize_org(org), members: members}, assign(socket, :org_id, org_id)}
     end
   end
 

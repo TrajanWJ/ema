@@ -181,7 +181,8 @@ defmodule Ema.BrainDump.ClusterEvaluator do
 
       case Repo.get_by(IntentCluster, source_fingerprint: fingerprint) do
         nil ->
-          id = "ic_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)}"
+          id =
+            "ic_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)}"
 
           %IntentCluster{}
           |> IntentCluster.changeset(Map.put(attrs, :id, id))

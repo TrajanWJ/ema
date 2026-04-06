@@ -13,6 +13,7 @@ defmodule Ema.Executions.IntentFolder do
 
   def create(project_path, slug, content) do
     dir = Path.join([project_path, ".superman", "intents", slug])
+
     with :ok <- File.mkdir_p(dir),
          :ok <- File.write(Path.join(dir, "intent.md"), "# Intent\n\n#{content}\n") do
       :ok
@@ -36,6 +37,7 @@ defmodule Ema.Executions.IntentFolder do
 
   def read_status(project_path, slug) do
     path = intent_path(project_path, slug, "status.json")
+
     case File.read(path) do
       {:ok, data} -> {:ok, Jason.decode!(data)}
       {:error, reason} -> {:error, reason}
@@ -51,5 +53,4 @@ defmodule Ema.Executions.IntentFolder do
 
   defp ensure_dir(project_path, slug),
     do: File.mkdir_p(Path.join([project_path, ".superman", "intents", slug]))
-
 end

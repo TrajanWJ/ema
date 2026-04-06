@@ -31,9 +31,21 @@ defmodule Ema.Intelligence.IntentCluster do
   def changeset(cluster, attrs) do
     cluster
     |> cast(attrs, [
-      :id, :label, :description, :readiness_score, :item_count,
-      :promoted, :seed_id, :status, :project_id, :space_id, :intent_node_id,
-      :source_fingerprint, :proposal_id, :centroid_embedding, :last_evaluated_at
+      :id,
+      :label,
+      :description,
+      :readiness_score,
+      :item_count,
+      :promoted,
+      :seed_id,
+      :status,
+      :project_id,
+      :space_id,
+      :intent_node_id,
+      :source_fingerprint,
+      :proposal_id,
+      :centroid_embedding,
+      :last_evaluated_at
     ])
     |> validate_required([:id, :label])
     |> validate_inclusion(:status, @valid_statuses)

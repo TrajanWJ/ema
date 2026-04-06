@@ -32,7 +32,16 @@ defmodule Ema.Memory.SessionEntry do
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:id, :session_id, :user_id, :project_slug, :kind, :content, :weight, :metadata])
+    |> cast(attrs, [
+      :id,
+      :session_id,
+      :user_id,
+      :project_slug,
+      :kind,
+      :content,
+      :weight,
+      :metadata
+    ])
     |> validate_required([:id, :session_id, :content])
     |> validate_inclusion(:kind, @kinds)
     |> validate_number(:weight, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)

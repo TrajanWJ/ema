@@ -224,5 +224,4 @@ defmodule Ema.Persistence.SessionStoreTest do
       assert SessionStore.count() == 1
     end
   end
-
 end

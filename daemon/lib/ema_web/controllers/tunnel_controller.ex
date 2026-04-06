@@ -17,7 +17,10 @@ defmodule EmaWeb.TunnelController do
     if is_nil(local_port) or is_nil(remote_host) or is_nil(remote_port) or is_nil(ssh_host) do
       conn
       |> put_status(:unprocessable_entity)
-      |> json(%{error: "missing_params", message: "Required: local_port, remote_host, remote_port, ssh_host"})
+      |> json(%{
+        error: "missing_params",
+        message: "Required: local_port, remote_host, remote_port, ssh_host"
+      })
     else
       forward = "#{local_port}:#{remote_host}:#{remote_port}"
 
@@ -25,7 +28,15 @@ defmodule EmaWeb.TunnelController do
         {_output, 0} ->
           conn
           |> put_status(:created)
-          |> json(%{ok: true, tunnel: %{local_port: local_port, remote_host: remote_host, remote_port: remote_port, ssh_host: ssh_host}})
+          |> json(%{
+            ok: true,
+            tunnel: %{
+              local_port: local_port,
+              remote_host: remote_host,
+              remote_port: remote_port,
+              ssh_host: ssh_host
+            }
+          })
 
         {output, _code} ->
           conn
@@ -74,7 +85,8 @@ defmodule EmaWeb.TunnelController do
 
     pid =
       case Enum.find(parts, &String.contains?(&1, "pid=")) do
-        nil -> nil
+        nil ->
+          nil
 
         pid_part ->
           case Regex.run(~r/pid=(\d+)/, pid_part) do

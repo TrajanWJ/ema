@@ -118,7 +118,11 @@ defmodule Ema.Temporal.Engine do
   end
 
   defp broadcast_update do
-    Phoenix.PubSub.broadcast(Ema.PubSub, "temporal:updates", {:temporal, :context_updated, Temporal.current_context()})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "temporal:updates",
+      {:temporal, :context_updated, Temporal.current_context()}
+    )
   end
 
   defp schedule_learn do

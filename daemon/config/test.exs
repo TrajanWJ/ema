@@ -54,3 +54,13 @@ config :ema, start_session_store: false
 
 # Disable campaign manager background process in test; channel/controller tests use sandboxed DB
 config :ema, start_campaign_manager: false
+
+# Disable background workers that query DB outside sandbox
+config :ema, start_harvesters: false
+config :ema, start_git_watcher: false
+config :ema, start_temporal: false
+config :ema, start_openclaw: false
+config :ema, start_voice: false
+config :ema, start_quality: false
+config :ema, start_orchestration: false
+config :ema, start_prompts: false

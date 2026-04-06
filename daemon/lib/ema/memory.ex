@@ -178,7 +178,10 @@ defmodule Ema.Memory do
     # Last N outcomes from recent sessions for this project
     recent_outcomes =
       SessionEntry
-      |> where([e], e.project_slug == ^project_slug and e.kind in ["outcome", "decision", "insight"])
+      |> where(
+        [e],
+        e.project_slug == ^project_slug and e.kind in ["outcome", "decision", "insight"]
+      )
       |> order_by([e], desc: e.inserted_at)
       |> limit(^Keyword.get(opts, :recent_outcomes, 5))
       |> Repo.all()

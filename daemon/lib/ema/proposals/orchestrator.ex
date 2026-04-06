@@ -223,8 +223,14 @@ defmodule Ema.Proposals.Orchestrator do
 
         {:fail, feedback, iter} ->
           handle_quality_gate_failure(
-            proposal_id, session_id, seed, project, context,
-            feedback, iter, stage_outputs
+            proposal_id,
+            session_id,
+            seed,
+            project,
+            context,
+            feedback,
+            iter,
+            stage_outputs
           )
 
         {:pass_with_warnings, output, failures} ->
@@ -254,12 +260,13 @@ defmodule Ema.Proposals.Orchestrator do
     update_proposal_log(proposal_id, %{"current_stage" => Atom.to_string(stage)})
 
     # Build stage prompt
-    prompt = Prompts.build(stage, %{
-      seed: seed,
-      project: project,
-      context: context,
-      prior_outputs: prior_outputs
-    })
+    prompt =
+      Prompts.build(stage, %{
+        seed: seed,
+        project: project,
+        context: context,
+        prior_outputs: prior_outputs
+      })
 
     # Run via Bridge (multi-turn — same session, synchronous call)
     case Bridge.call(session_id, prompt) do
@@ -282,15 +289,16 @@ defmodule Ema.Proposals.Orchestrator do
   defp handle_pipeline_success(proposal_id, output, stage_outputs, iteration) do
     Logger.info("[Orchestrator] #{proposal_id}: Pipeline passed quality gate (iter #{iteration})")
 
-    proposal_attrs = parse_proposal_output(output, stage_outputs, %{
-      status: "queued",
-      quality_score: 1.0,
-      generation_log: %{
-        "completed_at" => DateTime.utc_now() |> to_string(),
-        "iterations" => iteration,
-        "quality_score" => 1.0
-      }
-    })
+    proposal_attrs =
+      parse_proposal_output(output, stage_outputs, %{
+        status: "queued",
+        quality_score: 1.0,
+        generation_log: %{
+          "completed_at" => DateTime.utc_now() |> to_string(),
+          "iterations" => iteration,
+          "quality_score" => 1.0
+        }
+      })
 
     case update_proposal_with_attrs(proposal_id, proposal_attrs) do
       {:ok, proposal} ->
@@ -304,14 +312,21 @@ defmodule Ema.Proposals.Orchestrator do
   end
 
   defp handle_quality_gate_failure(
-    proposal_id, session_id, seed, project, context,
-    feedback, iter, _stage_outputs
-  ) do
+         proposal_id,
+         session_id,
+         seed,
+         project,
+         context,
+         feedback,
+         iter,
+         _stage_outputs
+       ) do
     Logger.info("[Orchestrator] #{proposal_id}: Quality gate failed (iter #{iter}), retrying...")
     broadcast(proposal_id, {:quality_gate_failed, feedback, iter})
 
     # Send feedback as a follow-up turn in the SAME session (multi-turn)
-    feedback_message = "Feedback on your previous response:\n\n#{feedback}\n\nPlease revise your proposal addressing all the issues above."
+    feedback_message =
+      "Feedback on your previous response:\n\n#{feedback}\n\nPlease revise your proposal addressing all the issues above."
 
     case Bridge.call(session_id, feedback_message) do
       {:ok, _} ->
@@ -324,10 +339,16 @@ defmodule Ema.Proposals.Orchestrator do
 
         # Re-run from refiner with prior generator output preserved
         with {:ok, gen_output} <- get_generator_output_for_proposal(proposal_id),
-             {:ok, stage_outputs} <- run_stages_from(
-               proposal_id, session_id, refine_stages,
-               seed, project, context, %{generator: gen_output}
-             ) do
+             {:ok, stage_outputs} <-
+               run_stages_from(
+                 proposal_id,
+                 session_id,
+                 refine_stages,
+                 seed,
+                 project,
+                 context,
+                 %{generator: gen_output}
+               ) do
           combined_output = build_combined_output(stage_outputs)
 
           case QualityGate.evaluate(combined_output, :proposal, next_iter) do
@@ -336,14 +357,25 @@ defmodule Ema.Proposals.Orchestrator do
 
             {:fail, next_feedback, next_iter2} when next_iter2 < 3 ->
               handle_quality_gate_failure(
-                proposal_id, session_id, seed, project, context,
-                next_feedback, next_iter2, stage_outputs
+                proposal_id,
+                session_id,
+                seed,
+                project,
+                context,
+                next_feedback,
+                next_iter2,
+                stage_outputs
               )
 
             {:fail, _, _} ->
               # Exhausted iterations — pass with warnings
-              handle_pipeline_warning(proposal_id, combined_output, stage_outputs,
-                ["Maximum iterations reached"], next_iter)
+              handle_pipeline_warning(
+                proposal_id,
+                combined_output,
+                stage_outputs,
+                ["Maximum iterations reached"],
+                next_iter
+              )
 
             {:pass_with_warnings, output, failures} ->
               handle_pipeline_warning(proposal_id, output, stage_outputs, failures, next_iter)
@@ -351,25 +383,31 @@ defmodule Ema.Proposals.Orchestrator do
         end
 
       {:error, reason} ->
-        Logger.error("[Orchestrator] Failed to send feedback for #{proposal_id}: #{inspect(reason)}")
+        Logger.error(
+          "[Orchestrator] Failed to send feedback for #{proposal_id}: #{inspect(reason)}"
+        )
+
         # Fall through to warning path
         handle_pipeline_warning(proposal_id, "", %{}, [feedback], iter)
     end
   end
 
   defp handle_pipeline_warning(proposal_id, output, stage_outputs, failures, iteration) do
-    Logger.warning("[Orchestrator] #{proposal_id}: Passing with warnings after #{iteration} iterations")
+    Logger.warning(
+      "[Orchestrator] #{proposal_id}: Passing with warnings after #{iteration} iterations"
+    )
 
-    proposal_attrs = parse_proposal_output(output, stage_outputs, %{
-      status: "queued",
-      quality_score: 0.4,
-      generation_log: %{
-        "completed_at" => DateTime.utc_now() |> to_string(),
-        "iterations" => iteration,
-        "quality_score" => 0.4,
-        "warnings" => failures
-      }
-    })
+    proposal_attrs =
+      parse_proposal_output(output, stage_outputs, %{
+        status: "queued",
+        quality_score: 0.4,
+        generation_log: %{
+          "completed_at" => DateTime.utc_now() |> to_string(),
+          "iterations" => iteration,
+          "quality_score" => 0.4,
+          "warnings" => failures
+        }
+      })
 
     case update_proposal_with_attrs(proposal_id, proposal_attrs) do
       {:ok, proposal} ->
@@ -407,7 +445,10 @@ defmodule Ema.Proposals.Orchestrator do
         {:ok, pid}
 
       {:error, reason} ->
-        Logger.error("[Orchestrator] Failed to start session for #{proposal_id}: #{inspect(reason)}")
+        Logger.error(
+          "[Orchestrator] Failed to start session for #{proposal_id}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -426,8 +467,10 @@ defmodule Ema.Proposals.Orchestrator do
     risk_output = Map.get(stage_outputs, :risk_analyzer, "")
 
     # Use formatter output as primary, fall back to refiner or generator
-    primary = if byte_size(formatter_output) > 50, do: formatter_output,
-              else: if(byte_size(refiner_output) > 50, do: refiner_output, else: generator_output)
+    primary =
+      if byte_size(formatter_output) > 50,
+        do: formatter_output,
+        else: if(byte_size(refiner_output) > 50, do: refiner_output, else: generator_output)
 
     %{
       text: primary,
@@ -437,11 +480,12 @@ defmodule Ema.Proposals.Orchestrator do
   end
 
   defp parse_proposal_output(output, stage_outputs, extra_attrs) do
-    text = case output do
-      %{text: t} -> t
-      t when is_binary(t) -> t
-      _ -> ""
-    end
+    text =
+      case output do
+        %{text: t} -> t
+        t when is_binary(t) -> t
+        _ -> ""
+      end
 
     risks_text = Map.get(stage_outputs, :risk_analyzer, "")
 
@@ -478,11 +522,14 @@ defmodule Ema.Proposals.Orchestrator do
         end
     end
   end
+
   defp try_parse_json(_), do: %{}
 
   defp extract_title(text) when is_binary(text) do
     case Regex.run(~r/^#\s+(.+)$/m, text) do
-      [_, title] -> String.trim(title)
+      [_, title] ->
+        String.trim(title)
+
       _ ->
         case String.split(text, "\n") do
           [first | _] when byte_size(first) > 0 -> String.slice(first, 0..80)
@@ -490,6 +537,7 @@ defmodule Ema.Proposals.Orchestrator do
         end
     end
   end
+
   defp extract_title(_), do: "Generated Proposal"
 
   defp extract_summary(text) when is_binary(text) do
@@ -502,6 +550,7 @@ defmodule Ema.Proposals.Orchestrator do
     |> Enum.join(" ")
     |> String.slice(0..300)
   end
+
   defp extract_summary(_), do: ""
 
   defp extract_risks(text) when is_binary(text) do
@@ -512,6 +561,7 @@ defmodule Ema.Proposals.Orchestrator do
     |> Enum.map(fn line -> Regex.replace(~r/^[\-\*]\s+/, line, "") end)
     |> Enum.take(10)
   end
+
   defp extract_risks(_), do: []
 
   defp extract_text(%{text: t}) when is_binary(t), do: t
@@ -524,6 +574,7 @@ defmodule Ema.Proposals.Orchestrator do
     case Proposals.get_proposal(proposal_id) do
       nil ->
         Logger.warning("[Orchestrator] Proposal #{proposal_id} not found for status update")
+
       proposal ->
         Proposals.update_proposal(proposal, %{status: status})
     end
@@ -531,7 +582,9 @@ defmodule Ema.Proposals.Orchestrator do
 
   defp update_proposal_log(proposal_id, log_update) do
     case Proposals.get_proposal(proposal_id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       proposal ->
         existing_log = proposal.generation_log || %{}
         new_log = Map.merge(existing_log, log_update)
@@ -551,7 +604,9 @@ defmodule Ema.Proposals.Orchestrator do
 
   defp get_generator_output_for_proposal(proposal_id) do
     case Proposals.get_proposal(proposal_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       proposal ->
         gen_log = proposal.generation_log || %{}
         {:ok, Map.get(gen_log, "generator_output", proposal.body || "")}
@@ -565,7 +620,9 @@ defmodule Ema.Proposals.Orchestrator do
 
     Phoenix.PubSub.broadcast(Ema.PubSub, topic, event)
     |> case do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, reason} ->
         Logger.debug("[Orchestrator] PubSub broadcast failed for #{topic}: #{inspect(reason)}")
         :ok

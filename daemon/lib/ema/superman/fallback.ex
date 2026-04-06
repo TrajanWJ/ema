@@ -101,20 +101,20 @@ defmodule Ema.Superman.Fallback do
         end)
       end
 
-    [
-      header,
-      separator,
-      "",
-      "INTENT:",
-      intent_text,
-      "",
-      "RECENT TASKS:"
-      | tasks_lines
-    ] ++
-      ["", "RECENT PROPOSALS:"] ++
-      proposals_lines ++
-      ["", "PRIOR OUTCOMES:"] ++
-      outcomes_lines
+    ([
+       header,
+       separator,
+       "",
+       "INTENT:",
+       intent_text,
+       "",
+       "RECENT TASKS:"
+       | tasks_lines
+     ] ++
+       ["", "RECENT PROPOSALS:"] ++
+       proposals_lines ++
+       ["", "PRIOR OUTCOMES:"] ++
+       outcomes_lines)
     |> Enum.join("\n")
   end
 

@@ -301,7 +301,7 @@ Key tables: brain_dump_items, habits, habit_logs, journal_entries, settings, wor
 ## Current State & Known Issues
 
 ### Working
-- All 13 frontend apps build and render with glass aesthetic
+- All 52+ frontend apps build and render with glass aesthetic
 - Daemon compiles with zero warnings
 - REST API + WebSocket channels for all domains
 - Proposal engine pipeline (Generator → Refiner → Debater → Tagger) wired via PubSub

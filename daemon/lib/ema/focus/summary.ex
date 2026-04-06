@@ -48,7 +48,10 @@ defmodule Ema.Focus.Summary do
 
     case Bridge.run_async(prompt, [model: "haiku", timeout: 30_000], callback) do
       {:ok, task_id_ai} ->
-        Logger.debug("Focus.Summary: dispatched async task #{task_id_ai} for session #{session.id}")
+        Logger.debug(
+          "Focus.Summary: dispatched async task #{task_id_ai} for session #{session.id}"
+        )
+
         {:ok, task_id_ai}
 
       error ->

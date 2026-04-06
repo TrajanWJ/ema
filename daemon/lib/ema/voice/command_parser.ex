@@ -26,7 +26,8 @@ defmodule Ema.Voice.CommandParser do
 
     cond do
       match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i) ->
-        {:command, :open_app, normalize_app_name(match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i))}
+        {:command, :open_app,
+         normalize_app_name(match_pattern(normalized, ~r/^(?:open|launch|start)\s+(.+)$/i))}
 
       match_pattern(normalized, ~r/^show\s+(?:me\s+)?(.+)$/i) ->
         {:command, :show, extract_arg(trimmed, ~r/^(?:show)\s+(?:me\s+)?(.+)$/i)}
@@ -35,10 +36,12 @@ defmodule Ema.Voice.CommandParser do
         {:command, :create_task, extract_arg(trimmed, ~r/^(?:create|add|new)\s+task\s+(.+)$/i)}
 
       match_pattern(normalized, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i) ->
-        {:command, :brain_dump, extract_arg(trimmed, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i)}
+        {:command, :brain_dump,
+         extract_arg(trimmed, ~r/^(?:brain\s*dump|capture|remember|note)\s+(.+)$/i)}
 
       match_pattern(normalized, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i) ->
-        {:command, :ask_claude, extract_arg(trimmed, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i)}
+        {:command, :ask_claude,
+         extract_arg(trimmed, ~r/^(?:ask\s+claude|hey\s+claude|claude)\s+(.+)$/i)}
 
       true ->
         :conversation

@@ -113,7 +113,10 @@ defmodule Ema.Executions.RouterTest do
     end
 
     test "other modes get default criteria" do
-      assert Router.mode_success_criteria("implement") == ["Objective completed", "Output written to specified files"]
+      assert Router.mode_success_criteria("implement") == [
+               "Objective completed",
+               "Output written to specified files"
+             ]
     end
   end
 
@@ -121,7 +124,9 @@ defmodule Ema.Executions.RouterTest do
 
   describe "mode_read_files/2" do
     test "outline reads research.md" do
-      assert Router.mode_read_files("outline", "/path/to/intent") == ["/path/to/intent/research.md"]
+      assert Router.mode_read_files("outline", "/path/to/intent") == [
+               "/path/to/intent/research.md"
+             ]
     end
 
     test "other modes return empty list" do

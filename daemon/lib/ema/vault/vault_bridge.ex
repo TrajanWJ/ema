@@ -41,7 +41,10 @@ defmodule Ema.Vault.VaultBridge do
         {:ok, filename}
 
       {:error, reason} ->
-        Logger.warning("[VaultBridge] Failed to write decision note #{filename}: #{inspect(reason)}")
+        Logger.warning(
+          "[VaultBridge] Failed to write decision note #{filename}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -77,7 +80,10 @@ defmodule Ema.Vault.VaultBridge do
         {:ok, filename}
 
       {:error, reason} ->
-        Logger.warning("[VaultBridge] Failed to write execution log #{filename}: #{inspect(reason)}")
+        Logger.warning(
+          "[VaultBridge] Failed to write execution log #{filename}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end

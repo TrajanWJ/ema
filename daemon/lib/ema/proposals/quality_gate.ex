@@ -92,14 +92,19 @@ defmodule Ema.Proposals.QualityGate do
 
       failures == [] and warnings != [] ->
         warning_msgs = Enum.map(warnings, fn {:warn, msg} -> msg end)
-        Logger.info("[QualityGate] Passed with #{length(warnings)} warning(s) (iteration #{iteration})")
+
+        Logger.info(
+          "[QualityGate] Passed with #{length(warnings)} warning(s) (iteration #{iteration})"
+        )
+
         {:pass_with_warnings, output, warning_msgs}
 
       iteration >= @max_iterations ->
         Logger.warning(
           "[QualityGate] Max iterations (#{@max_iterations}) reached. " <>
-          "Accepting with #{length(failures)} failure(s)."
+            "Accepting with #{length(failures)} failure(s)."
         )
+
         all_issues =
           (failures ++ warnings)
           |> Enum.map(fn {_, msg} -> msg end)
@@ -108,10 +113,12 @@ defmodule Ema.Proposals.QualityGate do
 
       true ->
         feedback = format_feedback(failures, iteration)
+
         Logger.info(
           "[QualityGate] Iteration #{iteration}: #{length(failures)} failure(s). " <>
-          "Requesting revision."
+            "Requesting revision."
         )
+
         {:fail, feedback, iteration}
     end
   end
@@ -179,10 +186,11 @@ defmodule Ema.Proposals.QualityGate do
 
   @doc false
   def check_risk_coverage(output, text) when is_binary(text) do
-    risks_text = case output do
-      %{risks_text: rt} when is_binary(rt) and byte_size(rt) > 0 -> rt
-      _ -> text
-    end
+    risks_text =
+      case output do
+        %{risks_text: rt} when is_binary(rt) and byte_size(rt) > 0 -> rt
+        _ -> text
+      end
 
     # Count explicit risk mentions
     risk_bullet_count =
@@ -190,19 +198,22 @@ defmodule Ema.Proposals.QualityGate do
       |> String.split("\n")
       |> Enum.count(fn line ->
         Regex.match?(~r/^[\-\*]\s+.+(risk|issue|concern|challenge|problem)/i, line) or
-        Regex.match?(~r/^[\-\*]\s+\S.{10,}/, line) and
-        Regex.match?(~r/(risk|issue|concern|challenge|problem|mitigation)/i, risks_text)
+          (Regex.match?(~r/^[\-\*]\s+\S.{10,}/, line) and
+             Regex.match?(~r/(risk|issue|concern|challenge|problem|mitigation)/i, risks_text))
       end)
 
     risk_section_present = Regex.match?(~r/(risk|risks|challenges?|concerns?)/i, text)
-    mitigation_present = Regex.match?(~r/(mitigation|mitigate|address|reduce|minimize)/i, risks_text)
+
+    mitigation_present =
+      Regex.match?(~r/(mitigation|mitigate|address|reduce|minimize)/i, risks_text)
 
     cond do
       not risk_section_present ->
         {:fail, "Missing risk section — must identify and analyze specific risks"}
 
       risk_bullet_count < 2 and not mitigation_present ->
-        {:fail, "Insufficient risk coverage — identify at least 2 specific risks with mitigations"}
+        {:fail,
+         "Insufficient risk coverage — identify at least 2 specific risks with mitigations"}
 
       not mitigation_present ->
         {:warn, "Risk mitigation strategies not clearly stated"}
@@ -217,7 +228,13 @@ defmodule Ema.Proposals.QualityGate do
   @doc false
   def check_scope_boundaries(text) when is_binary(text) do
     in_scope = Regex.match?(~r/(in[\s\-]scope|includes?|covers?|within scope)/i, text)
-    out_scope = Regex.match?(~r/(out[\s\-]of[\s\-]scope|excludes?|does not include|won't cover|not included)/i, text)
+
+    out_scope =
+      Regex.match?(
+        ~r/(out[\s\-]of[\s\-]scope|excludes?|does not include|won't cover|not included)/i,
+        text
+      )
+
     scope_section = Regex.match?(~r/(scope|boundaries|limitations?)/i, text)
 
     cond do
@@ -240,9 +257,14 @@ defmodule Ema.Proposals.QualityGate do
     matches = Enum.count(goal_patterns, &Regex.match?(&1, text))
 
     cond do
-      matches >= 2 -> :pass
-      matches == 1 -> {:warn, "Goal alignment is weak — explicitly link to project objectives"}
-      true -> {:fail, "Goal not aligned — proposal must trace back to a project goal or objective"}
+      matches >= 2 ->
+        :pass
+
+      matches == 1 ->
+        {:warn, "Goal alignment is weak — explicitly link to project objectives"}
+
+      true ->
+        {:fail, "Goal not aligned — proposal must trace back to a project goal or objective"}
     end
   end
 
@@ -332,10 +354,12 @@ defmodule Ema.Proposals.QualityGate do
 
   defp extract_text(%{text: text}) when is_binary(text), do: text
   defp extract_text(text) when is_binary(text), do: text
+
   defp extract_text(%{all_stages: stages}) when is_map(stages) do
     formatter = Map.get(stages, :formatter, "")
     refiner = Map.get(stages, :refiner, "")
     if byte_size(formatter) > 0, do: formatter, else: refiner
   end
+
   defp extract_text(_), do: ""
 end

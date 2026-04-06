@@ -1,5 +1,6 @@
 defmodule Ema.Tasks do
   require Logger
+
   @moduledoc """
   Tasks -- actionable work items linked to projects, goals, and responsibilities.
   Supports lifecycle transitions, decomposition into subtasks, comments, and dependencies.
@@ -94,9 +95,7 @@ defmodule Ema.Tasks do
 
           _ ->
             if force_dispatch do
-              Logger.warning(
-                "Deliberation gate bypassed for new task: #{description}"
-              )
+              Logger.warning("Deliberation gate bypassed for new task: #{description}")
               append_bypass_log(%{description: description, attrs: attrs})
             end
 
@@ -155,11 +154,13 @@ defmodule Ema.Tasks do
     path = Path.join(dir, "deliberation-bypasses.jsonl")
 
     with :ok <- File.mkdir_p(dir) do
-      line = Jason.encode!(%{
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
-        description: entry.description,
-        attrs: entry.attrs
-      })
+      line =
+        Jason.encode!(%{
+          timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
+          description: entry.description,
+          attrs: entry.attrs
+        })
+
       File.write!(path, line <> "\n", [:append])
     end
   end
@@ -288,5 +289,4 @@ defmodule Ema.Tasks do
     metadata = task.metadata || %{}
     Map.get(metadata, "domain") || Map.get(metadata, :domain)
   end
-
 end

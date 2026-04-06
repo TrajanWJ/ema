@@ -56,7 +56,9 @@ defmodule EmaWeb.WebhookController do
 
       true ->
         body = read_raw_body(conn)
-        expected = "sha256=" <> :crypto.mac(:hmac, :sha256, secret, body) |> Base.encode16(case: :lower)
+
+        expected =
+          ("sha256=" <> :crypto.mac(:hmac, :sha256, secret, body)) |> Base.encode16(case: :lower)
 
         if Plug.Crypto.secure_compare(expected, signature), do: :ok, else: :error
     end

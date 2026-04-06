@@ -42,7 +42,8 @@ defmodule Ema.Meetings do
 
   def update_meeting(id, attrs) do
     case get_meeting(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       meeting ->
         meeting

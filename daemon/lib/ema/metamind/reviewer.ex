@@ -178,12 +178,14 @@ defmodule Ema.MetaMind.Reviewer do
 
   defp parse_float(val, _default) when is_float(val), do: val
   defp parse_float(val, _default) when is_integer(val), do: val / 1.0
+
   defp parse_float(val, default) when is_binary(val) do
     case Float.parse(val) do
       {f, _} -> f
       :error -> default
     end
   end
+
   defp parse_float(_, default), do: default
 
   defp update_stats(state, results) do
@@ -200,6 +202,11 @@ defmodule Ema.MetaMind.Reviewer do
         Map.put(acc, key, Float.round(new_avg, 3))
       end)
 
-    %{state | total_reviews: state.total_reviews + 1, reviews_by_expert: reviews_by_expert, avg_scores: avg_scores}
+    %{
+      state
+      | total_reviews: state.total_reviews + 1,
+        reviews_by_expert: reviews_by_expert,
+        avg_scores: avg_scores
+    }
   end
 end

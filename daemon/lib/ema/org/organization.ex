@@ -23,7 +23,9 @@ defmodule Ema.Org.Organization do
     org
     |> cast(attrs, [:id, :name, :slug, :description, :avatar_url, :owner_id, :settings])
     |> validate_required([:name, :slug, :owner_id])
-    |> validate_format(:slug, ~r/^[a-z0-9][a-z0-9-]*$/, message: "must be lowercase alphanumeric with dashes")
+    |> validate_format(:slug, ~r/^[a-z0-9][a-z0-9-]*$/,
+      message: "must be lowercase alphanumeric with dashes"
+    )
     |> validate_length(:name, min: 1, max: 100)
     |> validate_length(:slug, min: 1, max: 50)
     |> unique_constraint(:slug)

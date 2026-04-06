@@ -98,7 +98,11 @@ defmodule Ema.BrainDump.ProposalSurfacer do
       items
       |> Enum.with_index(1)
       |> Enum.map(fn {item, idx} ->
-        ts = if item.inserted_at, do: Calendar.strftime(item.inserted_at, "%Y-%m-%d %H:%M"), else: "unknown"
+        ts =
+          if item.inserted_at,
+            do: Calendar.strftime(item.inserted_at, "%Y-%m-%d %H:%M"),
+            else: "unknown"
+
         "#{idx}. [#{ts}] #{item.content}"
       end)
       |> Enum.join("\n")

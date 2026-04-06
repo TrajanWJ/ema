@@ -33,9 +33,18 @@ defmodule Ema.MetaMind.PromptLibrary do
   def changeset(prompt, attrs) do
     prompt
     |> cast(attrs, [
-      :id, :name, :body, :category, :tags, :version,
-      :effectiveness_score, :usage_count, :success_count,
-      :metadata, :parent_id, :template_vars
+      :id,
+      :name,
+      :body,
+      :category,
+      :tags,
+      :version,
+      :effectiveness_score,
+      :usage_count,
+      :success_count,
+      :metadata,
+      :parent_id,
+      :template_vars
     ])
     |> validate_required([:id, :name, :body, :category])
     |> validate_inclusion(:category, @valid_categories)
@@ -61,7 +70,9 @@ defmodule Ema.MetaMind.PromptLibrary do
     pattern = "%#{query_string}%"
 
     from(p in __MODULE__,
-      where: like(fragment("lower(?)", p.name), ^String.downcase(pattern)) or like(fragment("lower(?)", p.body), ^String.downcase(pattern)),
+      where:
+        like(fragment("lower(?)", p.name), ^String.downcase(pattern)) or
+          like(fragment("lower(?)", p.body), ^String.downcase(pattern)),
       order_by: [desc: p.effectiveness_score, desc: p.usage_count]
     )
     |> Repo.all()
@@ -112,8 +123,7 @@ defmodule Ema.MetaMind.PromptLibrary do
 
   def get_by_tags(tags) when is_list(tags) do
     from(p in __MODULE__,
-      where: fragment("EXISTS (SELECT 1 FROM json_each(?) WHERE value IN (?))",
-        p.tags, ^tags),
+      where: fragment("EXISTS (SELECT 1 FROM json_each(?) WHERE value IN (?))", p.tags, ^tags),
       order_by: [desc: p.effectiveness_score]
     )
     |> Repo.all()

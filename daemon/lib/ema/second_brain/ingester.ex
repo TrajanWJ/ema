@@ -36,6 +36,7 @@ defmodule Ema.SecondBrain.Ingester do
     with {:ok, raw} <- File.read(path),
          {:ok, meta, body} <- parse_markdown(raw, path) do
       vault_root = SecondBrain.vault_root()
+
       relative_path =
         if String.starts_with?(path, vault_root) do
           Path.relative_to(path, vault_root)
@@ -222,9 +223,15 @@ defmodule Ema.SecondBrain.Ingester do
           value = String.trim(value)
 
           case key do
-            "title" -> Map.put(acc, :title, unquote_yaml(value))
-            "tags" -> Map.put(acc, :tags, parse_yaml_list(value))
-            "space" -> Map.put(acc, :space, unquote_yaml(value))
+            "title" ->
+              Map.put(acc, :title, unquote_yaml(value))
+
+            "tags" ->
+              Map.put(acc, :tags, parse_yaml_list(value))
+
+            "space" ->
+              Map.put(acc, :space, unquote_yaml(value))
+
             _ ->
               extra = Map.get(acc, :extra, %{})
               Map.put(acc, :extra, Map.put(extra, key, value))

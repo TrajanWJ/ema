@@ -13,9 +13,27 @@ defmodule Ema.Superman.KnowledgeGraphTest do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     nodes = [
-      %{type: "approach", title: "Approach", content: "Use LiveView", tags: ["ui"], inserted_at: now},
-      %{type: "goal", title: "Goal", content: "Ship reporting", tags: ["priority"], inserted_at: now},
-      %{type: "prior_outcomes", title: "Outcome", content: "Alerts reduced downtime", tags: [], inserted_at: now}
+      %{
+        type: "approach",
+        title: "Approach",
+        content: "Use LiveView",
+        tags: ["ui"],
+        inserted_at: now
+      },
+      %{
+        type: "goal",
+        title: "Goal",
+        content: "Ship reporting",
+        tags: ["priority"],
+        inserted_at: now
+      },
+      %{
+        type: "prior_outcomes",
+        title: "Outcome",
+        content: "Alerts reduced downtime",
+        tags: [],
+        inserted_at: now
+      }
     ]
 
     assert :ok = KnowledgeGraph.ingest(nodes, "daily-planet")
@@ -32,7 +50,13 @@ defmodule Ema.Superman.KnowledgeGraphTest do
 
     nodes =
       Enum.map(1..12, fn index ->
-        %{type: "goal", title: "Goal #{index}", content: "Content #{index}", tags: [], inserted_at: now}
+        %{
+          type: "goal",
+          title: "Goal #{index}",
+          content: "Content #{index}",
+          tags: [],
+          inserted_at: now
+        }
       end)
 
     assert :ok = KnowledgeGraph.ingest(nodes, "daily-planet")

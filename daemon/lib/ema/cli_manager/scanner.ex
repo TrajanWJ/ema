@@ -15,8 +15,20 @@ defmodule Ema.CliManager.Scanner do
     %{
       name: "codex",
       binary_names: ["codex"],
-      session_dir: nil,
+      session_dir: "~/.codex/sessions",
       capabilities: ~w(code)
+    },
+    %{
+      name: "openclaw",
+      binary_names: ["openclaw"],
+      session_dir: "~/.openclaw",
+      capabilities: ~w(code chat research)
+    },
+    %{
+      name: "oauth-coder",
+      binary_names: ["oauth-coder"],
+      session_dir: "~/.config/oauth-cli-coder",
+      capabilities: ~w(code chat orchestration)
     },
     %{
       name: "aider",

@@ -41,7 +41,7 @@ defmodule Ema.Claude.BridgeSupervisor do
       Ema.Claude.CostTracker,
 
       # Layer 3: Routing engine
-      Ema.Claude.SmartRouter,
+      Ema.Claude.SmartRouter
 
       # Layer 4: Bridge processes spawned dynamically by SmartRouter
       # Ema.Claude.Bridge is NOT a singleton — started per-execution
@@ -50,9 +50,10 @@ defmodule Ema.Claude.BridgeSupervisor do
     distributed_children =
       if distributed_ai_enabled?() do
         Logger.info("[Claude.BridgeSupervisor] Starting distributed AI layer")
+
         [
           Ema.Claude.NodeCoordinator,
-          Ema.Claude.SyncCoordinator,
+          Ema.Claude.SyncCoordinator
         ]
       else
         []

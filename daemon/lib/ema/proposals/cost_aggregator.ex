@@ -25,8 +25,10 @@ defmodule Ema.Proposals.CostAggregator do
   # alias Ema.Repo
   # import Ecto.Query
 
-  @daily_budget_default 5.00  # USD
-  @alert_threshold 0.80       # 80% triggers warning
+  # USD
+  @daily_budget_default 5.00
+  # 80% triggers warning
+  @alert_threshold 0.80
 
   # ── Client API ─────────────────────────────────────────────────────────────
 
@@ -124,7 +126,9 @@ defmodule Ema.Proposals.CostAggregator do
   def handle_info({:claude_session_ended, %{session_id: session_id} = _payload}, state) do
     # Check if this session belongs to a proposal
     case extract_proposal_id_from_session(session_id) do
-      nil -> {:noreply, state}
+      nil ->
+        {:noreply, state}
+
       _proposal_id ->
         # Cost is already tracked by CostTracker in usage_records
         # We just need to check budget after recording
@@ -166,7 +170,10 @@ defmodule Ema.Proposals.CostAggregator do
 
   defp query_usage_records(session_prefix) do
     # Ema.Claude.UsageRecord not yet defined — return empty list gracefully
-    Logger.debug("[CostAggregator] usage record query skipped for #{session_prefix} (module pending)")
+    Logger.debug(
+      "[CostAggregator] usage record query skipped for #{session_prefix} (module pending)"
+    )
+
     []
   end
 
@@ -248,15 +255,18 @@ defmodule Ema.Proposals.CostAggregator do
     Phoenix.PubSub.broadcast(
       Ema.PubSub,
       "proposals:events",
-      {:budget_alert, %{
-        pct_used: pct,
-        spent_usd: spent,
-        budget_usd: budget,
-        message: "Daily AI budget at #{pct_display}% ($#{Float.round(spent, 2)} / $#{budget})"
-      }}
+      {:budget_alert,
+       %{
+         pct_used: pct,
+         spent_usd: spent,
+         budget_usd: budget,
+         message: "Daily AI budget at #{pct_display}% ($#{Float.round(spent, 2)} / $#{budget})"
+       }}
     )
 
-    Logger.warning("[CostAggregator] Budget alert: #{pct_display}% used ($#{Float.round(spent, 2)} / $#{budget})")
+    Logger.warning(
+      "[CostAggregator] Budget alert: #{pct_display}% used ($#{Float.round(spent, 2)} / $#{budget})"
+    )
   end
 
   defp threshold_label(pct) when pct >= 1.0, do: "100"

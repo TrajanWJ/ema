@@ -21,14 +21,14 @@ defmodule Ema.Prompts.Prompt do
   @primary_key {:id, :string, autogenerate: false}
 
   schema "prompts" do
-    field :version,           :integer, default: 1
-    field :kind,              :string
-    field :content,           :string
-    field :a_b_test_group,    :string
-    field :status,            :string, default: "active"
-    field :parent_prompt_id,  :string
+    field :version, :integer, default: 1
+    field :kind, :string
+    field :content, :string
+    field :a_b_test_group, :string
+    field :status, :string, default: "active"
+    field :parent_prompt_id, :string
     field :control_prompt_id, :string
-    field :metrics,           :map, default: %{}
+    field :metrics, :map, default: %{}
     field :optimizer_metadata, :map, default: %{}
 
     timestamps(type: :utc_datetime)

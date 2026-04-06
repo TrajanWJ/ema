@@ -24,8 +24,16 @@ defmodule Ema.Harvesters.Run do
   def changeset(run, attrs) do
     run
     |> cast(attrs, [
-      :id, :harvester, :status, :items_found, :seeds_created,
-      :entities_created, :error, :metadata, :started_at, :completed_at
+      :id,
+      :harvester,
+      :status,
+      :items_found,
+      :seeds_created,
+      :entities_created,
+      :error,
+      :metadata,
+      :started_at,
+      :completed_at
     ])
     |> validate_required([:id, :harvester, :status, :started_at])
     |> validate_inclusion(:status, @valid_statuses)

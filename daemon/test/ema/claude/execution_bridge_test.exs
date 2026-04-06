@@ -14,7 +14,13 @@ defmodule Ema.Claude.ExecutionBridgeTest do
     :ok =
       KnowledgeGraph.ingest(
         [
-          %{type: "goal", title: "Main Goal", content: "Protect the release window", tags: [], inserted_at: DateTime.utc_now()}
+          %{
+            type: "goal",
+            title: "Main Goal",
+            content: "Protect the release window",
+            tags: [],
+            inserted_at: DateTime.utc_now()
+          }
         ],
         "metropolis"
       )

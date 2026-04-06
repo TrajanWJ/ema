@@ -111,7 +111,10 @@ defmodule Ema.MCP.Resources do
         "vault/search"
       )
     else
-      degraded_response("vault/search", "Query parameter 'q' is required. Use ema://vault/search?q=your+query")
+      degraded_response(
+        "vault/search",
+        "Query parameter 'q' is required. Use ema://vault/search?q=your+query"
+      )
     end
   end
 

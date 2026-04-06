@@ -105,7 +105,9 @@ defmodule Ema.Claude.Runner do
       nil ->
         fallback = Path.join([System.get_env("HOME", "/root"), ".local", "bin", "claude"])
         File.exists?(fallback)
-      _path -> true
+
+      _path ->
+        true
     end
   end
 
@@ -114,7 +116,9 @@ defmodule Ema.Claude.Runner do
       nil ->
         fallback = Path.join([System.get_env("HOME", "/root"), ".local", "bin", "claude"])
         if File.exists?(fallback), do: fallback, else: "claude"
-      path -> path
+
+      path ->
+        path
     end
   end
 
@@ -133,7 +137,10 @@ defmodule Ema.Claude.Runner do
         parsed
 
       {:error, _} ->
-        Logger.warning("[Runner] Failed to parse Claude output as JSON, returning raw: #{String.slice(output, 0, 200)}")
+        Logger.warning(
+          "[Runner] Failed to parse Claude output as JSON, returning raw: #{String.slice(output, 0, 200)}"
+        )
+
         %{"raw" => output}
     end
   end

@@ -49,7 +49,8 @@ defmodule EmaWeb.DispatchBoardController do
       total: length(all),
       today: length(today),
       running: Enum.count(all, fn e -> e.status in ["running", "delegated", "harvesting"] end),
-      queued: Enum.count(all, fn e -> e.status in ["created", "proposed", "awaiting_approval"] end),
+      queued:
+        Enum.count(all, fn e -> e.status in ["created", "proposed", "awaiting_approval"] end),
       completed_today: Enum.count(today, fn e -> e.status == "completed" end),
       failed_today: Enum.count(today, fn e -> e.status == "failed" end),
       avg_duration_seconds: average_duration(all),

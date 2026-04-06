@@ -104,6 +104,7 @@ defmodule Ema.Persistence.SessionStore do
       channel_type: Keyword.get(opts, :channel_type, "discord"),
       created_at: DateTime.utc_now()
     }
+
     :ets.insert(@oc_table, {oc_session_id, entry})
     Logger.debug("[SessionStore] Mapped OC session #{oc_session_id} → agent #{agent_id}")
     :ok
@@ -180,8 +181,7 @@ defmodule Ema.Persistence.SessionStore do
           {:session_crystallized, crystallized}
         )
 
-        {:reply, {:ok, crystallized},
-         %{state | dirty: MapSet.put(state.dirty, session_id)}}
+        {:reply, {:ok, crystallized}, %{state | dirty: MapSet.put(state.dirty, session_id)}}
 
       [] ->
         {:reply, {:error, :not_found}, state}

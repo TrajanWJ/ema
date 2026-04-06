@@ -31,20 +31,24 @@ defmodule Ema.Prompts.StoreTest do
     end
 
     test "stores a_b_test_group" do
-      {:ok, p} = Prompts.create_prompt(%{
-        kind:           unique_kind(),
-        content:        "Control prompt.",
-        a_b_test_group: "control"
-      })
+      {:ok, p} =
+        Prompts.create_prompt(%{
+          kind: unique_kind(),
+          content: "Control prompt.",
+          a_b_test_group: "control"
+        })
+
       assert p.a_b_test_group == "control"
     end
 
     test "stores metrics map" do
-      {:ok, p} = Prompts.create_prompt(%{
-        kind:    unique_kind(),
-        content: "Prompt.",
-        metrics: %{"usage_count" => 0, "success_rate" => 0.0}
-      })
+      {:ok, p} =
+        Prompts.create_prompt(%{
+          kind: unique_kind(),
+          content: "Prompt.",
+          metrics: %{"usage_count" => 0, "success_rate" => 0.0}
+        })
+
       assert p.metrics["usage_count"] == 0
     end
   end
@@ -104,8 +108,8 @@ defmodule Ema.Prompts.StoreTest do
 
       latest = Prompts.list_latest_per_kind()
 
-      k1_entry = Enum.find(latest, & &1.kind == k1)
-      k2_entry = Enum.find(latest, & &1.kind == k2)
+      k1_entry = Enum.find(latest, &(&1.kind == k1))
+      k2_entry = Enum.find(latest, &(&1.kind == k2))
 
       assert k1_entry.version == 2
       assert k2_entry.version == 1
@@ -139,11 +143,13 @@ defmodule Ema.Prompts.StoreTest do
     end
 
     test "merges metrics without clobbering existing keys" do
-      {:ok, p} = Prompts.create_prompt(%{
-        kind:    unique_kind(),
-        content: "Prompt.",
-        metrics: %{"success_rate" => 0.9}
-      })
+      {:ok, p} =
+        Prompts.create_prompt(%{
+          kind: unique_kind(),
+          content: "Prompt.",
+          metrics: %{"success_rate" => 0.9}
+        })
+
       {:ok, updated} = Prompts.record_metric(p, :usage_count, 5)
       assert updated.metrics["success_rate"] == 0.9
       assert updated.metrics["usage_count"] == 5
@@ -157,12 +163,16 @@ defmodule Ema.Prompts.StoreTest do
   describe "A/B test helpers" do
     test "list_by_ab_group/1 returns prompts in a group" do
       kind = unique_kind()
-      {:ok, _} = Prompts.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
-      {:ok, _} = Prompts.create_prompt(%{kind: kind, content: "variant", a_b_test_group: "variant_a"})
+
+      {:ok, _} =
+        Prompts.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
+
+      {:ok, _} =
+        Prompts.create_prompt(%{kind: kind, content: "variant", a_b_test_group: "variant_a"})
 
       controls = Prompts.list_by_ab_group("control")
-      assert Enum.any?(controls, & &1.content == "control")
-      refute Enum.any?(controls, & &1.content == "variant")
+      assert Enum.any?(controls, &(&1.content == "control"))
+      refute Enum.any?(controls, &(&1.content == "variant"))
     end
 
     test "pick_ab_variant/1 returns one of the variants" do

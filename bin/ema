@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EMA CLI — Terminal client for the EMA daemon at localhost:4488
-Version: 1.0.0 (Week 7 MVP)
+Version: 2.0.0
 """
 
 import sys
@@ -754,6 +754,681 @@ def cmd_sync_openclaw(client, args):
         out(f"Agents: {', '.join(result['agents'])}")
 
 
+# ── dump (brain dump shortcut) ───────────────────────────────────────────────
+
+def cmd_dump(client, args):
+    text = " ".join(args.text) if isinstance(args.text, list) else args.text
+    result = client.post("/api/brain-dump/items", {"content": text})
+    if USE_JSON:
+        out_json(result)
+        return
+    item = result.get("item", result)
+    out(f"Dumped: {item.get('id', '?')[:12]} | {text[:60]}")
+
+
+# ── brain-dump ───────────────────────────────────────────────────────────────
+
+def cmd_braindump_create(client, args):
+    text = " ".join(args.text) if isinstance(args.text, list) else args.text
+    payload = {"content": text}
+    if args.source:
+        payload["source"] = args.source
+    result = client.post("/api/brain-dump/items", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    item = result.get("item", result)
+    out(f"Created: {item.get('id', '?')[:12]} | {text[:60]}")
+
+
+def cmd_braindump_list(client, args):
+    result = client.get("/api/brain-dump/items")
+    items = result.get("items", []) if isinstance(result, dict) else result
+    if USE_JSON:
+        out_json(items)
+        return
+    if not items:
+        out("Brain dump is empty.")
+        return
+    rows = []
+    for i in items:
+        rows.append([
+            i.get("id", "?")[:14],
+            (i.get("content") or "")[:50],
+            i.get("status", "?")[:10],
+            fmt_time(i.get("inserted_at")),
+        ])
+    table(rows, ["ID", "CONTENT", "STATUS", "CREATED"], [16, 52, 11, 12])
+
+
+def cmd_braindump_process(client, args):
+    result = client.patch(f"/api/brain-dump/items/{args.item_id}/process", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Processed: {args.item_id}")
+
+
+def cmd_braindump_delete(client, args):
+    result = client.delete(f"/api/brain-dump/items/{args.item_id}")
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Deleted: {args.item_id}")
+
+
+# ── goal ─────────────────────────────────────────────────────────────────────
+
+def cmd_goal_list(client, args):
+    result = client.get("/api/goals")
+    goals = result.get("goals", []) if isinstance(result, dict) else result
+    if USE_JSON:
+        out_json(goals)
+        return
+    if not goals:
+        out("No goals found.")
+        return
+    rows = []
+    for g in goals:
+        rows.append([
+            g.get("id", "?")[:14],
+            (g.get("title") or "")[:40],
+            (g.get("status") or "—")[:10],
+            fmt_time(g.get("updated_at")),
+        ])
+    table(rows, ["ID", "TITLE", "STATUS", "UPDATED"], [16, 42, 11, 12])
+
+
+def cmd_goal_create(client, args):
+    payload = {"title": args.title}
+    if args.description:
+        payload["description"] = args.description
+    if args.parent:
+        payload["parent_id"] = args.parent
+    result = client.post("/api/goals", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    goal = result.get("goal", result)
+    out(f"Created: {goal.get('id', '?')[:12]} | {goal.get('title', '?')}")
+
+
+def cmd_goal_get(client, args):
+    result = client.get(f"/api/goals/{args.goal_id}")
+    if USE_JSON:
+        out_json(result)
+        return
+    goal = result.get("goal", result)
+    out(f"\nGoal: {goal.get('id')}")
+    out(f"  Title:    {goal.get('title')}")
+    out(f"  Status:   {goal.get('status', '—')}")
+    if goal.get("description"):
+        out(f"  Desc:     {goal['description'][:200]}")
+    out(f"  Created:  {fmt_time(goal.get('inserted_at'))}")
+
+
+def cmd_goal_update(client, args):
+    payload = {}
+    if args.title:
+        payload["title"] = args.title
+    if args.status:
+        payload["status"] = args.status
+    if args.description:
+        payload["description"] = args.description
+    result = client.put(f"/api/goals/{args.goal_id}", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Updated: {args.goal_id}")
+
+
+# ── agent ────────────────────────────────────────────────────────────────────
+
+def cmd_agent_list(client, args):
+    result = client.get("/api/agents")
+    agents = result.get("agents", []) if isinstance(result, dict) else result
+    if USE_JSON:
+        out_json(agents)
+        return
+    if not agents:
+        out("No agents configured.")
+        return
+    rows = []
+    for a in agents:
+        rows.append([
+            a.get("slug", "?")[:16],
+            (a.get("name") or a.get("slug", "?"))[:25],
+            (a.get("model") or "default")[:20],
+            (a.get("status") or "active")[:10],
+        ])
+    table(rows, ["SLUG", "NAME", "MODEL", "STATUS"], [18, 27, 22, 11])
+
+
+def cmd_agent_get(client, args):
+    result = client.get(f"/api/agents/{args.slug}")
+    if USE_JSON:
+        out_json(result)
+        return
+    agent = result.get("agent", result)
+    out(f"\nAgent: {agent.get('slug')}")
+    out(f"  Name:     {agent.get('name', '—')}")
+    out(f"  Model:    {agent.get('model', 'default')}")
+    out(f"  Status:   {agent.get('status', 'active')}")
+    if agent.get("system_prompt"):
+        out(f"  Prompt:   {agent['system_prompt'][:100]}...")
+    tools = agent.get("tools") or []
+    if tools:
+        out(f"  Tools:    {', '.join(str(t) for t in tools[:5])}")
+    channels = agent.get("channels") or []
+    if channels:
+        out(f"  Channels: {len(channels)}")
+
+
+def cmd_agent_chat(client, args):
+    message = " ".join(args.message) if isinstance(args.message, list) else args.message
+    payload = {"message": message}
+    if args.context:
+        payload["context"] = args.context
+    result = client.post(f"/api/agents/{args.slug}/chat", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    reply = result.get("reply") or result.get("response") or result.get("text") or str(result)
+    out(reply)
+
+
+def cmd_agent_conversations(client, args):
+    result = client.get(f"/api/agents/{args.slug}/conversations")
+    convos = result.get("conversations", []) if isinstance(result, dict) else result
+    if USE_JSON:
+        out_json(convos)
+        return
+    if not convos:
+        out("No conversations.")
+        return
+    rows = []
+    for c in convos:
+        rows.append([
+            c.get("id", "?")[:14],
+            str(c.get("message_count", 0)),
+            fmt_time(c.get("updated_at") or c.get("inserted_at")),
+        ])
+    table(rows, ["ID", "MESSAGES", "LAST ACTIVE"], [16, 10, 14])
+
+
+# ── exec (executions) ────────────────────────────────────────────────────────
+
+def cmd_exec_list(client, args):
+    params = {}
+    if args.status:
+        params["status"] = args.status
+    if args.project:
+        params["project_slug"] = args.project
+    result = client.get("/api/executions", params=params or None)
+    executions = result.get("executions", []) if isinstance(result, dict) else result
+    if args.limit:
+        executions = executions[:args.limit]
+    if USE_JSON:
+        out_json(executions)
+        return
+    if not executions:
+        out("No executions found.")
+        return
+    rows = []
+    for e in executions:
+        status = e.get("status", "?")
+        status_icon = {"completed": "✓", "running": "▶", "failed": "✗", "created": "○"}.get(status, "·")
+        rows.append([
+            e.get("id", "?")[:12],
+            f"{status_icon} {status}"[:11],
+            (e.get("mode") or "?")[:10],
+            (e.get("project_slug") or "—")[:12],
+            (e.get("title") or e.get("objective", "?"))[:35],
+            fmt_time(e.get("inserted_at")),
+        ])
+    table(rows, ["ID", "STATUS", "MODE", "PROJECT", "TITLE", "AGE"],
+          [14, 12, 11, 14, 37, 12])
+
+
+def cmd_exec_get(client, args):
+    result = client.get(f"/api/executions/{args.exec_id}")
+    if USE_JSON:
+        out_json(result)
+        return
+    e = result if "id" in result else result.get("execution", result)
+    out(f"\nExecution: {e.get('id')}")
+    out(f"  Title:     {e.get('title', '—')}")
+    out(f"  Status:    {e.get('status')}")
+    out(f"  Mode:      {e.get('mode')}")
+    out(f"  Project:   {e.get('project_slug', '—')}")
+    out(f"  Created:   {fmt_time(e.get('inserted_at'))}")
+    if e.get("completed_at"):
+        out(f"  Completed: {fmt_time(e.get('completed_at'))}")
+    if e.get("objective"):
+        out(f"\n  Objective:\n    {e['objective'][:300]}")
+    meta = e.get("metadata") or {}
+    if meta.get("result_summary"):
+        out(f"\n  Result:\n    {meta['result_summary'][:500]}")
+    if e.get("result_path"):
+        out(f"\n  Result path: {e['result_path']}")
+
+
+def cmd_exec_create(client, args):
+    objective = " ".join(args.objective) if isinstance(args.objective, list) else args.objective
+    payload = {"objective": objective, "mode": args.mode or "research"}
+    if args.title:
+        payload["title"] = args.title
+    if args.project:
+        payload["project_slug"] = args.project
+    result = client.post("/api/executions", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    e = result.get("execution", result)
+    out(f"Created: {e.get('id', '?')} | mode: {e.get('mode')} | status: {e.get('status')}")
+
+
+def cmd_exec_approve(client, args):
+    result = client.post(f"/api/executions/{args.exec_id}/approve", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Approved and dispatched: {args.exec_id}")
+
+
+def cmd_exec_cancel(client, args):
+    result = client.post(f"/api/executions/{args.exec_id}/cancel", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Cancelled: {args.exec_id}")
+
+
+def cmd_exec_diff(client, args):
+    result = client.get(f"/api/executions/{args.exec_id}/diff")
+    if USE_JSON:
+        out_json(result)
+        return
+    diff = result.get("diff") or result.get("text") or str(result)
+    out(diff)
+
+
+# ── focus ────────────────────────────────────────────────────────────────────
+
+def cmd_focus_start(client, args):
+    payload = {}
+    if args.duration:
+        payload["target_ms"] = args.duration * 60 * 1000
+    if args.task:
+        payload["task_id"] = args.task
+    result = client.post("/api/focus/start", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    session = result.get("session", result)
+    out(f"Focus started: {session.get('id', '?')}")
+    if args.duration:
+        out(f"  Duration: {args.duration}m")
+
+
+def cmd_focus_stop(client, args):
+    result = client.post("/api/focus/stop", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Focus stopped.")
+
+
+def cmd_focus_pause(client, args):
+    result = client.post("/api/focus/pause", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Focus paused.")
+
+
+def cmd_focus_resume(client, args):
+    result = client.post("/api/focus/resume", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Focus resumed.")
+
+
+def cmd_focus_current(client, args):
+    result = client.get("/api/focus/current")
+    if USE_JSON:
+        out_json(result)
+        return
+    session = result.get("session", result)
+    if not session or not session.get("id"):
+        out("No active focus session.")
+        return
+    out(f"Active: {session.get('id', '?')}")
+    out(f"  Status: {session.get('status', '?')}")
+    if session.get("task_id"):
+        out(f"  Task:   {session['task_id']}")
+
+
+def cmd_focus_today(client, args):
+    result = client.get("/api/focus/today")
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Today's focus:")
+    out(f"  Sessions:   {result.get('session_count', 0)}")
+    total = result.get("total_ms") or result.get("total_minutes", 0)
+    if isinstance(total, (int, float)) and total > 60000:
+        out(f"  Total time: {int(total) // 60000}m")
+    else:
+        out(f"  Total time: {total}")
+
+
+# ── habit ────────────────────────────────────────────────────────────────────
+
+def cmd_habit_list(client, args):
+    result = client.get("/api/habits")
+    habits = result.get("habits", []) if isinstance(result, dict) else result
+    if USE_JSON:
+        out_json(habits)
+        return
+    if not habits:
+        out("No habits tracked.")
+        return
+    rows = []
+    for h in habits:
+        rows.append([
+            h.get("id", "?")[:14],
+            (h.get("name") or h.get("title", "?"))[:30],
+            (h.get("cadence") or "daily")[:10],
+            str(h.get("streak", 0)),
+        ])
+    table(rows, ["ID", "HABIT", "CADENCE", "STREAK"], [16, 32, 11, 8])
+
+
+def cmd_habit_create(client, args):
+    payload = {"name": args.name}
+    if args.cadence:
+        payload["cadence"] = args.cadence
+    result = client.post("/api/habits", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    habit = result.get("habit", result)
+    out(f"Created: {habit.get('id', '?')[:12]} | {habit.get('name', '?')}")
+
+
+def cmd_habit_toggle(client, args):
+    payload = {}
+    if args.date:
+        payload["date"] = args.date
+    result = client.post(f"/api/habits/{args.habit_id}/toggle", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Toggled: {args.habit_id}")
+
+
+def cmd_habit_today(client, args):
+    result = client.get("/api/habits/today")
+    if USE_JSON:
+        out_json(result)
+        return
+    logs = result.get("logs", []) if isinstance(result, dict) else result
+    if not logs:
+        out("No habit logs today.")
+        return
+    for log in logs:
+        done = "✓" if log.get("completed") else "○"
+        name = log.get("habit_name") or log.get("name") or log.get("habit_id", "?")
+        out(f"  {done} {name}")
+
+
+def cmd_habit_archive(client, args):
+    result = client.post(f"/api/habits/{args.habit_id}/archive", {})
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Archived: {args.habit_id}")
+
+
+# ── journal ──────────────────────────────────────────────────────────────────
+
+def cmd_journal_read(client, args):
+    date = args.date or datetime.now().strftime("%Y-%m-%d")
+    result = client.get(f"/api/journal/{date}")
+    if USE_JSON:
+        out_json(result)
+        return
+    entry = result.get("entry", result)
+    if not entry or not entry.get("content"):
+        out(f"No journal entry for {date}.")
+        return
+    out(f"Journal — {date}")
+    if entry.get("mood"):
+        out(f"  Mood:   {entry['mood']}")
+    if entry.get("one_thing"):
+        out(f"  Focus:  {entry['one_thing']}")
+    if entry.get("energy_p") or entry.get("energy_m") or entry.get("energy_e"):
+        out(f"  Energy: AM={entry.get('energy_p','—')} PM={entry.get('energy_m','—')} EVE={entry.get('energy_e','—')}")
+    out(f"\n{entry.get('content', '')}")
+
+
+def cmd_journal_write(client, args):
+    date = args.date or datetime.now().strftime("%Y-%m-%d")
+    content = " ".join(args.content) if isinstance(args.content, list) else args.content
+    payload = {"content": content}
+    if args.mood:
+        payload["mood"] = args.mood
+    if args.one_thing:
+        payload["one_thing"] = args.one_thing
+    result = client.put(f"/api/journal/{date}", payload)
+    if USE_JSON:
+        out_json(result)
+        return
+    out(f"Journal updated for {date}.")
+
+
+def cmd_journal_search(client, args):
+    result = client.get("/api/journal/search", params={"q": args.query})
+    if USE_JSON:
+        out_json(result)
+        return
+    entries = result.get("entries", []) if isinstance(result, dict) else result
+    if not entries:
+        out("No matching journal entries.")
+        return
+    for e in entries:
+        date = e.get("date") or fmt_time(e.get("inserted_at"))
+        content = (e.get("content") or "")[:80]
+        out(f"  {date} | {content}")
+
+
+# ── provider ─────────────────────────────────────────────────────────────────
+
+def cmd_provider_list(client, args):
+    result = client.get("/api/orchestration/stats")
+    if USE_JSON:
+        out_json(result)
+        return
+    stats = result
+    out(f"Routing strategy: {stats.get('default_strategy', '—')}")
+    out(f"Total routed:     {stats.get('total_routes', 0)}")
+    providers = stats.get("providers", [])
+    if providers:
+        out(f"\nProviders:")
+        rows = []
+        for p in providers:
+            rows.append([
+                p.get("id", "?")[:20],
+                p.get("type", "?")[:14],
+                p.get("status", "?")[:10],
+                str(p.get("models", []))[:30] if p.get("models") else "—",
+            ])
+        table(rows, ["ID", "TYPE", "STATUS", "MODELS"], [22, 16, 11, 32])
+    fitness = stats.get("fitness", stats.get("agents", []))
+    if fitness:
+        out(f"\nAgent fitness:")
+        for f in fitness:
+            name = f.get("agent") or f.get("name") or f.get("id", "?")
+            score = f.get("composite") or f.get("score") or "—"
+            out(f"  {name}: {score}")
+
+
+def cmd_provider_status(client, args):
+    result = client.get("/api/orchestration/fitness")
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Provider fitness:")
+    fitness = result.get("fitness", result.get("agents", []))
+    if isinstance(fitness, list):
+        for f in fitness:
+            name = f.get("agent") or f.get("name") or f.get("id", "?")
+            out(f"\n  {name}:")
+            for k in ("composite", "success_rate", "latency_ms", "run_count"):
+                if k in f:
+                    out(f"    {k}: {f[k]}")
+    else:
+        out(f"  {fitness}")
+
+
+# ── tokens ───────────────────────────────────────────────────────────────────
+
+def cmd_tokens_summary(client, args):
+    result = client.get("/api/tokens/summary")
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Token usage:")
+    for k, v in result.items():
+        if k not in ("status",):
+            out(f"  {k}: {v}")
+
+
+def cmd_tokens_budget(client, args):
+    result = client.get("/api/tokens/budget")
+    if USE_JSON:
+        out_json(result)
+        return
+    out("Token budget:")
+    for k, v in result.items():
+        if k not in ("status",):
+            out(f"  {k}: {v}")
+
+
+# ── watch (live dashboard) ───────────────────────────────────────────────────
+
+import time
+
+
+def cmd_watch(client, args):
+    """Live dashboard — polls EMA and displays updates. Ctrl+C to exit."""
+    interval = args.interval or 10
+    channel = args.channel or "all"
+
+    def fetch_section(path, fallback="unavailable"):
+        try:
+            return client.get(path)
+        except (SystemExit, Exception):
+            return None
+
+    def render():
+        lines = []
+        from datetime import timezone
+        now = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+        lines.append(f"\033[1mEMA Live — {now} — every {interval}s — [{channel}]\033[0m")
+        lines.append("─" * 64)
+
+        if channel in ("all", "heartbeat"):
+            data = fetch_section("/api/health")
+            if data:
+                lines.append(f"\033[36m[heartbeat]\033[0m {data.get('status', 'ok')}")
+            else:
+                lines.append(f"\033[36m[heartbeat]\033[0m \033[31moffline\033[0m")
+
+        if channel in ("all", "pipeline", "executions"):
+            data = fetch_section("/api/executions")
+            execs = (data.get("executions", []) if data else [])[:7]
+            lines.append(f"\n\033[36m[pipeline]\033[0m {len(execs)} recent executions")
+            for e in execs:
+                s = e.get("status", "?")
+                icon = {"completed": "\033[32m✓", "running": "\033[33m▶", "failed": "\033[31m✗"}.get(s, "\033[0m·")
+                title = (e.get("title") or e.get("objective", "?"))[:42]
+                lines.append(f"  {icon} {s:<10}\033[0m {title}  {fmt_time(e.get('inserted_at'))}")
+
+        if channel in ("all", "tasks"):
+            data = fetch_section("/api/tasks")
+            tasks = data.get("tasks", []) if data else []
+            running = [t for t in tasks if t.get("status") == "running"]
+            pending = [t for t in tasks if t.get("status") in ("todo", "pending", "created")]
+            lines.append(f"\n\033[36m[tasks]\033[0m {len(running)} running, {len(pending)} pending")
+            for t in running[:3]:
+                lines.append(f"  ▶ {(t.get('title') or '?')[:55]}")
+            for t in pending[:2]:
+                lines.append(f"  ○ {(t.get('title') or '?')[:55]}")
+
+        if channel in ("all", "proposals"):
+            data = fetch_section("/api/proposals")
+            props = data.get("proposals", []) if data else []
+            queued = [p for p in props if p.get("status") in ("queued", "pending", "generating")]
+            lines.append(f"\n\033[36m[proposals]\033[0m {len(queued)} queued, {len(props)} total")
+            for p in queued[:3]:
+                lines.append(f"  ◆ {(p.get('title') or '?')[:55]}")
+
+        if channel in ("all", "agents"):
+            data = fetch_section("/api/agents")
+            agents = data.get("agents", []) if data else []
+            lines.append(f"\n\033[36m[agents]\033[0m {len(agents)} configured")
+            for a in agents[:5]:
+                lines.append(f"  • {a.get('slug','?'):<16} {(a.get('model') or 'default'):<18} {a.get('status', 'active')}")
+
+        if channel in ("all", "braindump", "inbox"):
+            data = fetch_section("/api/brain-dump/items")
+            items = data.get("items", []) if data else []
+            unprocessed = [i for i in items if i.get("status") != "processed"]
+            lines.append(f"\n\033[36m[brain-dump]\033[0m {len(unprocessed)} unprocessed")
+            for i in unprocessed[:3]:
+                lines.append(f"  ▸ {(i.get('content') or '?')[:55]}  {fmt_time(i.get('inserted_at'))}")
+
+        if channel in ("all", "focus"):
+            data = fetch_section("/api/focus/current")
+            if data and data.get("session", {}).get("id"):
+                s = data["session"]
+                lines.append(f"\n\033[36m[focus]\033[0m Active: {s.get('status','?')}")
+            else:
+                lines.append(f"\n\033[36m[focus]\033[0m No active session")
+
+        if channel in ("all", "babysitter"):
+            data = fetch_section("/api/babysitter/state")
+            if data:
+                state = data.get("state", data)
+                summary = str(state)[:80] if not isinstance(state, dict) else ", ".join(f"{k}={v}" for k, v in list(state.items())[:4])
+                lines.append(f"\n\033[36m[babysitter]\033[0m {summary[:60]}")
+
+        if channel in ("all", "tokens", "cost"):
+            data = fetch_section("/api/tokens/budget")
+            if data:
+                used = data.get("used_today") or data.get("tokens_today", "—")
+                limit = data.get("daily_limit") or data.get("budget", "—")
+                cost = data.get("cost_today") or data.get("cost_usd", "—")
+                lines.append(f"\n\033[36m[tokens]\033[0m used: {used} | limit: {limit} | cost: ${cost}")
+
+        lines.append(f"\n\033[2mCtrl+C to exit\033[0m")
+        return "\n".join(lines)
+
+    try:
+        while True:
+            output = render()
+            sys.stdout.write("\033[2J\033[H")
+            sys.stdout.write(output + "\n")
+            sys.stdout.flush()
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        sys.stdout.write("\033[2J\033[H")
+        out("Watch stopped.")
+
+
 # ─── Arg parsing ──────────────────────────────────────────────────────────────
 
 def build_parser():
@@ -770,30 +1445,43 @@ def build_parser():
         parents=[shared],
         epilog="""
 Commands:
+  ema dump "thought"                   Quick brain dump
   ema task create|list|get|dispatch|status
   ema project create|list|view|context|dependencies
   ema proposal list|view|dispatch
+  ema exec list|get|create|approve|cancel|diff
+  ema agent list|get|chat|conversations
+  ema goal list|create|get|update
+  ema brain-dump create|list|process|delete
+  ema focus start|stop|pause|resume|current|today
+  ema habit list|create|toggle|today|archive
+  ema journal read|write|search
+  ema provider list|status
+  ema tokens summary|budget
   ema vault search
+  ema watch [--channel heartbeat|pipeline|tasks|...]
   ema dispatch status|logs
   ema health check
   ema sync openclaw
   ema status
 
 Examples:
+  ema dump "investigate auth token expiry"
+  ema agent chat main "what should I work on?"
+  ema exec list --status running
+  ema exec create "research auth patterns" --mode research
+  ema watch --interval 5 --channel pipeline
+  ema focus start --duration 25 --task <id>
+  ema journal write "Shipped the auth refactor" --mood good
+  ema habit today
+  ema goal create "Ship EMA v2" --description "Full CLI + TUI"
+  ema provider list
   ema task create "Fix auth module" --project proslync
-  ema task list --status todo
-  ema task list --json
-  ema task dispatch <task_id> --scope "auth/ only" --dry-run
-  ema project create "ProSlync" --path ~/Projects/proslync
-  ema proposal list --status pending
-  ema proposal dispatch <prop_id>
-  ema vault search "auth architecture"
-  ema health check
   ema status
         """
     )
 
-    p.add_argument("--version", action="version", version="ema 1.0.0 (Week 7 MVP)")
+    p.add_argument("--version", action="version", version="ema 2.0.0")
 
     sub = p.add_subparsers(dest="group", metavar="COMMAND")
 
@@ -902,6 +1590,160 @@ Examples:
     # ── status ──
     sub.add_parser("status", help="System health overview", parents=[shared])
 
+    # ── dump (shortcut) ──
+    dump_p = sub.add_parser("dump", help="Quick brain dump", parents=[shared])
+    dump_p.add_argument("text", nargs="+", help="Text to dump")
+
+    # ── brain-dump ──
+    bd_p = sub.add_parser("brain-dump", help="Brain dump inbox", parents=[shared])
+    bd_sub = bd_p.add_subparsers(dest="action", metavar="ACTION")
+
+    bdc = bd_sub.add_parser("create", help="Create brain dump item")
+    bdc.add_argument("text", nargs="+", help="Content")
+    bdc.add_argument("--source", help="Source tag")
+
+    bd_sub.add_parser("list", help="List brain dump items")
+
+    bdp = bd_sub.add_parser("process", help="Mark item as processed")
+    bdp.add_argument("item_id", help="Item ID")
+
+    bdd = bd_sub.add_parser("delete", help="Delete item")
+    bdd.add_argument("item_id", help="Item ID")
+
+    # ── goal ──
+    goal_p = sub.add_parser("goal", help="Goal tracking", parents=[shared])
+    goal_sub = goal_p.add_subparsers(dest="action", metavar="ACTION")
+
+    goal_sub.add_parser("list", help="List goals")
+
+    gc = goal_sub.add_parser("create", help="Create a goal")
+    gc.add_argument("title", help="Goal title")
+    gc.add_argument("--description", help="Description")
+    gc.add_argument("--parent", help="Parent goal ID")
+
+    gg = goal_sub.add_parser("get", help="View goal details")
+    gg.add_argument("goal_id", help="Goal ID")
+
+    gu = goal_sub.add_parser("update", help="Update a goal")
+    gu.add_argument("goal_id", help="Goal ID")
+    gu.add_argument("--title", help="New title")
+    gu.add_argument("--status", help="New status")
+    gu.add_argument("--description", help="New description")
+
+    # ── agent ──
+    agent_p = sub.add_parser("agent", help="Agent management and chat", parents=[shared])
+    agent_sub = agent_p.add_subparsers(dest="action", metavar="ACTION")
+
+    agent_sub.add_parser("list", help="List agents")
+
+    ag = agent_sub.add_parser("get", help="View agent details")
+    ag.add_argument("slug", help="Agent slug")
+
+    ac = agent_sub.add_parser("chat", help="Chat with an agent")
+    ac.add_argument("slug", help="Agent slug")
+    ac.add_argument("message", nargs="+", help="Message to send")
+    ac.add_argument("--context", "-c", help="Additional context")
+
+    aconv = agent_sub.add_parser("conversations", help="List agent conversations")
+    aconv.add_argument("slug", help="Agent slug")
+
+    # ── exec ──
+    exec_p = sub.add_parser("exec", help="Execution lifecycle", parents=[shared])
+    exec_sub = exec_p.add_subparsers(dest="action", metavar="ACTION")
+
+    el = exec_sub.add_parser("list", help="List executions")
+    el.add_argument("--status", "-s", help="Filter by status")
+    el.add_argument("--project", "-p", help="Filter by project slug")
+    el.add_argument("--limit", "-n", type=int, help="Max results")
+
+    eg = exec_sub.add_parser("get", help="View execution details")
+    eg.add_argument("exec_id", help="Execution ID")
+
+    ec = exec_sub.add_parser("create", help="Create and dispatch execution")
+    ec.add_argument("objective", nargs="+", help="Objective")
+    ec.add_argument("--mode", "-m", choices=["research", "outline", "implement", "review", "refactor"], default="research", help="Mode (default: research)")
+    ec.add_argument("--title", "-t", help="Title")
+    ec.add_argument("--project", "-p", help="Project slug")
+
+    ea = exec_sub.add_parser("approve", help="Approve and dispatch")
+    ea.add_argument("exec_id", help="Execution ID")
+
+    ecancel = exec_sub.add_parser("cancel", help="Cancel execution")
+    ecancel.add_argument("exec_id", help="Execution ID")
+
+    ed = exec_sub.add_parser("diff", help="View execution git diff")
+    ed.add_argument("exec_id", help="Execution ID")
+
+    # ── focus ──
+    focus_p = sub.add_parser("focus", help="Focus timer", parents=[shared])
+    focus_sub = focus_p.add_subparsers(dest="action", metavar="ACTION")
+
+    fs = focus_sub.add_parser("start", help="Start focus session")
+    fs.add_argument("--duration", "-d", type=int, help="Duration in minutes")
+    fs.add_argument("--task", "-t", help="Link to task ID")
+
+    focus_sub.add_parser("stop", help="Stop focus session")
+    focus_sub.add_parser("pause", help="Pause focus session")
+    focus_sub.add_parser("resume", help="Resume focus session")
+    focus_sub.add_parser("current", help="Show current session")
+    focus_sub.add_parser("today", help="Today's focus stats")
+
+    # ── habit ──
+    habit_p = sub.add_parser("habit", help="Habit tracking", parents=[shared])
+    habit_sub = habit_p.add_subparsers(dest="action", metavar="ACTION")
+
+    habit_sub.add_parser("list", help="List habits")
+
+    hc = habit_sub.add_parser("create", help="Create a habit")
+    hc.add_argument("name", help="Habit name")
+    hc.add_argument("--cadence", choices=["daily", "weekly", "monthly"], default="daily", help="Cadence")
+
+    ht = habit_sub.add_parser("toggle", help="Toggle habit completion")
+    ht.add_argument("habit_id", help="Habit ID")
+    ht.add_argument("--date", help="Date (default: today)")
+
+    habit_sub.add_parser("today", help="Today's habit status")
+
+    ha = habit_sub.add_parser("archive", help="Archive a habit")
+    ha.add_argument("habit_id", help="Habit ID")
+
+    # ── journal ──
+    journal_p = sub.add_parser("journal", help="Daily journal", parents=[shared])
+    journal_sub = journal_p.add_subparsers(dest="action", metavar="ACTION")
+
+    jr = journal_sub.add_parser("read", help="Read journal entry")
+    jr.add_argument("--date", help="Date (default: today)")
+
+    jw = journal_sub.add_parser("write", help="Write journal entry")
+    jw.add_argument("content", nargs="+", help="Entry content")
+    jw.add_argument("--date", help="Date (default: today)")
+    jw.add_argument("--mood", help="Mood tag")
+    jw.add_argument("--one-thing", dest="one_thing", help="One thing to focus on")
+
+    js = journal_sub.add_parser("search", help="Search journal entries")
+    js.add_argument("query", help="Search query")
+
+    # ── provider ──
+    prov_p = sub.add_parser("provider", help="AI provider status", parents=[shared])
+    prov_sub = prov_p.add_subparsers(dest="action", metavar="ACTION")
+
+    prov_sub.add_parser("list", help="List providers and routing stats")
+    prov_sub.add_parser("status", help="Detailed provider fitness")
+
+    # ── tokens ──
+    tok_p = sub.add_parser("tokens", help="Token usage and budget", parents=[shared])
+    tok_sub = tok_p.add_subparsers(dest="action", metavar="ACTION")
+
+    tok_sub.add_parser("summary", help="Token usage summary")
+    tok_sub.add_parser("budget", help="Token budget status")
+
+    # ── watch ──
+    watch_p = sub.add_parser("watch", help="Live dashboard (mirrors Discord streams)", parents=[shared])
+    watch_p.add_argument("--interval", "-i", type=int, default=10, help="Refresh interval in seconds (default: 10)")
+    watch_p.add_argument("--channel", "-c",
+        choices=["all", "heartbeat", "pipeline", "executions", "tasks", "proposals", "agents", "braindump", "inbox", "focus", "babysitter", "tokens", "cost"],
+        default="all", help="Channel to watch (default: all)")
+
     return p
 
 
@@ -1007,6 +1849,120 @@ def main():
             parser.parse_args(["sync", "--help"])
         elif args.action == "openclaw":
             cmd_sync_openclaw(client, args)
+
+    elif args.group == "dump":
+        cmd_dump(client, args)
+
+    elif args.group == "brain-dump":
+        if not args.action:
+            parser.parse_args(["brain-dump", "--help"])
+        elif args.action == "create":
+            cmd_braindump_create(client, args)
+        elif args.action == "list":
+            cmd_braindump_list(client, args)
+        elif args.action == "process":
+            cmd_braindump_process(client, args)
+        elif args.action == "delete":
+            cmd_braindump_delete(client, args)
+
+    elif args.group == "goal":
+        if not args.action:
+            parser.parse_args(["goal", "--help"])
+        elif args.action == "list":
+            cmd_goal_list(client, args)
+        elif args.action == "create":
+            cmd_goal_create(client, args)
+        elif args.action == "get":
+            cmd_goal_get(client, args)
+        elif args.action == "update":
+            cmd_goal_update(client, args)
+
+    elif args.group == "agent":
+        if not args.action:
+            parser.parse_args(["agent", "--help"])
+        elif args.action == "list":
+            cmd_agent_list(client, args)
+        elif args.action == "get":
+            cmd_agent_get(client, args)
+        elif args.action == "chat":
+            cmd_agent_chat(client, args)
+        elif args.action == "conversations":
+            cmd_agent_conversations(client, args)
+
+    elif args.group == "exec":
+        if not args.action:
+            parser.parse_args(["exec", "--help"])
+        elif args.action == "list":
+            cmd_exec_list(client, args)
+        elif args.action == "get":
+            cmd_exec_get(client, args)
+        elif args.action == "create":
+            cmd_exec_create(client, args)
+        elif args.action == "approve":
+            cmd_exec_approve(client, args)
+        elif args.action == "cancel":
+            cmd_exec_cancel(client, args)
+        elif args.action == "diff":
+            cmd_exec_diff(client, args)
+
+    elif args.group == "focus":
+        if not args.action:
+            parser.parse_args(["focus", "--help"])
+        elif args.action == "start":
+            cmd_focus_start(client, args)
+        elif args.action == "stop":
+            cmd_focus_stop(client, args)
+        elif args.action == "pause":
+            cmd_focus_pause(client, args)
+        elif args.action == "resume":
+            cmd_focus_resume(client, args)
+        elif args.action == "current":
+            cmd_focus_current(client, args)
+        elif args.action == "today":
+            cmd_focus_today(client, args)
+
+    elif args.group == "habit":
+        if not args.action:
+            parser.parse_args(["habit", "--help"])
+        elif args.action == "list":
+            cmd_habit_list(client, args)
+        elif args.action == "create":
+            cmd_habit_create(client, args)
+        elif args.action == "toggle":
+            cmd_habit_toggle(client, args)
+        elif args.action == "today":
+            cmd_habit_today(client, args)
+        elif args.action == "archive":
+            cmd_habit_archive(client, args)
+
+    elif args.group == "journal":
+        if not args.action:
+            parser.parse_args(["journal", "--help"])
+        elif args.action == "read":
+            cmd_journal_read(client, args)
+        elif args.action == "write":
+            cmd_journal_write(client, args)
+        elif args.action == "search":
+            cmd_journal_search(client, args)
+
+    elif args.group == "provider":
+        if not args.action:
+            cmd_provider_list(client, args)
+        elif args.action == "list":
+            cmd_provider_list(client, args)
+        elif args.action == "status":
+            cmd_provider_status(client, args)
+
+    elif args.group == "tokens":
+        if not args.action:
+            cmd_tokens_summary(client, args)
+        elif args.action == "summary":
+            cmd_tokens_summary(client, args)
+        elif args.action == "budget":
+            cmd_tokens_budget(client, args)
+
+    elif args.group == "watch":
+        cmd_watch(client, args)
 
 
 if __name__ == "__main__":

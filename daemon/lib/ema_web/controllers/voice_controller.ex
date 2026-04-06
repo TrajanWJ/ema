@@ -10,7 +10,10 @@ defmodule EmaWeb.VoiceController do
     sessions =
       Ema.Voice.Registry
       |> Registry.select([{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$2"}}]}])
-      |> Enum.filter(fn {{:session, _id}, _pid} -> true; _ -> false end)
+      |> Enum.filter(fn
+        {{:session, _id}, _pid} -> true
+        _ -> false
+      end)
       |> Enum.map(fn {{:session, session_id}, _pid} ->
         case safe_get_state(session_id) do
           {:ok, state} ->

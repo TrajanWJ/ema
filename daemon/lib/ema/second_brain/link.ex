@@ -22,7 +22,16 @@ defmodule Ema.SecondBrain.Link do
 
   def changeset(link, attrs) do
     link
-    |> cast(attrs, [:id, :link_text, :link_type, :edge_type, :context, :metadata, :source_note_id, :target_note_id])
+    |> cast(attrs, [
+      :id,
+      :link_text,
+      :link_type,
+      :edge_type,
+      :context,
+      :metadata,
+      :source_note_id,
+      :target_note_id
+    ])
     |> validate_required([:id, :link_text, :source_note_id])
     |> validate_inclusion(:link_type, @valid_link_types)
     |> validate_inclusion(:edge_type, @valid_edge_types)

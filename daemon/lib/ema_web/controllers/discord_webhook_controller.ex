@@ -28,6 +28,7 @@ defmodule EmaWeb.DiscordWebhookController do
 
         {:error, reason} ->
           Logger.error("Discord Bridge failed for channel #{channel_id}: #{inspect(reason)}")
+
           Phoenix.PubSub.broadcast(
             Ema.PubSub,
             "discord:responses",

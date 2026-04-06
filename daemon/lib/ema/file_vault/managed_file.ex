@@ -18,7 +18,16 @@ defmodule Ema.FileVault.ManagedFile do
 
   def changeset(file, attrs) do
     file
-    |> cast(attrs, [:id, :filename, :path, :size_bytes, :mime_type, :tags, :project_id, :uploaded_at])
+    |> cast(attrs, [
+      :id,
+      :filename,
+      :path,
+      :size_bytes,
+      :mime_type,
+      :tags,
+      :project_id,
+      :uploaded_at
+    ])
     |> validate_required([:id, :filename, :path])
   end
 end

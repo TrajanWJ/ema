@@ -162,11 +162,12 @@ defmodule EmaWeb.ProposalController do
     budget = Ema.Proposals.CostAggregator.daily_budget()
     check = Ema.Proposals.CostAggregator.budget_check()
 
-    status = case check do
-      :ok -> "ok"
-      {:warning, _} -> "warning"
-      {:blocked, _} -> "blocked"
-    end
+    status =
+      case check do
+        :ok -> "ok"
+        {:warning, _} -> "warning"
+        {:blocked, _} -> "blocked"
+      end
 
     json(conn, %{
       daily_spend_usd: spend,
@@ -192,6 +193,7 @@ defmodule EmaWeb.ProposalController do
   # ── Private helpers ────────────────────────────────────────────────────────
 
   defp fetch_seed(nil), do: {:error, :bad_request}
+
   defp fetch_seed(seed_id) do
     case Proposals.get_seed(seed_id) do
       nil -> {:error, :not_found}

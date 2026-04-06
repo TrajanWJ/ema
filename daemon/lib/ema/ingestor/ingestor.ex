@@ -21,6 +21,19 @@ defmodule Ema.Ingestor do
     |> Repo.insert()
   end
 
+  def get_job_by_source_uri(source_uri) when is_binary(source_uri) do
+    Repo.get_by(IngestJob, source_uri: source_uri)
+  end
+
+  def ensure_job(attrs) do
+    source_uri = attrs[:source_uri] || attrs["source_uri"]
+
+    case get_job_by_source_uri(source_uri) do
+      nil -> create_job(attrs)
+      job -> {:ok, job}
+    end
+  end
+
   def update_job(%IngestJob{} = job, attrs) do
     job
     |> IngestJob.changeset(attrs)

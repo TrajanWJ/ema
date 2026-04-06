@@ -111,7 +111,10 @@ defmodule Ema.Intelligence.ContextIndexer do
   end
 
   defp extract_elixir_signatures(content) do
-    Regex.scan(~r/^\s*(defmodule\s+\S+|defp?\s+[a-zA-Z0-9_!?]+\s*(?:\([^)]*\))?|defmacro\s+\S+)/m, content)
+    Regex.scan(
+      ~r/^\s*(defmodule\s+\S+|defp?\s+[a-zA-Z0-9_!?]+\s*(?:\([^)]*\))?|defmacro\s+\S+)/m,
+      content
+    )
     |> Enum.map(fn [_full, sig] -> String.trim(sig) end)
     |> Enum.uniq()
   end

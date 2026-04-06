@@ -24,11 +24,12 @@ defmodule Ema.Harvesters.SessionHarvester do
     patterns = extract_patterns(sessions)
     seeds_created = create_pattern_seeds(patterns)
 
-    {:ok, %{
-      items_found: length(sessions),
-      seeds_created: seeds_created,
-      metadata: %{patterns_found: map_size(patterns)}
-    }}
+    {:ok,
+     %{
+       items_found: length(sessions),
+       seeds_created: seeds_created,
+       metadata: %{patterns_found: map_size(patterns)}
+     }}
   rescue
     e -> {:error, Exception.message(e)}
   end
@@ -41,7 +42,8 @@ defmodule Ema.Harvesters.SessionHarvester do
         |> Enum.filter(&modified_since?(&1, since))
         |> Enum.flat_map(&parse_session_file/1)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -52,7 +54,8 @@ defmodule Ema.Harvesters.SessionHarvester do
         |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
         |> Enum.map(&Path.join(dir, &1))
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -62,7 +65,8 @@ defmodule Ema.Harvesters.SessionHarvester do
         file_time = DateTime.from_unix!(mtime)
         DateTime.compare(file_time, since) != :lt
 
-      _ -> false
+      _ ->
+        false
     end
   end
 
@@ -121,6 +125,7 @@ defmodule Ema.Harvesters.SessionHarvester do
   defp maybe_add_pattern(map, key, value), do: Map.put(map, key, value)
 
   defp create_pattern_seeds(patterns) when map_size(patterns) == 0, do: 0
+
   defp create_pattern_seeds(patterns) do
     seeds =
       patterns
@@ -131,22 +136,23 @@ defmodule Ema.Harvesters.SessionHarvester do
   end
 
   defp create_seed_for_pattern({:frequent_tools, tool_counts}) do
-    tool_summary = Enum.map_join(tool_counts, "\n", fn {tool, count} -> "- #{tool}: #{count} uses" end)
+    tool_summary =
+      Enum.map_join(tool_counts, "\n", fn {tool, count} -> "- #{tool}: #{count} uses" end)
 
     case Proposals.create_seed(%{
-      name: "Session tool usage patterns",
-      seed_type: "session",
-      prompt_template: """
-      Analysis of recent Claude Code sessions shows frequent tool usage:
+           name: "Session tool usage patterns",
+           seed_type: "session",
+           prompt_template: """
+           Analysis of recent Claude Code sessions shows frequent tool usage:
 
-      #{tool_summary}
+           #{tool_summary}
 
-      Propose workflow optimizations, custom tools, or automation to reduce repetitive tool usage.
-      """,
-      schedule: "every_8h",
-      active: true,
-      metadata: %{source: "session_harvester", tool_counts: Map.new(tool_counts)}
-    }) do
+           Propose workflow optimizations, custom tools, or automation to reduce repetitive tool usage.
+           """,
+           schedule: "every_8h",
+           active: true,
+           metadata: %{source: "session_harvester", tool_counts: Map.new(tool_counts)}
+         }) do
       {:ok, _} -> :ok
       {:error, _} -> :error
     end
@@ -154,16 +160,16 @@ defmodule Ema.Harvesters.SessionHarvester do
 
   defp create_seed_for_pattern({:error_patterns, error_count}) do
     case Proposals.create_seed(%{
-      name: "Session error patterns detected",
-      seed_type: "session",
-      prompt_template: """
-      Recent Claude Code sessions had #{error_count} errors.
-      Investigate recurring failure patterns and propose preventive measures or better error handling.
-      """,
-      schedule: "every_8h",
-      active: true,
-      metadata: %{source: "session_harvester", error_count: error_count}
-    }) do
+           name: "Session error patterns detected",
+           seed_type: "session",
+           prompt_template: """
+           Recent Claude Code sessions had #{error_count} errors.
+           Investigate recurring failure patterns and propose preventive measures or better error handling.
+           """,
+           schedule: "every_8h",
+           active: true,
+           metadata: %{source: "session_harvester", error_count: error_count}
+         }) do
       {:ok, _} -> :ok
       {:error, _} -> :error
     end
@@ -171,16 +177,16 @@ defmodule Ema.Harvesters.SessionHarvester do
 
   defp create_seed_for_pattern({:long_sessions, event_count}) do
     case Proposals.create_seed(%{
-      name: "Complex session detected",
-      seed_type: "session",
-      prompt_template: """
-      A Claude Code session had #{event_count} events, suggesting complex multi-step work.
-      Propose task decomposition strategies or workflow templates to handle similar tasks more efficiently.
-      """,
-      schedule: "every_8h",
-      active: true,
-      metadata: %{source: "session_harvester", event_count: event_count}
-    }) do
+           name: "Complex session detected",
+           seed_type: "session",
+           prompt_template: """
+           A Claude Code session had #{event_count} events, suggesting complex multi-step work.
+           Propose task decomposition strategies or workflow templates to handle similar tasks more efficiently.
+           """,
+           schedule: "every_8h",
+           active: true,
+           metadata: %{source: "session_harvester", event_count: event_count}
+         }) do
       {:ok, _} -> :ok
       {:error, _} -> :error
     end

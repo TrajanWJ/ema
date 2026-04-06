@@ -26,11 +26,18 @@ defmodule Ema.Harvesters.GitHarvester do
       |> Enum.filter(&has_git_path?/1)
       |> Enum.map(&scan_project/1)
 
-    items_found = Enum.sum(Enum.map(results, & &1.stale_branches)) +
-                  Enum.sum(Enum.map(results, & &1.notable_commits))
+    items_found =
+      Enum.sum(Enum.map(results, & &1.stale_branches)) +
+        Enum.sum(Enum.map(results, & &1.notable_commits))
+
     seeds_created = Enum.sum(Enum.map(results, & &1.seeds_created))
 
-    {:ok, %{items_found: items_found, seeds_created: seeds_created, metadata: %{projects_scanned: length(results)}}}
+    {:ok,
+     %{
+       items_found: items_found,
+       seeds_created: seeds_created,
+       metadata: %{projects_scanned: length(results)}
+     }}
   rescue
     e -> {:error, Exception.message(e)}
   end
@@ -50,9 +57,17 @@ defmodule Ema.Harvesters.GitHarvester do
   defp find_stale_branches(path) do
     cutoff = Date.utc_today() |> Date.add(-@stale_branch_days)
 
-    case System.cmd("git", ["for-each-ref", "--sort=committerdate",
-           "--format=%(refname:short)\t%(committerdate:iso8601)", "refs/heads/"],
-           cd: path, stderr_to_stdout: true) do
+    case System.cmd(
+           "git",
+           [
+             "for-each-ref",
+             "--sort=committerdate",
+             "--format=%(refname:short)\t%(committerdate:iso8601)",
+             "refs/heads/"
+           ],
+           cd: path,
+           stderr_to_stdout: true
+         ) do
       {output, 0} ->
         output
         |> String.split("\n", trim: true)
@@ -60,7 +75,9 @@ defmodule Ema.Harvesters.GitHarvester do
           case String.split(line, "\t") do
             [branch, date_str] ->
               branch not in ["main", "master"] and branch_is_stale?(date_str, cutoff)
-            _ -> false
+
+            _ ->
+              false
           end
         end)
         |> Enum.map(fn line ->
@@ -68,7 +85,8 @@ defmodule Ema.Harvesters.GitHarvester do
           %{branch: branch, last_commit: date_str}
         end)
 
-      _ -> []
+      _ ->
+        []
     end
   end
 
@@ -82,8 +100,12 @@ defmodule Ema.Harvesters.GitHarvester do
   defp find_notable_commits(path) do
     since = Date.utc_today() |> Date.add(-7) |> Date.to_iso8601()
 
-    case System.cmd("git", ["log", "--since=#{since}", "--pretty=format:%H\t%s\t%an",
-           "--no-merges", "-20"], cd: path, stderr_to_stdout: true) do
+    case System.cmd(
+           "git",
+           ["log", "--since=#{since}", "--pretty=format:%H\t%s\t%an", "--no-merges", "-20"],
+           cd: path,
+           stderr_to_stdout: true
+         ) do
       {output, 0} ->
         output
         |> String.split("\n", trim: true)
@@ -96,7 +118,8 @@ defmodule Ema.Harvesters.GitHarvester do
         |> Enum.reject(&is_nil/1)
         |> Enum.filter(&notable_commit?/1)
 
-      _ -> []
+      _ ->
+        []
     end
   end
 
@@ -113,48 +136,55 @@ defmodule Ema.Harvesters.GitHarvester do
   end
 
   defp create_stale_branch_seed(_project, []), do: 0
+
   defp create_stale_branch_seed(project, branches) do
     branch_list = Enum.map_join(branches, "\n", &"- #{&1.branch} (last: #{&1.last_commit})")
 
     case Proposals.create_seed(%{
-      name: "Stale branches in #{project.name}",
-      seed_type: "git",
-      prompt_template: """
-      The project "#{project.name}" has #{length(branches)} stale branches (no commits in #{@stale_branch_days}+ days):
+           name: "Stale branches in #{project.name}",
+           seed_type: "git",
+           prompt_template: """
+           The project "#{project.name}" has #{length(branches)} stale branches (no commits in #{@stale_branch_days}+ days):
 
-      #{branch_list}
+           #{branch_list}
 
-      Propose which branches should be deleted, merged, or preserved. Consider naming conventions and likely purpose.
-      """,
-      schedule: "every_6h",
-      active: true,
-      project_id: project.id,
-      metadata: %{source: "git_harvester", branch_count: length(branches)}
-    }) do
+           Propose which branches should be deleted, merged, or preserved. Consider naming conventions and likely purpose.
+           """,
+           schedule: "every_6h",
+           active: true,
+           project_id: project.id,
+           metadata: %{source: "git_harvester", branch_count: length(branches)}
+         }) do
       {:ok, _} -> 1
       {:error, _} -> 0
     end
   end
 
   defp create_notable_commit_seed(_project, []), do: 0
+
   defp create_notable_commit_seed(project, commits) do
-    commit_list = Enum.map_join(commits, "\n", &"- #{String.slice(&1.hash, 0..7)}: #{&1.subject} (#{&1.author})")
+    commit_list =
+      Enum.map_join(
+        commits,
+        "\n",
+        &"- #{String.slice(&1.hash, 0..7)}: #{&1.subject} (#{&1.author})"
+      )
 
     case Proposals.create_seed(%{
-      name: "Notable commits in #{project.name}",
-      seed_type: "git",
-      prompt_template: """
-      Recent commits in "#{project.name}" contain workarounds, TODOs, or other flags:
+           name: "Notable commits in #{project.name}",
+           seed_type: "git",
+           prompt_template: """
+           Recent commits in "#{project.name}" contain workarounds, TODOs, or other flags:
 
-      #{commit_list}
+           #{commit_list}
 
-      Propose follow-up tasks to address these. Prioritize by risk and effort.
-      """,
-      schedule: "every_6h",
-      active: true,
-      project_id: project.id,
-      metadata: %{source: "git_harvester", commit_count: length(commits)}
-    }) do
+           Propose follow-up tasks to address these. Prioritize by risk and effort.
+           """,
+           schedule: "every_6h",
+           active: true,
+           project_id: project.id,
+           metadata: %{source: "git_harvester", commit_count: length(commits)}
+         }) do
       {:ok, _} -> 1
       {:error, _} -> 0
     end

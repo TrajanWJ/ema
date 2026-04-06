@@ -70,7 +70,9 @@ defmodule Ema.CliManager do
 
   def complete_session(id, exit_code \\ 0, output_summary \\ nil) do
     case get_session(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       session ->
         update_session(session, %{
           "status" => "completed",
@@ -83,7 +85,9 @@ defmodule Ema.CliManager do
 
   def stop_session(id) do
     case get_session(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       session ->
         update_session(session, %{
           "status" => "stopped",

@@ -42,7 +42,8 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
   alias Ema.Claude.Bridge
 
   @default_timeout_ms 120_000
-  @default_model nil  # let SmartRouter decide
+  # let SmartRouter decide
+  @default_model nil
 
   @doc """
   Execute a Claude action within a pipe.
@@ -58,12 +59,13 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
          routing_decision = Router.route(event),
          {:ok, enriched_context} <- extract_context(routing_decision),
          {:ok, result} <- call_bridge(prompt, enriched_context, config) do
-      output_payload = Map.merge(payload, %{
-        "claude_output" => result.text,
-        "claude_model" => result.model,
-        "claude_tokens" => result.output_tokens,
-        "claude_cost" => result.cost
-      })
+      output_payload =
+        Map.merge(payload, %{
+          "claude_output" => result.text,
+          "claude_model" => result.model,
+          "claude_tokens" => result.output_tokens,
+          "claude_cost" => result.cost
+        })
 
       {:ok, output_payload}
     else
@@ -96,7 +98,9 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
          routing_decision = Router.route(event),
          {:ok, enriched_context} <- extract_context(routing_decision) do
       context_preamble = format_context_preamble(enriched_context)
-      full_prompt = if map_size(enriched_context) > 0, do: context_preamble <> "\n\n" <> prompt, else: prompt
+
+      full_prompt =
+        if map_size(enriched_context) > 0, do: context_preamble <> "\n\n" <> prompt, else: prompt
 
       bridge_opts =
         [timeout: config.timeout_ms]
@@ -106,20 +110,22 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
         output =
           case result do
             {:ok, r} when is_map(r) ->
-              {:ok, Map.merge(payload, %{
-                "claude_output" => r.text,
-                "claude_model" => r.model,
-                "claude_tokens" => r.output_tokens,
-                "claude_cost" => r.cost
-              })}
+              {:ok,
+               Map.merge(payload, %{
+                 "claude_output" => r.text,
+                 "claude_model" => r.model,
+                 "claude_tokens" => r.output_tokens,
+                 "claude_cost" => r.cost
+               })}
 
             {:ok, text} when is_binary(text) ->
-              {:ok, Map.merge(payload, %{
-                "claude_output" => text,
-                "claude_model" => "unknown",
-                "claude_tokens" => 0,
-                "claude_cost" => nil
-              })}
+              {:ok,
+               Map.merge(payload, %{
+                 "claude_output" => text,
+                 "claude_model" => "unknown",
+                 "claude_tokens" => 0,
+                 "claude_cost" => nil
+               })}
 
             {:error, reason} ->
               Logger.error("[ClaudeAction] Async pipeline failed: #{inspect(reason)}")
@@ -147,7 +153,8 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
 
   defp normalize_config(config) when is_map(config) do
     %{
-      prompt_template: config["prompt_template"] || config[:prompt_template] || "Process this event.",
+      prompt_template:
+        config["prompt_template"] || config[:prompt_template] || "Process this event.",
       event_keys: parse_event_keys(config["event_keys"] || config[:event_keys] || []),
       model: config["model"] || config[:model] || @default_model,
       event_type: parse_event_type(config["event_type"] || config[:event_type] || "general"),
@@ -167,6 +174,7 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
   defp parse_event_keys(_), do: []
 
   defp parse_event_type(type) when is_atom(type), do: type
+
   defp parse_event_type(type) when is_binary(type) do
     String.to_existing_atom(type)
   rescue
@@ -241,7 +249,8 @@ defmodule Ema.Pipes.Actions.ClaudeAction do
     _ -> ""
   end
 
-  defp format_key(key), do: key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+  defp format_key(key),
+    do: key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
 
   defp maybe_add_model(opts, nil), do: opts
   defp maybe_add_model(opts, model), do: Keyword.put(opts, :model, model)

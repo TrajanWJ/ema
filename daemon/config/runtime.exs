@@ -42,6 +42,10 @@ config :ema, Ema.Claude,
 
 config :ema, :accounts, claude_runtime.accounts
 
+config :ema, :distributed_ai,
+  enabled: Keyword.get(claude_runtime.distribution, :enabled, false),
+  cluster_strategy: Keyword.get(claude_runtime.distribution, :cluster_strategy, :local)
+
 # OpenClaw vault sync — one-way rsync from QMD vault on agent-vm
 config :ema, :openclaw_vault_sync,
   enabled: System.get_env("OPENCLAW_VAULT_SYNC", "false") == "true",
@@ -51,22 +55,22 @@ config :ema, :openclaw_vault_sync,
       "OPENCLAW_VAULT_ROOT",
       "projects/openclaw/intents/int_1775263900943_1678626d"
     ),
-  intent_node_id:
-    System.get_env("OPENCLAW_VAULT_INTENT", "int_1775263900943_1678626d"),
+  intent_node_id: System.get_env("OPENCLAW_VAULT_INTENT", "int_1775263900943_1678626d"),
   interval: String.to_integer(System.get_env("OPENCLAW_VAULT_INTERVAL", "30000")),
   reconcile_interval: String.to_integer(System.get_env("OPENCLAW_VAULT_RECONCILE", "900000"))
 
 # Git repositories to watch for wiki sync
-config :ema, :git_watch_paths,
-  String.split(
-    System.get_env(
-      "GIT_WATCH_PATHS",
-      "#{Path.expand("~/Projects/ema")},#{Path.expand("~/Desktop/place.org")},#{Path.expand("~/Desktop/JarvisAI")}"
-    ),
-    ","
-  )
-  |> Enum.map(&String.trim/1)
-  |> Enum.filter(&(String.length(&1) > 0))
+config :ema,
+       :git_watch_paths,
+       String.split(
+         System.get_env(
+           "GIT_WATCH_PATHS",
+           "#{Path.expand("~/Projects/ema")},#{Path.expand("~/Desktop/place.org")},#{Path.expand("~/Desktop/JarvisAI")}"
+         ),
+         ","
+       )
+       |> Enum.map(&String.trim/1)
+       |> Enum.filter(&(String.length(&1) > 0))
 
 if config_env() == :prod do
   config :ema, Ema.Repo,
@@ -159,6 +163,9 @@ if api_key = System.get_env("ANTHROPIC_API_KEY") do
     }
   }
 
-  config :ema, Ema.Claude,
-    Keyword.put(existing_claude_config, :providers, [anthropic_api_key_provider | existing_providers])
+  config :ema,
+         Ema.Claude,
+         Keyword.put(existing_claude_config, :providers, [
+           anthropic_api_key_provider | existing_providers
+         ])
 end

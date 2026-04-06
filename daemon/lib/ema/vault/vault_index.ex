@@ -40,6 +40,7 @@ defmodule Ema.Vault.VaultIndex do
     list_notes()
     |> Enum.filter(fn note ->
       q = String.downcase(query)
+
       String.contains?(String.downcase(note.title), q) or
         String.contains?(String.downcase(note.content || ""), q)
     end)

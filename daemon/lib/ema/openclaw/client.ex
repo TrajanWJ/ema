@@ -14,6 +14,7 @@ defmodule Ema.OpenClaw.Client do
   """
   def chat(agent_id, prompt, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, @timeout)
+
     body = %{
       model: agent_id,
       messages: [%{role: "user", content: prompt}],
@@ -23,10 +24,13 @@ defmodule Ema.OpenClaw.Client do
     case post("/v1/chat/completions", body, timeout) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]} = resp} ->
         {:ok, %{text: content, usage: resp["usage"] || %{}, agent_id: agent_id}}
+
       {:ok, other} ->
         Logger.warning("[OpenClaw.Client] Unexpected chat response: #{inspect(other)}")
         {:error, {:unexpected_response, other}}
-      {:error, _} = err -> err
+
+      {:error, _} = err ->
+        err
     end
   end
 

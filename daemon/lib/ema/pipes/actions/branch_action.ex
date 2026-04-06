@@ -52,7 +52,9 @@ defmodule Ema.Pipes.Actions.BranchAction do
     branch_taken = if result, do: "true", else: "false"
     next_action = if result, do: config.if_true, else: config.if_false
 
-    Logger.debug("[BranchAction] condition=#{inspect(config.condition)} result=#{result} next=#{next_action}")
+    Logger.debug(
+      "[BranchAction] condition=#{inspect(config.condition)} result=#{result} next=#{next_action}"
+    )
 
     updated =
       payload
@@ -125,11 +127,15 @@ defmodule Ema.Pipes.Actions.BranchAction do
   end
 
   defp apply_operator(op, actual, expected) do
-    Logger.warning("[BranchAction] Unknown operator '#{op}' for #{inspect(actual)} vs #{inspect(expected)}")
+    Logger.warning(
+      "[BranchAction] Unknown operator '#{op}' for #{inspect(actual)} vs #{inspect(expected)}"
+    )
+
     false
   end
 
   defp to_number(val) when is_number(val), do: val
+
   defp to_number(val) when is_binary(val) do
     case Float.parse(val) do
       {n, _} -> n

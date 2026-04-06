@@ -31,7 +31,9 @@ defmodule Ema.Intelligence.ContextFetcherTest do
 
   describe "ContextIndexer.reindex_project/1" do
     test "indexes signatures from linked project source files" do
-      root_dir = Path.join(System.tmp_dir!(), "ema-context-indexer-#{System.unique_integer([:positive])}")
+      root_dir =
+        Path.join(System.tmp_dir!(), "ema-context-indexer-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(Path.join(root_dir, "lib"))
 
       source_path = Path.join(root_dir, "lib/sample.ex")

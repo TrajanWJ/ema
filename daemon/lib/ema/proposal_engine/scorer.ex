@@ -86,7 +86,10 @@ defmodule Ema.ProposalEngine.Scorer do
   end
 
   defp check_duplicates(proposal, vector) do
-    results = Ema.Vectors.Index.similar_above(vector, @duplicate_threshold, project_id: proposal.project_id)
+    results =
+      Ema.Vectors.Index.similar_above(vector, @duplicate_threshold,
+        project_id: proposal.project_id
+      )
 
     duplicate =
       results
@@ -106,13 +109,14 @@ defmodule Ema.ProposalEngine.Scorer do
         "(similarity: #{Float.round(similarity, 3)})"
     )
 
-    log = Map.merge(proposal.generation_log || %{}, %{
-      "scorer" => %{
-        "duplicate_of" => similar_id,
-        "similarity" => Float.round(similarity, 3),
-        "action" => "killed_as_duplicate"
-      }
-    })
+    log =
+      Map.merge(proposal.generation_log || %{}, %{
+        "scorer" => %{
+          "duplicate_of" => similar_id,
+          "similarity" => Float.round(similarity, 3),
+          "action" => "killed_as_duplicate"
+        }
+      })
 
     Ema.Proposals.update_proposal(proposal, %{
       status: "killed",
@@ -291,7 +295,10 @@ defmodule Ema.ProposalEngine.Scorer do
     body_length = String.length(body)
     has_code_refs = String.contains?(body, [".ex", ".ts", ".tsx", "def ", "function ", "class "])
     has_structure = String.contains?(body, ["\n-", "\n*", "\n1.", "##"])
-    has_specifics = String.contains?(body, ["module", "component", "endpoint", "schema", "migration"])
+
+    has_specifics =
+      String.contains?(body, ["module", "component", "endpoint", "schema", "migration"])
+
     title_specific = String.length(title) > 15 and String.length(title) < 100
 
     score = 3.0

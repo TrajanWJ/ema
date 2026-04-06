@@ -27,7 +27,9 @@ defmodule Ema.Intelligence.AutonomyConfig do
   @doc "Get autonomy level for an agent atom (falls back to :global)."
   def get_level(agent \\ :global) do
     case :ets.lookup(@table, agent) do
-      [{^agent, level}] -> level
+      [{^agent, level}] ->
+        level
+
       [] ->
         if agent == :global, do: :auto, else: get_level(:global)
     end

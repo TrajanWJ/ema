@@ -107,7 +107,8 @@ defmodule Ema.Integrations.OpenClaw.VaultMirror do
           "--include=*.md",
           "--include=*/",
           "--exclude=*",
-          "-e", "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no",
+          "-e",
+          "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no",
           source,
           dest
         ]
@@ -178,7 +179,8 @@ defmodule Ema.Integrations.OpenClaw.VaultMirror do
   end
 
   defp ssh_ls(host, remote_root) do
-    cmd = "find #{remote_root} -type f \\( -name '*.qmd' -o -name '*.md' \\) -printf '%P\\t%T@\\n'"
+    cmd =
+      "find #{remote_root} -type f \\( -name '*.qmd' -o -name '*.md' \\) -printf '%P\\t%T@\\n'"
 
     case System.cmd("ssh", ["-o", "ConnectTimeout=10", host, cmd],
            stderr_to_stdout: true,
@@ -214,11 +216,17 @@ defmodule Ema.Integrations.OpenClaw.VaultMirror do
     local_path = Path.join([staging_root(), config.intent_node_id, relative_path])
     File.mkdir_p!(Path.dirname(local_path))
 
-    System.cmd("scp", [
-      "-o", "ConnectTimeout=10",
-      "#{host}:#{remote_path}",
-      local_path
-    ], stderr_to_stdout: true, timeout: 30_000)
+    System.cmd(
+      "scp",
+      [
+        "-o",
+        "ConnectTimeout=10",
+        "#{host}:#{remote_path}",
+        local_path
+      ],
+      stderr_to_stdout: true,
+      timeout: 30_000
+    )
   end
 
   defp build_manifest do
@@ -280,11 +288,12 @@ defmodule Ema.Integrations.OpenClaw.VaultMirror do
 
     %{
       source_host: Keyword.get(openclaw_vault, :source_host, "192.168.122.10"),
-      source_root: Keyword.get(
-        openclaw_vault,
-        :source_root,
-        "projects/openclaw/intents/int_1775263900943_1678626d"
-      ),
+      source_root:
+        Keyword.get(
+          openclaw_vault,
+          :source_root,
+          "projects/openclaw/intents/int_1775263900943_1678626d"
+        ),
       intent_node_id: Keyword.get(openclaw_vault, :intent_node_id, "int_1775263900943_1678626d"),
       interval: Keyword.get(openclaw_vault, :interval, @default_interval)
     }

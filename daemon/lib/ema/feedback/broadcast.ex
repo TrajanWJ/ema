@@ -38,17 +38,16 @@ defmodule Ema.Feedback.Broadcast do
 
   # --- Public API ---
 
-
   @stream_channels %{
-    system_heartbeat:   "1489820670333423827",
-    agent_thoughts:     "1489820679472677044",
-    intent_stream:      "1489820673760301156",
-    pipeline_flow:      "1489820676859756606",
-    memory_writes:      "1489820685101699193",
+    system_heartbeat: "1489820670333423827",
+    agent_thoughts: "1489820679472677044",
+    intent_stream: "1489820673760301156",
+    pipeline_flow: "1489820676859756606",
+    memory_writes: "1489820685101699193",
     intelligence_layer: "1489820682198974525",
-    babysitter_digest:  "1489856926706827264",
-    babysitter_live:    "1489786483970936933",
-    babysitter_sprint:  "1489815795293749258"
+    babysitter_digest: "1489856926706827264",
+    babysitter_live: "1489786483970936933",
+    babysitter_sprint: "1489815795293749258"
   }
 
   @doc "Emit to a named stream channel by atom key"
@@ -115,13 +114,13 @@ defmodule Ema.Feedback.Broadcast do
 
       Enum.each(chunks, fn chunk ->
         case Req.post(url,
-          headers: [
-            {"Authorization", "Bot #{token}"},
-            {"Content-Type", "application/json"}
-          ],
-          json: %{content: chunk},
-          receive_timeout: 10_000
-        ) do
+               headers: [
+                 {"Authorization", "Bot #{token}"},
+                 {"Content-Type", "application/json"}
+               ],
+               json: %{content: chunk},
+               receive_timeout: 10_000
+             ) do
           {:ok, %Req.Response{status: s}} when s in 200..299 ->
             :ok
 
@@ -151,6 +150,7 @@ defmodule Ema.Feedback.Broadcast do
     |> String.split("\n")
     |> Enum.reduce([""], fn line, [current | rest] ->
       candidate = if current == "", do: line, else: current <> "\n" <> line
+
       if String.length(candidate) <= max_len do
         [candidate | rest]
       else

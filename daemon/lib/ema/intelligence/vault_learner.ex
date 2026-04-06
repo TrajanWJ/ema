@@ -49,7 +49,8 @@ defmodule Ema.Intelligence.VaultLearner do
 
   # --- Private ---
 
-  defp do_extract_and_write(%{response_text: text} = opts) when is_binary(text) and byte_size(text) > 50 do
+  defp do_extract_and_write(%{response_text: text} = opts)
+       when is_binary(text) and byte_size(text) > 50 do
     agent = Map.get(opts, :agent, :unknown)
     task_type = Map.get(opts, :task_type, :unknown)
     campaign_id = Map.get(opts, :campaign_id)
@@ -57,19 +58,24 @@ defmodule Ema.Intelligence.VaultLearner do
 
     with {:ok, facts} <- extract_facts(text, agent, task_type),
          path <- determine_path(agent, task_type, campaign_id),
-         :ok <- write_vault_note(path, format_facts(facts), %{
-           type: "agent_learning",
-           agent: agent,
-           task_type: task_type,
-           session: session_id,
-           date: Date.utc_today() |> Date.to_string(),
-           auto_generated: true
-         }) do
+         :ok <-
+           write_vault_note(path, format_facts(facts), %{
+             type: "agent_learning",
+             agent: agent,
+             task_type: task_type,
+             session: session_id,
+             date: Date.utc_today() |> Date.to_string(),
+             auto_generated: true
+           }) do
       schedule_qmd_update()
-      Logger.info("[VaultLearner] Wrote #{length(facts)} facts for #{agent}/#{task_type} -> #{path}")
+
+      Logger.info(
+        "[VaultLearner] Wrote #{length(facts)} facts for #{agent}/#{task_type} -> #{path}"
+      )
     else
       {:error, :extraction_empty} ->
         Logger.debug("[VaultLearner] No extractable facts for #{agent}/#{task_type}")
+
       {:error, reason} ->
         Logger.warning("[VaultLearner] Failed: #{inspect(reason)}")
     end
@@ -128,7 +134,9 @@ defmodule Ema.Intelligence.VaultLearner do
     note = "---\n#{yaml}\n---\n\n#{content}\n"
 
     case File.write(full_path, note) do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, reason} ->
         Logger.error("[VaultLearner] File write failed #{full_path}: #{inspect(reason)}")
         {:error, {:write_failed, reason}}

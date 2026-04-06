@@ -18,7 +18,11 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   @openclaw_fuse :ema_openclaw_fuse
 
   def install_fuse do
-    :fuse.install(@openclaw_fuse, {{:standard, 5, :timer.seconds(60)}, {:reset, :timer.minutes(5)}})
+    :fuse.install(
+      @openclaw_fuse,
+      {{:standard, 5, :timer.seconds(60)}, {:reset, :timer.minutes(5)}}
+    )
+
     :ok
   rescue
     _ -> :ok
@@ -39,7 +43,9 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
       :ok ->
         case do_openclaw_run(message, agent_id, opts) do
-          {:ok, _} = result -> result
+          {:ok, _} = result ->
+            result
+
           {:error, _} ->
             :fuse.melt(@openclaw_fuse)
             fallback_run(message, opts)
@@ -247,7 +253,10 @@ defmodule Ema.Claude.Adapters.OpenClaw do
       nil ->
         # No valid JSON found — return raw output as text
         text = String.trim(output)
-        if text == "", do: {:error, :empty_response}, else: {:ok, %{text: text, usage: %{}, raw: nil}}
+
+        if text == "",
+          do: {:error, :empty_response},
+          else: {:ok, %{text: text, usage: %{}, raw: nil}}
 
       {:error, _} ->
         {:error, {:json_parse_error, String.slice(output, 0, 200)}}

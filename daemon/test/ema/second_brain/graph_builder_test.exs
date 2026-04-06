@@ -16,6 +16,7 @@ defmodule Ema.SecondBrain.GraphBuilderTest do
   describe "parse_wikilinks/1" do
     test "extracts simple wikilinks" do
       content = "Check out [[My Note]] and [[Another Note]] for details."
+
       assert GraphBuilder.parse_wikilinks(content) == [
                {"references", "My Note"},
                {"references", "Another Note"}
@@ -42,6 +43,7 @@ defmodule Ema.SecondBrain.GraphBuilderTest do
 
     test "handles multiple links on same line" do
       content = "[[A]] links to [[B]] and [[C]]"
+
       assert GraphBuilder.parse_wikilinks(content) == [
                {"references", "A"},
                {"references", "B"},

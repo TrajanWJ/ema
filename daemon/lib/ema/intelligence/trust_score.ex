@@ -19,7 +19,17 @@ defmodule Ema.Intelligence.TrustScore do
 
   def changeset(score, attrs) do
     score
-    |> cast(attrs, [:id, :agent_id, :score, :completion_rate, :avg_latency_ms, :error_count, :session_count, :days_active, :calculated_at])
+    |> cast(attrs, [
+      :id,
+      :agent_id,
+      :score,
+      :completion_rate,
+      :avg_latency_ms,
+      :error_count,
+      :session_count,
+      :days_active,
+      :calculated_at
+    ])
     |> validate_required([:id, :agent_id, :score, :calculated_at])
     |> validate_number(:score, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
   end

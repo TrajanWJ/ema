@@ -79,7 +79,13 @@ defmodule Ema.Claude.RuntimeBootstrap do
           )
 
         accounts = [
-          %{id: "claude-local:system", provider_id: "claude-local", name: "system", auth: %{type: :system}, priority: 1}
+          %{
+            id: "claude-local:system",
+            provider_id: "claude-local",
+            name: "system",
+            auth: %{type: :system},
+            priority: 1
+          }
         ]
 
         %{provider: provider, accounts: accounts}
@@ -101,7 +107,13 @@ defmodule Ema.Claude.RuntimeBootstrap do
         )
 
       accounts = [
-        %{id: "codex-local:system", provider_id: "codex-local", name: "system", auth: %{type: :system}, priority: 1}
+        %{
+          id: "codex-local:system",
+          provider_id: "codex-local",
+          name: "system",
+          auth: %{type: :system},
+          priority: 1
+        }
       ]
 
       %{provider: provider, accounts: accounts}

@@ -22,6 +22,9 @@ defmodule Ema.Intelligence.MemoryFragment do
     |> cast(attrs, [:id, :session_id, :fragment_type, :content, :importance_score, :project_path])
     |> validate_required([:id, :fragment_type, :content])
     |> validate_inclusion(:fragment_type, @valid_types)
-    |> validate_number(:importance_score, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)
+    |> validate_number(:importance_score,
+      greater_than_or_equal_to: 0.0,
+      less_than_or_equal_to: 1.0
+    )
   end
 end

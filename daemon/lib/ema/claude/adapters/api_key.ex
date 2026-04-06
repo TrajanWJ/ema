@@ -45,10 +45,11 @@ defmodule Ema.Claude.Adapters.ApiKey do
 
     pid =
       spawn_link(fn ->
-        result = execute_streaming(prompt, resolved_model, opts, fn event ->
-          send(caller, {:adapter_event, event})
-          if on_event, do: on_event.(event)
-        end)
+        result =
+          execute_streaming(prompt, resolved_model, opts, fn event ->
+            send(caller, {:adapter_event, event})
+            if on_event, do: on_event.(event)
+          end)
 
         case result do
           {:ok, _resp} ->
@@ -139,11 +140,21 @@ defmodule Ema.Claude.Adapters.ApiKey do
         json_str = String.slice(line, 6..-1//1)
 
         case Jason.decode(json_str) do
-          {:ok, %{"type" => "content_block_delta", "delta" => %{"type" => "text_delta", "text" => text}}} ->
+          {:ok,
+           %{
+             "type" => "content_block_delta",
+             "delta" => %{"type" => "text_delta", "text" => text}
+           }} ->
             {:ok, %{type: :text_delta, content: text, raw: json_str}}
 
           {:ok, %{"type" => "message_stop"}} ->
-            {:ok, %{type: :message_stop, content: "", usage: %{tokens_in: 0, tokens_out: 0}, raw: json_str}}
+            {:ok,
+             %{
+               type: :message_stop,
+               content: "",
+               usage: %{tokens_in: 0, tokens_out: 0},
+               raw: json_str
+             }}
 
           {:ok, %{"type" => "message_delta", "usage" => usage}} ->
             {:ok,
@@ -171,7 +182,8 @@ defmodule Ema.Claude.Adapters.ApiKey do
           {:ok, %{"type" => "error", "error" => err}} ->
             {:error, %{message: err["message"] || inspect(err), raw: err}}
 
-          {:ok, %{"type" => type}} when type in ["content_block_start", "content_block_stop", "ping"] ->
+          {:ok, %{"type" => type}}
+          when type in ["content_block_start", "content_block_stop", "ping"] ->
             :skip
 
           {:ok, _event} ->

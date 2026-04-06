@@ -10,7 +10,8 @@ defmodule Ema.Repo.Migrations.MigrateCampaignStatuses do
       add :project_id, :binary_id, null: true
     end
   rescue
-    _ -> :ok  # column may already exist from previous run
+    # column may already exist from previous run
+    _ -> :ok
   end
 
   def down do

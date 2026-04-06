@@ -97,13 +97,17 @@ defmodule Ema.Intelligence.CostForecaster do
 
         if state.last_spike_alert != today do
           broadcast(:cost_spike, %{
-            message: "Cost spike detected: $#{Float.round(data.today_cost, 2)} today (#{data.multiplier}x your average)",
+            message:
+              "Cost spike detected: $#{Float.round(data.today_cost, 2)} today (#{data.multiplier}x your average)",
             today_cost: data.today_cost,
             daily_avg: data.daily_avg,
             multiplier: data.multiplier
           })
 
-          Logger.info("CostForecaster: spike detected — $#{Float.round(data.today_cost, 2)} (#{data.multiplier}x avg)")
+          Logger.info(
+            "CostForecaster: spike detected — $#{Float.round(data.today_cost, 2)} (#{data.multiplier}x avg)"
+          )
+
           %{state | last_spike_alert: today}
         else
           state
@@ -123,11 +127,15 @@ defmodule Ema.Intelligence.CostForecaster do
       digest = weekly_digest()
 
       broadcast(:weekly_digest, %{
-        message: "Weekly cost digest: $#{Float.round(digest.week_cost, 2)} this week, projected $#{Float.round(digest.projected_monthly, 2)}/month",
+        message:
+          "Weekly cost digest: $#{Float.round(digest.week_cost, 2)} this week, projected $#{Float.round(digest.projected_monthly, 2)}/month",
         digest: digest
       })
 
-      Logger.info("CostForecaster: weekly digest sent — $#{Float.round(digest.week_cost, 2)} this week")
+      Logger.info(
+        "CostForecaster: weekly digest sent — $#{Float.round(digest.week_cost, 2)} this week"
+      )
+
       %{state | last_digest: today}
     else
       state
@@ -139,7 +147,8 @@ defmodule Ema.Intelligence.CostForecaster do
 
     if summary.percent_used >= 100 do
       broadcast(:budget_exceeded, %{
-        message: "Monthly budget exceeded: $#{Float.round(summary.month_cost, 2)} of $#{summary.monthly_budget}",
+        message:
+          "Monthly budget exceeded: $#{Float.round(summary.month_cost, 2)} of $#{summary.monthly_budget}",
         month_cost: summary.month_cost,
         budget: summary.monthly_budget,
         percent: summary.percent_used
@@ -152,6 +161,10 @@ defmodule Ema.Intelligence.CostForecaster do
   defp broadcast(event, payload) do
     Phoenix.PubSub.broadcast(Ema.PubSub, "intelligence:tokens", {event, payload})
     # Also broadcast to notifications channel for the notification store
-    Phoenix.PubSub.broadcast(Ema.PubSub, "notifications", {:notification, Map.put(payload, :type, event)})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "notifications",
+      {:notification, Map.put(payload, :type, event)}
+    )
   end
 end

@@ -61,7 +61,10 @@ defmodule Ema.Intelligence.TokenTracker do
     now = DateTime.utc_now()
     today = Date.utc_today()
     start_of_day = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
-    start_of_week = DateTime.new!(Date.add(today, -Date.day_of_week(today) + 1), ~T[00:00:00], "Etc/UTC")
+
+    start_of_week =
+      DateTime.new!(Date.add(today, -Date.day_of_week(today) + 1), ~T[00:00:00], "Etc/UTC")
+
     start_of_month = DateTime.new!(Date.new!(today.year, today.month, 1), ~T[00:00:00], "Etc/UTC")
 
     today_cost = sum_cost_since(start_of_day)
@@ -73,7 +76,11 @@ defmodule Ema.Intelligence.TokenTracker do
     today_delta = today_cost - yesterday_cost
 
     budget = get_or_create_budget()
-    percent_used = if budget.monthly_budget_usd > 0, do: Float.round(month_cost / budget.monthly_budget_usd * 100, 1), else: 0.0
+
+    percent_used =
+      if budget.monthly_budget_usd > 0,
+        do: Float.round(month_cost / budget.monthly_budget_usd * 100, 1),
+        else: 0.0
 
     days_in_month = Date.days_in_month(today)
     days_remaining = days_in_month - today.day + 1
@@ -148,7 +155,11 @@ defmodule Ema.Intelligence.TokenTracker do
       nil ->
         {:ok, budget} =
           %TokenBudget{}
-          |> TokenBudget.changeset(%{id: "default", monthly_budget_usd: 100.0, alert_threshold_pct: 80})
+          |> TokenBudget.changeset(%{
+            id: "default",
+            monthly_budget_usd: 100.0,
+            alert_threshold_pct: 80
+          })
           |> Repo.insert()
 
         budget
@@ -177,11 +188,12 @@ defmodule Ema.Intelligence.TokenTracker do
 
   @impl true
   def handle_call({:record, attrs}, _from, state) do
-    cost = calculate_cost(
-      attrs[:model] || attrs["model"] || "sonnet",
-      attrs[:input_tokens] || attrs["input_tokens"] || 0,
-      attrs[:output_tokens] || attrs["output_tokens"] || 0
-    )
+    cost =
+      calculate_cost(
+        attrs[:model] || attrs["model"] || "sonnet",
+        attrs[:input_tokens] || attrs["input_tokens"] || 0,
+        attrs[:output_tokens] || attrs["output_tokens"] || 0
+      )
 
     event_attrs =
       attrs
@@ -224,14 +236,24 @@ defmodule Ema.Intelligence.TokenTracker do
     today = Date.utc_today()
     start_of_month = DateTime.new!(Date.new!(today.year, today.month, 1), ~T[00:00:00], "Etc/UTC")
     month_cost = sum_cost_since(start_of_month)
-    percent = if budget.monthly_budget_usd > 0, do: month_cost / budget.monthly_budget_usd * 100, else: 0
+
+    percent =
+      if budget.monthly_budget_usd > 0, do: month_cost / budget.monthly_budget_usd * 100, else: 0
 
     cond do
       percent >= 100 ->
-        broadcast(:budget_exceeded, %{month_cost: month_cost, budget: budget.monthly_budget_usd, percent: percent})
+        broadcast(:budget_exceeded, %{
+          month_cost: month_cost,
+          budget: budget.monthly_budget_usd,
+          percent: percent
+        })
 
       percent >= budget.alert_threshold_pct ->
-        broadcast(:budget_warning, %{month_cost: month_cost, budget: budget.monthly_budget_usd, percent: percent})
+        broadcast(:budget_warning, %{
+          month_cost: month_cost,
+          budget: budget.monthly_budget_usd,
+          percent: percent
+        })
 
       true ->
         :ok

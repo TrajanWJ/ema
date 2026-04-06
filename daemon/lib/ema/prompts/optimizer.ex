@@ -102,10 +102,7 @@ defmodule Ema.Prompts.Optimizer do
 
     maybe_cancel_timer(state.timer_ref)
 
-    %{state |
-      last_run: now,
-      next_run: next_run_after(now),
-      timer_ref: schedule_tick(now)}
+    %{state | last_run: now, next_run: next_run_after(now), timer_ref: schedule_tick(now)}
   end
 
   defp analyze_completed_tests(since, metrics_since) do
@@ -123,21 +120,28 @@ defmodule Ema.Prompts.Optimizer do
       case generate_variants(prompt, metrics, bridge_runner) do
         {:ok, variants} ->
           metadata = %{
-            optimizer_run_at: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
+            optimizer_run_at:
+              DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
             baseline_success_rate: metrics.success_rate,
             baseline_total: metrics.total
           }
 
           case Store.create_variants(prompt, variants, %{optimizer_metadata: metadata}) do
             {:ok, _} ->
-              Logger.info("[Prompts.Optimizer] Created variants for #{prompt.kind} (#{prompt.id})")
+              Logger.info(
+                "[Prompts.Optimizer] Created variants for #{prompt.kind} (#{prompt.id})"
+              )
 
             {:error, reason} ->
-              Logger.warning("[Prompts.Optimizer] Failed storing variants for #{prompt.id}: #{inspect(reason)}")
+              Logger.warning(
+                "[Prompts.Optimizer] Failed storing variants for #{prompt.id}: #{inspect(reason)}"
+              )
           end
 
         {:error, reason} ->
-          Logger.warning("[Prompts.Optimizer] Failed generating variants for #{prompt.id}: #{inspect(reason)}")
+          Logger.warning(
+            "[Prompts.Optimizer] Failed generating variants for #{prompt.id}: #{inspect(reason)}"
+          )
       end
     end)
   end

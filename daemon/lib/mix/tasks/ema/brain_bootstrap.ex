@@ -55,6 +55,7 @@ defmodule Mix.Tasks.Ema.BrainBootstrap do
 
     if stats.errors != [] do
       Mix.shell().info("Errors:")
+
       Enum.each(stats.errors, fn err ->
         Mix.shell().info("  #{inspect(err)}")
       end)

@@ -111,8 +111,11 @@ defmodule Ema.Intelligence.TrustScorer do
       }
 
       case %TrustScore{} |> TrustScore.changeset(attrs) |> Repo.insert() do
-        {:ok, _} -> :ok
-        {:error, reason} -> Logger.warning("TrustScorer: failed for #{agent.slug}: #{inspect(reason)}")
+        {:ok, _} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("TrustScorer: failed for #{agent.slug}: #{inspect(reason)}")
       end
     end)
 
@@ -134,8 +137,11 @@ defmodule Ema.Intelligence.TrustScorer do
       runs
       |> Enum.filter(fn r -> r.duration_ms != nil and r.duration_ms > 0 end)
       |> case do
-        [] -> 0
-        with_latency -> Enum.sum(Enum.map(with_latency, & &1.duration_ms)) |> div(length(with_latency))
+        [] ->
+          0
+
+        with_latency ->
+          Enum.sum(Enum.map(with_latency, & &1.duration_ms)) |> div(length(with_latency))
       end
 
     session_count = length(conversations)

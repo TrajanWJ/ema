@@ -8,6 +8,7 @@ defmodule Ema.Superman do
       a .superman file from vault or assembles context from DB.
   """
 
+  alias Ema.Knowledge
   alias Ema.Memory.ContextAssembler
   alias Ema.Projects
   alias Ema.Superman.{KnowledgeGraph, Fallback}
@@ -109,7 +110,8 @@ defmodule Ema.Superman do
     e -> {:error, {:assembler_failed, Exception.message(e)}}
   end
 
-  defp build_bundle(project, graph_nodes, {:ok, assembled}) when is_list(graph_nodes) and graph_nodes != [] do
+  defp build_bundle(project, graph_nodes, {:ok, assembled})
+       when is_list(graph_nodes) and graph_nodes != [] do
     {:ok,
      %{
        project_id: project.id,
@@ -118,6 +120,7 @@ defmodule Ema.Superman do
        source: :graph,
        graph_nodes: graph_nodes,
        assembled_context: assembled,
+       knowledge: knowledge_summary(project.id),
        prompt_text: ContextAssembler.to_prompt(assembled),
        metadata: %{
          graph_node_count: length(graph_nodes),
@@ -136,6 +139,7 @@ defmodule Ema.Superman do
        source: :assembler,
        graph_nodes: [],
        assembled_context: assembled,
+       knowledge: knowledge_summary(project.id),
        prompt_text: ContextAssembler.to_prompt(assembled),
        metadata: %{
          graph_node_count: 0,
@@ -156,6 +160,7 @@ defmodule Ema.Superman do
            source: normalize_source(source),
            graph_nodes: graph_nodes || [],
            assembled_context: nil,
+           knowledge: knowledge_summary(project.id),
            prompt_text: content,
            metadata: %{
              graph_node_count: length(graph_nodes || []),
@@ -167,6 +172,36 @@ defmodule Ema.Superman do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @knowledge_char_budget 2000
+
+  defp knowledge_summary(project_id) do
+    intents = Knowledge.items_for_project(project_id, kind: "intent", status: "active", limit: 10)
+    decisions = Knowledge.items_for_project(project_id, kind: "decision", status: "active", limit: 10)
+    questions = Knowledge.items_for_project(project_id, kind: "question", status: "active", limit: 10)
+    evidence = Knowledge.items_for_project(project_id, kind: "evidence", status: "active", limit: 5)
+
+    sections =
+      [
+        format_knowledge_section("Active Intents", intents),
+        format_knowledge_section("Recent Decisions", decisions),
+        format_knowledge_section("Open Questions", questions),
+        format_knowledge_section("Evidence", evidence)
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    case sections do
+      [] -> nil
+      parts -> String.slice(Enum.join(parts, "\n"), 0, @knowledge_char_budget)
+    end
+  end
+
+  defp format_knowledge_section(_title, []), do: nil
+
+  defp format_knowledge_section(title, items) do
+    lines = Enum.map(items, fn i -> "- #{String.slice(i.text, 0, 120)}" end)
+    "## #{title}\n#{Enum.join(lines, "\n")}"
   end
 
   defp normalize_source(:file), do: :fallback_file

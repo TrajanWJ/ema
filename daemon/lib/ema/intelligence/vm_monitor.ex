@@ -145,7 +145,8 @@ defmodule Ema.Intelligence.VmMonitor do
       containers: parse_containers(current.containers_json),
       heartbeat_state: heartbeat_state,
       trend: trend,
-      narrative: build_narrative(heartbeat_state, current, recent_bad, consecutive_bad, latency_ratio),
+      narrative:
+        build_narrative(heartbeat_state, current, recent_bad, consecutive_bad, latency_ratio),
       notes: notes,
       sample_count: length(history),
       recent_statuses: Enum.map(recent, & &1.status),
@@ -184,7 +185,10 @@ defmodule Ema.Intelligence.VmMonitor do
         history = replace_latest_checked_at(history, event.checked_at)
 
         if raw_snapshot.status != state.last_status do
-          broadcast(:vm_status_changed, %{status: raw_snapshot.status, previous: state.last_status})
+          broadcast(:vm_status_changed, %{
+            status: raw_snapshot.status,
+            previous: state.last_status
+          })
         end
 
         broadcast(:vm_health_checked, heartbeat)
@@ -335,9 +339,15 @@ defmodule Ema.Intelligence.VmMonitor do
     latency_ratio = Keyword.fetch!(opts, :latency_ratio)
 
     []
-    |> maybe_add_note(recent_bad >= 3, "#{recent_bad} of last #{min(length(history), 6)} checks were degraded or offline")
+    |> maybe_add_note(
+      recent_bad >= 3,
+      "#{recent_bad} of last #{min(length(history), 6)} checks were degraded or offline"
+    )
     |> maybe_add_note(consecutive_bad >= 2, "#{consecutive_bad} unhealthy checks are stacking up")
-    |> maybe_add_note(consecutive_good >= 2 and recent_bad > 0, "service has held healthy for #{consecutive_good} consecutive checks")
+    |> maybe_add_note(
+      consecutive_good >= 2 and recent_bad > 0,
+      "service has held healthy for #{consecutive_good} consecutive checks"
+    )
     |> maybe_add_note(flapping, "status has been bouncing between states")
     |> maybe_add_note(
       current.status == "online" and latency_ratio >= 1.25,
@@ -352,7 +362,8 @@ defmodule Ema.Intelligence.VmMonitor do
   defp maybe_add_note(notes, false, _note), do: notes
 
   defp build_narrative(heartbeat_state, current, recent_bad, consecutive_bad, latency_ratio) do
-    latency = if is_integer(current.latency_ms), do: "#{current.latency_ms}ms", else: "unknown latency"
+    latency =
+      if is_integer(current.latency_ms), do: "#{current.latency_ms}ms", else: "unknown latency"
 
     case heartbeat_state do
       "healthy" ->

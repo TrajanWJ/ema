@@ -19,7 +19,15 @@ defmodule Ema.Intelligence.GitEvent do
 
   def changeset(event, attrs) do
     event
-    |> cast(attrs, [:id, :repo_path, :commit_sha, :author, :message, :changed_files, :diff_summary])
+    |> cast(attrs, [
+      :id,
+      :repo_path,
+      :commit_sha,
+      :author,
+      :message,
+      :changed_files,
+      :diff_summary
+    ])
     |> validate_required([:id, :repo_path, :commit_sha, :author, :message])
     |> unique_constraint(:commit_sha)
   end

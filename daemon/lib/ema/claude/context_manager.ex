@@ -215,7 +215,9 @@ defmodule Ema.Claude.ContextManager do
 
     resources = mcp_resources()
 
-    Logger.info("[ContextManager] Registering #{length(resources)} MCP resources for session #{session_id}")
+    Logger.info(
+      "[ContextManager] Registering #{length(resources)} MCP resources for session #{session_id}"
+    )
 
     Enum.each(resources, fn {uri, _handler} ->
       Logger.debug("[ContextManager] MCP resource registered: #{uri} for session #{session_id}")
@@ -248,7 +250,8 @@ defmodule Ema.Claude.ContextManager do
   end
 
   defp mcp_fetch_vault_search(query) when is_binary(query) do
-    if Code.ensure_loaded?(Ema.VaultIndex) and function_exported?(Ema.VaultIndex, :semantic_search, 2) do
+    if Code.ensure_loaded?(Ema.VaultIndex) and
+         function_exported?(Ema.VaultIndex, :semantic_search, 2) do
       results = Ema.VaultIndex.semantic_search(query, limit: 5)
       %{results: results, query: query}
     else
@@ -292,7 +295,12 @@ defmodule Ema.Claude.ContextManager do
   # ── MCP Formatters ──────────────────────────────────────────────────────────
 
   defp format_goal(g), do: %{id: g.id, title: g.title, timeframe: g.timeframe, status: g.status}
-  defp format_task(t), do: %{id: t.id, title: t.title, status: t.status, priority: Map.get(t, :priority)}
-  defp format_proposal(p), do: %{id: p.id, title: p.title, status: p.status, confidence: Map.get(p, :confidence)}
+
+  defp format_task(t),
+    do: %{id: t.id, title: t.title, status: t.status, priority: Map.get(t, :priority)}
+
+  defp format_proposal(p),
+    do: %{id: p.id, title: p.title, status: p.status, confidence: Map.get(p, :confidence)}
+
   defp format_project(p), do: %{id: p.id, name: p.name, status: p.status, slug: Map.get(p, :slug)}
 end

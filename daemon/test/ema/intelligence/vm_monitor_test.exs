@@ -22,7 +22,12 @@ defmodule Ema.Intelligence.VmMonitorTest do
   test "marks healthy service after recent misses as recovering" do
     history = [
       snapshot("degraded", openclaw_up: false, latency_ms: 120, checked_at: seconds_ago(6)),
-      snapshot("offline", openclaw_up: false, ssh_up: false, latency_ms: 140, checked_at: seconds_ago(5)),
+      snapshot("offline",
+        openclaw_up: false,
+        ssh_up: false,
+        latency_ms: 140,
+        checked_at: seconds_ago(5)
+      ),
       snapshot("degraded", openclaw_up: false, latency_ms: 110, checked_at: seconds_ago(4)),
       snapshot("online", latency_ms: 35, checked_at: seconds_ago(3)),
       snapshot("online", latency_ms: 28, checked_at: seconds_ago(2)),

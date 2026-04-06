@@ -340,7 +340,9 @@ defmodule Ema.Claude.SessionManager do
 
   defp update_status(session_id, status) do
     case Repo.get(AiSession, session_id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       session ->
         case session |> AiSession.changeset(%{status: status}) |> Repo.update() do
           {:ok, updated} -> broadcast(:session_updated, updated)

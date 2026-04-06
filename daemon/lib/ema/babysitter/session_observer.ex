@@ -54,9 +54,15 @@ defmodule Ema.Babysitter.SessionObserver do
   @impl true
   def handle_info(:poll, state) do
     snapshot = build_snapshot()
+
     if snapshot != state.last_snapshot do
-      Phoenix.PubSub.broadcast(@pubsub, @topic, %{event: :session_snapshot} |> Map.merge(snapshot))
+      Phoenix.PubSub.broadcast(
+        @pubsub,
+        @topic,
+        %{event: :session_snapshot} |> Map.merge(snapshot)
+      )
     end
+
     timer = schedule_poll(@poll_interval)
     {:noreply, %{state | timer: timer, last_snapshot: snapshot}}
   end
@@ -87,6 +93,7 @@ defmodule Ema.Babysitter.SessionObserver do
 
   defp fetch_vm_sessions do
     url = @openclaw_gateway_url <> "/api/sessions/active"
+
     try do
       case Req.get(url, receive_timeout: 5_000) do
         {:ok, %{status: 200, body: body}} when is_list(body) ->
@@ -105,7 +112,9 @@ defmodule Ema.Babysitter.SessionObserver do
               source: :openclaw_vm
             }
           end)
-        _ -> []
+
+        _ ->
+          []
       end
     rescue
       _ -> []
@@ -118,6 +127,7 @@ defmodule Ema.Babysitter.SessionObserver do
         project_dirs
         |> Enum.flat_map(fn proj ->
           dir = Path.join(@projects_dir, proj)
+
           case File.ls(dir) do
             {:ok, files} ->
               files
@@ -126,15 +136,28 @@ defmodule Ema.Babysitter.SessionObserver do
               |> Enum.filter(fn path ->
                 case File.stat(path) do
                   {:ok, %{mtime: mtime}} ->
-                    mtime_s = mtime |> :calendar.datetime_to_gregorian_seconds() |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}))
-                    now - mtime_s < 7200  # modified in last 2 hours
-                  _ -> false
+                    mtime_s =
+                      mtime
+                      |> :calendar.datetime_to_gregorian_seconds()
+                      |> Kernel.-(
+                        :calendar.datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}})
+                      )
+
+                    # modified in last 2 hours
+                    now - mtime_s < 7200
+
+                  _ ->
+                    false
                 end
               end)
-            _ -> []
+
+            _ ->
+              []
           end
         end)
-      _ -> []
+
+      _ ->
+        []
     end
   end
 
@@ -142,18 +165,25 @@ defmodule Ema.Babysitter.SessionObserver do
     try do
       lines = File.stream!(path, :line) |> Enum.take(-20) |> Enum.map(&String.trim/1)
 
-      parsed = lines |> Enum.map(fn line ->
-        case Jason.decode(line) do
-          {:ok, obj} -> obj
-          _ -> nil
-        end
-      end) |> Enum.reject(&is_nil/1)
+      parsed =
+        lines
+        |> Enum.map(fn line ->
+          case Jason.decode(line) do
+            {:ok, obj} -> obj
+            _ -> nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
 
       last_entry = List.last(parsed)
       if is_nil(last_entry), do: throw(:empty)
 
       session_id = get_in(last_entry, ["sessionId"]) || get_in(last_entry, ["session_id"])
-      project_path = path |> Path.dirname() |> Path.basename()
+
+      project_path =
+        path
+        |> Path.dirname()
+        |> Path.basename()
         |> String.replace(~r/^-home-trajan-/, "~/")
         |> String.replace("-", "/")
 
@@ -164,18 +194,23 @@ defmodule Ema.Babysitter.SessionObserver do
       last_text = extract_last_text(parsed)
       last_tool = extract_last_tool(parsed)
 
-      mtime = case File.stat(path) do
-        {:ok, %{mtime: mt}} ->
-          mt |> :calendar.datetime_to_gregorian_seconds()
-          |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}))
-        _ -> 0
-      end
+      mtime =
+        case File.stat(path) do
+          {:ok, %{mtime: mt}} ->
+            mt
+            |> :calendar.datetime_to_gregorian_seconds()
+            |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}))
 
-      status = cond do
-        last_type == "result" -> :completed
-        last_type in ["assistant", "user"] -> :active
-        true -> :unknown
-      end
+          _ ->
+            0
+        end
+
+      status =
+        cond do
+          last_type == "result" -> :completed
+          last_type in ["assistant", "user"] -> :active
+          true -> :unknown
+        end
 
       %{
         session_id: session_id,
@@ -207,6 +242,7 @@ defmodule Ema.Babysitter.SessionObserver do
       msg = Map.get(entry, "message", %{})
       role = Map.get(msg, "role")
       content = Map.get(msg, "content", [])
+
       if role == "assistant" do
         content
         |> List.wrap()
@@ -225,6 +261,7 @@ defmodule Ema.Babysitter.SessionObserver do
     |> Enum.find_value(fn entry ->
       msg = Map.get(entry, "message", %{})
       content = Map.get(msg, "content", [])
+
       content
       |> List.wrap()
       |> Enum.find_value(fn

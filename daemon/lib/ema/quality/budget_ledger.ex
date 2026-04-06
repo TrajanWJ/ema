@@ -121,7 +121,14 @@ defmodule Ema.Quality.BudgetLedger do
     today = Date.utc_today()
 
     if state.date != today do
-      %{state | date: today, total_tokens: 0, total_cost_cents: 0, entries: [], warning_sent: false}
+      %{
+        state
+        | date: today,
+          total_tokens: 0,
+          total_cost_cents: 0,
+          entries: [],
+          warning_sent: false
+      }
     else
       state
     end
@@ -132,10 +139,15 @@ defmodule Ema.Quality.BudgetLedger do
     cost_pct = state.total_cost_cents / @daily_cost_limit_cents * 100
 
     if (token_pct > 80 or cost_pct > 80) and not state.warning_sent do
-      Phoenix.PubSub.broadcast(Ema.PubSub, "quality:budget", {:budget_warning, %{
-        token_pct: Float.round(token_pct, 1),
-        cost_pct: Float.round(cost_pct, 1)
-      }})
+      Phoenix.PubSub.broadcast(
+        Ema.PubSub,
+        "quality:budget",
+        {:budget_warning,
+         %{
+           token_pct: Float.round(token_pct, 1),
+           cost_pct: Float.round(cost_pct, 1)
+         }}
+      )
 
       %{state | warning_sent: true}
     else

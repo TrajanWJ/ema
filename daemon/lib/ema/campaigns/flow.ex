@@ -24,18 +24,18 @@ defmodule Ema.Campaigns.Flow do
   @states ~w(forming developing testing done)
 
   @valid_transitions %{
-    "forming"    => ~w(developing done),
+    "forming" => ~w(developing done),
     "developing" => ~w(testing forming),
-    "testing"    => ~w(done developing),
-    "done"       => []
+    "testing" => ~w(done developing),
+    "done" => []
   }
 
   schema "campaign_flows" do
-    field :campaign_id,    :string
-    field :title,          :string
-    field :state,          :string,  default: "forming"
+    field :campaign_id, :string
+    field :title, :string
+    field :state, :string, default: "forming"
     field :state_entered_at, :utc_datetime
-    field :state_metadata, :map,    default: %{}
+    field :state_metadata, :map, default: %{}
 
     # JSON array of historical state entries:
     # [%{state, entered_at, exited_at, metadata}]
@@ -50,8 +50,15 @@ defmodule Ema.Campaigns.Flow do
 
   def changeset(flow, attrs) do
     flow
-    |> cast(attrs, [:id, :campaign_id, :title, :state, :state_entered_at,
-                    :state_metadata, :state_history])
+    |> cast(attrs, [
+      :id,
+      :campaign_id,
+      :title,
+      :state,
+      :state_entered_at,
+      :state_metadata,
+      :state_history
+    ])
     |> validate_required([:id, :campaign_id])
     |> validate_inclusion(:state, @states)
     |> unique_constraint(:campaign_id)
@@ -59,14 +66,19 @@ defmodule Ema.Campaigns.Flow do
 
   def creation_changeset(flow, attrs) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
+
     attrs =
       attrs
       |> Map.put_new(:id, generate_id())
       |> Map.put_new(:state, "forming")
       |> Map.put_new(:state_entered_at, now)
       |> Map.put_new(:state_history, [
-        %{"state" => "forming", "entered_at" => DateTime.to_iso8601(now),
-          "exited_at" => nil, "metadata" => %{}}
+        %{
+          "state" => "forming",
+          "entered_at" => DateTime.to_iso8601(now),
+          "exited_at" => nil,
+          "metadata" => %{}
+        }
       ])
 
     changeset(flow, attrs)
@@ -90,18 +102,18 @@ defmodule Ema.Campaigns.Flow do
       end)
 
     new_entry = %{
-      "state"      => new_state,
+      "state" => new_state,
       "entered_at" => now_iso,
-      "exited_at"  => nil,
-      "metadata"   => metadata
+      "exited_at" => nil,
+      "metadata" => metadata
     }
 
     flow
     |> changeset(%{
-      state:           new_state,
+      state: new_state,
       state_entered_at: now,
-      state_metadata:  metadata,
-      state_history:   updated_history ++ [new_entry]
+      state_metadata: metadata,
+      state_history: updated_history ++ [new_entry]
     })
     |> validate_transition(flow.state, new_state)
   end
@@ -131,11 +143,11 @@ defmodule Ema.Campaigns.Flow do
   # ---------------------------------------------------------------------------
 
   @campaign_transitions %{
-    "forming"   => ~w(ready running archived),
-    "ready"     => ~w(running forming archived),
-    "running"   => ~w(completed forming archived),
+    "forming" => ~w(ready running archived),
+    "ready" => ~w(running forming archived),
+    "running" => ~w(completed forming archived),
     "completed" => ~w(archived),
-    "archived"  => []
+    "archived" => []
   }
 
   @doc "Returns true if the campaign status transition from `from` to `to` is valid."
@@ -171,13 +183,16 @@ defmodule Ema.Campaigns.Flow do
     if valid_transition?(from, to) do
       changeset
     else
-      add_error(changeset, :state,
-        "invalid transition from #{from} to #{to}; allowed: #{inspect(valid_transitions(from))}")
+      add_error(
+        changeset,
+        :state,
+        "invalid transition from #{from} to #{to}; allowed: #{inspect(valid_transitions(from))}"
+      )
     end
   end
 
   defp generate_id do
-    ts  = System.system_time(:millisecond) |> Integer.to_string()
+    ts = System.system_time(:millisecond) |> Integer.to_string()
     rnd = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "flow_#{ts}_#{rnd}"
   end

@@ -72,7 +72,8 @@ defmodule Ema.Hooks do
   Re-registering the same `{hook_name, id}` overwrites the previous handler.
   """
   @spec register(atom(), atom(), (map() -> any())) :: :ok
-  def register(hook_name, id, handler_fn) when is_atom(hook_name) and is_atom(id) and is_function(handler_fn, 1) do
+  def register(hook_name, id, handler_fn)
+      when is_atom(hook_name) and is_atom(id) and is_function(handler_fn, 1) do
     ensure_table()
     # Key: {hook_name, registered_at_monotonic, id} for ordering
     key = {hook_name, id}
@@ -131,7 +132,9 @@ defmodule Ema.Hooks do
     handlers = list_handlers(hook_name)
 
     if handlers != [] do
-      Logger.debug("[Hooks] Running #{length(handlers)} handler(s) for hook #{inspect(hook_name)}")
+      Logger.debug(
+        "[Hooks] Running #{length(handlers)} handler(s) for hook #{inspect(hook_name)}"
+      )
     end
 
     results =
@@ -191,10 +194,11 @@ defmodule Ema.Hooks do
     :ets.tab2list(@table)
     |> Enum.group_by(fn {{hook_name, _id}, _fn, _ts} -> hook_name end)
     |> Enum.map(fn {hook_name, entries} ->
-      {hook_name, %{
-        handler_count: length(entries),
-        handler_ids: Enum.map(entries, fn {{_hook, id}, _fn, _ts} -> id end)
-      }}
+      {hook_name,
+       %{
+         handler_count: length(entries),
+         handler_ids: Enum.map(entries, fn {{_hook, id}, _fn, _ts} -> id end)
+       }}
     end)
     |> Enum.into(%{})
   end
@@ -212,7 +216,10 @@ defmodule Ema.Hooks do
           ok
 
         {:error, reason} = err ->
-          Logger.warning("[Hooks] Handler #{inspect(id)} for #{inspect(hook_name)} returned error: #{inspect(reason)}")
+          Logger.warning(
+            "[Hooks] Handler #{inspect(id)} for #{inspect(hook_name)} returned error: #{inspect(reason)}"
+          )
+
           err
 
         other ->
@@ -224,6 +231,7 @@ defmodule Ema.Hooks do
           "[Hooks] Handler #{inspect(id)} for #{inspect(hook_name)} raised: #{inspect(e)}\n" <>
             Exception.format(:error, e, __STACKTRACE__)
         )
+
         {:error, {:handler_raised, e}}
     end
   end

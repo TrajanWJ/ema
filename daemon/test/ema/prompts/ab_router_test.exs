@@ -8,7 +8,9 @@ defmodule Ema.Prompts.ABRouterTest do
 
   test "routes 20/20/60 across control and variants and records execution metadata" do
     kind = unique_kind()
-    {:ok, control} = Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
+
+    {:ok, control} =
+      Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
 
     {:ok, variant_a} =
       Store.create_new_version(kind, "variant a",
@@ -49,7 +51,9 @@ defmodule Ema.Prompts.ABRouterTest do
 
   test "falls back to the active control when no variants exist" do
     kind = unique_kind()
-    {:ok, control} = Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
+
+    {:ok, control} =
+      Store.create_prompt(%{kind: kind, content: "control", a_b_test_group: "control"})
 
     assert {:ok, ^control, %{"a_b_test_group" => "control"}} = ABRouter.route(kind, bucket: 0.05)
   end

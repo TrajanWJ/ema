@@ -26,9 +26,18 @@ defmodule Ema.CliManager.CliSession do
   def changeset(session, attrs) do
     session
     |> cast(attrs, [
-      :id, :cli_tool_id, :project_path, :status, :pid, :prompt,
-      :started_at, :ended_at, :linked_task_id, :linked_proposal_id,
-      :output_summary, :exit_code
+      :id,
+      :cli_tool_id,
+      :project_path,
+      :status,
+      :pid,
+      :prompt,
+      :started_at,
+      :ended_at,
+      :linked_task_id,
+      :linked_proposal_id,
+      :output_summary,
+      :exit_code
     ])
     |> validate_required([:cli_tool_id, :project_path, :prompt])
     |> validate_inclusion(:status, @valid_statuses)

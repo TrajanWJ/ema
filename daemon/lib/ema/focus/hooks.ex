@@ -23,7 +23,11 @@ defmodule Ema.Focus.Hooks do
     habit =
       case habit do
         nil ->
-          case Habits.create_habit(%{name: @focus_habit_name, frequency: "daily", target: "Complete a focus session"}) do
+          case Habits.create_habit(%{
+                 name: @focus_habit_name,
+                 frequency: "daily",
+                 target: "Complete a focus session"
+               }) do
             {:ok, h} ->
               Logger.info("Focus.Hooks: created '#{@focus_habit_name}' habit")
               h
@@ -45,7 +49,12 @@ defmodule Ema.Focus.Hooks do
         case Habits.toggle_log(habit.id, today) do
           {:ok, log} ->
             Logger.info("Focus.Hooks: logged Daily Focus habit for #{today}")
-            Phoenix.PubSub.broadcast(Ema.PubSub, "habits:updates", {:habit_toggled, habit.id, log})
+
+            Phoenix.PubSub.broadcast(
+              Ema.PubSub,
+              "habits:updates",
+              {:habit_toggled, habit.id, log}
+            )
 
           {:error, reason} ->
             Logger.warning("Focus.Hooks: failed to log habit: #{inspect(reason)}")

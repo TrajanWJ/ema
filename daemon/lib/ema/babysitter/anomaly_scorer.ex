@@ -56,7 +56,10 @@ defmodule Ema.Babysitter.AnomalyScorer do
     with true <- should_dispatch?(:live, fingerprint, level) do
       channel_id = ChannelTopology.live_stream().channel_id
       icon = if level == :critical, do: "🔴", else: "🟡"
-      lines = Enum.map(patterns, fn p -> "  #{sev_icon(p.severity)} `#{p.pattern}` #{p.detail}" end)
+
+      lines =
+        Enum.map(patterns, fn p -> "  #{sev_icon(p.severity)} `#{p.pattern}` #{p.detail}" end)
+
       msg = "#{icon} **anomaly score #{Float.round(score, 2)}**\n" <> Enum.join(lines, "\n")
       Phoenix.PubSub.broadcast(Ema.PubSub, "discord:outbound:#{channel_id}", {:post, msg})
       remember_dispatch(:live, fingerprint, level)
@@ -88,7 +91,8 @@ defmodule Ema.Babysitter.AnomalyScorer do
 
   defp fingerprint(patterns) do
     Enum.map(patterns, fn p ->
-      {p.pattern, Float.round(p.severity, 3), p.detail, p.recommended_action, Enum.sort(p.affected || [])}
+      {p.pattern, Float.round(p.severity, 3), p.detail, p.recommended_action,
+       Enum.sort(p.affected || [])}
     end)
   end
 

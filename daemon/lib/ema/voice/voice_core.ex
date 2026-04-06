@@ -31,9 +31,7 @@ defmodule Ema.Voice.VoiceCore do
     session_id = Keyword.fetch!(opts, :session_id)
     _channel_pid = Keyword.fetch!(opts, :channel_pid)
 
-    GenServer.start_link(__MODULE__, opts,
-      name: via(session_id)
-    )
+    GenServer.start_link(__MODULE__, opts, name: via(session_id))
   end
 
   def push_audio(session_id, chunk) when is_binary(chunk) do
@@ -90,7 +88,8 @@ defmodule Ema.Voice.VoiceCore do
 
   @impl true
   def handle_cast({:audio_chunk, chunk}, state) do
-    {:noreply, %{state | audio_buffer: state.audio_buffer <> chunk, state: :listening, last_activity: now()}}
+    {:noreply,
+     %{state | audio_buffer: state.audio_buffer <> chunk, state: :listening, last_activity: now()}}
   end
 
   @impl true
@@ -137,6 +136,7 @@ defmodule Ema.Voice.VoiceCore do
     elapsed = now() - state.last_activity
 
     timeout = state.idle_timeout_ms || @idle_timeout_ms
+
     if elapsed > timeout do
       Logger.info("Voice session #{state.session_id} idle timeout")
       notify_channel(state, "voice:session_ended", %{reason: "idle_timeout"})
@@ -157,14 +157,26 @@ defmodule Ema.Voice.VoiceCore do
       {:command, command, args} ->
         response = execute_command(command, args, state)
         conversation = Conversation.add_message(conversation, :assistant, response)
-        notify_channel(state, "voice:response", %{text: response, role: "assistant", type: "command"})
+
+        notify_channel(state, "voice:response", %{
+          text: response,
+          role: "assistant",
+          type: "command"
+        })
+
         maybe_speak(response, state)
         {response, %{state | conversation: conversation, state: :idle}}
 
       :conversation ->
         response = handle_conversation(text, conversation, state)
         conversation = Conversation.add_message(conversation, :assistant, response)
-        notify_channel(state, "voice:response", %{text: response, role: "assistant", type: "conversation"})
+
+        notify_channel(state, "voice:response", %{
+          text: response,
+          role: "assistant",
+          type: "conversation"
+        })
+
         maybe_speak(response, state)
         {response, %{state | conversation: conversation, state: :idle}}
     end
@@ -253,7 +265,8 @@ defmodule Ema.Voice.VoiceCore do
 
       case :httpc.request(
              :post,
-             {~c"#{@whisper_url}", Enum.map(headers, fn {k, v} -> {~c"#{k}", ~c"#{v}"} end), ~c"multipart/form-data; boundary=#{boundary}", body},
+             {~c"#{@whisper_url}", Enum.map(headers, fn {k, v} -> {~c"#{k}", ~c"#{v}"} end),
+              ~c"multipart/form-data; boundary=#{boundary}", body},
              [timeout: 30_000],
              []
            ) do

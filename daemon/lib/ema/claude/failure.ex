@@ -81,7 +81,12 @@ defmodule Ema.Claude.Failure do
   @spec new(keyword()) :: t()
   def new(attrs) when is_list(attrs) do
     failure = struct!(__MODULE__, attrs)
-    %{failure | fingerprint: compute_fingerprint(failure), raw_reason: truncate(failure.raw_reason)}
+
+    %{
+      failure
+      | fingerprint: compute_fingerprint(failure),
+        raw_reason: truncate(failure.raw_reason)
+    }
   end
 
   # -------------------------------------------------------------------
@@ -98,16 +103,53 @@ defmodule Ema.Claude.Failure do
 
     case reason do
       %{code: :not_found} ->
-        new(base ++ [class: :cli_unavailable, code: :claude_binary_missing, operation: :preflight, retryable: false, raw_reason: inspect(reason)])
+        new(
+          base ++
+            [
+              class: :cli_unavailable,
+              code: :claude_binary_missing,
+              operation: :preflight,
+              retryable: false,
+              raw_reason: inspect(reason)
+            ]
+        )
 
       %{code: :timeout} ->
-        new(base ++ [class: :stage_timeout, code: :cli_timeout, operation: :stage_run, retryable: true, raw_reason: inspect(reason)])
+        new(
+          base ++
+            [
+              class: :stage_timeout,
+              code: :cli_timeout,
+              operation: :stage_run,
+              retryable: true,
+              raw_reason: inspect(reason)
+            ]
+        )
 
       %{code: code, message: msg} when is_integer(code) ->
-        new(base ++ [class: :backend_unavailable, code: :cli_nonzero_exit, operation: :dispatch, retryable: code in [1, 137], raw_reason: truncate(msg), metadata: %{exit_code: code}])
+        new(
+          base ++
+            [
+              class: :backend_unavailable,
+              code: :cli_nonzero_exit,
+              operation: :dispatch,
+              retryable: code in [1, 137],
+              raw_reason: truncate(msg),
+              metadata: %{exit_code: code}
+            ]
+        )
 
       other ->
-        new(base ++ [class: :unknown_failure, code: :unclassified_runner_error, operation: :dispatch, retryable: false, raw_reason: inspect(other)])
+        new(
+          base ++
+            [
+              class: :unknown_failure,
+              code: :unclassified_runner_error,
+              operation: :dispatch,
+              retryable: false,
+              raw_reason: inspect(other)
+            ]
+        )
     end
   end
 
@@ -120,13 +162,41 @@ defmodule Ema.Claude.Failure do
 
     case reason do
       {:file_read_failed, posix} ->
-        new(base ++ [class: :session_discovery_failure, code: :session_file_unreadable, operation: :discover, retryable: true, raw_reason: inspect(posix), metadata: Keyword.get(opts, :metadata, %{})])
+        new(
+          base ++
+            [
+              class: :session_discovery_failure,
+              code: :session_file_unreadable,
+              operation: :discover,
+              retryable: true,
+              raw_reason: inspect(posix),
+              metadata: Keyword.get(opts, :metadata, %{})
+            ]
+        )
 
       :empty_session ->
-        new(base ++ [class: :session_parse_partial, code: :empty_session_file, operation: :parse, retryable: false, raw_reason: "JSONL file contained no parseable lines"])
+        new(
+          base ++
+            [
+              class: :session_parse_partial,
+              code: :empty_session_file,
+              operation: :parse,
+              retryable: false,
+              raw_reason: "JSONL file contained no parseable lines"
+            ]
+        )
 
       _ ->
-        new(base ++ [class: :session_parse_fatal, code: :session_parse_unknown, operation: :parse, retryable: false, raw_reason: inspect(reason)])
+        new(
+          base ++
+            [
+              class: :session_parse_fatal,
+              code: :session_parse_unknown,
+              operation: :parse,
+              retryable: false,
+              raw_reason: inspect(reason)
+            ]
+        )
     end
   end
 
@@ -136,21 +206,55 @@ defmodule Ema.Claude.Failure do
   @spec classify_generation_error(term(), keyword()) :: t()
   def classify_generation_error(reason, opts \\ []) do
     seed_id = Keyword.get(opts, :seed_id)
-    base = [domain: :proposal_generation, component: Ema.ProposalEngine.Generator, stage: :generator]
+
+    base = [
+      domain: :proposal_generation,
+      component: Ema.ProposalEngine.Generator,
+      stage: :generator
+    ]
 
     failure =
       case reason do
         %{code: :timeout} ->
-          new(base ++ [class: :stage_timeout, code: :generator_timeout, operation: :stage_run, retryable: true, raw_reason: inspect(reason)])
+          new(
+            base ++
+              [
+                class: :stage_timeout,
+                code: :generator_timeout,
+                operation: :stage_run,
+                retryable: true,
+                raw_reason: inspect(reason)
+              ]
+          )
 
         %{code: :not_found} ->
-          new(base ++ [class: :cli_unavailable, code: :claude_binary_missing, operation: :preflight, retryable: false, raw_reason: inspect(reason)])
+          new(
+            base ++
+              [
+                class: :cli_unavailable,
+                code: :claude_binary_missing,
+                operation: :preflight,
+                retryable: false,
+                raw_reason: inspect(reason)
+              ]
+          )
 
         _ ->
-          new(base ++ [class: :unknown_failure, code: :generator_dispatch_failed, operation: :dispatch, retryable: false, raw_reason: inspect(reason)])
+          new(
+            base ++
+              [
+                class: :unknown_failure,
+                code: :generator_dispatch_failed,
+                operation: :dispatch,
+                retryable: false,
+                raw_reason: inspect(reason)
+              ]
+          )
       end
 
-    if seed_id, do: %{failure | metadata: Map.put(failure.metadata, :seed_id, seed_id)}, else: failure
+    if seed_id,
+      do: %{failure | metadata: Map.put(failure.metadata, :seed_id, seed_id)},
+      else: failure
   end
 
   @doc """
@@ -206,7 +310,10 @@ defmodule Ema.Claude.Failure do
 
       case Repo.insert_all("claude_failure_events", [attrs]) do
         {1, _} ->
-          Logger.warning("[Failure] Recorded #{failure.class}/#{failure.code} from #{inspect(failure.component)}")
+          Logger.warning(
+            "[Failure] Recorded #{failure.class}/#{failure.code} from #{inspect(failure.component)}"
+          )
+
           {:ok, attrs}
 
         other ->

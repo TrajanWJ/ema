@@ -137,7 +137,11 @@ defmodule Ema.Agents.AgentMemory do
     )
 
     new_oc_sessions = Map.put(state.oc_sessions, oc_session_id, conversation_id)
-    Logger.info("[AgentMemory] #{state.agent_id}: linked OC session #{oc_session_id} → conversation #{conversation_id}")
+
+    Logger.info(
+      "[AgentMemory] #{state.agent_id}: linked OC session #{oc_session_id} → conversation #{conversation_id}"
+    )
+
     {:reply, :ok, %{state | oc_sessions: new_oc_sessions}}
   end
 
@@ -163,7 +167,10 @@ defmodule Ema.Agents.AgentMemory do
         summarize_conversation(conversation_id, state)
 
       total_chars_exceed?(conversation_id) ->
-        Logger.info("[AgentMemory] Conversation #{conversation_id} exceeds char limit, compressing")
+        Logger.info(
+          "[AgentMemory] Conversation #{conversation_id} exceeds char limit, compressing"
+        )
+
         summarize_conversation(conversation_id, state)
 
       true ->
@@ -278,6 +285,7 @@ defmodule Ema.Agents.AgentMemory do
       # W7-BRIDGE-FINISH: migrated to run_async/3 — fire-and-forget summarization
       # The callback saves the summary and prunes old messages once Claude responds.
       to_summarize_snapshot = to_summarize
+
       Bridge.run_async(prompt, [model: "haiku"], fn
         {:ok, result} ->
           summary = extract_summary_text(result)

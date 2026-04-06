@@ -26,7 +26,11 @@ defmodule Ema.Superman.IntentParserTest do
     nodes = IntentParser.parse(content, source: "/tmp/projects/metropolis/.superman")
 
     assert Enum.any?(nodes, &(&1.type == "goal" and &1.title == "Metropolis API Goal"))
-    assert Enum.any?(nodes, &(&1.type == "approach" and String.contains?(&1.content, "auth layer")))
+
+    assert Enum.any?(
+             nodes,
+             &(&1.type == "approach" and String.contains?(&1.content, "auth layer"))
+           )
 
     constraint_titles =
       nodes
@@ -37,7 +41,8 @@ defmodule Ema.Superman.IntentParserTest do
     assert "Metropolis API Constraint 2" in constraint_titles
 
     assert Enum.all?(nodes, fn node ->
-             "backend" in node.tags and "phoenix" in node.tags and match?(%DateTime{}, node.inserted_at)
+             "backend" in node.tags and "phoenix" in node.tags and
+               match?(%DateTime{}, node.inserted_at)
            end)
   end
 end

@@ -21,7 +21,15 @@ defmodule Ema.Temporal.Rhythm do
 
   def changeset(rhythm, attrs) do
     rhythm
-    |> cast(attrs, [:id, :day_of_week, :hour, :energy_level, :focus_quality, :preferred_task_types, :sample_count])
+    |> cast(attrs, [
+      :id,
+      :day_of_week,
+      :hour,
+      :energy_level,
+      :focus_quality,
+      :preferred_task_types,
+      :sample_count
+    ])
     |> validate_required([:id, :day_of_week, :hour])
     |> validate_number(:day_of_week, greater_than_or_equal_to: 0, less_than_or_equal_to: 6)
     |> validate_number(:hour, greater_than_or_equal_to: 0, less_than_or_equal_to: 23)

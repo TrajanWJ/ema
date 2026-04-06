@@ -9,12 +9,12 @@ defmodule Ema.OpenClaw.Dispatcher do
   require Logger
 
   @agent_map %{
-    "research"  => "researcher",
-    "review"    => "main",
+    "research" => "researcher",
+    "review" => "main",
     "implement" => "coder",
-    "outline"   => "main",
-    "refactor"  => "coder",
-    "harvest"   => "researcher"
+    "outline" => "main",
+    "refactor" => "coder",
+    "harvest" => "researcher"
   }
 
   @doc """

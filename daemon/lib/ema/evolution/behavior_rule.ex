@@ -24,8 +24,15 @@ defmodule Ema.Evolution.BehaviorRule do
   def changeset(rule, attrs) do
     rule
     |> cast(attrs, [
-      :id, :source, :content, :status, :version, :diff,
-      :signal_metadata, :previous_rule_id, :proposal_id
+      :id,
+      :source,
+      :content,
+      :status,
+      :version,
+      :diff,
+      :signal_metadata,
+      :previous_rule_id,
+      :proposal_id
     ])
     |> validate_required([:id, :source, :content])
     |> validate_inclusion(:status, @valid_statuses)

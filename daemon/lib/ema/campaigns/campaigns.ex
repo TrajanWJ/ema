@@ -70,7 +70,7 @@ defmodule Ema.Campaigns do
   """
   def transition_by_id(id, new_state, metadata \\ %{}) do
     case get_flow(id) do
-      nil  -> {:error, :not_found}
+      nil -> {:error, :not_found}
       flow -> transition(flow, new_state, metadata)
     end
   end
@@ -83,14 +83,14 @@ defmodule Ema.Campaigns do
     flow.state_history
     |> Enum.map(fn entry ->
       entered = parse_dt(entry["entered_at"])
-      exited  = if entry["exited_at"], do: parse_dt(entry["exited_at"]), else: DateTime.utc_now()
+      exited = if entry["exited_at"], do: parse_dt(entry["exited_at"]), else: DateTime.utc_now()
 
       diff_sec = DateTime.diff(exited, entered, :second)
 
       %{
-        state:      entry["state"],
+        state: entry["state"],
         entered_at: entered,
-        exited_at:  if(entry["exited_at"], do: exited, else: nil),
+        exited_at: if(entry["exited_at"], do: exited, else: nil),
         duration_s: diff_sec
       }
     end)

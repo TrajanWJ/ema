@@ -69,7 +69,9 @@ defmodule Ema.Integrations.Slack.Bot do
     %{
       response_type: "ephemeral",
       blocks: [
-        section("Unknown command: `#{unknown}`\nAvailable: `status`, `task <text>`, `proposal <text>`, `projects`")
+        section(
+          "Unknown command: `#{unknown}`\nAvailable: `status`, `task <text>`, `proposal <text>`, `projects`"
+        )
       ]
     }
   end

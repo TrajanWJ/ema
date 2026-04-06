@@ -117,7 +117,13 @@ defmodule Ema.ClaudeSessions.SessionManager do
     case :ets.lookup(@table, session_id) do
       [{^session_id, %{bridge_pid: pid} = session}] ->
         Bridge.stream(pid, prompt, fn _event -> :ok end)
-        update_session(session_id, %{session | status: "streaming", last_active: DateTime.utc_now()})
+
+        update_session(session_id, %{
+          session
+          | status: "streaming",
+            last_active: DateTime.utc_now()
+        })
+
         {:reply, :ok, state}
 
       [] ->
@@ -180,7 +186,12 @@ defmodule Ema.ClaudeSessions.SessionManager do
   # --- Internal ---
 
   defp handle_bridge_event(session, {:text_delta, text}) do
-    %{session | status: "streaming", output: session.output ++ [text], last_active: DateTime.utc_now()}
+    %{
+      session
+      | status: "streaming",
+        output: session.output ++ [text],
+        last_active: DateTime.utc_now()
+    }
   end
 
   defp handle_bridge_event(session, {:result, _data}) do
@@ -212,7 +223,15 @@ defmodule Ema.ClaudeSessions.SessionManager do
   end
 
   defp serialize(%{id: _} = session) do
-    Map.take(session, [:id, :project_path, :project_id, :model, :status, :started_at, :last_active])
+    Map.take(session, [
+      :id,
+      :project_path,
+      :project_id,
+      :model,
+      :status,
+      :started_at,
+      :last_active
+    ])
   end
 
   defp serialize(data), do: data

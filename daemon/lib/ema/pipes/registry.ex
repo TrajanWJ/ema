@@ -428,7 +428,13 @@ defmodule Ema.Pipes.Registry do
               # Rebuild context by re-fetching all fragments; this triggers
               # ContextIndexer to re-derive and store updated embeddings.
               ctx = Ema.Projects.get_context(project.id)
-              Phoenix.PubSub.broadcast(Ema.PubSub, "projects:context", {:context_rebuilt, project_id, ctx})
+
+              Phoenix.PubSub.broadcast(
+                Ema.PubSub,
+                "projects:context",
+                {:context_rebuilt, project_id, ctx}
+              )
+
               {:ok, %{project_id: project_id, rebuilt: true}}
 
             error ->
@@ -483,7 +489,8 @@ defmodule Ema.Pipes.Registry do
               errors = Enum.filter(results, &match?({:error, _}, &1))
 
               if Enum.empty?(errors) do
-                {:ok, %{project_id: project_id, vault_path: project_dir, dirs_created: length(results)}}
+                {:ok,
+                 %{project_id: project_id, vault_path: project_dir, dirs_created: length(results)}}
               else
                 {:error, {:partial, errors}}
               end
@@ -521,7 +528,10 @@ defmodule Ema.Pipes.Registry do
         schema: %{title: :string, body: :string},
         execute: fn payload ->
           title = payload["title"] || payload[:title] || "EMA"
-          body  = payload["body"]  || payload[:body]  || payload["message"] || payload[:message] || ""
+
+          body =
+            payload["body"] || payload[:body] || payload["message"] || payload[:message] || ""
+
           urgency = payload["urgency"] || payload[:urgency] || "normal"
           require Logger
 
@@ -532,7 +542,8 @@ defmodule Ema.Pipes.Registry do
               {:ok, :logged}
 
             bin ->
-              {output, exit_code} = System.cmd(bin, ["--urgency=#{urgency}", title, body], stderr_to_stdout: true)
+              {output, exit_code} =
+                System.cmd(bin, ["--urgency=#{urgency}", title, body], stderr_to_stdout: true)
 
               if exit_code == 0 do
                 {:ok, :sent}
@@ -579,7 +590,12 @@ defmodule Ema.Pipes.Registry do
         action_id: "claude:run",
         label: "Run Claude AI",
         description: "Send payload through Claude via the Intelligence Router",
-        schema: %{prompt_template: :string, event_keys: {:array, :string}, model: :string, event_type: :string},
+        schema: %{
+          prompt_template: :string,
+          event_keys: {:array, :string},
+          model: :string,
+          event_type: :string
+        },
         execute: fn payload ->
           config = %{
             "prompt_template" => payload["prompt_template"] || "Process this: {{content}}",
@@ -587,6 +603,7 @@ defmodule Ema.Pipes.Registry do
             "model" => payload["model"],
             "event_type" => payload["event_type"] || "general"
           }
+
           Ema.Pipes.Actions.ClaudeAction.execute(payload, config)
         end
       },
@@ -605,6 +622,7 @@ defmodule Ema.Pipes.Registry do
             "limit" => payload["limit"] || 10,
             "space" => payload["space"]
           }
+
           Ema.Pipes.Actions.VaultSearchAction.execute(payload, config)
         end
       },
@@ -625,6 +643,7 @@ defmodule Ema.Pipes.Registry do
             "body_template" => payload["body_template"],
             "response_key" => payload["response_key"] || "http_response"
           }
+
           Ema.Pipes.Actions.HttpRequestAction.execute(payload, config)
         end
       },
@@ -657,6 +676,7 @@ defmodule Ema.Pipes.Registry do
             "if_true" => payload["if_true"],
             "if_false" => payload["if_false"]
           }
+
           Ema.Pipes.Actions.BranchAction.execute(payload, config)
         end
       },
@@ -675,6 +695,7 @@ defmodule Ema.Pipes.Registry do
             "target" => payload["target"],
             "message_template" => payload["message_template"] || "{{content}}"
           }
+
           Ema.Pipes.Actions.NotifyAction.execute(payload, config)
         end
       }

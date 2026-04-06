@@ -89,7 +89,9 @@ defmodule Ema.Memory.ContextAssembler do
       if map_size(hot) > 0 do
         recent_text =
           (hot[:recent_executions] || [])
-          |> Enum.map(fn e -> "- [#{e.status}] #{e.title} (#{relative_time(e.completed_at || e.inserted_at)})" end)
+          |> Enum.map(fn e ->
+            "- [#{e.status}] #{e.title} (#{relative_time(e.completed_at || e.inserted_at)})"
+          end)
           |> Enum.join("\n")
 
         proposals_text =
@@ -103,9 +105,19 @@ defmodule Ema.Memory.ContextAssembler do
           |> Enum.join("\n")
 
         parts = []
-        parts = if recent_text != "", do: ["### Recent Executions (last 2h)\n#{recent_text}" | parts], else: parts
-        parts = if proposals_text != "", do: ["### Active Proposals\n#{proposals_text}" | parts], else: parts
-        parts = if intents_text != "", do: ["### Open Intents\n#{intents_text}" | parts], else: parts
+
+        parts =
+          if recent_text != "",
+            do: ["### Recent Executions (last 2h)\n#{recent_text}" | parts],
+            else: parts
+
+        parts =
+          if proposals_text != "",
+            do: ["### Active Proposals\n#{proposals_text}" | parts],
+            else: parts
+
+        parts =
+          if intents_text != "", do: ["### Open Intents\n#{intents_text}" | parts], else: parts
 
         if parts != [] do
           [Enum.join(Enum.reverse(parts), "\n\n") | sections]
@@ -120,7 +132,9 @@ defmodule Ema.Memory.ContextAssembler do
       if map_size(warm) > 0 do
         outcomes_text =
           (warm[:recent_outcomes] || [])
-          |> Enum.map(fn e -> "- [#{e.status}] #{e.title} (#{relative_time(e.completed_at || e.inserted_at)})" end)
+          |> Enum.map(fn e ->
+            "- [#{e.status}] #{e.title} (#{relative_time(e.completed_at || e.inserted_at)})"
+          end)
           |> Enum.join("\n")
 
         vault_text =
@@ -129,8 +143,16 @@ defmodule Ema.Memory.ContextAssembler do
           |> Enum.join("\n")
 
         parts = []
-        parts = if outcomes_text != "", do: ["### Recent Outcomes (last 48h)\n#{outcomes_text}" | parts], else: parts
-        parts = if vault_text != "", do: ["### Relevant Vault Notes\n#{vault_text}" | parts], else: parts
+
+        parts =
+          if outcomes_text != "",
+            do: ["### Recent Outcomes (last 48h)\n#{outcomes_text}" | parts],
+            else: parts
+
+        parts =
+          if vault_text != "",
+            do: ["### Relevant Vault Notes\n#{vault_text}" | parts],
+            else: parts
 
         if parts != [] do
           [Enum.join(Enum.reverse(parts), "\n\n") | sections]
@@ -151,7 +173,8 @@ defmodule Ema.Memory.ContextAssembler do
   defp get_project(slug_or_id) when is_binary(slug_or_id) do
     Projects.get_project(slug_or_id) ||
       Projects.get_project_by_slug(slug_or_id) ||
-      (if Regex.match?(~r/^\d+$/, slug_or_id), do: Projects.get_project(String.to_integer(slug_or_id)))
+      if Regex.match?(~r/^\d+$/, slug_or_id),
+        do: Projects.get_project(String.to_integer(slug_or_id))
   rescue
     _ -> nil
   end
@@ -238,6 +261,7 @@ defmodule Ema.Memory.ContextAssembler do
             Executions.list_executions(project_slug: project.slug)
             |> Enum.filter(fn e ->
               ts = e.completed_at || e.inserted_at
+
               ts && DateTime.compare(ts, cutoff) == :gt &&
                 e.status in ["completed", "done", "success", "failed"]
             end)
@@ -269,7 +293,9 @@ defmodule Ema.Memory.ContextAssembler do
       if File.dir?(project_dir) do
         project_dir
         |> File.ls!()
-        |> Enum.filter(&String.contains?(String.downcase(&1), String.downcase(project.name || project.slug)))
+        |> Enum.filter(
+          &String.contains?(String.downcase(&1), String.downcase(project.name || project.slug))
+        )
         |> Enum.take(limit)
       else
         []
@@ -280,26 +306,34 @@ defmodule Ema.Memory.ContextAssembler do
   end
 
   defp estimate_tokens(ctx) do
-    total = estimate_tier_tokens(ctx.cold) + estimate_tier_tokens(ctx.hot) + estimate_tier_tokens(ctx.warm)
+    total =
+      estimate_tier_tokens(ctx.cold) + estimate_tier_tokens(ctx.hot) +
+        estimate_tier_tokens(ctx.warm)
+
     Map.put(ctx, :token_estimate, total)
   end
 
   defp estimate_tier_tokens(tier) when map_size(tier) == 0, do: 0
+
   defp estimate_tier_tokens(tier) do
     tier
     |> inspect()
     |> String.length()
-    |> div(4)  # rough chars-to-tokens ratio
+    # rough chars-to-tokens ratio
+    |> div(4)
   end
 
   defp relative_time(nil), do: "unknown"
+
   defp relative_time(%DateTime{} = dt) do
     diff = DateTime.diff(DateTime.utc_now(), dt, :minute)
+
     cond do
       diff < 60 -> "#{diff}m ago"
       diff < 1440 -> "#{div(diff, 60)}h ago"
       true -> "#{div(diff, 1440)}d ago"
     end
   end
+
   defp relative_time(_), do: "unknown"
 end

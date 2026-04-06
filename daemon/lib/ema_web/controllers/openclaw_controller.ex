@@ -2,6 +2,7 @@ defmodule EmaWeb.OpenClawController do
   use EmaWeb, :controller
 
   alias Ema.OpenClaw.{Client, AgentBridge}
+  alias Ema.Feedback.Broadcast
 
   action_fallback EmaWeb.FallbackController
 
@@ -35,8 +36,21 @@ defmodule EmaWeb.OpenClawController do
   def dispatch(conn, %{"agent_type" => agent_type} = params) do
     opts = Map.drop(params, ["agent_type"])
 
+    summary =
+      ~w(task description prompt)
+      |> Enum.find_value(fn k ->
+        case Map.get(opts, k) do
+          v when is_binary(v) and v != "" -> String.slice(v, 0, 160)
+          _ -> nil
+        end
+      end) || "dispatch"
+
+    Broadcast.emit(:intent_stream, "[INTENT] OpenClaw dispatch #{agent_type}: #{summary}")
+
     case Client.spawn_agent(agent_type, opts) do
-      {:ok, body} -> json(conn, %{ok: true, data: body})
+      {:ok, body} ->
+        json(conn, %{ok: true, data: body})
+
       {:error, reason} -> conn |> put_status(502) |> json(%{error: inspect(reason)})
     end
   end

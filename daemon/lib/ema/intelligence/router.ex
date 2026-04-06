@@ -38,7 +38,10 @@ defmodule Ema.Intelligence.Router do
         decision
 
       {:error, reason} ->
-        Logger.error("[Router] Routing failed for event #{inspect(event.type)}: #{inspect(reason)}")
+        Logger.error(
+          "[Router] Routing failed for event #{inspect(event.type)}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -87,7 +90,9 @@ defmodule Ema.Intelligence.Router do
   end
 
   defp classify_and_enrich(%{type: :task_completed} = event) do
-    context_keys = if event_has_project?(event), do: [:project, :goals, :tasks], else: [:tasks, :goals]
+    context_keys =
+      if event_has_project?(event), do: [:project, :goals, :tasks], else: [:tasks, :goals]
+
     agent_type = task_completed_target(event)
 
     with {:ok, context} <- ContextInjector.build_context(event, context_keys) do

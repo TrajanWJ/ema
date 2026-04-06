@@ -79,16 +79,20 @@ defmodule Ema.Superman.KnowledgeGraph do
   end
 
   defp normalize_node(%{} = node, project_id) do
-    with type when is_binary(type) and type != "" <- normalize_string(Map.get(node, :type) || Map.get(node, "type")),
-         title when is_binary(title) and title != "" <- normalize_string(Map.get(node, :title) || Map.get(node, "title")),
-         content when is_binary(content) and content != "" <- normalize_string(Map.get(node, :content) || Map.get(node, "content")) do
+    with type when is_binary(type) and type != "" <-
+           normalize_string(Map.get(node, :type) || Map.get(node, "type")),
+         title when is_binary(title) and title != "" <-
+           normalize_string(Map.get(node, :title) || Map.get(node, "title")),
+         content when is_binary(content) and content != "" <-
+           normalize_string(Map.get(node, :content) || Map.get(node, "content")) do
       %{
         project_id: project_id,
         type: type,
         title: title,
         content: content,
         tags: normalize_tags(Map.get(node, :tags) || Map.get(node, "tags")),
-        inserted_at: normalize_inserted_at(Map.get(node, :inserted_at) || Map.get(node, "inserted_at"))
+        inserted_at:
+          normalize_inserted_at(Map.get(node, :inserted_at) || Map.get(node, "inserted_at"))
       }
     else
       _ -> nil
@@ -104,7 +108,9 @@ defmodule Ema.Superman.KnowledgeGraph do
     |> Enum.uniq()
   end
 
-  defp normalize_tags(tags) when is_binary(tags), do: normalize_tags(String.split(tags, ",", trim: true))
+  defp normalize_tags(tags) when is_binary(tags),
+    do: normalize_tags(String.split(tags, ",", trim: true))
+
   defp normalize_tags(_), do: []
 
   defp normalize_inserted_at(%DateTime{} = inserted_at), do: inserted_at
@@ -125,7 +131,9 @@ defmodule Ema.Superman.KnowledgeGraph do
     end
   end
 
-  defp normalize_string(value) when is_atom(value), do: value |> Atom.to_string() |> normalize_string()
+  defp normalize_string(value) when is_atom(value),
+    do: value |> Atom.to_string() |> normalize_string()
+
   defp normalize_string(_), do: nil
 
   defp node_identity(node) do

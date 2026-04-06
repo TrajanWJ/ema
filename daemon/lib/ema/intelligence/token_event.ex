@@ -20,7 +20,16 @@ defmodule Ema.Intelligence.TokenEvent do
 
   def changeset(event, attrs) do
     event
-    |> cast(attrs, [:id, :session_id, :agent_id, :model, :input_tokens, :output_tokens, :cost_usd, :source])
+    |> cast(attrs, [
+      :id,
+      :session_id,
+      :agent_id,
+      :model,
+      :input_tokens,
+      :output_tokens,
+      :cost_usd,
+      :source
+    ])
     |> validate_required([:id, :model, :input_tokens, :output_tokens, :cost_usd])
     |> maybe_validate_inclusion(:source, @valid_sources)
   end

@@ -160,9 +160,7 @@ defmodule Ema.Agents.DiscordChannel do
         put_in(state, [:last_message_ids, channel_id], latest_id)
 
       {:error, reason} ->
-        Logger.warning(
-          "DiscordChannel poll error on #{channel_id}: #{inspect(reason)}"
-        )
+        Logger.warning("DiscordChannel poll error on #{channel_id}: #{inspect(reason)}")
 
         state
     end
@@ -296,7 +294,8 @@ defmodule Ema.Agents.DiscordChannel do
       {~c"Content-Type", ~c"application/json"}
     ]
 
-    request = {String.to_charlist(url), headers, ~c"application/json", String.to_charlist(json_body)}
+    request =
+      {String.to_charlist(url), headers, ~c"application/json", String.to_charlist(json_body)}
 
     case :httpc.request(:post, request, [{:ssl, ssl_opts()}], []) do
       {:ok, {{_, status, _}, _headers, body}} when status in 200..299 ->

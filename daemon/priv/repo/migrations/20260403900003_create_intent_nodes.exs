@@ -23,8 +23,13 @@ defmodule Ema.Repo.Migrations.CreateIntentNodes do
 
     create table(:intent_edges, primary_key: false) do
       add :id, :string, primary_key: true
-      add :source_id, references(:intent_nodes, type: :string, on_delete: :delete_all), null: false
-      add :target_id, references(:intent_nodes, type: :string, on_delete: :delete_all), null: false
+
+      add :source_id, references(:intent_nodes, type: :string, on_delete: :delete_all),
+        null: false
+
+      add :target_id, references(:intent_nodes, type: :string, on_delete: :delete_all),
+        null: false
+
       add :edge_type, :string, default: "hierarchy"
 
       timestamps(type: :utc_datetime)

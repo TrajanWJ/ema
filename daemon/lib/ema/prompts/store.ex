@@ -22,15 +22,18 @@ defmodule Ema.Prompts.Store do
   def list_prompts_by_kind(kind) do
     Prompt
     |> where([p], p.kind == ^kind)
-    |> order_by([p], [desc: p.version, desc: p.inserted_at])
+    |> order_by([p], desc: p.version, desc: p.inserted_at)
     |> Repo.all()
   end
 
   @doc "Returns one active control prompt per kind — the highest version for each."
   def list_latest_per_kind do
     Prompt
-    |> where([p], p.status == "active" and (is_nil(p.a_b_test_group) or p.a_b_test_group == "control"))
-    |> order_by([p], [asc: p.kind, desc: p.version, desc: p.inserted_at])
+    |> where(
+      [p],
+      p.status == "active" and (is_nil(p.a_b_test_group) or p.a_b_test_group == "control")
+    )
+    |> order_by([p], asc: p.kind, desc: p.version, desc: p.inserted_at)
     |> Repo.all()
     |> Enum.uniq_by(& &1.kind)
   end
@@ -43,7 +46,7 @@ defmodule Ema.Prompts.Store do
       p.kind == ^kind and p.status == "active" and
         (is_nil(p.a_b_test_group) or p.a_b_test_group == "control")
     )
-    |> order_by([p], [desc: p.version, desc: p.inserted_at])
+    |> order_by([p], desc: p.version, desc: p.inserted_at)
     |> limit(1)
     |> Repo.one()
   end
@@ -62,7 +65,8 @@ defmodule Ema.Prompts.Store do
     Prompt
     |> where(
       [p],
-      p.kind == ^kind and p.a_b_test_group in ^@variant_groups and p.status in ["testing", "active"]
+      p.kind == ^kind and p.a_b_test_group in ^@variant_groups and
+        p.status in ["testing", "active"]
     )
     |> order_by([p], asc: p.inserted_at)
     |> Repo.all()
@@ -83,7 +87,8 @@ defmodule Ema.Prompts.Store do
     list_latest_per_kind()
     |> Enum.map(fn prompt -> {prompt, execution_metrics(prompt.id, since)} end)
     |> Enum.filter(fn {prompt, metrics} ->
-      metrics.total > 0 and metrics.success_rate < threshold and active_variants_for_prompt(prompt.id) == []
+      metrics.total > 0 and metrics.success_rate < threshold and
+        active_variants_for_prompt(prompt.id) == []
     end)
     |> Enum.map(fn {prompt, metrics} ->
       %{prompt: prompt, metrics: metrics}
@@ -147,7 +152,8 @@ defmodule Ema.Prompts.Store do
     create_prompt(attrs)
   end
 
-  def create_variants(%Prompt{} = control_prompt, variants, attrs \\ %{}) when is_list(variants) do
+  def create_variants(%Prompt{} = control_prompt, variants, attrs \\ %{})
+      when is_list(variants) do
     started_at = DateTime.utc_now() |> DateTime.truncate(:second)
     extra_metadata = Map.get(attrs, :optimizer_metadata, %{})
 
@@ -162,7 +168,10 @@ defmodule Ema.Prompts.Store do
           "source_prompt_id" => control_prompt.id
         })
         |> maybe_put("rationale", Map.get(variant, :rationale) || Map.get(variant, "rationale"))
-        |> maybe_put("variant_id", Map.get(variant, :variant_id) || Map.get(variant, "variant_id"))
+        |> maybe_put(
+          "variant_id",
+          Map.get(variant, :variant_id) || Map.get(variant, "variant_id")
+        )
 
       case create_new_version(
              control_prompt.kind,
@@ -216,18 +225,21 @@ defmodule Ema.Prompts.Store do
 
   def execution_metrics(prompt_id, since) do
     executions_since(since)
-    |> Enum.reduce(%{prompt_id: prompt_id, total: 0, successes: 0, success_rate: 0.0}, fn execution, acc ->
-      prompt_meta = execution_prompt_metadata(execution)
+    |> Enum.reduce(
+      %{prompt_id: prompt_id, total: 0, successes: 0, success_rate: 0.0},
+      fn execution, acc ->
+        prompt_meta = execution_prompt_metadata(execution)
 
-      if prompt_meta["prompt_id"] == prompt_id do
-        total = acc.total + 1
-        successes = acc.successes + if(execution_success?(execution), do: 1, else: 0)
+        if prompt_meta["prompt_id"] == prompt_id do
+          total = acc.total + 1
+          successes = acc.successes + if(execution_success?(execution), do: 1, else: 0)
 
-        %{acc | total: total, successes: successes, success_rate: ratio(successes, total)}
-      else
-        acc
+          %{acc | total: total, successes: successes, success_rate: ratio(successes, total)}
+        else
+          acc
+        end
       end
-    end)
+    )
   end
 
   def test_metrics(%Prompt{} = control_prompt, variants, since) do
@@ -250,7 +262,9 @@ defmodule Ema.Prompts.Store do
   def choose_test_winner(%Prompt{} = control_prompt, variants, since) do
     test_metrics(control_prompt, variants, since)
     |> Enum.filter(&(&1.total > 0))
-    |> Enum.max_by(fn metric -> {metric.success_rate, metric.total, metric.prompt_id} end, fn -> nil end)
+    |> Enum.max_by(fn metric -> {metric.success_rate, metric.total, metric.prompt_id} end, fn ->
+      nil
+    end)
   end
 
   # ---------------------------------------------------------------------------

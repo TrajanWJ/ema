@@ -15,7 +15,11 @@ defmodule Ema.Claude.Preflight do
 
   @type result :: %{
           ok: boolean(),
-          checks: %{binary: check_result(), rate_limit: check_result(), token_budget: check_result()},
+          checks: %{
+            binary: check_result(),
+            rate_limit: check_result(),
+            token_budget: check_result()
+          },
           failure: Failure.t() | nil
         }
 
@@ -114,7 +118,8 @@ defmodule Ema.Claude.Preflight do
           operation: :preflight,
           stage: Keyword.get(opts, :stage),
           retryable: true,
-          raw_reason: "#{total} failures in last #{@rate_limit_window_seconds}s (threshold: #{@rate_limit_threshold})",
+          raw_reason:
+            "#{total} failures in last #{@rate_limit_window_seconds}s (threshold: #{@rate_limit_threshold})",
           metadata: %{recent_failures: total, window_seconds: @rate_limit_window_seconds}
         )
 

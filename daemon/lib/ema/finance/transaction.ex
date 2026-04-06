@@ -21,7 +21,17 @@ defmodule Ema.Finance.Transaction do
 
   def changeset(transaction, attrs) do
     transaction
-    |> cast(attrs, [:id, :description, :amount, :type, :category, :date, :project_id, :recurring, :notes])
+    |> cast(attrs, [
+      :id,
+      :description,
+      :amount,
+      :type,
+      :category,
+      :date,
+      :project_id,
+      :recurring,
+      :notes
+    ])
     |> validate_required([:id, :description, :amount, :type])
     |> validate_inclusion(:type, @valid_types)
   end

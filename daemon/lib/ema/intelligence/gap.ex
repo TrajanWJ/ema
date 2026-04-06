@@ -26,7 +26,19 @@ defmodule Ema.Intelligence.Gap do
 
   def changeset(gap, attrs) do
     gap
-    |> cast(attrs, [:id, :source, :gap_type, :title, :description, :severity, :project_id, :file_path, :line_number, :status, :resolved_at])
+    |> cast(attrs, [
+      :id,
+      :source,
+      :gap_type,
+      :title,
+      :description,
+      :severity,
+      :project_id,
+      :file_path,
+      :line_number,
+      :status,
+      :resolved_at
+    ])
     |> validate_required([:id, :source, :gap_type, :title])
     |> validate_inclusion(:source, @valid_sources)
     |> validate_inclusion(:severity, @valid_severities)

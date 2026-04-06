@@ -39,14 +39,19 @@ defmodule EmaWeb.DispatchBoardChannel do
     {:noreply, socket}
   end
 
-  def handle_info(%Broadcast{topic: @tasks_topic, event: "task_deleted", payload: payload}, socket) do
+  def handle_info(
+        %Broadcast{topic: @tasks_topic, event: "task_deleted", payload: payload},
+        socket
+      ) do
     push(socket, "task_deleted", payload)
     {:noreply, socket}
   end
 
   def handle_info({:campaign_started, flow}, socket) do
     case Campaigns.get_campaign(flow.campaign_id) do
-      nil -> {:noreply, socket}
+      nil ->
+        {:noreply, socket}
+
       campaign ->
         push(socket, "campaign_updated", serialize_campaign(campaign))
         {:noreply, socket}
@@ -60,7 +65,9 @@ defmodule EmaWeb.DispatchBoardChannel do
 
   def handle_info({:campaign_status_changed, campaign_id, _old_status, _new_status}, socket) do
     case Campaigns.get_campaign(campaign_id) do
-      nil -> {:noreply, socket}
+      nil ->
+        {:noreply, socket}
+
       campaign ->
         push(socket, "campaign_updated", serialize_campaign(campaign))
         {:noreply, socket}

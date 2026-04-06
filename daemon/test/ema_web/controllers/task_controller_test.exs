@@ -5,7 +5,10 @@ defmodule EmaWeb.TaskControllerTest do
 
   setup do
     tmp_path =
-      Path.join(System.tmp_dir!(), "ema-task-controller-#{System.unique_integer([:positive])}.json")
+      Path.join(
+        System.tmp_dir!(),
+        "ema-task-controller-#{System.unique_integer([:positive])}.json"
+      )
 
     original = Application.get_env(:ema, :ema_tracker_path)
     Application.put_env(:ema, :ema_tracker_path, tmp_path)

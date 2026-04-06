@@ -82,10 +82,11 @@ defmodule Ema.Proposals.SeedPreflight do
     # Step 1: Duplicate check
     case check_duplicates(normalized, recent_proposals, config) do
       {:duplicate, dup_info} ->
-        diag = Map.merge(diagnostics, %{
-          result: :duplicate,
-          duplicate_info: dup_info
-        })
+        diag =
+          Map.merge(diagnostics, %{
+            result: :duplicate,
+            duplicate_info: dup_info
+          })
 
         Logger.info("[SeedPreflight] Seed #{seed.id} rejected as duplicate: #{inspect(dup_info)}")
         handle_mode(:duplicate, normalized, diag, config)
@@ -94,10 +95,11 @@ defmodule Ema.Proposals.SeedPreflight do
         # Step 2: Score
         {score, breakdown} = score(normalized, recent_proposals)
 
-        diag = Map.merge(diagnostics, %{
-          initial_score: score,
-          score_breakdown: breakdown
-        })
+        diag =
+          Map.merge(diagnostics, %{
+            initial_score: score,
+            score_breakdown: breakdown
+          })
 
         if score >= config.minimum_score do
           diag = Map.put(diag, :result, :pass)
@@ -108,14 +110,19 @@ defmodule Ema.Proposals.SeedPreflight do
           enriched = enrich(normalized, breakdown)
           {rescore, rebreakdown} = score(enriched, recent_proposals)
 
-          diag = Map.merge(diag, %{
-            enriched_score: rescore,
-            enriched_breakdown: rebreakdown
-          })
+          diag =
+            Map.merge(diag, %{
+              enriched_score: rescore,
+              enriched_breakdown: rebreakdown
+            })
 
           if rescore >= config.minimum_score do
             diag = Map.put(diag, :result, :rewrite)
-            Logger.info("[SeedPreflight] Seed #{seed.id} passed after enrichment (#{score} -> #{rescore})")
+
+            Logger.info(
+              "[SeedPreflight] Seed #{seed.id} passed after enrichment (#{score} -> #{rescore})"
+            )
+
             handle_mode(:rewrite, enriched, diag, config)
           else
             diag = Map.put(diag, :result, :reject)
@@ -142,31 +149,37 @@ defmodule Ema.Proposals.SeedPreflight do
     canonical =
       %{
         problem_statement: pick(sections["problem"], metadata["problem_statement"], template),
-        current_behavior: pick(sections["current"], metadata["current_behavior"], "Not specified"),
-        desired_behavior: pick(sections["desired"], metadata["desired_behavior"], "Not specified"),
+        current_behavior:
+          pick(sections["current"], metadata["current_behavior"], "Not specified"),
+        desired_behavior:
+          pick(sections["desired"], metadata["desired_behavior"], "Not specified"),
         constraints: pick(sections["constraints"], metadata["constraints"], "None specified"),
-        affected_area: pick(
-          sections["affected"],
-          metadata["affected_area"],
-          context["affected_module"],
-          infer_affected_area(seed)
-        ),
+        affected_area:
+          pick(
+            sections["affected"],
+            metadata["affected_area"],
+            context["affected_module"],
+            infer_affected_area(seed)
+          ),
         non_goals: pick(sections["non_goals"], metadata["non_goals"], "Not specified"),
-        validation_plan: pick(
-          sections["validation"],
-          metadata["validation_plan"],
-          "Manual review"
-        ),
-        success_metrics: pick(
-          sections["success"],
-          metadata["success_metrics"],
-          "Not specified"
-        ),
-        rollback_plan: pick(
-          sections["rollback"],
-          metadata["rollback_plan"],
-          "Revert commit"
-        )
+        validation_plan:
+          pick(
+            sections["validation"],
+            metadata["validation_plan"],
+            "Manual review"
+          ),
+        success_metrics:
+          pick(
+            sections["success"],
+            metadata["success_metrics"],
+            "Not specified"
+          ),
+        rollback_plan:
+          pick(
+            sections["rollback"],
+            metadata["rollback_plan"],
+            "Revert commit"
+          )
       }
 
     Map.put(seed, :canonical, canonical)
@@ -246,9 +259,12 @@ defmodule Ema.Proposals.SeedPreflight do
       {"current", ~r/(?:^##?\s*current[:\s]*|^current[_ ]?behavior[:\s]+)(.+?)(?=^##?\s|\z)/mis},
       {"desired", ~r/(?:^##?\s*desired[:\s]*|^desired[_ ]?behavior[:\s]+)(.+?)(?=^##?\s|\z)/mis},
       {"constraints", ~r/(?:^##?\s*constraints?[:\s]*|^constraints?[:\s]+)(.+?)(?=^##?\s|\z)/mis},
-      {"affected", ~r/(?:^##?\s*affected[:\s]*|^affected[_ ]?(?:area|module)[:\s]+)(.+?)(?=^##?\s|\z)/mis},
-      {"non_goals", ~r/(?:^##?\s*non[- _]?goals?[:\s]*|^non[- _]?goals?[:\s]+)(.+?)(?=^##?\s|\z)/mis},
-      {"validation", ~r/(?:^##?\s*validation[:\s]*|^validation[_ ]?(?:plan|strategy)[:\s]+)(.+?)(?=^##?\s|\z)/mis},
+      {"affected",
+       ~r/(?:^##?\s*affected[:\s]*|^affected[_ ]?(?:area|module)[:\s]+)(.+?)(?=^##?\s|\z)/mis},
+      {"non_goals",
+       ~r/(?:^##?\s*non[- _]?goals?[:\s]*|^non[- _]?goals?[:\s]+)(.+?)(?=^##?\s|\z)/mis},
+      {"validation",
+       ~r/(?:^##?\s*validation[:\s]*|^validation[_ ]?(?:plan|strategy)[:\s]+)(.+?)(?=^##?\s|\z)/mis},
       {"success", ~r/(?:^##?\s*success[:\s]*|^success[_ ]?metrics?[:\s]+)(.+?)(?=^##?\s|\z)/mis},
       {"rollback", ~r/(?:^##?\s*rollback[:\s]*|^rollback[_ ]?plan[:\s]+)(.+?)(?=^##?\s|\z)/mis}
     ]
@@ -351,7 +367,9 @@ defmodule Ema.Proposals.SeedPreflight do
 
     # Non-goals specified (0-5) — shows scoping thought
     non_goals = canonical[:non_goals] || ""
-    points = points + if(non_goals != "Not specified" and String.length(non_goals) > 5, do: 5, else: 0)
+
+    points =
+      points + if(non_goals != "Not specified" and String.length(non_goals) > 5, do: 5, else: 0)
 
     min(points, 25)
   end
@@ -601,7 +619,8 @@ defmodule Ema.Proposals.SeedPreflight do
   defp maybe_enrich_field(canonical, field, deduction, deduction_reasons, generator) do
     current = Map.get(canonical, field)
 
-    if deduction in deduction_reasons and (current == nil or current == "Not specified" or current == "") do
+    if deduction in deduction_reasons and
+         (current == nil or current == "Not specified" or current == "") do
       Map.put(canonical, field, generator.())
     else
       canonical
@@ -660,8 +679,12 @@ defmodule Ema.Proposals.SeedPreflight do
 
   defp score_differentiation(current, desired, max_points) do
     cond do
-      current in ["Not specified", ""] or desired in ["Not specified", ""] -> 0
-      current == desired -> 0
+      current in ["Not specified", ""] or desired in ["Not specified", ""] ->
+        0
+
+      current == desired ->
+        0
+
       true ->
         current_tokens = tokenize(current)
         desired_tokens = tokenize(desired)

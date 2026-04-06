@@ -23,14 +23,14 @@ defmodule Ema.Spaces do
   def list_spaces do
     Space
     |> where([s], is_nil(s.archived_at))
-    |> order_by([s], [asc: s.inserted_at])
+    |> order_by([s], asc: s.inserted_at)
     |> Repo.all()
   end
 
   def list_spaces_for_org(org_id) do
     Space
     |> where([s], s.org_id == ^org_id and is_nil(s.archived_at))
-    |> order_by([s], [asc: s.inserted_at])
+    |> order_by([s], asc: s.inserted_at)
     |> Repo.all()
   end
 
@@ -89,7 +89,9 @@ defmodule Ema.Spaces do
 
   def remove_member(space_id, identity_id) do
     case Repo.get_by(Member, space_id: space_id, identity_id: identity_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       member ->
         member
         |> Member.changeset(%{revoked_at: DateTime.utc_now()})
@@ -103,26 +105,29 @@ defmodule Ema.Spaces do
   """
   def ensure_personal_space(org_id, identity_id) do
     case Repo.one(
-      from s in Space,
-        join: m in Member, on: m.space_id == s.id,
-        where: s.org_id == ^org_id
-          and s.space_type == "personal"
-          and m.identity_id == ^identity_id
-          and is_nil(s.archived_at),
-        limit: 1
-    ) do
+           from s in Space,
+             join: m in Member,
+             on: m.space_id == s.id,
+             where:
+               s.org_id == ^org_id and
+                 s.space_type == "personal" and
+                 m.identity_id == ^identity_id and
+                 is_nil(s.archived_at),
+             limit: 1
+         ) do
       %Space{} = space ->
         {:ok, space}
 
       nil ->
         Repo.transaction(fn ->
-          {:ok, space} = create_space(%{
-            org_id: org_id,
-            name: "Personal Space",
-            space_type: "personal",
-            ai_privacy: "isolated",
-            icon: "🏠"
-          })
+          {:ok, space} =
+            create_space(%{
+              org_id: org_id,
+              name: "Personal Space",
+              space_type: "personal",
+              ai_privacy: "isolated",
+              icon: "🏠"
+            })
 
           {:ok, _} = add_member(space.id, identity_id, "owner")
           space

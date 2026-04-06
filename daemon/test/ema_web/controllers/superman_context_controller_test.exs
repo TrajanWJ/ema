@@ -13,7 +13,13 @@ defmodule EmaWeb.SupermanContextControllerTest do
     :ok =
       KnowledgeGraph.ingest(
         [
-          %{type: "goal", title: "Primary Goal", content: "Ship the newsroom tools", tags: ["ops"], inserted_at: DateTime.utc_now()}
+          %{
+            type: "goal",
+            title: "Primary Goal",
+            content: "Ship the newsroom tools",
+            tags: ["ops"],
+            inserted_at: DateTime.utc_now()
+          }
         ],
         "daily-planet"
       )

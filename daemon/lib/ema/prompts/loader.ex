@@ -57,7 +57,7 @@ defmodule Ema.Prompts.Loader do
   defp get_cached(kind) do
     case :ets.lookup(@table, kind) do
       [{^kind, prompt}] -> {:ok, prompt}
-      []                -> fetch_and_cache(kind)
+      [] -> fetch_and_cache(kind)
     end
   end
 
@@ -99,7 +99,7 @@ defmodule Ema.Prompts.Loader do
   @impl true
   def handle_cast({:reload_kind, kind}, state) do
     case Store.latest_for_kind(kind) do
-      nil    -> :ets.delete(@table, kind)
+      nil -> :ets.delete(@table, kind)
       prompt -> :ets.insert(@table, {kind, prompt})
     end
 
@@ -114,7 +114,9 @@ defmodule Ema.Prompts.Loader do
     Enum.each(changed, fn path ->
       case upsert_from_file(path) do
         {:ok, prompt} ->
-          Logger.info("[Prompts.Loader] hot-reloaded #{prompt.kind} v#{prompt.version} from #{Path.basename(path)}")
+          Logger.info(
+            "[Prompts.Loader] hot-reloaded #{prompt.kind} v#{prompt.version} from #{Path.basename(path)}"
+          )
 
         {:error, reason} ->
           Logger.warning("[Prompts.Loader] failed to load #{path}: #{inspect(reason)}")

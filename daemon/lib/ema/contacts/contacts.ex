@@ -36,7 +36,8 @@ defmodule Ema.Contacts do
 
   def update_contact(id, attrs) do
     case get_contact(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
 
       contact ->
         contact

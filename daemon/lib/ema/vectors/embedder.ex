@@ -70,18 +70,25 @@ defmodule Ema.Vectors.Embedder do
                 {:ok, updated}
 
               {:error, reason} ->
-                Logger.warning("[Embedder] failed to persist embedding for item #{item_id}: #{inspect(reason)}")
+                Logger.warning(
+                  "[Embedder] failed to persist embedding for item #{item_id}: #{inspect(reason)}"
+                )
+
                 :error
             end
         end
 
       {:error, reason} ->
-        Logger.warning("[Embedder] embedding failed for brain dump item #{item_id}: #{inspect(reason)}")
+        Logger.warning(
+          "[Embedder] embedding failed for brain dump item #{item_id}: #{inspect(reason)}"
+        )
 
         Ema.BrainDump.Item
         |> Ema.Repo.get(item_id)
         |> case do
-          nil -> :ok
+          nil ->
+            :ok
+
           item ->
             item
             |> Ecto.Changeset.change(%{embedding_status: "failed"})
@@ -333,7 +340,12 @@ defmodule Ema.Vectors.Embedder do
       {"Content-Type", "application/json"}
     ]
 
-    case :httpc.request(:post, {String.to_charlist(url), headers, ~c"application/json", body}, [], []) do
+    case :httpc.request(
+           :post,
+           {String.to_charlist(url), headers, ~c"application/json", body},
+           [],
+           []
+         ) do
       {:ok, {{_, 200, _}, _headers, resp_body}} ->
         case Jason.decode(List.to_string(resp_body)) do
           {:ok, %{"data" => [%{"embedding" => vector} | _]}} ->

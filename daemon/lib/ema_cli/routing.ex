@@ -18,7 +18,10 @@ defmodule EmaCli.Routing do
         (stats["routing_history"] || [])
         |> Enum.take(5)
         |> Enum.each(fn d ->
-          IO.puts("  -> \e[36m#{d["task_type"]}\e[0m -> #{d["selected_agent"]} (#{d["strategy"]})")
+          IO.puts(
+            "  -> \e[36m#{d["task_type"]}\e[0m -> #{d["selected_agent"]} (#{d["strategy"]})"
+          )
+
           IO.puts("     #{d["reason"]}")
         end)
 

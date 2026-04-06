@@ -17,14 +17,20 @@ defmodule Ema.Babysitter.PatternMatcher do
   defp detect_cascade_failure(events) do
     window = recent_events(events, 300)
     failures = Enum.filter(window, &failure_event?/1)
+
     if length(failures) >= 3 do
-      %{pattern: :cascade_failure, severity: min(1.0, length(failures) / 5.0),
+      %{
+        pattern: :cascade_failure,
+        severity: min(1.0, length(failures) / 5.0),
         affected: Enum.map(failures, &event_source/1) |> Enum.uniq(),
-        recommended_action: :alert_human, detail: "#{length(failures)} failures in 5 min"}
+        recommended_action: :alert_human,
+        detail: "#{length(failures)} failures in 5 min"
+      }
     end
   end
 
-  defp detect_stalled_sessions(%{stalled: stalled}) when is_list(stalled) and length(stalled) > 0 do
+  defp detect_stalled_sessions(%{stalled: stalled})
+       when is_list(stalled) and length(stalled) > 0 do
     unique =
       stalled
       |> Enum.map(fn s ->
@@ -52,23 +58,36 @@ defmodule Ema.Babysitter.PatternMatcher do
       }
     ]
   end
+
   defp detect_stalled_sessions(_), do: []
 
   defp detect_repeated_tool_failure(events) do
     window = recent_events(events, 600)
     tool_failures = Enum.filter(window, &tool_failure_event?/1)
+
     if length(tool_failures) >= 3 do
-      %{pattern: :repeated_tool_failure, severity: 0.6, affected: [],
-        recommended_action: :alert_human, detail: "#{length(tool_failures)} tool failures in 10 min"}
+      %{
+        pattern: :repeated_tool_failure,
+        severity: 0.6,
+        affected: [],
+        recommended_action: :alert_human,
+        detail: "#{length(tool_failures)} tool failures in 10 min"
+      }
     end
   end
 
   defp detect_build_spike(events) do
     window = recent_events(events, 120)
     builds = Enum.count(window, fn e -> e.category == :build end)
+
     if builds >= 8 do
-      %{pattern: :build_spike, severity: 0.4, affected: [],
-        recommended_action: :monitor, detail: "#{builds} build events in 2 min"}
+      %{
+        pattern: :build_spike,
+        severity: 0.4,
+        affected: [],
+        recommended_action: :monitor,
+        detail: "#{builds} build events in 2 min"
+      }
     end
   end
 
@@ -76,11 +95,18 @@ defmodule Ema.Babysitter.PatternMatcher do
     if length(events) > 0 do
       now_s = System.os_time(:second)
       newest = events |> Enum.map(& &1.inserted_at) |> Enum.max(fn -> nil end)
+
       if newest do
         gap = now_s - DateTime.to_unix(newest)
+
         if gap > 600 do
-          %{pattern: :quiet_anomaly, severity: 0.3, affected: [],
-            recommended_action: :monitor, detail: "No events for #{div(gap, 60)}m"}
+          %{
+            pattern: :quiet_anomaly,
+            severity: 0.3,
+            affected: [],
+            recommended_action: :monitor,
+            detail: "No events for #{div(gap, 60)}m"
+          }
         end
       end
     end
@@ -88,6 +114,7 @@ defmodule Ema.Babysitter.PatternMatcher do
 
   defp recent_events(events, seconds_ago) do
     cutoff = System.os_time(:second) - seconds_ago
+
     Enum.filter(events, fn
       %{inserted_at: %DateTime{} = dt} -> DateTime.to_unix(dt) >= cutoff
       _ -> true
@@ -95,14 +122,17 @@ defmodule Ema.Babysitter.PatternMatcher do
   end
 
   defp failure_event?(%{event: {tag, _}}) when tag in [:error, :failed, :crash], do: true
+
   defp failure_event?(%{event: ev}) when is_map(ev) do
     Map.get(ev, :status) in ["failed", "error"] or Map.get(ev, "status") in ["failed", "error"]
   end
+
   defp failure_event?(_), do: false
 
   defp tool_failure_event?(%{category: :sessions, event: {_tag, payload}}) when is_map(payload) do
     Map.get(payload, :tool_error) || Map.get(payload, "tool_error")
   end
+
   defp tool_failure_event?(_), do: false
 
   defp event_source(%{event: {_tag, %{id: id}}}), do: id

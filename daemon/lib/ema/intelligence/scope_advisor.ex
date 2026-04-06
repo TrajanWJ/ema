@@ -17,7 +17,8 @@ defmodule Ema.Intelligence.ScopeAdvisor do
     bad_count = Enum.count(outcomes, &bad_outcome?/1)
 
     if bad_count >= @warn_threshold do
-      {:warn, "Recent #{agent}/#{domain} outcomes show repeated failures or timeouts. Consider narrowing scope."}
+      {:warn,
+       "Recent #{agent}/#{domain} outcomes show repeated failures or timeouts. Consider narrowing scope."}
     else
       :ok
     end

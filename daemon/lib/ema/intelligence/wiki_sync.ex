@@ -25,12 +25,18 @@ defmodule Ema.Intelligence.WikiSync do
       attrs = Map.put(suggestion, "git_event_id", event.id)
 
       case Intelligence.create_sync_action(attrs) do
-        {:ok, _action} -> :ok
-        {:error, reason} -> Logger.warning("[WikiSync] Failed to create action: #{inspect(reason)}")
+        {:ok, _action} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("[WikiSync] Failed to create action: #{inspect(reason)}")
       end
     end)
 
-    Logger.info("[WikiSync] Generated #{length(suggestions)} suggestions for #{String.slice(event.commit_sha, 0, 8)}")
+    Logger.info(
+      "[WikiSync] Generated #{length(suggestions)} suggestions for #{String.slice(event.commit_sha, 0, 8)}"
+    )
+
     {:ok, length(suggestions)}
   end
 
@@ -87,7 +93,8 @@ defmodule Ema.Intelligence.WikiSync do
         %{
           "action_type" => "flag_outdated",
           "wiki_path" => note.file_path,
-          "suggestion" => "File `#{path}` was modified. Wiki page '#{note.title || note.file_path}' references this file and may need updating."
+          "suggestion" =>
+            "File `#{path}` was modified. Wiki page '#{note.title || note.file_path}' references this file and may need updating."
         }
       end)
     end)
@@ -112,7 +119,8 @@ defmodule Ema.Intelligence.WikiSync do
       %{
         "action_type" => "create_stub",
         "wiki_path" => "#{space}/#{module_name}.md",
-        "suggestion" => "New file `#{path}` detected. Create a wiki stub for module '#{module_name}' in the #{space} space."
+        "suggestion" =>
+          "New file `#{path}` detected. Create a wiki stub for module '#{module_name}' in the #{space} space."
       }
     end)
   end

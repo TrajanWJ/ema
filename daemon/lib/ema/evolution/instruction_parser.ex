@@ -131,10 +131,12 @@ defmodule Ema.Evolution.InstructionParser do
     case pattern do
       "recurring_approval" ->
         tags = metadata[:tags] || metadata["tags"] || []
+
         "The system consistently approves proposals tagged with #{Enum.join(tags, ", ")}. Consider prioritizing these areas."
 
       "recurring_rejection" ->
         tags = metadata[:tags] || metadata["tags"] || []
+
         "Proposals tagged with #{Enum.join(tags, ", ")} are frequently rejected. Reduce generation in these areas."
 
       "high_rejection_rate" ->
@@ -164,7 +166,10 @@ defmodule Ema.Evolution.InstructionParser do
     "Signal from #{source}: #{inspect(metadata)}"
   end
 
-  defp validate_source(source) when source in ~w(signal correction approval_pattern task_outcome manual), do: source
+  defp validate_source(source)
+       when source in ~w(signal correction approval_pattern task_outcome manual),
+       do: source
+
   defp validate_source(_), do: "signal"
 
   defp parse_confidence(val) when is_float(val), do: min(1.0, max(0.0, val))

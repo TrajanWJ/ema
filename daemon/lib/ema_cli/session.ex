@@ -1,7 +1,8 @@
 defmodule EmaCli.Session do
   @moduledoc "CLI commands for Session Continuity (DCC)"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("state", opts) do
     case api_get("/context") do

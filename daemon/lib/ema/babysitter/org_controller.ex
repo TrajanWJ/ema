@@ -37,7 +37,8 @@ defmodule Ema.Babysitter.OrgController do
   end
 
   @doc "Move a channel to a different category (parent_id)."
-  def move_channel(channel_id, new_parent_id) when is_binary(channel_id) and is_binary(new_parent_id) do
+  def move_channel(channel_id, new_parent_id)
+      when is_binary(channel_id) and is_binary(new_parent_id) do
     GenServer.call(__MODULE__, {:move_channel, channel_id, new_parent_id})
   end
 

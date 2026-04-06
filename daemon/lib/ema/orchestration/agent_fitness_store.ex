@@ -35,9 +35,12 @@ defmodule Ema.Orchestration.AgentFitnessStore do
   @doc "Top agents for a given task type, limited."
   def top_agents(task_type, limit \\ 5) do
     all_fitness_scores()
-    |> Enum.sort_by(fn f ->
-      Map.get(f.task_affinity, task_type, 0.0)
-    end, :desc)
+    |> Enum.sort_by(
+      fn f ->
+        Map.get(f.task_affinity, task_type, 0.0)
+      end,
+      :desc
+    )
     |> Enum.take(limit)
   end
 
@@ -77,7 +80,9 @@ defmodule Ema.Orchestration.AgentFitnessStore do
 
     # Composite: 60% success + 20% latency_factor + 20% base
     latency_factor = max(0.0, 1.0 - new_avg_latency / 60_000.0)
-    composite = Float.round(new_success_rate * 0.6 + latency_factor * 0.2 + @default_fitness * 0.2, 3)
+
+    composite =
+      Float.round(new_success_rate * 0.6 + latency_factor * 0.2 + @default_fitness * 0.2, 3)
 
     updated = %{
       entry

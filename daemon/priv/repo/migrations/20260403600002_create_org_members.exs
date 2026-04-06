@@ -4,8 +4,10 @@ defmodule Ema.Repo.Migrations.CreateOrgMembers do
   def change do
     create table(:org_members, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :organization_id, references(:organizations, type: :string, on_delete: :delete_all),
         null: false
+
       add :display_name, :string, null: false
       add :email, :string
       add :role, :string, null: false, default: "member"

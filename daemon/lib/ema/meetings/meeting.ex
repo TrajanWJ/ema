@@ -22,7 +22,18 @@ defmodule Ema.Meetings.Meeting do
 
   def changeset(meeting, attrs) do
     meeting
-    |> cast(attrs, [:id, :title, :description, :starts_at, :ends_at, :attendees, :location, :project_id, :notes, :status])
+    |> cast(attrs, [
+      :id,
+      :title,
+      :description,
+      :starts_at,
+      :ends_at,
+      :attendees,
+      :location,
+      :project_id,
+      :notes,
+      :status
+    ])
     |> validate_required([:id, :title, :starts_at])
     |> validate_inclusion(:status, @valid_statuses)
   end

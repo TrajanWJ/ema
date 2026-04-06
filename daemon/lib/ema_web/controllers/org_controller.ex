@@ -73,7 +73,9 @@ defmodule EmaWeb.OrgController do
   # DELETE /api/orgs/:id
   def delete(conn, %{"id" => id}) do
     case Org.get_org(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       org ->
         with {:ok, _} <- Org.delete_org(org) do
           EmaWeb.Endpoint.broadcast("orgs:lobby", "org_deleted", %{id: id})
@@ -120,7 +122,12 @@ defmodule EmaWeb.OrgController do
     case Org.join_via_token(token, member_attrs) do
       {:ok, member} ->
         org = Org.get_org(member.organization_id)
-        EmaWeb.Endpoint.broadcast("orgs:#{member.organization_id}", "member_joined", serialize_member(member))
+
+        EmaWeb.Endpoint.broadcast(
+          "orgs:#{member.organization_id}",
+          "member_joined",
+          serialize_member(member)
+        )
 
         conn
         |> put_status(:created)

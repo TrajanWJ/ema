@@ -143,7 +143,10 @@ defmodule Ema.OpenClaw.EventIngester do
           %{state | routed_count: state.routed_count + 1}
 
         {:error, reason} ->
-          Logger.warning("[EventIngester] Routing failed for session #{session_id}: #{inspect(reason)}")
+          Logger.warning(
+            "[EventIngester] Routing failed for session #{session_id}: #{inspect(reason)}"
+          )
+
           %{state | errors: [{session_id, reason} | Enum.take(state.errors, 9)]}
       end
     end
@@ -153,14 +156,17 @@ defmodule Ema.OpenClaw.EventIngester do
 
   defp route_to_ema(oc_session_id, content, channel_type, agent_id_hint) do
     # Resolve or create an EMA conversation for this OC session
-    with {:ok, agent_id, conversation_id} <- resolve_context(oc_session_id, channel_type, agent_id_hint) do
+    with {:ok, agent_id, conversation_id} <-
+           resolve_context(oc_session_id, channel_type, agent_id_hint) do
       metadata = %{
         channel_type: channel_type,
         openclaw_session_id: oc_session_id,
         source: "openclaw_ingester"
       }
 
-      Logger.info("[EventIngester] Routing OC #{oc_session_id} → agent #{agent_id}, conversation #{conversation_id}")
+      Logger.info(
+        "[EventIngester] Routing OC #{oc_session_id} → agent #{agent_id}, conversation #{conversation_id}"
+      )
 
       case AgentWorker.send_and_route(agent_id, conversation_id, content, metadata) do
         {:ok, result} -> {:ok, result.reply}
@@ -171,7 +177,8 @@ defmodule Ema.OpenClaw.EventIngester do
 
   defp resolve_context(oc_session_id, channel_type, agent_id_hint) do
     case SessionStore.get_openclaw_session(oc_session_id) do
-      {:ok, %{agent_id: agent_id, conversation_id: conversation_id}} when not is_nil(conversation_id) ->
+      {:ok, %{agent_id: agent_id, conversation_id: conversation_id}}
+      when not is_nil(conversation_id) ->
         {:ok, agent_id, conversation_id}
 
       _ ->
@@ -202,6 +209,7 @@ defmodule Ema.OpenClaw.EventIngester do
         case Registry.lookup(Ema.Agents.Registry, {:memory, agent.id}) do
           [{_pid, _}] ->
             AgentMemory.record_openclaw_session(agent.id, oc_session_id, conversation_id)
+
           [] ->
             :ok
         end
@@ -216,17 +224,22 @@ defmodule Ema.OpenClaw.EventIngester do
     channel_id = "oc_" <> oc_session_id
 
     case Agents.get_or_create_conversation(agent_id, valid_channel_type, channel_id, nil) do
-      {:ok, conv} -> conv.id
+      {:ok, conv} ->
+        conv.id
+
       {:error, reason} ->
         Logger.error("[EventIngester] Failed to get_or_create conversation: " <> inspect(reason))
         "fallback_" <> oc_session_id
     end
   end
 
-  defp normalize_channel_type(type) when type in ["discord", "telegram", "webchat", "api"], do: type
+  defp normalize_channel_type(type) when type in ["discord", "telegram", "webchat", "api"],
+    do: type
+
   defp normalize_channel_type(_), do: "webchat"
 
   defp resolve_agent_slug(nil), do: Config.default_agent()
+
   defp resolve_agent_slug(agent_id) when is_binary(agent_id) do
     # Normalize "main" → "right-hand" (EMA slug convention)
     case agent_id do

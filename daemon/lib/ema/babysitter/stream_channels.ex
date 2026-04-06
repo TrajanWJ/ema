@@ -102,24 +102,49 @@ defmodule Ema.Babysitter.StreamChannels do
 
   @doc false
   def build_delivery(stream, n, started_at, session_snapshot) do
+    signature = stream_signature(stream, session_snapshot)
+
     %{
       message: build_message(stream, n, started_at, session_snapshot),
-      signature: stream_signature(stream, session_snapshot),
+      signature: signature,
+      fingerprint: fingerprint(signature),
       degraded_summary?: degraded_stream_summary?(stream, session_snapshot),
-      reason: post_reason(stream, session_snapshot)
+      reason: post_reason(stream, session_snapshot),
+      suppress_count: 0
     }
   end
+
+  @doc """
+  Hash-based payload fingerprint for duplicate suppression.
+
+  Uses `:erlang.phash2/1` on the signature map — O(1) integer comparison
+  instead of deep map equality.
+  """
+  def fingerprint(signature), do: :erlang.phash2(signature)
 
   @doc false
   def delivery_decision(nil, %{reason: reason}), do: {:post, reason}
 
+  def delivery_decision(%{fingerprint: fp}, %{fingerprint: fp, degraded_summary?: true})
+      when is_integer(fp) do
+    {:skip, "repeated degraded summary"}
+  end
+
+  def delivery_decision(%{fingerprint: fp}, %{fingerprint: fp})
+      when is_integer(fp) do
+    {:skip, "no state change"}
+  end
+
+  # Legacy fallback: compare full signature maps when fingerprint is absent
   def delivery_decision(last_delivery, %{signature: signature, degraded_summary?: true})
-      when is_map(last_delivery) and last_delivery.signature == signature do
+      when is_map(last_delivery) and not is_map_key(last_delivery, :fingerprint) and
+             last_delivery.signature == signature do
     {:skip, "repeated degraded summary"}
   end
 
   def delivery_decision(last_delivery, %{signature: signature})
-      when is_map(last_delivery) and last_delivery.signature == signature do
+      when is_map(last_delivery) and not is_map_key(last_delivery, :fingerprint) and
+             last_delivery.signature == signature do
     {:skip, "no state change"}
   end
 
@@ -716,6 +741,7 @@ defmodule Ema.Babysitter.StreamChannels do
   defp heartbeat_emoji(_), do: "⚪"
 
   defp safe_int(fun, default \\ 0)
+
   defp safe_int(fun, default) do
     try do
       fun.()
@@ -746,11 +772,13 @@ defmodule Ema.Babysitter.StreamChannels do
       {:post, reason} ->
         if delivery.message, do: post(channel_id(stream), delivery.message)
         Logger.info("[StreamChannels:#{stream}] posted #{reason}")
-        delivery
+        %{delivery | suppress_count: 0}
 
       {:skip, reason} ->
-        Logger.info("[StreamChannels:#{stream}] skipped post: #{reason}")
-        last_delivery || delivery
+        prev_count = Map.get(last_delivery || %{}, :suppress_count, 0)
+        Logger.info("[StreamChannels:#{stream}] suppressed (#{prev_count + 1}x): #{reason}")
+        kept = last_delivery || delivery
+        %{kept | suppress_count: prev_count + 1}
     end
   end
 
@@ -832,14 +860,24 @@ defmodule Ema.Babysitter.StreamChannels do
   defp stream_signature(:agent, session_snapshot) do
     {sessions, stalled, just_completed} = normalize_session_snapshot(session_snapshot)
 
+    active = Enum.filter(sessions, &(&1.status == :active))
+
     %{
       total: safe_int(fn -> Ema.Repo.aggregate(Ema.ClaudeSessions.ClaudeSession, :count) end),
-      active:
-        Enum.map(Enum.filter(sessions, &(&1.status == :active)), fn session ->
-          {session.session_id, session.project_path, session.last_tool, session.last_text}
-        end),
-      stalled: Enum.map(stalled, &{&1.session_id, &1.project_path}),
-      just_completed: Enum.map(just_completed, &{&1.session_id, &1.project_path})
+      active_count: length(active),
+      active_ids:
+        active
+        |> Enum.map(&{&1.session_id, &1.project_path})
+        |> Enum.sort(),
+      stalled_count: length(stalled),
+      stalled_ids:
+        stalled
+        |> Enum.map(&{&1.session_id, &1.project_path})
+        |> Enum.sort(),
+      just_completed_ids:
+        just_completed
+        |> Enum.map(&{&1.session_id, &1.project_path})
+        |> Enum.sort()
     }
   end
 
@@ -1106,7 +1144,6 @@ defmodule Ema.Babysitter.StreamChannels do
     ChannelTopology.stream_channel_id(stream)
   end
 
-
   defp recent_intents do
     []
   end
@@ -1144,5 +1181,4 @@ defmodule Ema.Babysitter.StreamChannels do
   rescue
     _ -> []
   end
-
 end

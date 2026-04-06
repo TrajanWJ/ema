@@ -55,7 +55,9 @@ defmodule Ema.SecondBrain.Indexer do
       )
     end)
     |> case do
-      {:ok, _} -> :ok
+      {:ok, _} ->
+        :ok
+
       {:error, reason} ->
         Logger.warning("SecondBrain.Indexer: failed to index note #{note.id}: #{inspect(reason)}")
         {:error, reason}
@@ -111,9 +113,10 @@ defmodule Ema.SecondBrain.Indexer do
 
     case Repo.query(sql, [fts_query, limit]) do
       {:ok, %{rows: rows, columns: columns}} ->
-        note_ids = Enum.map(rows, fn row ->
-          row |> List.first()
-        end)
+        note_ids =
+          Enum.map(rows, fn row ->
+            row |> List.first()
+          end)
 
         notes_map =
           Note
@@ -193,6 +196,7 @@ defmodule Ema.SecondBrain.Indexer do
   # ---------------------------------------------------------------------------
 
   defp read_content(%Note{file_path: nil}), do: ""
+
   defp read_content(%Note{file_path: file_path}) do
     full_path = Ema.SecondBrain.vault_file_path(file_path)
 

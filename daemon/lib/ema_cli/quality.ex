@@ -1,7 +1,8 @@
 defmodule EmaCli.Quality do
   @moduledoc "CLI commands for Quality & Improvement Loop"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("report", opts) do
     days = Map.get(opts, :days, "7")
@@ -59,7 +60,9 @@ defmodule EmaCli.Quality do
     section("Threats", fn ->
       case api_get("/quality/threats") do
         {:ok, r} ->
-          IO.puts("  Severity: #{sev_badge(r["severity"])}  Findings: #{r["total_findings"] || 0}")
+          IO.puts(
+            "  Severity: #{sev_badge(r["severity"])}  Findings: #{r["total_findings"] || 0}"
+          )
 
           Enum.each(r["findings"] || [], fn f ->
             IO.puts("  * [#{f["severity"]}] #{String.slice(f["message"] || "", 0, 60)}")
@@ -101,7 +104,10 @@ defmodule EmaCli.Quality do
           IO.puts(Jason.encode!(r, pretty: true))
         else
           IO.puts("\n\e[1mThreat Report\e[0m -- #{r["checked_at"] || "unknown"}")
-          IO.puts("Severity: #{sev_badge(r["severity"])}  Findings: #{r["total_findings"] || 0}\n")
+
+          IO.puts(
+            "Severity: #{sev_badge(r["severity"])}  Findings: #{r["total_findings"] || 0}\n"
+          )
 
           Enum.each(r["findings"] || [], fn f ->
             IO.puts("[#{String.upcase(f["severity"] || "low")}] #{f["type"]}")

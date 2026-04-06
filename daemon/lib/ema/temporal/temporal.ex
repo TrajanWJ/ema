@@ -61,6 +61,7 @@ defmodule Ema.Temporal do
 
   defp weighted_average(current, new_val, sample_count) do
     weight = min(sample_count, 20)
+
     ((current * weight + new_val) / (weight + 1))
     |> Float.round(2)
   end

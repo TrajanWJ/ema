@@ -105,11 +105,7 @@ defmodule Ema.Stream.Babysitter do
             new_seen
           end
 
-        %{state |
-          poll_count: state.poll_count + 1,
-          last_poll_at: now,
-          seen_message_ids: seen
-        }
+        %{state | poll_count: state.poll_count + 1, last_poll_at: now, seen_message_ids: seen}
 
       {:error, reason} ->
         Logger.warning("[Stream.Babysitter] Poll failed: #{inspect(reason)}")
@@ -250,10 +246,13 @@ defmodule Ema.Stream.Babysitter do
                {"content-type", "application/json"}
              ]
            ) do
-        {:ok, %{status: status}} when status in 200..204 -> :ok
+        {:ok, %{status: status}} when status in 200..204 ->
+          :ok
+
         {:ok, %{status: status}} ->
           Logger.warning("[Stream.Babysitter] Failed to post ack, status=#{status}")
           :ok
+
         {:error, reason} ->
           Logger.warning("[Stream.Babysitter] Failed to post ack: #{inspect(reason)}")
           :ok

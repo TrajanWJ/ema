@@ -125,11 +125,13 @@ defmodule Ema.Projects.ContextDoc do
 
       items =
         Enum.map(active, fn p ->
-          preview = if p.body_preview, do: " — #{String.slice(p.body_preview, 0, 80)}...", else: ""
+          preview =
+            if p.body_preview, do: " — #{String.slice(p.body_preview, 0, 80)}...", else: ""
+
           "- [#{p.status}]#{preview}"
         end)
 
-      (["### Proposals (#{total} — #{status_summary})", "**Active:"]  ++ items)
+      (["### Proposals (#{total} — #{status_summary})", "**Active:"] ++ items)
       |> Enum.join("\n")
     end
   end

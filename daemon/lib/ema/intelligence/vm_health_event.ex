@@ -19,7 +19,15 @@ defmodule Ema.Intelligence.VmHealthEvent do
 
   def changeset(event, attrs) do
     event
-    |> cast(attrs, [:id, :status, :openclaw_up, :ssh_up, :containers_json, :latency_ms, :checked_at])
+    |> cast(attrs, [
+      :id,
+      :status,
+      :openclaw_up,
+      :ssh_up,
+      :containers_json,
+      :latency_ms,
+      :checked_at
+    ])
     |> validate_required([:id, :status, :checked_at])
     |> validate_inclusion(:status, @valid_statuses)
   end

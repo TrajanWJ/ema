@@ -21,7 +21,7 @@ defmodule Ema.Intelligence.ContextFetcher do
       entries ->
         entries
         |> Enum.map_join("\n\n", &format_fragment/1)
-        |> then(&"Relevant code context:\n" <> &1)
+        |> then(&("Relevant code context:\n" <> &1))
     end
   end
 

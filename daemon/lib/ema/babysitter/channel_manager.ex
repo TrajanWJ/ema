@@ -62,7 +62,10 @@ defmodule Ema.Babysitter.ChannelManager do
         try do
           Ema.Repo.aggregate(
             from(t in Ema.Tasks.Task,
-              where: t.updated_at >= ^one_hour_ago and t.status not in ["done", "archived", "cancelled"]),
+              where:
+                t.updated_at >= ^one_hour_ago and
+                  t.status not in ["done", "archived", "cancelled"]
+            ),
             :count
           )
         rescue
@@ -74,7 +77,8 @@ defmodule Ema.Babysitter.ChannelManager do
         try do
           Ema.Repo.aggregate(
             from(t in Ema.Tasks.Task,
-              where: t.status in ["todo", "in_progress", "blocked"]),
+              where: t.status in ["todo", "in_progress", "blocked"]
+            ),
             :count
           )
         rescue
@@ -91,6 +95,7 @@ defmodule Ema.Babysitter.ChannelManager do
 
   defp build_channel_topic(name, recent_tasks, active_tasks, now) do
     time_str = Calendar.strftime(now, "%H:%M UTC")
+
     "#{channel_icon(name)} #{recent_tasks} active · #{active_tasks} total open · updated #{time_str}"
   end
 
@@ -108,7 +113,8 @@ defmodule Ema.Babysitter.ChannelManager do
     try do
       OrgController.set_channel_topic(channel_id, topic)
     rescue
-      e -> Logger.warning("[ChannelManager] Failed to update topic for #{channel_id}: #{inspect(e)}")
+      e ->
+        Logger.warning("[ChannelManager] Failed to update topic for #{channel_id}: #{inspect(e)}")
     catch
       :exit, _ -> Logger.warning("[ChannelManager] OrgController not available for topic update")
     end

@@ -33,10 +33,10 @@ defmodule Ema.Stream.ChannelManager do
   @type_category 4
 
   @type channel_opts :: [
-    category_id: pos_integer() | nil,
-    topic: String.t() | nil,
-    position: non_neg_integer() | nil
-  ]
+          category_id: pos_integer() | nil,
+          topic: String.t() | nil,
+          position: non_neg_integer() | nil
+        ]
 
   @doc """
   Create a text channel with the given name.
@@ -85,7 +85,8 @@ defmodule Ema.Stream.ChannelManager do
         Logger.info("[ChannelManager] Created category #{name} (id=#{category["id"]})")
         {:ok, category}
 
-      err -> err
+      err ->
+        err
     end
   end
 
@@ -102,7 +103,8 @@ defmodule Ema.Stream.ChannelManager do
         Logger.info("[ChannelManager] Updated topic for #{channel_id}")
         {:ok, channel}
 
-      err -> err
+      err ->
+        err
     end
   end
 
@@ -115,9 +117,10 @@ defmodule Ema.Stream.ChannelManager do
   """
   @spec archive_channel(pos_integer() | String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def archive_channel(channel_id, opts \\ []) do
-    archive_cat = Keyword.get(opts, :archive_category_id) ||
-      Application.get_env(:ema, :discord_archive_category_id) ||
-      System.get_env("DISCORD_ARCHIVE_CATEGORY_ID")
+    archive_cat =
+      Keyword.get(opts, :archive_category_id) ||
+        Application.get_env(:ema, :discord_archive_category_id) ||
+        System.get_env("DISCORD_ARCHIVE_CATEGORY_ID")
 
     if is_nil(archive_cat) do
       {:error, :no_archive_category}
@@ -137,7 +140,8 @@ defmodule Ema.Stream.ChannelManager do
           Logger.info("[ChannelManager] Archived channel #{channel_id} → category #{archive_cat}")
           {:ok, channel}
 
-        err -> err
+        err ->
+          err
       end
     end
   end

@@ -74,8 +74,12 @@ defmodule Ema.OpenClaw.ChannelDelivery do
   # Handle agent_response events from AgentWorker.send_and_route/4
   @impl true
   def handle_info(
-        %{event: :agent_response, channel_type: channel_type, conversation_id: conversation_id,
-          reply: reply},
+        %{
+          event: :agent_response,
+          channel_type: channel_type,
+          conversation_id: conversation_id,
+          reply: reply
+        },
         state
       )
       when channel_type in ["openclaw", nil] and is_binary(reply) and reply != "" do
@@ -97,7 +101,10 @@ defmodule Ema.OpenClaw.ChannelDelivery do
       new_state = deliver_to_session(session_key, reply, state)
       {:noreply, new_state}
     else
-      Logger.debug("[ChannelDelivery] Skipping delivery for channel_type=#{channel_type}, no OpenClaw session")
+      Logger.debug(
+        "[ChannelDelivery] Skipping delivery for channel_type=#{channel_type}, no OpenClaw session"
+      )
+
       {:noreply, state}
     end
   end
@@ -110,7 +117,10 @@ defmodule Ema.OpenClaw.ChannelDelivery do
   defp attempt_delivery(conversation_id, reply, state) do
     case resolve_session_key(conversation_id) do
       nil ->
-        Logger.debug("[ChannelDelivery] No OpenClaw session key for conversation #{conversation_id}")
+        Logger.debug(
+          "[ChannelDelivery] No OpenClaw session key for conversation #{conversation_id}"
+        )
+
         state
 
       session_key ->
@@ -119,7 +129,9 @@ defmodule Ema.OpenClaw.ChannelDelivery do
   end
 
   defp deliver_to_session(session_key, reply, state) do
-    Logger.info("[ChannelDelivery] Injecting reply into session #{session_key} (#{String.length(reply)} chars)")
+    Logger.info(
+      "[ChannelDelivery] Injecting reply into session #{session_key} (#{String.length(reply)} chars)"
+    )
 
     case GatewayRPC.call("chat.inject", %{sessionKey: session_key, message: reply}) do
       {:ok, %{"ok" => true}} ->
@@ -127,7 +139,10 @@ defmodule Ema.OpenClaw.ChannelDelivery do
         %{state | delivered_count: state.delivered_count + 1, last_delivery: DateTime.utc_now()}
 
       {:ok, other} ->
-        Logger.warning("[ChannelDelivery] Unexpected inject response for #{session_key}: #{inspect(other)}")
+        Logger.warning(
+          "[ChannelDelivery] Unexpected inject response for #{session_key}: #{inspect(other)}"
+        )
+
         %{state | delivered_count: state.delivered_count + 1, last_delivery: DateTime.utc_now()}
 
       {:error, reason} ->

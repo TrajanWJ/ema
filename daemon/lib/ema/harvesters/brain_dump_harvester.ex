@@ -44,13 +44,16 @@ defmodule Ema.Harvesters.BrainDumpHarvester do
           end
         end)
 
-      Logger.info("[BrainDumpHarvester] Triaged #{length(unprocessed)} items — #{actionable} actionable, #{seeds_created} proposals seeded")
+      Logger.info(
+        "[BrainDumpHarvester] Triaged #{length(unprocessed)} items — #{actionable} actionable, #{seeds_created} proposals seeded"
+      )
 
-      {:ok, %{
-        items_found: actionable,
-        seeds_created: seeds_created,
-        metadata: %{items_checked: length(unprocessed)}
-      }}
+      {:ok,
+       %{
+         items_found: actionable,
+         seeds_created: seeds_created,
+         metadata: %{items_checked: length(unprocessed)}
+       }}
     end
   rescue
     e ->
@@ -77,6 +80,7 @@ defmodule Ema.Harvesters.BrainDumpHarvester do
         title = derive_title(content, type)
         result = create_proposal_from_item(item, title, type, confidence)
         {result, {type, confidence}}
+
         case result do
           :ok -> {:proposal, type}
           _ -> :skip
@@ -95,15 +99,15 @@ defmodule Ema.Harvesters.BrainDumpHarvester do
       end
 
     case Proposals.create_proposal(%{
-      title: title,
-      body: item.content,
-      summary: String.slice(item.content, 0, 200),
-      source: source_ref,
-      status: "pending",
-      confidence: confidence,
-      proposal_type: type,
-      brain_dump_item_id: item.id
-    }) do
+           title: title,
+           body: item.content,
+           summary: String.slice(item.content, 0, 200),
+           source: source_ref,
+           status: "pending",
+           confidence: confidence,
+           proposal_type: type,
+           brain_dump_item_id: item.id
+         }) do
       {:ok, _} -> :ok
       _ -> :error
     end
@@ -120,13 +124,14 @@ defmodule Ema.Harvesters.BrainDumpHarvester do
       |> String.trim()
       |> String.slice(0, 80)
 
-    prefix = case type do
-      "bug_fix" -> "Fix: "
-      "build_task" -> "Build: "
-      "refactor" -> "Refactor: "
-      "research" -> "Research: "
-      _ -> ""
-    end
+    prefix =
+      case type do
+        "bug_fix" -> "Fix: "
+        "build_task" -> "Build: "
+        "refactor" -> "Refactor: "
+        "research" -> "Research: "
+        _ -> ""
+      end
 
     prefix <> first_line
   end

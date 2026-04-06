@@ -83,8 +83,12 @@ defmodule Ema.Intelligence.ProjectGraph do
         id = String.replace_prefix(node_id, "prop-", "")
 
         case Proposals.get_proposal(id) do
-          nil -> nil
-          proposal -> node_from_proposal(proposal) |> Map.put(:detail, %{body: proposal.body, status: proposal.status})
+          nil ->
+            nil
+
+          proposal ->
+            node_from_proposal(proposal)
+            |> Map.put(:detail, %{body: proposal.body, status: proposal.status})
         end
 
       String.starts_with?(node_id, "exec-") ->
