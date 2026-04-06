@@ -16,7 +16,7 @@ defmodule Ema.Intelligence.TokenEvent do
     timestamps(type: :utc_datetime)
   end
 
-  @valid_sources ~w(agent_session superman claude_bridge openclaw manual)
+  @valid_sources ~w(agent_session superman claude_bridge manual)
 
   def changeset(event, attrs) do
     event

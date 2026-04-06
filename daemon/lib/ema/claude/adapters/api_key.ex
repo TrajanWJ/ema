@@ -8,7 +8,7 @@ defmodule Ema.Claude.Adapters.ApiKey do
   Reads the key from `Application.get_env(:ema, :anthropic_api_key)` or
   `ANTHROPIC_API_KEY` environment variable.
 
-  This adapter bypasses OAuth and OpenClaw entirely — useful when direct
+  This adapter bypasses OAuth entirely — useful when direct
   Anthropic API access is preferred or when OAuth gateways are unavailable.
 
   ## Usage

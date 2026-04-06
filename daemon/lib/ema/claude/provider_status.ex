@@ -79,7 +79,6 @@ defmodule Ema.Claude.ProviderStatus do
 
   defp map_status(provider, health) do
     cond do
-      fallback_active?(provider) -> :fallback_active
       auth_failed?(health) -> :auth_failed
       missing_credentials?(health) -> :missing_credentials
       provider.status in [:offline, :degraded, :rate_limited] -> :provider_unavailable
@@ -88,21 +87,16 @@ defmodule Ema.Claude.ProviderStatus do
     end
   end
 
-  defp reason_from(provider, health) do
+  defp reason_from(_provider, health) do
     cond do
-      fallback_active?(provider) -> :local_openclaw_unavailable
       health == :ok -> nil
       is_tuple(health) and tuple_size(health) >= 2 -> elem(health, 1)
       true -> health
     end
   end
 
-  defp fallback_from(provider, _health) do
-    if fallback_active?(provider), do: provider.id, else: nil
-  end
-
-  defp fallback_active?(provider) do
-    provider.type == :openclaw and is_nil(System.find_executable("openclaw"))
+  defp fallback_from(_provider, _health) do
+    nil
   end
 
   defp missing_credentials?(:ok), do: false

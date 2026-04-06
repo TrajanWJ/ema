@@ -298,10 +298,6 @@ defmodule EmaWeb.Router do
     post("/cli-manager/sessions/:id/stop", CliManagerController, :stop_session)
     post("/cli-manager/scan", CliManagerController, :scan)
 
-    # Onboarding / imports / provider status
-    get("/onboarding/status", OnboardingController, :status)
-    post("/onboarding/run", OnboardingController, :run)
-
     # Async dispatch — non-blocking Claude task dispatch
     post("/dispatch/async", DispatchController, :async)
 
@@ -444,7 +440,7 @@ defmodule EmaWeb.Router do
     post("/babysitter/config", BabysitterController, :config)
     post("/babysitter/nudge", BabysitterController, :nudge)
     post("/babysitter/tick", BabysitterController, :tick)
-
+    
     # Feedback stream — Discord delivery + EMA internal visibility
     get("/feedback", FeedbackController, :index)
     get("/feedback/status", FeedbackController, :status)

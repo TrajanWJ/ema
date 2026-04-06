@@ -598,14 +598,9 @@ defmodule Ema.Stream.Manager do
   # --- Data fetchers ---
 
   defp check_gateway_status do
-    gateway_url = Application.get_env(:ema, :openclaw_gateway_url, "http://localhost:18789")
-
-    case Req.get("#{gateway_url}/health", receive_timeout: 3_000) do
-      {:ok, %{status: s}} when s in 200..299 -> "🟢 up"
-      _ -> "🔴 down"
-    end
-  rescue
-    _ -> "⚠️ unknown"
+    # Gateway health check removed (deprecated).
+    # Returns a static value; this field may be removed in future cleanup.
+    "n/a"
   end
 
   defp get_session_stats do

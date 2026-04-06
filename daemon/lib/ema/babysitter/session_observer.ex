@@ -10,8 +10,6 @@ defmodule Ema.Babysitter.SessionObserver do
   - Completed sessions (last message type is "result")
   - What each session is actually doing (last tool call / assistant message)
 
-  Also probes the OpenClaw Gateway VM for active agent sessions.
-
   Broadcasts to "babysitter:sessions" topic with:
     %{event: :session_snapshot, sessions: [...], stalled: [...], just_completed: [...]}
   """
@@ -24,8 +22,6 @@ defmodule Ema.Babysitter.SessionObserver do
   @stale_threshold_s 300
   @pubsub Ema.PubSub
   @topic "babysitter:sessions"
-  @openclaw_gateway_url System.get_env("OPENCLAW_GATEWAY_URL", "http://192.168.122.10:18789")
-
   # --- Public API ---
 
   def start_link(opts \\ []) do
@@ -54,15 +50,9 @@ defmodule Ema.Babysitter.SessionObserver do
   @impl true
   def handle_info(:poll, state) do
     snapshot = build_snapshot()
-
     if snapshot != state.last_snapshot do
-      Phoenix.PubSub.broadcast(
-        @pubsub,
-        @topic,
-        %{event: :session_snapshot} |> Map.merge(snapshot)
-      )
+      Phoenix.PubSub.broadcast(@pubsub, @topic, %{event: :session_snapshot} |> Map.merge(snapshot))
     end
-
     timer = schedule_poll(@poll_interval)
     {:noreply, %{state | timer: timer, last_snapshot: snapshot}}
   end
@@ -82,43 +72,10 @@ defmodule Ema.Babysitter.SessionObserver do
       |> Enum.map(&parse_session_file/1)
       |> Enum.reject(&is_nil/1)
 
-    vm_sessions = fetch_vm_sessions()
-    sessions = sessions ++ vm_sessions
-
     stalled = sessions |> Enum.filter(&stalled?(&1, now))
     just_completed = sessions |> Enum.filter(&(&1.status == :completed))
 
     %{sessions: sessions, stalled: stalled, just_completed: just_completed}
-  end
-
-  defp fetch_vm_sessions do
-    url = @openclaw_gateway_url <> "/api/sessions/active"
-
-    try do
-      case Req.get(url, receive_timeout: 5_000) do
-        {:ok, %{status: 200, body: body}} when is_list(body) ->
-          Enum.map(body, fn s ->
-            %{
-              session_id: Map.get(s, "sessionKey") || Map.get(s, "id"),
-              project_path: "vm:" <> (Map.get(s, "agentId") || Map.get(s, "label") || "unknown"),
-              path: nil,
-              status: :active,
-              last_type: "assistant",
-              last_text: Map.get(s, "lastMessage") || Map.get(s, "status"),
-              last_tool: nil,
-              last_ts: Map.get(s, "updatedAt"),
-              mtime: System.os_time(:second),
-              entry_count: 0,
-              source: :openclaw_vm
-            }
-          end)
-
-        _ ->
-          []
-      end
-    rescue
-      _ -> []
-    end
   end
 
   defp list_recent_sessions(now) do
@@ -127,7 +84,6 @@ defmodule Ema.Babysitter.SessionObserver do
         project_dirs
         |> Enum.flat_map(fn proj ->
           dir = Path.join(@projects_dir, proj)
-
           case File.ls(dir) do
             {:ok, files} ->
               files
@@ -136,28 +92,15 @@ defmodule Ema.Babysitter.SessionObserver do
               |> Enum.filter(fn path ->
                 case File.stat(path) do
                   {:ok, %{mtime: mtime}} ->
-                    mtime_s =
-                      mtime
-                      |> :calendar.datetime_to_gregorian_seconds()
-                      |> Kernel.-(
-                        :calendar.datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}})
-                      )
-
-                    # modified in last 2 hours
-                    now - mtime_s < 7200
-
-                  _ ->
-                    false
+                    mtime_s = mtime |> :calendar.datetime_to_gregorian_seconds() |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}))
+                    now - mtime_s < 7200  # modified in last 2 hours
+                  _ -> false
                 end
               end)
-
-            _ ->
-              []
+            _ -> []
           end
         end)
-
-      _ ->
-        []
+      _ -> []
     end
   end
 
@@ -165,25 +108,18 @@ defmodule Ema.Babysitter.SessionObserver do
     try do
       lines = File.stream!(path, :line) |> Enum.take(-20) |> Enum.map(&String.trim/1)
 
-      parsed =
-        lines
-        |> Enum.map(fn line ->
-          case Jason.decode(line) do
-            {:ok, obj} -> obj
-            _ -> nil
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
+      parsed = lines |> Enum.map(fn line ->
+        case Jason.decode(line) do
+          {:ok, obj} -> obj
+          _ -> nil
+        end
+      end) |> Enum.reject(&is_nil/1)
 
       last_entry = List.last(parsed)
       if is_nil(last_entry), do: throw(:empty)
 
       session_id = get_in(last_entry, ["sessionId"]) || get_in(last_entry, ["session_id"])
-
-      project_path =
-        path
-        |> Path.dirname()
-        |> Path.basename()
+      project_path = path |> Path.dirname() |> Path.basename()
         |> String.replace(~r/^-home-trajan-/, "~/")
         |> String.replace("-", "/")
 
@@ -194,23 +130,18 @@ defmodule Ema.Babysitter.SessionObserver do
       last_text = extract_last_text(parsed)
       last_tool = extract_last_tool(parsed)
 
-      mtime =
-        case File.stat(path) do
-          {:ok, %{mtime: mt}} ->
-            mt
-            |> :calendar.datetime_to_gregorian_seconds()
-            |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}))
+      mtime = case File.stat(path) do
+        {:ok, %{mtime: mt}} ->
+          mt |> :calendar.datetime_to_gregorian_seconds()
+          |> Kernel.-(:calendar.datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}))
+        _ -> 0
+      end
 
-          _ ->
-            0
-        end
-
-      status =
-        cond do
-          last_type == "result" -> :completed
-          last_type in ["assistant", "user"] -> :active
-          true -> :unknown
-        end
+      status = cond do
+        last_type == "result" -> :completed
+        last_type in ["assistant", "user"] -> :active
+        true -> :unknown
+      end
 
       %{
         session_id: session_id,
@@ -242,7 +173,6 @@ defmodule Ema.Babysitter.SessionObserver do
       msg = Map.get(entry, "message", %{})
       role = Map.get(msg, "role")
       content = Map.get(msg, "content", [])
-
       if role == "assistant" do
         content
         |> List.wrap()
@@ -261,7 +191,6 @@ defmodule Ema.Babysitter.SessionObserver do
     |> Enum.find_value(fn entry ->
       msg = Map.get(entry, "message", %{})
       content = Map.get(msg, "content", [])
-
       content
       |> List.wrap()
       |> Enum.find_value(fn

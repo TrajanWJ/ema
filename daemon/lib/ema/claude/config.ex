@@ -59,7 +59,7 @@ defmodule Ema.Claude.Config do
   require Logger
 
   @valid_strategies [:balanced, :cheapest, :fastest, :best, :round_robin, :failover]
-  @valid_provider_types [:claude_cli, :codex_cli, :openclaw, :openrouter, :ollama, :custom]
+  @valid_provider_types [:claude_cli, :codex_cli, :openrouter, :ollama, :custom]
   @valid_cluster_strategies [:tailscale, :dns, :kubernetes, :epmd, :gossip]
 
   # ── Public API ─────────────────────────────────────────────────────────────
@@ -350,7 +350,6 @@ defmodule Ema.Claude.Config do
 
   defp default_models(:claude_cli), do: ["opus", "sonnet", "haiku"]
   defp default_models(:codex_cli), do: ["gpt-5.2-codex"]
-  defp default_models(:openclaw), do: []
   defp default_models(:openrouter), do: :dynamic
   defp default_models(:ollama), do: ["llama3.3"]
   defp default_models(_), do: []

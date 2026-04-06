@@ -67,8 +67,7 @@ defmodule Ema.Agents.AgentWorker do
              %{type: :domain_request, agent: agent_slug, message: user_message},
              requested_keys
            ),
-         full_prompt <-
-           build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context)),
+         full_prompt <- build_domain_prompt(system_prompt, user_message, Map.merge(injected_context, context)),
          {:ok, response} <-
            Bridge.run(
              full_prompt,
@@ -306,9 +305,6 @@ defmodule Ema.Agents.AgentWorker do
       {:ok, _user_msg} -> :ok
       {:error, reason} -> Logger.warning("Failed to store user message: #{inspect(reason)}")
     end
-
-    # Route to appropriate backend
-    settings = agent.settings || %{}
 
     handle_runner_message(state, agent, conversation_id, content)
   end

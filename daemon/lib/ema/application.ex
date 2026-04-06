@@ -27,6 +27,8 @@ defmodule Ema.Application do
         # Agent process registry and supervisor
         {Registry, keys: :unique, name: Ema.Agents.Registry},
         {Task.Supervisor, name: Ema.TaskSupervisor},
+        Ema.Prompts.Loader,
+        Ema.Prompts.Optimizer,
         Ema.Agents.Supervisor,
         Ema.Agents.NetworkMonitor,
         # AI session tracking
@@ -39,7 +41,20 @@ defmodule Ema.Application do
         Ema.Pipes.Supervisor,
         # Ingest job processor
         Ema.Ingestor.Processor,
+        # Intelligence — token tracking, trust scoring, VM monitoring, cost forecasting
+        Ema.Intelligence.TokenTracker,
         Ema.Executions.Dispatcher,
+        Ema.Intelligence.TrustScorer,
+        Ema.Intelligence.VmMonitor,
+        Ema.Intelligence.CostForecaster,
+        Ema.Intelligence.SessionMemoryWatcher,
+        Ema.Intelligence.GapScanner,
+        Ema.Intelligence.ContextIndexer,
+        Ema.Intelligence.AgentSupervisor,
+        Ema.Intelligence.AutonomyConfig,
+        Ema.Intelligence.UCBRouter,
+        {Ema.Intelligence.PromptVariantStore, []},
+        Ema.Intelligence.VaultLearner,
         # Projects — per-project worker registry and DynamicSupervisor for context caching
         {Registry, keys: :unique, name: Ema.Projects.WorkerRegistry},
         {DynamicSupervisor, name: Ema.Projects.ProjectWorkerSupervisor, strategy: :one_for_one},
@@ -65,10 +80,7 @@ defmodule Ema.Application do
         maybe_start_voice() ++
         maybe_start_git_watcher() ++
         maybe_start_harvesters() ++
-        maybe_start_intention_farmer() ++
         maybe_start_temporal() ++
-        maybe_start_prompts() ++
-        maybe_start_intelligence_workers() ++
         maybe_start_mcp() ++
         [
           # Start to serve requests, typically the last entry
@@ -97,10 +109,6 @@ defmodule Ema.Application do
         Process.sleep(3_000)
         Ema.SecondBrain.Indexer.reindex_all()
       end)
-    end
-
-    if Application.get_env(:ema, :start_intention_farmer, true) do
-      Ema.IntentionFarmer.StartupBootstrap.run_async(4_000)
     end
 
     result
@@ -202,6 +210,7 @@ defmodule Ema.Application do
     end
   end
 
+
   defp maybe_start_proposal_engine do
     if Application.get_env(:ema, :proposal_engine)[:enabled] do
       [Ema.ProposalEngine.Supervisor]
@@ -229,14 +238,6 @@ defmodule Ema.Application do
   defp maybe_start_harvesters do
     if Application.get_env(:ema, :start_harvesters, true) do
       [Ema.Harvesters.Supervisor]
-    else
-      []
-    end
-  end
-
-  defp maybe_start_intention_farmer do
-    if Application.get_env(:ema, :start_intention_farmer, true) do
-      [Ema.IntentionFarmer.Supervisor]
     else
       []
     end
@@ -274,38 +275,10 @@ defmodule Ema.Application do
     end
   end
 
+
   defp maybe_start_cluster do
     if Application.get_env(:ema, :start_cluster, false) do
       [Ema.Claude.NodeCoordinator]
-    else
-      []
-    end
-  end
-
-  defp maybe_start_prompts do
-    if Application.get_env(:ema, :start_prompts, true) do
-      [Ema.Prompts.Loader, Ema.Prompts.Optimizer]
-    else
-      []
-    end
-  end
-
-  defp maybe_start_intelligence_workers do
-    if Application.get_env(:ema, :start_intelligence_workers, true) do
-      [
-        Ema.Intelligence.TokenTracker,
-        Ema.Intelligence.TrustScorer,
-        Ema.Intelligence.VmMonitor,
-        Ema.Intelligence.CostForecaster,
-        Ema.Intelligence.SessionMemoryWatcher,
-        Ema.Intelligence.GapScanner,
-        Ema.Intelligence.ContextIndexer,
-        Ema.Intelligence.AgentSupervisor,
-        Ema.Intelligence.AutonomyConfig,
-        Ema.Intelligence.UCBRouter,
-        {Ema.Intelligence.PromptVariantStore, []},
-        Ema.Intelligence.VaultLearner
-      ]
     else
       []
     end

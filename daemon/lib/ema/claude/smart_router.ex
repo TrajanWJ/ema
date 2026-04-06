@@ -564,9 +564,6 @@ defmodule Ema.Claude.SmartRouter do
   defp task_preferred_models(:summarization, _),
     do: ["haiku", "claude-haiku-3-5", "sonnet"]
 
-  defp task_preferred_models(:research, :openclaw),
-    do: ["sonnet", "opus"]
-
   defp task_preferred_models(:research, _),
     do: ["opus", "claude-opus-4", "sonnet"]
 

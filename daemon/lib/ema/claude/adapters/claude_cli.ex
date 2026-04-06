@@ -20,7 +20,7 @@ defmodule Ema.Claude.Adapters.ClaudeCli do
 
   @default_model "claude-opus-4-5"
 
-  @doc "Run a one-shot prompt via Bridge. Public — used as OpenClaw fallback."
+  @doc "Run a one-shot prompt via Bridge."
   def run(prompt, agent_id \\ nil, opts \\ [])
 
   def run(prompt, _agent_id, opts) when is_binary(prompt) do
