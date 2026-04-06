@@ -31,6 +31,8 @@ defmodule Ema.Proposals.Proposal do
 
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :seed, Ema.Proposals.Seed, type: :string
+    belongs_to :actor, Ema.Actors.Actor, type: :string
+    belongs_to :space, Ema.Spaces.Space, type: :string
     # Genealogy fields
     field :generation, :integer, default: 0
     field :genealogy_path, :string
@@ -76,6 +78,8 @@ defmodule Ema.Proposals.Proposal do
       :pipeline_stage,
       :pipeline_iteration,
       :cost_display,
+      :space_id,
+      :actor_id,
       :project_id,
       :seed_id,
       :parent_proposal_id,

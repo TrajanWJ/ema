@@ -9,15 +9,16 @@ defmodule Ema.Projects do
   alias Ema.Intelligence.ContextStore
   alias Ema.Projects.Project
 
-  def list_projects do
-    Project |> order_by(asc: :name) |> Repo.all()
+  def list_projects(opts \\ []) do
+    Project
+    |> maybe_filter(:status, opts[:status])
+    |> maybe_filter(:space_id, opts[:space_id])
+    |> order_by(asc: :name)
+    |> Repo.all()
   end
 
   def list_by_status(status) do
-    Project
-    |> where([p], p.status == ^status)
-    |> order_by(asc: :name)
-    |> Repo.all()
+    list_projects(status: status)
   end
 
   def get_project(id), do: Repo.get(Project, id)
@@ -70,6 +71,9 @@ defmodule Ema.Projects do
   def list_context_fragments(project_slug, opts \\ []) do
     ContextStore.list_fragments(project_slug, opts)
   end
+
+  defp maybe_filter(query, _field, nil), do: query
+  defp maybe_filter(query, field, value), do: where(query, [p], field(p, ^field) == ^value)
 
   defp build_project_context(project) do
     # ── Tasks ──────────────────────────────────────────────────────────────────

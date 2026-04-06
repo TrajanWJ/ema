@@ -31,6 +31,18 @@ defmodule Ema.Goals do
         pid -> where(query, [g], g.project_id == ^pid)
       end
 
+    query =
+      case Keyword.get(opts, :space_id) do
+        nil -> query
+        sid -> where(query, [g], g.space_id == ^sid)
+      end
+
+    query =
+      case Keyword.get(opts, :actor_id) do
+        nil -> query
+        aid -> where(query, [g], g.actor_id == ^aid)
+      end
+
     Repo.all(query)
   end
 
@@ -50,7 +62,7 @@ defmodule Ema.Goals do
           |> order_by(asc: :inserted_at)
           |> Repo.all()
 
-        {goal, children}
+        %{goal: goal, children: children}
     end
   end
 

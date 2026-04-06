@@ -23,6 +23,7 @@ defmodule Ema.Projects.Project do
     field :github_repo_url, :string
     field :last_commit_sha, :string
 
+    belongs_to :space, Ema.Spaces.Space, type: :string
     has_many :children, __MODULE__, foreign_key: :parent_id
     has_many :tasks, Ema.Tasks.Task
 
@@ -54,7 +55,8 @@ defmodule Ema.Projects.Project do
       :parent_id,
       :source_proposal_id,
       :github_repo_url,
-      :last_commit_sha
+      :last_commit_sha,
+      :space_id
     ])
     |> validate_required([:id, :slug, :name])
     |> validate_inclusion(:status, @valid_statuses)

@@ -13,6 +13,7 @@ defmodule Ema.Goals.Goal do
     belongs_to :parent, __MODULE__, type: :string
     belongs_to :project, Ema.Projects.Project, type: :string
     belongs_to :actor, Ema.Actors.Actor, type: :string
+    belongs_to :space, Ema.Spaces.Space, type: :string
     has_many :children, __MODULE__, foreign_key: :parent_id
 
     timestamps(type: :utc_datetime)
@@ -23,7 +24,7 @@ defmodule Ema.Goals.Goal do
 
   def changeset(goal, attrs) do
     goal
-    |> cast(attrs, [:id, :title, :description, :timeframe, :status, :parent_id, :project_id, :actor_id])
+    |> cast(attrs, [:id, :title, :description, :timeframe, :status, :parent_id, :project_id, :actor_id, :space_id])
     |> validate_required([:id, :title, :timeframe])
     |> validate_inclusion(:timeframe, @valid_timeframes)
     |> validate_inclusion(:status, @valid_statuses)

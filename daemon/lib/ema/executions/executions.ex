@@ -25,6 +25,9 @@ defmodule Ema.Executions do
     |> maybe_filter(:status, opts[:status])
     |> maybe_filter(:intent_slug, opts[:intent_slug])
     |> maybe_filter(:project_slug, opts[:project_slug])
+    |> maybe_filter(:space_id, opts[:space_id])
+    |> maybe_filter(:actor_id, opts[:actor_id])
+    |> maybe_limit(opts[:limit])
     |> Repo.all()
   end
 
@@ -202,6 +205,9 @@ defmodule Ema.Executions do
     |> order_by([e], asc: e.at)
     |> Repo.all()
   end
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit) when is_integer(limit), do: limit(query, ^limit)
 
   def record_event(execution_id, type, payload \\ %{}) do
     %Event{}

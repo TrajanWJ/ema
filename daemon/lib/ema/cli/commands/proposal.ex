@@ -108,9 +108,14 @@ defmodule Ema.CLI.Commands.Proposal do
     case transport do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Proposals, :redirect_proposal, [id, note]) do
-          {:ok, proposal} ->
-            Output.success("Redirected proposal ##{proposal.id} — 3 new seeds created")
-            if opts[:json], do: Output.json(proposal)
+          {:ok, proposal, seeds} ->
+            Output.success("Redirected proposal ##{proposal.id} — #{length(seeds)} new seeds created")
+
+            if opts[:json] do
+              Output.json(%{proposal: proposal, seeds: seeds})
+            else
+              Output.detail(%{proposal: proposal, seeds: seeds})
+            end
 
           {:error, reason} ->
             Output.error(inspect(reason))

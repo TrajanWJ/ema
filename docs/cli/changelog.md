@@ -134,3 +134,43 @@
   - `daemon/lib/ema/cli/commands/watch.ex`
   - `daemon/lib/ema_web/controllers/actor_controller.ex`
   - `docs/cli/changelog.md`
+
+## 2026-04-06 Phase 3b
+
+- Finished the deferred actor/container cleanup pass for the existing native CLI domains that were only partially wired in earlier phases.
+- Fixed direct-mode schema drift so the live additive columns are now represented in Ecto for:
+  - `projects.space_id`
+  - `goals.space_id`
+  - `proposals.space_id` and `proposals.actor_id`
+  - `executions.space_id` and `executions.actor_id`
+- Fixed direct-mode context support so the CLI flags now map to real filters instead of no-op attrs:
+  - `Ema.Projects.list_projects/1` now exists and filters by `status` and `space_id`
+  - `Ema.Goals.list_goals/1` now filters by `project_id`, `space_id`, and `actor_id`
+  - `Ema.Proposals.list_proposals/1` now filters by `project_id`, `status`, `space_id`, and `actor_id`
+  - `Ema.Executions.list_executions/1` now filters by `project_slug`, `status`, `space_id`, `actor_id`, and `limit`
+- Fixed command-level correctness issues:
+  - `project list` in direct mode no longer crashes on an undefined `list_projects/1`
+  - `exec list/create` now passes `actor_id` and `space_id`
+  - `proposal redirect` now correctly handles the direct return shape `{:ok, proposal, seeds}`
+  - `goal show` now receives a map from the context instead of a tuple payload
+- Verification:
+  - targeted recompilation of the touched modules via `elixirc` into `daemon/_build/dev/lib/ema/ebin`
+  - `mix run --no-compile -e 'Ema.CLI.main(["project","list","--json"])'` now succeeds in direct mode
+  - `mix run --no-compile -e 'Ema.CLI.main(["exec","list","--project=ema","--json"])'` now succeeds in direct mode
+- Residual blocker:
+  - full `mix compile` is still blocked by unrelated user-worktree errors in `daemon/lib/ema/sessions/orchestrator.ex`
+  - some JSON output still leaks association placeholder metadata on unloaded associations; this is a serializer cleanup follow-up, not a scope/filter correctness blocker
+- Files:
+  - `daemon/lib/ema/projects/project.ex`
+  - `daemon/lib/ema/projects/projects.ex`
+  - `daemon/lib/ema/goals/goal.ex`
+  - `daemon/lib/ema/goals/goals.ex`
+  - `daemon/lib/ema/proposals/proposal.ex`
+  - `daemon/lib/ema/proposals/proposals.ex`
+  - `daemon/lib/ema/executions/execution.ex`
+  - `daemon/lib/ema/executions/executions.ex`
+  - `daemon/lib/ema/cli/commands/proposal.ex`
+  - `daemon/lib/ema/cli/commands/goal.ex`
+  - `daemon/lib/ema/cli/commands/exec.ex`
+  - `daemon/lib/ema/cli/output.ex`
+  - `docs/cli/changelog.md`

@@ -129,6 +129,8 @@ defmodule Ema.CLI.Output do
     Enum.map(data, &normalize_for_json/1)
   end
 
+  defp normalize_for_json(%Ecto.Association.NotLoaded{}), do: nil
+
   defp normalize_for_json(%{__struct__: _} = struct) do
     struct
     |> Map.from_struct()

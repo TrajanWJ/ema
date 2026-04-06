@@ -8,6 +8,8 @@ defmodule Ema.CLI.Commands.Exec do
     {"Status", :status},
     {"Title", :title},
     {"Project", :project_slug},
+    {"Actor", :actor_id},
+    {"Space", :space_id},
     {"Mode", :mode},
     {"Updated", :updated_at}
   ]
@@ -17,7 +19,10 @@ defmodule Ema.CLI.Commands.Exec do
       Ema.CLI.Transport.Direct ->
         filter = Helpers.compact_keyword([
           {:status, parsed.options[:status]},
-          {:project_slug, parsed.options[:project]}
+          {:project_slug, parsed.options[:project]},
+          {:space_id, parsed.options[:space]},
+          {:actor_id, parsed.options[:actor]},
+          {:limit, parsed.options[:limit]}
         ])
 
         case transport.call(Ema.Executions, :list_executions, [filter]) do
@@ -68,7 +73,9 @@ defmodule Ema.CLI.Commands.Exec do
           {:objective, objective},
           {:title, parsed.options[:title]},
           {:mode, parsed.options[:mode]},
-          {:project_slug, parsed.options[:project]}
+          {:project_slug, parsed.options[:project]},
+          {:space_id, parsed.options[:space]},
+          {:actor_id, parsed.options[:actor]}
         ])
 
         case transport.call(Ema.Executions, :create, [attrs]) do
@@ -85,7 +92,9 @@ defmodule Ema.CLI.Commands.Exec do
           {"objective", objective},
           {"title", parsed.options[:title]},
           {"mode", parsed.options[:mode]},
-          {"project_slug", parsed.options[:project]}
+          {"project_slug", parsed.options[:project]},
+          {"space_id", parsed.options[:space]},
+          {"actor_id", parsed.options[:actor]}
         ])
 
         case transport.post("/executions", body) do

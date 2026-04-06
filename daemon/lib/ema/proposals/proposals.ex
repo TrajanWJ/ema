@@ -14,6 +14,8 @@ defmodule Ema.Proposals do
     Proposal
     |> maybe_filter_by(:project_id, opts[:project_id])
     |> maybe_filter_by(:status, opts[:status])
+    |> maybe_filter_by(:space_id, opts[:space_id])
+    |> maybe_filter_by(:actor_id, opts[:actor_id])
     |> order_by(desc: :inserted_at)
     |> maybe_limit(opts[:limit])
     |> Repo.all()

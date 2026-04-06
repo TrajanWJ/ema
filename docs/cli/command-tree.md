@@ -82,3 +82,12 @@ Phase 3 runtime behavior:
   - `container_type`
   - `container_id`
 - `campaign list --project=<id>` now scopes in direct and HTTP transport.
+
+Phase 3b cleanup:
+
+- `project list --space --status` now works in direct mode against a real `list_projects/1` implementation.
+- `goal list --actor --space --project` now maps to real direct filters.
+- `proposal list --actor --space --project` now maps to real direct filters.
+- `exec list --actor --space --project` now maps to real direct filters.
+- `exec create --actor --space --project` now persists actor/container scope attrs through the execution schema.
+- `proposal redirect` now returns both the updated proposal and generated seeds correctly in direct mode.

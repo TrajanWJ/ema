@@ -19,6 +19,8 @@ defmodule Ema.Executions.Execution do
     field :metadata, :map, default: %{}
     field :completed_at, :utc_datetime
     field :git_diff, :string
+    field :space_id, :string
+    field :actor_id, :string
 
     belongs_to :proposal, Ema.Proposals.Proposal, type: :string
     belongs_to :task, Ema.Tasks.Task, type: :string
@@ -52,7 +54,9 @@ defmodule Ema.Executions.Execution do
       :session_id,
       :metadata,
       :completed_at,
-      :git_diff
+      :git_diff,
+      :space_id,
+      :actor_id
     ])
     |> validate_required([:id, :title, :mode, :status])
     |> validate_inclusion(:mode, @valid_modes)
