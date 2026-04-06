@@ -118,6 +118,7 @@ defmodule EmaWeb.Router do
     get("/proposals/budget", ProposalController, :budget)
     get("/proposals/compare", ProposalController, :compare)
     get("/proposals/:id", ProposalController, :show)
+    get("/proposals/:id/outcome", ProposalController, :outcome)
     get("/proposals/:id/cost", ProposalController, :cost)
     post("/proposals/:id/approve", ProposalController, :approve)
     post("/proposals/:id/redirect", ProposalController, :redirect)
@@ -506,7 +507,7 @@ defmodule EmaWeb.Router do
     post("/babysitter/config", BabysitterController, :config)
     post("/babysitter/nudge", BabysitterController, :nudge)
     post("/babysitter/tick", BabysitterController, :tick)
-    
+
     # Feedback stream — Discord delivery + EMA internal visibility
     get("/feedback", FeedbackController, :index)
     get("/feedback/status", FeedbackController, :status)

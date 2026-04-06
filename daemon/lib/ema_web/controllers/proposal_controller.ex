@@ -32,7 +32,6 @@ defmodule EmaWeb.ProposalController do
     case Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
         conn |> put_status(:created) |> json(%{proposal: serialize_proposal(proposal)})
-
       {:error, changeset} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
     end
@@ -79,6 +78,12 @@ defmodule EmaWeb.ProposalController do
         parents: Enum.map(lineage.parents, &serialize_proposal/1),
         children: Enum.map(lineage.children, &serialize_proposal/1)
       })
+    end
+  end
+
+  def outcome(conn, %{"id" => id}) do
+    with {:ok, outcome} <- Proposals.get_proposal_outcome(id) do
+      json(conn, outcome)
     end
   end
 
