@@ -23,7 +23,6 @@ import { FocusApp } from "@/components/focus/FocusApp";
 import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
 import { DispatchBoardApp } from "@/components/dispatch-board/DispatchBoardApp";
 import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
-import { OpenClawApp } from "@/components/openclaw/OpenClawApp";
 import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
 import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
 import { OrbWindow } from "@/components/orb/OrbWindow";
@@ -149,9 +148,7 @@ function AppContent() {
       return <ExecutionsApp />;
     case "dispatch-board":
         return <DispatchBoardApp />;
-    case "openclaw":
-      return <OpenClawApp />;
-    case "cli-manager":
+case "cli-manager":
       return <CliManagerApp />;
     case "orb":
       return <OrbWindow />;

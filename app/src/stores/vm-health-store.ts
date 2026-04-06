@@ -18,7 +18,7 @@ interface Container {
 
 interface VmHealth {
   readonly status: string;
-  readonly openclaw_up: boolean;
+  readonly bridge_up: boolean;
   readonly ssh_up: boolean;
   readonly latency_ms: number | null;
   readonly containers: readonly Container[];

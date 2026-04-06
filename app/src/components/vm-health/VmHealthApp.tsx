@@ -140,7 +140,7 @@ export function VmHealthApp() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
           {[
             { label: "Ping (192.168.122.10)", ok: status !== "offline" },
-            { label: "OpenClaw Gateway", ok: h?.openclaw_up ?? false },
+            { label: "AI Bridge", ok: h?.bridge_up ?? false },
             { label: "SSH (port 22)", ok: h?.ssh_up ?? false },
           ].map((check) => (
             <div
@@ -176,8 +176,8 @@ export function VmHealthApp() {
               <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>192.168.122.10</span>
             </div>
             <div>
-              <span style={{ color: "var(--pn-text-tertiary)" }}>Gateway: </span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>:18789/gateway</span>
+              <span style={{ color: "var(--pn-text-tertiary)" }}>Bridge: </span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>localhost:4488</span>
             </div>
             <div>
               <span style={{ color: "var(--pn-text-tertiary)" }}>Latency: </span>
