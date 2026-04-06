@@ -49,6 +49,8 @@ defmodule EmaWeb.Router do
     put("/settings", SettingsController, :update)
 
     get("/context/executive-summary", ContextController, :executive_summary)
+    get("/context/operator/package", ControlPlaneController, :operator_package)
+    get("/context/project/:id/package", ControlPlaneController, :project_package)
 
     # DCC Session Context
     get("/context", ContextController, :index)
