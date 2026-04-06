@@ -80,9 +80,12 @@ brain dump item / proposal seed
 ## Design Invariants
 - **Intent** = semantic, pre-execution, markdown, slow-changing
 - **Execution** = committed, runtime, DB row, fast-changing
-- **.superman** = durable memory (survives DB resets)
+- **.superman/intents/** = durable anchor (survives DB resets). Filesystem is canonical, DB is queryable runtime view.
+- **DB intents** = queryable tree with links/lineage. Rebuildable from .superman folders via import script.
+- **Join key:** intent slug matches both `.superman/intents/<slug>/` directory and `intents.slug` DB column.
 - **HQ** = execution surface (timeline of runtime state)
 - **EMA** = intention/readiness surface (shapes what to do)
+- **Actors** = workspace identity. Tasks/executions stamped with actor_id. Human + agent mutual visibility.
 - No vague agent delegation — all packets must be structured
 - Bridge fallback: `Bridge.run/2` → `Runner.run/2` when Bridge not started (silent)
 
