@@ -88,6 +88,16 @@ defmodule EmaWeb.TeamPulseController do
     })
   end
 
+  # GET /api/team-pulse/standups
+  def standups(conn, _params) do
+    json(conn, %{standups: []})
+  end
+
+  # POST /api/team-pulse/standups
+  def create_standup(conn, _params) do
+    json(conn, %{ok: true, message: "Standup recording not yet implemented"})
+  end
+
   defp count_tasks_by_status do
     tasks = safe_list_tasks()
 

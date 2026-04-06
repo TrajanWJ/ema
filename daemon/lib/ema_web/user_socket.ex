@@ -37,6 +37,11 @@ defmodule EmaWeb.UserSocket do
   channel "executions:*", EmaWeb.ExecutionChannel
   channel "intelligence:*", EmaWeb.IntelligenceChannel
   channel "prompts:*", EmaWeb.PromptsChannel
+  channel "pipeline:*", EmaWeb.PipelineChannel
+  channel "decisions:*", EmaWeb.DecisionChannel
+  channel "jarvis:*", EmaWeb.JarvisChannel
+  channel "project_graph:*", EmaWeb.ProjectGraphChannel
+  channel "knowledge_graph:*", EmaWeb.KnowledgeGraphChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do
