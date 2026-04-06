@@ -29,6 +29,10 @@ if discord_token = System.get_env("DISCORD_BOT_TOKEN") do
   config :ema, :discord_bot_token, discord_token
 end
 
+if discord_guild_id = System.get_env("DISCORD_GUILD_ID") do
+  config :ema, :discord_guild_id, discord_guild_id
+end
+
 config :ema, Ema.Claude,
   default_strategy: :balanced,
   providers: claude_runtime.providers,
@@ -37,16 +41,17 @@ config :ema, Ema.Claude,
 config :ema, :accounts, claude_runtime.accounts
 
 # Git repositories to watch for wiki sync
-config :ema, :git_watch_paths,
-  String.split(
-    System.get_env(
-      "GIT_WATCH_PATHS",
-      "#{Path.expand("~/Projects/ema")},#{Path.expand("~/Desktop/place.org")},#{Path.expand("~/Desktop/JarvisAI")}"
-    ),
-    ","
-  )
-  |> Enum.map(&String.trim/1)
-  |> Enum.filter(&(String.length(&1) > 0))
+config :ema,
+       :git_watch_paths,
+       String.split(
+         System.get_env(
+           "GIT_WATCH_PATHS",
+           "#{Path.expand("~/Projects/ema")},#{Path.expand("~/Desktop/place.org")},#{Path.expand("~/Desktop/JarvisAI")}"
+         ),
+         ","
+       )
+       |> Enum.map(&String.trim/1)
+       |> Enum.filter(&(String.length(&1) > 0))
 
 if config_env() == :prod do
   config :ema, Ema.Repo,
@@ -139,6 +144,9 @@ if api_key = System.get_env("ANTHROPIC_API_KEY") do
     }
   }
 
-  config :ema, Ema.Claude,
-    Keyword.put(existing_claude_config, :providers, [anthropic_api_key_provider | existing_providers])
+  config :ema,
+         Ema.Claude,
+         Keyword.put(existing_claude_config, :providers, [
+           anthropic_api_key_provider | existing_providers
+         ])
 end

@@ -18,6 +18,7 @@ defmodule Ema.Agents.DiscordChannel do
 
   alias Ema.Agents
   alias Ema.Agents.AgentWorker
+  alias Ema.Agents.Channel
 
   @discord_api "https://discord.com/api/v10"
   @poll_interval_ms 5_000
@@ -50,15 +51,28 @@ defmodule Ema.Agents.DiscordChannel do
   def init({agent_id, config}) do
     ensure_httpc_started()
 
+    {channel_record_id, config} = normalize_channel_config(config)
+
     state = %{
       agent_id: agent_id,
-      bot_token: config["bot_token"],
-      channel_ids: config["channel_ids"] || [],
+      channel_record_id: channel_record_id,
+      bot_token:
+        Application.get_env(:ema, :discord_bot_token) ||
+          System.get_env("DISCORD_BOT_TOKEN") ||
+          config["bot_token"],
+      configured_channel_ids: List.wrap(config["channel_ids"]) |> Enum.reject(&is_nil/1),
+      channel_ids: [],
+      guild_id:
+        Application.get_env(:ema, :discord_guild_id) ||
+          System.get_env("DISCORD_GUILD_ID") ||
+          config["guild_id"],
       status: :disconnected,
       bot_user_id: nil,
+      bot_username: nil,
       # Track last seen message per channel to use `after` param
       last_message_ids: %{},
-      backoff_ms: @reconnect_delay_ms
+      backoff_ms: @reconnect_delay_ms,
+      reply_mode: if(is_binary(config["guild_id"]), do: :direct_mentions, else: :all_messages)
     }
 
     send(self(), :connect)
@@ -80,17 +94,27 @@ defmodule Ema.Agents.DiscordChannel do
   @impl true
   def handle_info(:connect, state) do
     case fetch_bot_user(state.bot_token) do
-      {:ok, bot_user_id} ->
+      {:ok, %{id: bot_user_id, username: bot_username}} ->
+        channel_ids = resolve_channel_ids(state)
+
         Logger.info(
-          "DiscordChannel connected for agent #{state.agent_id}, bot user #{bot_user_id}"
+          "DiscordChannel connected for agent #{state.agent_id}, bot user #{bot_user_id}, watching #{length(channel_ids)} channel(s)"
         )
 
         new_state = %{
           state
           | status: :connected,
             bot_user_id: bot_user_id,
+            bot_username: bot_username,
+            channel_ids: channel_ids,
             backoff_ms: @reconnect_delay_ms
         }
+
+        persist_status(new_state, %{
+          status: "connected",
+          error_message: nil,
+          last_connected_at: DateTime.utc_now()
+        })
 
         schedule_poll(0)
         {:noreply, new_state}
@@ -101,6 +125,7 @@ defmodule Ema.Agents.DiscordChannel do
         )
 
         schedule_reconnect(state.backoff_ms)
+        persist_status(state, %{status: "error", error_message: inspect(reason)})
 
         {:noreply,
          %{
@@ -168,15 +193,171 @@ defmodule Ema.Agents.DiscordChannel do
 
   defp handle_discord_message(msg, channel_id, state) do
     author_id = get_in(msg, ["author", "id"])
-    content = Map.get(msg, "content", "")
+    content = Map.get(msg, "content", "") |> to_string()
     is_bot = get_in(msg, ["author", "bot"]) == true
 
     # Skip messages from bots (including ourselves)
-    if is_bot or author_id == state.bot_user_id or content == "" do
+    if is_bot or author_id == state.bot_user_id or String.trim(content) == "" do
       :skip
     else
-      process_user_message(author_id, channel_id, content, state)
+      case maybe_extract_prompt(content, state) do
+        {:ok, prompt} ->
+          process_user_message(author_id, channel_id, prompt, state)
+
+        :ignore ->
+          :skip
+      end
     end
+  end
+
+  defp maybe_extract_prompt(content, %{reply_mode: :all_messages}) do
+    {:ok, String.trim(content)}
+  end
+
+  defp maybe_extract_prompt(content, state) do
+    mention_patterns = [
+      "<@#{state.bot_user_id}>",
+      "<@!#{state.bot_user_id}>"
+    ]
+
+    bot_name =
+      state.bot_username
+      |> to_string()
+      |> String.trim()
+
+    cond do
+      Enum.any?(mention_patterns, &String.contains?(content, &1)) ->
+        cleaned =
+          Enum.reduce(mention_patterns, content, fn pattern, acc ->
+            String.replace(acc, pattern, "")
+          end)
+          |> String.trim()
+
+        if cleaned == "", do: :ignore, else: {:ok, cleaned}
+
+      bot_name != "" and addressed_by_name?(content, bot_name) ->
+        cleaned =
+          content
+          |> strip_leading_name(bot_name)
+          |> String.trim()
+
+        if cleaned == "", do: :ignore, else: {:ok, cleaned}
+
+      true ->
+        :ignore
+    end
+  end
+
+  defp addressed_by_name?(content, bot_name) do
+    normalized_content = String.downcase(String.trim(content))
+    normalized_name = String.downcase(bot_name)
+
+    Enum.any?(
+      ["#{normalized_name}:", "#{normalized_name},", "#{normalized_name} "],
+      &String.starts_with?(normalized_content, &1)
+    )
+  end
+
+  defp strip_leading_name(content, bot_name) do
+    regex = ~r/^\s*#{Regex.escape(bot_name)}[\s,:-]*/i
+    String.replace(content, regex, "", global: false)
+  end
+
+  defp normalize_channel_config(%Channel{id: id, config: config}) when is_map(config) do
+    {id, config}
+  end
+
+  defp normalize_channel_config(config) when is_map(config), do: {nil, config}
+
+  defp resolve_channel_ids(%{configured_channel_ids: [first | _] = ids}) when is_binary(first) do
+    ids
+  end
+
+  defp resolve_channel_ids(%{guild_id: guild_id, bot_token: bot_token})
+       when is_binary(guild_id) do
+    case fetch_guild_channels(guild_id, bot_token) do
+      {:ok, channels} ->
+        channels
+        |> Enum.filter(&(Map.get(&1, "type") == 0))
+        |> Enum.map(&Map.get(&1, "id"))
+        |> Enum.reject(&is_nil/1)
+
+      {:error, reason} ->
+        Logger.warning(
+          "DiscordChannel could not resolve guild channels for #{guild_id}: #{inspect(reason)}"
+        )
+
+        []
+    end
+  end
+
+  defp resolve_channel_ids(_state), do: []
+
+  defp persist_status(%{channel_record_id: nil}, _attrs), do: :ok
+
+  defp persist_status(state, attrs) do
+    case Agents.get_channel(state.channel_record_id) do
+      nil ->
+        :ok
+
+      channel ->
+        case Agents.update_channel(channel, attrs) do
+          {:ok, _} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.debug("DiscordChannel status update failed: #{inspect(reason)}")
+        end
+    end
+  end
+
+  defp fetch_bot_user(nil), do: {:error, :missing_bot_token}
+
+  defp fetch_bot_user(bot_token) do
+    url = "#{@discord_api}/users/@me"
+
+    case http_get(url, bot_token) do
+      {:ok, %{"id" => id} = body} ->
+        {:ok, %{id: id, username: Map.get(body, "username")}}
+
+      {:ok, body} ->
+        {:error, {:unexpected_response, body}}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  defp fetch_guild_channels(guild_id, bot_token) do
+    url = "#{@discord_api}/guilds/#{guild_id}/channels"
+    http_get(url, bot_token)
+  end
+
+  # --- Discord HTTP helpers ---
+
+  defp fetch_messages(channel_id, nil, bot_token) do
+    # First poll -- grab last message ID to set cursor, don't process history
+    url = "#{@discord_api}/channels/#{channel_id}/messages?limit=1"
+
+    case http_get(url, bot_token) do
+      {:ok, [msg | _]} -> {:ok, {:set_cursor, Map.get(msg, "id")}}
+      {:ok, []} -> {:ok, []}
+      {:ok, _unexpected} -> {:ok, []}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp fetch_messages(channel_id, after_id, bot_token) do
+    url = "#{@discord_api}/channels/#{channel_id}/messages?after=#{after_id}&limit=100"
+    http_get(url, bot_token)
+  end
+
+  defp post_discord_message(channel_id, content, bot_token) do
+    url = "#{@discord_api}/channels/#{channel_id}/messages"
+    # Discord max message length is 2000 chars
+    truncated = truncate(content, 2000)
+    body = Jason.encode!(%{"content" => truncated})
+    http_post(url, body, bot_token)
   end
 
   defp process_user_message(author_id, channel_id, content, state) do
@@ -220,43 +401,6 @@ defmodule Ema.Agents.DiscordChannel do
           )
       end
     end)
-  end
-
-  # --- Discord HTTP helpers ---
-
-  defp fetch_bot_user(bot_token) do
-    url = "#{@discord_api}/users/@me"
-
-    case http_get(url, bot_token) do
-      {:ok, %{"id" => id}} -> {:ok, id}
-      {:ok, body} -> {:error, {:unexpected_response, body}}
-      {:error, _} = err -> err
-    end
-  end
-
-  defp fetch_messages(channel_id, nil, bot_token) do
-    # First poll -- grab last message ID to set cursor, don't process history
-    url = "#{@discord_api}/channels/#{channel_id}/messages?limit=1"
-
-    case http_get(url, bot_token) do
-      {:ok, [msg | _]} -> {:ok, {:set_cursor, Map.get(msg, "id")}}
-      {:ok, []} -> {:ok, []}
-      {:ok, _unexpected} -> {:ok, []}
-      {:error, _} = err -> err
-    end
-  end
-
-  defp fetch_messages(channel_id, after_id, bot_token) do
-    url = "#{@discord_api}/channels/#{channel_id}/messages?after=#{after_id}&limit=100"
-    http_get(url, bot_token)
-  end
-
-  defp post_discord_message(channel_id, content, bot_token) do
-    url = "#{@discord_api}/channels/#{channel_id}/messages"
-    # Discord max message length is 2000 chars
-    truncated = truncate(content, 2000)
-    body = Jason.encode!(%{"content" => truncated})
-    http_post(url, body, bot_token)
   end
 
   # --- Generic HTTP via :httpc ---
