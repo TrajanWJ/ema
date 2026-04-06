@@ -1,12 +1,13 @@
 {
-  "name": "hq",
+  "name": "ema",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:agents\" \"npm run dev:api\" \"npm run dev:ui\"",
     "dev:agents": "cd agent-runtime && npm run dev",
     "dev:api": "cd hq-api && npm run dev",
     "dev:ui": "cd hq-frontend && npm run dev",
-    "install:all": "cd agent-runtime && npm install && cd ../hq-api && npm install && cd ../hq-frontend && npm install"
+    "install:all": "cd agent-runtime && npm install && cd ../hq-api && npm install && cd ../hq-frontend && npm install",
+    "companion": "cd companion && pnpm tauri dev"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

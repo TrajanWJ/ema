@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for companion webview windows loading external URLs",
+  "windows": ["*"],
+  "remote": {
+    "urls": ["http://localhost:*", "http://127.0.0.1:*", "https://place.org/*", "https://www.place.org/*"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging"
+  ]
+}
