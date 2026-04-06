@@ -6,15 +6,25 @@ defmodule EmaWeb.TaskController do
   action_fallback EmaWeb.FallbackController
 
   def index(conn, params) do
+    opts =
+      []
+      |> maybe_add_opt(:status, params["status"])
+      |> maybe_add_opt(:project_id, params["project_id"])
+      |> maybe_add_opt(:actor_id, params["actor_id"])
+
     tasks =
-      case params["status"] do
-        nil -> Tasks.list_tasks()
-        status -> Tasks.list_by_status(status)
+      case opts do
+        [] -> Tasks.list_tasks()
+        _ -> Tasks.list_tasks(opts)
       end
       |> Enum.map(&serialize_task/1)
 
     json(conn, %{tasks: tasks})
   end
+
+  defp maybe_add_opt(opts, _key, nil), do: opts
+  defp maybe_add_opt(opts, _key, ""), do: opts
+  defp maybe_add_opt(opts, key, val), do: [{key, val} | opts]
 
   def create(conn, params) do
     attrs = %{
@@ -33,7 +43,8 @@ defmodule EmaWeb.TaskController do
       goal_id: params["goal_id"],
       responsibility_id: params["responsibility_id"],
       parent_id: params["parent_id"],
-      agent: params["agent"]
+      agent: params["agent"],
+      actor_id: params["actor_id"]
     }
 
     force_dispatch = params["force_dispatch"] == true or params["force_dispatch"] == "true"
@@ -238,6 +249,7 @@ defmodule EmaWeb.TaskController do
       responsibility_id: task.responsibility_id,
       parent_id: task.parent_id,
       agent: task.agent,
+      actor_id: task.actor_id,
       intent: task.intent,
       intent_confidence: task.intent_confidence,
       intent_overridden: task.intent_overridden,

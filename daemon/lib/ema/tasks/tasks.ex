@@ -19,6 +19,7 @@ defmodule Ema.Tasks do
     Task
     |> maybe_filter_by(:project_id, Keyword.get(opts, :project_id))
     |> maybe_filter_by(:status, Keyword.get(opts, :status))
+    |> maybe_filter_by(:actor_id, Keyword.get(opts, :actor_id))
     |> order_by(asc: :sort_order, asc: :inserted_at)
     |> Repo.all()
   end
@@ -26,6 +27,7 @@ defmodule Ema.Tasks do
   defp maybe_filter_by(query, _field, nil), do: query
   defp maybe_filter_by(query, :project_id, val), do: where(query, [t], t.project_id == ^val)
   defp maybe_filter_by(query, :status, val), do: where(query, [t], t.status == ^val)
+  defp maybe_filter_by(query, :actor_id, val), do: where(query, [t], t.actor_id == ^val)
 
   def list_by_project(project_id) do
     Task
@@ -107,6 +109,7 @@ defmodule Ema.Tasks do
   defp do_create_task(attrs) do
     id = generate_id()
     attrs = put_scope_advice(attrs)
+    attrs = ensure_actor_id(attrs)
     # Use matching key style to avoid mixed-key maps
     id_key = if attrs |> Map.keys() |> Enum.any?(&is_atom/1), do: :id, else: "id"
     attrs_with_id = Map.put(attrs, id_key, id)
@@ -147,6 +150,16 @@ defmodule Ema.Tasks do
       error ->
         error
     end
+  end
+
+  defp ensure_actor_id(attrs) do
+    actor_id =
+      Map.get(attrs, :actor_id) ||
+        Map.get(attrs, "actor_id") ||
+        Ema.Actors.default_human_actor_id()
+
+    key = if attrs |> Map.keys() |> Enum.any?(&is_atom/1), do: :actor_id, else: "actor_id"
+    Map.put_new(attrs, key, actor_id)
   end
 
   defp append_bypass_log(entry) do

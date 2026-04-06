@@ -7,7 +7,8 @@ defmodule EmaWeb.ExecutionController do
       Ema.Executions.list_executions(
         status: params["status"],
         intent_slug: params["intent_slug"],
-        project_slug: params["project_slug"]
+        project_slug: params["project_slug"],
+        actor_id: params["actor_id"]
       )
 
     json(conn, %{executions: Enum.map(executions, &serialize/1)})

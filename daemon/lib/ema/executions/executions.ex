@@ -27,8 +27,8 @@ defmodule Ema.Executions do
     |> maybe_filter(:status, opts[:status])
     |> maybe_filter(:intent_slug, opts[:intent_slug])
     |> maybe_filter(:project_slug, opts[:project_slug])
-    |> maybe_filter(:space_id, opts[:space_id])
     |> maybe_filter(:actor_id, opts[:actor_id])
+    |> maybe_filter(:space_id, opts[:space_id])
     |> maybe_limit(opts[:limit])
     |> Repo.all()
   end
@@ -118,7 +118,8 @@ defmodule Ema.Executions do
                  status: "created",
                  proposal_id: proposal_id,
                  project_slug: proposal.project_id,
-                 requires_approval: false
+                 requires_approval: false,
+                 actor_id: proposal.actor_id
                }) do
             {:ok, ex} -> ex
             _ -> nil
@@ -352,9 +353,16 @@ defmodule Ema.Executions do
       |> Map.new(fn {k, v} -> {to_string(k), v} end)
       |> maybe_put_project_slug()
       |> maybe_put_intent_anchor()
+      |> maybe_put_actor_id()
 
     maybe_create_intent_folder(attrs)
     attrs
+  end
+
+  defp maybe_put_actor_id(%{"actor_id" => id} = attrs) when is_binary(id) and id != "", do: attrs
+
+  defp maybe_put_actor_id(attrs) do
+    Map.put(attrs, "actor_id", Ema.Actors.default_human_actor_id())
   end
 
   defp maybe_put_project_slug(%{"project_slug" => slug} = attrs) when is_binary(slug) and slug != "",
