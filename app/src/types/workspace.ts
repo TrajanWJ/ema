@@ -199,16 +199,7 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     accent: "#f97316",
     icon: "\u2B82",
   },
-  openclaw: {
-    title: "OpenClaw",
-    defaultWidth: 900,
-    defaultHeight: 700,
-    minWidth: 700,
-    minHeight: 500,
-    accent: "#f97316",
-    icon: "\u2318",
-  },
-  "cli-manager": {
+"cli-manager": {
     title: "CLI Manager",
     defaultWidth: 1000,
     defaultHeight: 750,

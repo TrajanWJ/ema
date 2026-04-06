@@ -175,7 +175,7 @@ export function VMHealthApp() {
         {/* Service checks */}
         <div className="grid grid-cols-3 gap-3">
           <CheckBadge label="Ping (192.168.122.10)" ok={status !== "offline"} />
-          <CheckBadge label="OpenClaw Gateway" ok={h?.openclaw_up ?? false} />
+          <CheckBadge label="AI Bridge" ok={h?.bridge_up ?? false} />
           <CheckBadge label="SSH (port 22)" ok={h?.ssh_up ?? false} />
         </div>
 
@@ -190,8 +190,8 @@ export function VMHealthApp() {
               <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>192.168.122.10</span>
             </div>
             <div>
-              <span style={{ color: "var(--pn-text-tertiary)" }}>Gateway: </span>
-              <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>:18789/gateway</span>
+              <span style={{ color: "var(--pn-text-tertiary)" }}>Bridge: </span>
+              <span className="font-mono" style={{ color: "rgba(255,255,255,0.87)" }}>localhost:4488</span>
             </div>
             <div>
               <span style={{ color: "var(--pn-text-tertiary)" }}>Latency: </span>

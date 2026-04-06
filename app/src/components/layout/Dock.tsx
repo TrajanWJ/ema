@@ -21,7 +21,6 @@ const DOCK_APPS = [
   { id: "goals", icon: "\u25CE", label: "Goals" },
   { id: "focus", icon: "\u23F1", label: "Focus" },
   { id: "git-sync", icon: "\u2B82", label: "Git Sync" },
-  { id: "openclaw", icon: "\u2318", label: "OpenClaw" },
   { id: "cli-manager", icon: "\u2395", label: "CLI Manager" },
   { id: "jarvis", icon: "\u2B22", label: "Jarvis" },
   // Chunk 2
