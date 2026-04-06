@@ -59,7 +59,6 @@ config :ema, start_campaign_manager: false
 config :ema, start_harvesters: false
 config :ema, start_git_watcher: false
 config :ema, start_temporal: false
-config :ema, start_openclaw: false
 config :ema, start_voice: false
 config :ema, start_quality: false
 config :ema, start_orchestration: false

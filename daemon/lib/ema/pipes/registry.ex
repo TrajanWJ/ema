@@ -325,13 +325,19 @@ defmodule Ema.Pipes.Registry do
         context: "proposals",
         action_id: "proposals:create_seed",
         label: "Create Proposal Seed",
-        description: "Create a new seed prompt",
+        description: "Create a new seed prompt from brain dump or other trigger",
         schema: %{prompt: :string, project_id: :string},
         execute: fn payload ->
+          content = payload["content"] || payload[:content] || payload["prompt"] || payload[:prompt] || ""
+          title = payload["title"] || payload[:title] || "Auto-seed: #{String.slice(content, 0..40)}"
+
           safe_apply(Ema.Proposals, :create_seed, [
             %{
-              prompt: payload["prompt"] || payload[:prompt],
-              project_id: payload["project_id"] || payload[:project_id]
+              name: title,
+              prompt_template: content,
+              seed_type: payload["type"] || payload[:type] || "brain_dump",
+              project_id: payload["project_id"] || payload[:project_id],
+              active: true
             }
           ])
         end

@@ -20,41 +20,6 @@ defmodule Ema.Claude.AI do
     use_tmux_fallback = Keyword.get(opts, :tmux_fallback, false)
 
     case requested_provider do
-      :openclaw ->
-        case Ema.Claude.OpenClawRunner.run(prompt, opts) do
-          {:ok, result} ->
-            {:ok,
-             attach_routing_metadata(result, %{
-               requested_provider: "openclaw-vm",
-               actual_provider: "openclaw-vm",
-               backend: "openclaw_runner",
-               task_type: task_type,
-               model: Keyword.get(opts, :model)
-             })}
-
-          {:error, reason} = error ->
-            if Keyword.get(opts, :allow_fallback, true) do
-              Logger.warning(
-                "[AI] OpenClaw unavailable, falling back to Claude: #{inspect(reason)}"
-              )
-
-              with {:ok, result} <- run_claude_backend(prompt, opts) do
-                {:ok,
-                 attach_routing_metadata(result, %{
-                   requested_provider: "openclaw-vm",
-                   actual_provider: "claude-local",
-                   fallback_from: "openclaw-vm",
-                   fallback_reason: inspect(reason),
-                   backend: backend_name(),
-                   task_type: task_type,
-                   model: Keyword.get(opts, :model)
-                 })}
-              end
-            else
-              error
-            end
-        end
-
       :codex ->
         case Ema.Claude.CodexRunner.run(prompt, opts) do
           {:ok, result} ->
@@ -136,9 +101,15 @@ defmodule Ema.Claude.AI do
     case Application.get_env(:ema, :ai_backend, :runner) do
       :bridge ->
         case Ema.Claude.Bridge.run(prompt, opts) do
-          {:ok, %{text: text}} -> parse_bridge_result(text)
-          {:ok, result} -> {:ok, result}
-          {:error, reason} -> {:error, {:backend_unavailable, reason}}
+          {:ok, %{text: text}} ->
+            parse_bridge_result(text)
+
+          {:ok, result} ->
+            {:ok, result}
+
+          {:error, reason} ->
+            Logger.warning("[AI] Bridge failed (#{inspect(reason)}), falling back to Runner (claude CLI)")
+            Ema.Claude.Runner.run(prompt, opts)
         end
 
       _runner ->
@@ -150,7 +121,6 @@ defmodule Ema.Claude.AI do
     provider_hint = Keyword.get(opts, :provider) || Keyword.get(opts, :provider_id)
 
     cond do
-      provider_hint in [:openclaw, "openclaw", :openclaw_vm, "openclaw-vm"] -> :openclaw
       provider_hint in [:codex, "codex", :codex_local, "codex-local"] -> :codex
       task_type == :code_generation -> :codex
       true -> :claude

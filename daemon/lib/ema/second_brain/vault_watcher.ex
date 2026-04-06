@@ -195,19 +195,38 @@ defmodule Ema.SecondBrain.VaultWatcher do
 
             id = Ecto.UUID.generate()
 
-            %Ema.SecondBrain.Note{}
-            |> Ema.SecondBrain.Note.changeset(Map.put(attrs, :id, id))
-            |> Ema.Repo.insert()
+            case %Ema.SecondBrain.Note{}
+                 |> Ema.SecondBrain.Note.changeset(Map.put(attrs, :id, id))
+                 |> Ema.Repo.insert() do
+              {:ok, note} ->
+                Phoenix.PubSub.broadcast(Ema.PubSub, "vault:changes", {:note_created, note})
+                {:ok, note}
+
+              error ->
+                error
+            end
 
           note ->
             if note.content_hash != content_hash do
-              note
-              |> Ema.SecondBrain.Note.changeset(%{
-                content_hash: content_hash,
-                title: title,
-                word_count: content |> String.split(~r/\s+/, trim: true) |> length()
-              })
-              |> Ema.Repo.update()
+              case note
+                   |> Ema.SecondBrain.Note.changeset(%{
+                     content_hash: content_hash,
+                     title: title,
+                     word_count: content |> String.split(~r/\s+/, trim: true) |> length()
+                   })
+                   |> Ema.Repo.update() do
+                {:ok, updated} ->
+                  Phoenix.PubSub.broadcast(
+                    Ema.PubSub,
+                    "vault:changes",
+                    {:note_updated, updated}
+                  )
+
+                  {:ok, updated}
+
+                error ->
+                  error
+              end
             end
         end
 

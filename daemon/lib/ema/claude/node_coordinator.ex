@@ -564,7 +564,7 @@ defmodule Ema.Claude.NodeCoordinator do
 
   defp provider_for_task(task_type) do
     case task_type do
-      t when t in [:research, :summarization] -> "openclaw-vm"
+      t when t in [:research, :summarization] -> "claude-local"
       :code_generation -> "codex-local"
       :code_review -> "claude-local"
       _ -> "claude-local"

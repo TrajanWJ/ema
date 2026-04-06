@@ -14,7 +14,7 @@ config :ema,
   ai_backend: :bridge,
   proposal_engine: [enabled: true],
   # Seed preflight quality gate: :observe | :enrich_only | :enforce
-  seed_preflight: [mode: :enforce, minimum_score: 40, duplicate_similarity_threshold: 0.6],
+  seed_preflight: [mode: :enrich_only, minimum_score: 15, duplicate_similarity_threshold: 0.6],
   vault_path: System.get_env("EMA_VAULT_PATH", "/home/trajan/vault")
 
 # Configure the endpoint

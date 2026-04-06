@@ -40,7 +40,6 @@ defmodule Ema.IntentionFarmer.Status do
       claude_tasks: length(sources.claude_tasks || []),
       codex_sessions: length(sources.codex_sessions || []),
       codex_history: length(sources.codex_history || []),
-      openclaw_sources: length(sources.openclaw_sources || []),
       import_sources: length(sources.import_sources || []),
       claude_mds: length(sources.claude_mds || [])
     }

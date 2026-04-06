@@ -35,7 +35,6 @@ defmodule Ema.IntentionFarmer.Parser do
       claude_task?(path) -> parse_claude_task(path)
       codex_session?(path) -> parse_codex_session(path)
       codex_history?(path) -> parse_codex_history(path)
-      openclaw_source?(path) -> parse_openclaw_source(path)
       external_import?(path) -> parse_external_import(path)
       claude_md?(path) -> parse_claude_md(path)
       true -> {:error, :unknown_format}
@@ -226,16 +225,6 @@ defmodule Ema.IntentionFarmer.Parser do
     end
   end
 
-  @doc "Parse an OpenClaw source file under ~/.openclaw."
-  def parse_openclaw_source(path) do
-    cond do
-      String.ends_with?(path, "openclaw.json") -> parse_openclaw_config(path)
-      String.ends_with?(path, ".jsonl") -> parse_openclaw_event(path)
-      String.ends_with?(path, ".log") -> parse_openclaw_log(path)
-      true -> {:error, :unknown_openclaw_format}
-    end
-  end
-
   @doc "Parse a manually staged external import file."
   def parse_external_import(path) do
     ext = path |> Path.extname() |> String.downcase()
@@ -348,8 +337,6 @@ defmodule Ema.IntentionFarmer.Parser do
   end
 
   defp codex_history?(path), do: String.ends_with?(path, ".codex/history.jsonl")
-  defp openclaw_source?(path), do: String.contains?(path, ".openclaw/")
-
   defp external_import?(path) do
     String.contains?(path, "/ema/imports/") or
       String.contains?(String.downcase(path), "/downloads/")
@@ -503,91 +490,6 @@ defmodule Ema.IntentionFarmer.Parser do
         source_type: source_type
       }
     ]
-  end
-
-  defp parse_openclaw_event(path) do
-    parsed = decode_json_file(path)
-    data = normalize_event_payload(parsed)
-    event = data["event"] || "openclaw_event"
-    timestamp = parse_unix_ts(data["timestamp"]) || file_mtime(File.stat!(path))
-    details = Jason.encode!(Map.get(data, "data", %{}))
-    content = "#{event}: #{String.slice(details, 0, 800)}"
-
-    {:ok,
-     %{
-       session_id: Path.basename(path),
-       source_type: "openclaw_event",
-       messages: [%{"role" => "user", "text" => content}],
-       intents: build_single_intent(content, "openclaw_event"),
-       tool_call_count: 0,
-       files_touched: [],
-       token_count: String.length(content),
-       message_count: 1,
-       started_at: timestamp,
-       ended_at: timestamp,
-       project_path: nil,
-       model: nil,
-       model_provider: "openclaw",
-       raw_path: path,
-       metadata: %{"event" => event, "data" => Map.get(data, "data", %{})}
-     }}
-  end
-
-  defp parse_openclaw_log(path) do
-    {preview, _meta} = parse_text_preview(path)
-    ts = file_mtime(File.stat!(path))
-    content = "#{Path.basename(path)}: #{preview}"
-
-    {:ok,
-     %{
-       session_id: Path.basename(path),
-       source_type: "openclaw_event",
-       messages: [%{"role" => "user", "text" => content}],
-       intents: build_single_intent(content, "openclaw_event"),
-       tool_call_count: 0,
-       files_touched: [],
-       token_count: String.length(content),
-       message_count: 1,
-       started_at: ts,
-       ended_at: ts,
-       project_path: nil,
-       model: nil,
-       model_provider: "openclaw",
-       raw_path: path,
-       metadata: %{"preview" => preview}
-     }}
-  end
-
-  defp parse_openclaw_config(path) do
-    with {:ok, content} <- File.read(path),
-         {:ok, data} <- Jason.decode(content) do
-      agents =
-        get_in(data, ["agents", "list"])
-        |> List.wrap()
-        |> Enum.map(&(&1["id"] || &1["name"]))
-        |> Enum.reject(&is_nil/1)
-
-      content = "OpenClaw config with agents: #{Enum.join(agents, ", ")}"
-
-      {:ok,
-       %{
-         session_id: "openclaw-config",
-         source_type: "openclaw_config",
-         messages: [%{"role" => "user", "text" => content}],
-         intents: build_single_intent(content, "openclaw_config"),
-         tool_call_count: 0,
-         files_touched: [],
-         token_count: String.length(content),
-         message_count: 1,
-         started_at: file_mtime(File.stat!(path)),
-         ended_at: file_mtime(File.stat!(path)),
-         project_path: nil,
-         model: nil,
-         model_provider: "openclaw",
-         raw_path: path,
-         metadata: %{"agents" => agents, "gateway" => data["gateway"] || %{}}
-       }}
-    end
   end
 
   defp decode_json_file(path) do

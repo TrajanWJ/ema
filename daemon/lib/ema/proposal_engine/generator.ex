@@ -208,7 +208,9 @@ defmodule Ema.ProposalEngine.Generator do
       seed_id: seed.id,
       prompt_quality_score: preflight_score && preflight_score / 100.0,
       score_breakdown:
-        preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown],
+        stringify_keys(
+          preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown]
+        ),
       generation_log: %{
         "generator" => result,
         "preflight" => sanitize_diagnostics(preflight_diagnostics)
@@ -264,4 +266,24 @@ defmodule Ema.ProposalEngine.Generator do
   end
 
   defp sanitize_value(v), do: v
+
+  defp stringify_keys(nil), do: nil
+
+  defp stringify_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), stringify_keys(v)}
+      {k, v} -> {to_string(k), stringify_keys(v)}
+    end)
+  end
+
+  defp stringify_keys(list) when is_list(list) do
+    if Keyword.keyword?(list) do
+      Map.new(list, fn {k, v} -> {Atom.to_string(k), stringify_keys(v)} end)
+    else
+      Enum.map(list, &stringify_keys/1)
+    end
+  end
+
+  defp stringify_keys({k, v}) when is_atom(k), do: {Atom.to_string(k), stringify_keys(v)}
+  defp stringify_keys(v), do: v
 end

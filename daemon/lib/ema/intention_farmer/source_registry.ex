@@ -10,7 +10,6 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
   @claude_tasks_root Path.expand("~/.claude/tasks")
   @codex_sessions_root Path.expand("~/.codex/sessions")
   @codex_history_path Path.expand("~/.codex/history.jsonl")
-  @openclaw_root Path.expand("~/.openclaw")
   @imports_root Path.expand("~/.local/share/ema/imports")
   @downloads_root Path.expand("~/Downloads")
 
@@ -36,7 +35,6 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
       sources.claude_tasks || [],
       sources.codex_sessions || [],
       sources.codex_history || [],
-      sources.openclaw_sources || [],
       sources.import_sources || [],
       sources.claude_mds || []
     ]
@@ -92,7 +90,6 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
     claude_tasks = discover_claude_task_sources()
     codex = discover_codex_sources()
     history = discover_codex_history()
-    openclaw = discover_openclaw_sources()
     imports = discover_import_sources()
     claude_mds = discover_claude_mds()
 
@@ -101,12 +98,11 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
       claude_tasks: claude_tasks,
       codex_sessions: codex,
       codex_history: history,
-      openclaw_sources: openclaw,
       import_sources: imports,
       claude_mds: claude_mds,
       total_files:
         length(claude) + length(claude_tasks) + length(codex) + length(history) +
-          length(openclaw) + length(imports) + length(claude_mds)
+          length(imports) + length(claude_mds)
     }
   end
 
@@ -129,18 +125,6 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
     else
       []
     end
-  end
-
-  defp discover_openclaw_sources do
-    candidates =
-      Path.wildcard("#{@openclaw_root}/error-logs/**/*")
-      |> Kernel.++(Path.wildcard("#{@openclaw_root}/logs/**/*"))
-      |> Kernel.++([Path.join(@openclaw_root, "openclaw.json")])
-
-    candidates
-    |> Enum.filter(&File.regular?/1)
-    |> Enum.uniq()
-    |> Enum.sort()
   end
 
   defp discover_import_sources do

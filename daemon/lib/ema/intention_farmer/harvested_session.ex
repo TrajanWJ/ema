@@ -10,8 +10,6 @@ defmodule Ema.IntentionFarmer.HarvestedSession do
     claude_task
     codex_cli
     codex_history
-    openclaw_event
-    openclaw_config
     external_import
   )
 

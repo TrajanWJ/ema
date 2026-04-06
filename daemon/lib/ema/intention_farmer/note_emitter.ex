@@ -138,8 +138,6 @@ defmodule Ema.IntentionFarmer.NoteEmitter do
     folder =
       case session.source_type do
         "external_import" -> "Imports/Staged"
-        "openclaw_event" -> "Agents/OpenClaw"
-        "openclaw_config" -> "Agents/OpenClaw"
         "claude_task" -> "Agents/ClaudeTasks"
         "codex_history" -> "Agents/CodexHistory"
         _ -> "Agents/Sessions"

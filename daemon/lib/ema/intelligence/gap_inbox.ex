@@ -149,9 +149,13 @@ defmodule Ema.Intelligence.GapInbox do
 
     for goal <- goals do
       linked_tasks =
-        Ema.Tasks.Task
-        |> where([t], t.project_id == ^goal.project_id)
-        |> Repo.aggregate(:count)
+        if goal.project_id do
+          Ema.Tasks.Task
+          |> where([t], t.project_id == ^goal.project_id)
+          |> Repo.aggregate(:count)
+        else
+          0
+        end
 
       if linked_tasks == 0 do
         unless gap_exists?("goals", "incomplete_goal", goal.id) do
@@ -160,14 +164,12 @@ defmodule Ema.Intelligence.GapInbox do
             gap_type: "incomplete_goal",
             title: "Goal with no tasks: #{goal.title}",
             description: "Goal has no linked tasks for progress tracking",
-            severity: "medium"
+            severity: "medium",
+            project_id: goal.project_id
           })
         end
       end
     end
-  rescue
-    # Goals module may not have all fields yet
-    _ -> :ok
   end
 
   # ── Helpers ──
