@@ -11,7 +11,7 @@ defmodule Ema.MixProject do
       aliases: aliases(),
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
-      escript: [main_module: EmaCli.CLI, name: "ema", app: nil]
+      escript: [main_module: Ema.CLI, name: "ema", app: nil]
     ]
   end
 
@@ -54,7 +54,10 @@ defmodule Ema.MixProject do
       {:req, "~> 0.5"},
       {:fuse, "~> 2.5"},
       {:cachex, "~> 4.0"},
-      {:quantum, "~> 3.0"}
+      {:quantum, "~> 3.0"},
+      # CLI
+      {:optimus, "~> 0.5"},
+      {:owl, "~> 0.12"}
     ]
   end
 
