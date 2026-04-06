@@ -121,6 +121,136 @@ defmodule Ema.CLI.Commands.Session do
     end
   end
 
+  # -- Orchestrator commands --
+
+  def handle([:spawn], parsed, transport, opts) do
+    prompt = parsed.args.prompt
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        spawn_opts = [
+          project_slug: parsed.options[:project],
+          task_id: parsed.options[:task],
+          model: parsed.options[:model] || "sonnet",
+          inject_context: true
+        ]
+
+        case transport.call(Ema.Sessions.Orchestrator, :spawn, [prompt, spawn_opts]) do
+          {:ok, result} ->
+            Output.success("Spawned session #{result.session_id} in #{result.project_path}")
+            if opts[:json], do: Output.json(result)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        body = Helpers.compact_map([
+          {"prompt", prompt},
+          {"project_slug", parsed.options[:project]},
+          {"task_id", parsed.options[:task]},
+          {"model", parsed.options[:model]}
+        ])
+
+        case transport.post("/orchestrator/sessions/spawn", body) do
+          {:ok, resp} ->
+            session = Helpers.extract_record(resp, "session")
+            Output.success("Spawned session #{session["session_id"]}")
+            if opts[:json], do: Output.json(session)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:follow], parsed, transport, opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Sessions.Orchestrator, :check_session, [id]) do
+          {:error, reason} ->
+            Output.error(reason)
+
+          status ->
+            if opts[:json] do
+              Output.json(status)
+            else
+              IO.puts("Session: #{status.id}")
+              IO.puts("Status:  #{status.status}")
+              IO.puts("Running: #{status.running}")
+
+              if status.exit_code do
+                IO.puts("Exit:    #{status.exit_code}")
+              end
+
+              if status.output_summary do
+                IO.puts("\n--- Output (last 500 chars) ---")
+                IO.puts(String.slice(status.output_summary, -500, 500))
+              end
+            end
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/orchestrator/sessions/#{id}/check") do
+          {:ok, body} ->
+            session = Helpers.extract_record(body, "session")
+
+            if opts[:json] do
+              Output.json(session)
+            else
+              IO.puts("Session: #{session["id"]}")
+              IO.puts("Status:  #{session["status"]}")
+              IO.puts("Running: #{session["running"]}")
+
+              if session["exit_code"] do
+                IO.puts("Exit:    #{session["exit_code"]}")
+              end
+
+              if session["output_summary"] do
+                IO.puts("\n--- Output ---")
+                IO.puts(String.slice(session["output_summary"], -500, 500))
+              end
+            end
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:context], parsed, _transport, opts) do
+    params = Helpers.compact_keyword([{:project_slug, parsed.options[:project]}])
+
+    case Ema.CLI.Transport.Http.get("/orchestrator/context", params: params) do
+      {:ok, body} ->
+        ctx = Helpers.extract_record(body, "context")
+        if opts[:json], do: Output.json(ctx), else: Output.detail(ctx)
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
+    end
+  end
+
+  def handle([:all], _parsed, _transport, opts) do
+    case Ema.CLI.Transport.Http.get("/orchestrator/sessions") do
+      {:ok, body} ->
+        sessions = Helpers.extract_list(body, "sessions")
+        all_cols = [
+          {"ID", "id"},
+          {"Type", "type"},
+          {"Status", "status"},
+          {"Project", "project_path"},
+          {"Live", "live"}
+        ]
+        Output.render(sessions, all_cols, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown session subcommand: #{inspect(sub)}")
   end

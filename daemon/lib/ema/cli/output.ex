@@ -140,5 +140,11 @@ defmodule Ema.CLI.Output do
     Map.new(map, fn {k, v} -> {k, normalize_for_json(v)} end)
   end
 
+  defp normalize_for_json(tuple) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&normalize_for_json/1)
+  end
+
   defp normalize_for_json(other), do: other
 end

@@ -70,6 +70,16 @@ defmodule EmaWeb.Router do
     get("/sessions/active", SessionController, :active)
     post("/sessions/:id/link", SessionController, :link)
 
+    # Session Orchestrator — spawn/monitor/manage Claude Code sessions
+    get("/orchestrator/sessions", SessionOrchestratorController, :index)
+    get("/orchestrator/sessions/:id", SessionOrchestratorController, :show)
+    get("/orchestrator/sessions/:id/check", SessionOrchestratorController, :check)
+    post("/orchestrator/sessions/spawn", SessionOrchestratorController, :spawn)
+    post("/orchestrator/sessions/:id/resume", SessionOrchestratorController, :resume)
+    post("/orchestrator/sessions/:id/kill", SessionOrchestratorController, :kill)
+    get("/orchestrator/context", SessionOrchestratorController, :context)
+    get("/orchestrator/context/prompt", SessionOrchestratorController, :context_prompt)
+
     # Projects — specific routes before resources to avoid :id shadowing
     get("/projects/:id/context", ProjectController, :context)
     get("/projects/:slug/context-fragments", ProjectController, :context_fragments)

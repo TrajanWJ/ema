@@ -27,7 +27,7 @@ defmodule Ema.MCP.Server do
   use GenServer
   require Logger
 
-  alias Ema.MCP.{Protocol, Resources, Tools, RecursionGuard}
+  alias Ema.MCP.{Protocol, Resources, Tools, SessionTools, RecursionGuard}
 
   @server_info %{
     "name" => "ema-mcp-server",
@@ -177,7 +177,7 @@ defmodule Ema.MCP.Server do
   end
 
   defp handle_rpc(id, "tools/list", _params, state) do
-    tools = Tools.list()
+    tools = Tools.list() ++ SessionTools.list()
     send_result(state, id, %{"tools" => tools})
     state
   end
@@ -194,7 +194,11 @@ defmodule Ema.MCP.Server do
 
         result =
           RecursionGuard.with_depth_check(request_id, fn ->
-            Tools.call(tool_name, arguments, request_id)
+            if String.starts_with?(tool_name, "ema_") do
+              SessionTools.call(tool_name, arguments, request_id)
+            else
+              Tools.call(tool_name, arguments, request_id)
+            end
           end)
 
         state = decrement_active(state, request_id)

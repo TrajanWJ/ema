@@ -348,6 +348,8 @@ defmodule Ema.CLI do
           about: "List tasks",
           options: [
             status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string],
             project: [
               short: "-p",
               long: "--project",
@@ -373,6 +375,8 @@ defmodule Ema.CLI do
               help: "Project ID",
               parser: :string
             ],
+            actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
+            space: [long: "--space", help: "Space ID", parser: :string],
             priority: [long: "--priority", help: "Priority (1-5)", parser: :integer],
             description: [short: "-d", long: "--description", help: "Description", parser: :string]
           ]
@@ -415,6 +419,8 @@ defmodule Ema.CLI do
           about: "List proposals",
           options: [
             status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string],
             project: [
               short: "-p",
               long: "--project",
@@ -620,6 +626,8 @@ defmodule Ema.CLI do
           options: [
             status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
             timeframe: [long: "--timeframe", help: "Filter by timeframe", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string],
             project: [short: "-p", long: "--project", help: "Filter by project", parser: :string]
           ]
         ],
@@ -637,6 +645,8 @@ defmodule Ema.CLI do
             status: [short: "-s", long: "--status", help: "Status (default: active)", parser: :string],
             timeframe: [long: "--timeframe", help: "Timeframe", parser: :string],
             parent: [long: "--parent", help: "Parent goal ID", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
+            space: [long: "--space", help: "Space ID", parser: :string],
             project: [short: "-p", long: "--project", help: "Project ID", parser: :string]
           ]
         ],
@@ -665,12 +675,27 @@ defmodule Ema.CLI do
       name: "brain-dump",
       about: "Brain dump inbox management",
       subcommands: [
-        list: [name: "list", about: "List all items"],
+        list: [
+          name: "list",
+          about: "List all items",
+          options: [
+            actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string],
+            project: [short: "-p", long: "--project", help: "Filter by project ID", parser: :string],
+            task: [short: "-t", long: "--task", help: "Filter by task ID", parser: :string]
+          ]
+        ],
         unprocessed: [name: "unprocessed", about: "List unprocessed items"],
         create: [
           name: "create",
           about: "Create brain dump item",
-          args: [content: [required: true, help: "Item content"]]
+          args: [content: [required: true, help: "Item content"]],
+          options: [
+            actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
+            space: [long: "--space", help: "Space ID", parser: :string],
+            project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
+            task: [short: "-t", long: "--task", help: "Task ID", parser: :string]
+          ]
         ],
         process: [
           name: "process",
@@ -1007,7 +1032,14 @@ defmodule Ema.CLI do
       name: "project",
       about: "Project management",
       subcommands: [
-        list: [name: "list", about: "List all projects"],
+        list: [
+          name: "list",
+          about: "List all projects",
+          options: [
+            status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string]
+          ]
+        ],
         show: [
           name: "show",
           about: "Show project detail",
@@ -1021,6 +1053,7 @@ defmodule Ema.CLI do
             slug: [long: "--slug", help: "URL slug", parser: :string],
             path: [long: "--path", help: "Local path", parser: :string],
             repo: [long: "--repo", help: "Repo URL", parser: :string],
+            space: [long: "--space", help: "Space ID", parser: :string],
             description: [short: "-d", long: "--description", help: "Description", parser: :string]
           ]
         ],
@@ -1058,7 +1091,7 @@ defmodule Ema.CLI do
   defp session_spec do
     [
       name: "session",
-      about: "Claude session management",
+      about: "Claude session management and orchestration",
       subcommands: [
         list: [
           name: "list",
@@ -1070,14 +1103,37 @@ defmodule Ema.CLI do
           ]
         ],
         active: [name: "active", about: "List active sessions"],
+        all: [name: "all", about: "List all sessions (CLI + detected, unified view)"],
         show: [
           name: "show",
           about: "Show session detail",
           args: [id: [required: true, help: "Session ID"]]
         ],
+        spawn: [
+          name: "spawn",
+          about: "Spawn a new Claude Code session with EMA context",
+          args: [prompt: [required: true, help: "Task prompt for the session"]],
+          options: [
+            project: [short: "-p", long: "--project", help: "EMA project slug", parser: :string],
+            task: [short: "-t", long: "--task", help: "Link to task ID", parser: :string],
+            model: [short: "-m", long: "--model", help: "Model (sonnet/opus/haiku)", parser: :string]
+          ]
+        ],
+        follow: [
+          name: "follow",
+          about: "Check status and output of a session",
+          args: [id: [required: true, help: "Session ID"]]
+        ],
+        context: [
+          name: "context",
+          about: "Show EMA context bundle for session injection",
+          options: [
+            project: [short: "-p", long: "--project", help: "Project slug", parser: :string]
+          ]
+        ],
         resume: [
           name: "resume",
-          about: "Resume a session",
+          about: "Resume a session with follow-up prompt",
           args: [id: [required: true, help: "Session ID"]],
           options: [
             prompt: [long: "--prompt", help: "Resume prompt", parser: :string]
@@ -1085,7 +1141,7 @@ defmodule Ema.CLI do
         ],
         kill: [
           name: "kill",
-          about: "Kill a session",
+          about: "Kill a running session",
           args: [id: [required: true, help: "Session ID"]]
         ]
       ]
@@ -1339,7 +1395,7 @@ defmodule Ema.CLI do
       options: [
         org: [long: "--org", help: "Organization ID", parser: :string],
         type: [long: "--type", help: "Space type (personal/team/project)", parser: :string],
-        portable: [long: "--portable", help: "Portable personal space", parser: :boolean]
+        portable: [long: "--portable", help: "Portable personal space (true/false)", parser: :string]
       ]]
   ]]
 
@@ -1370,19 +1426,4 @@ defmodule Ema.CLI do
   defp put_lines(lines) when is_list(lines), do: Enum.each(lines, &IO.puts/1)
   defp put_lines(line), do: IO.puts(line)
 
-  defp em_spec, do: [name: "em", about: "Executive management status", subcommands: [
-    status: [name: "status", about: "Show EM status", args: [actor: [required: false, help: "Actor ID or slug"]]]
-  ]]
-
-  defp tag_spec, do: [name: "tag", about: "Entity tagging", subcommands: [
-    add: [name: "add", about: "Tag an entity", args: [entity: [required: true, help: "type:id"], tag: [required: true, help: "Tag"]]],
-    remove: [name: "remove", about: "Remove tag", args: [entity: [required: true, help: "type:id"], tag: [required: true, help: "Tag"]]],
-    list: [name: "list", about: "List tags", args: [entity: [required: false, help: "type:id"]]]
-  ]]
-
-  defp data_spec, do: [name: "data", about: "Entity data", subcommands: [
-    get: [name: "get", about: "Get data", args: [entity: [required: true, help: "type:id"], key: [required: true, help: "Key"]]],
-    set: [name: "set", about: "Set data", args: [entity: [required: true, help: "type:id"], key: [required: true, help: "Key"], value: [required: true, help: "JSON"]]],
-    list: [name: "list", about: "List data", args: [entity: [required: true, help: "type:id"]]]
-  ]]
 end

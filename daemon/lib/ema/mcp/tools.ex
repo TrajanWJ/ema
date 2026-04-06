@@ -23,7 +23,7 @@ defmodule Ema.MCP.Tools do
   require Logger
   alias Ema.MCP.RecursionGuard
 
-  @base_url "http://localhost:4000"
+  @base_url "http://localhost:4488"
   @api_timeout 30_000
 
   # ── Tool Registry ─────────────────────────────────────────────────────────
