@@ -5,15 +5,10 @@ defmodule Ema.Agents.AgentMemory do
   When a conversation exceeds a configurable threshold, older messages
   are summarized into a system message to compress context.
 
-  ## Extended capabilities (EMA migration additions)
+  ## Extended capabilities
 
   - `load_context/2` — load full conversation history from SQLite for context window
   - `get_memory_summary/2` — return compressed summary of recent conversation
-  - `record_openclaw_session/3` — link an OpenClaw session ID to a conversation
-  - `get_openclaw_conversation/2` — look up EMA conversation for an OC session
-
-  These enable EMA to hold the full conversation state even when OpenClaw
-  only has the most recent exchange in its own file-based store.
   """
 
   use GenServer
@@ -21,7 +16,6 @@ defmodule Ema.Agents.AgentMemory do
 
   alias Ema.Agents
   alias Ema.Claude.Bridge
-  alias Ema.Persistence.SessionStore
 
   @default_threshold 20
   # ~100k tokens of history before aggressive compression
@@ -69,23 +63,6 @@ defmodule Ema.Agents.AgentMemory do
     )
   end
 
-  @doc """
-  Record the link between an OpenClaw session and an EMA conversation.
-  This allows EMA to route future messages from the same OC session to the
-  correct conversation, maintaining continuity even across OpenClaw restarts.
-  """
-  def record_openclaw_session(agent_id, oc_session_id, conversation_id) do
-    GenServer.call(via(agent_id), {:record_oc_session, oc_session_id, conversation_id})
-  end
-
-  @doc """
-  Look up the EMA conversation ID for an OpenClaw session.
-  Returns {:ok, conversation_id} or :error.
-  """
-  def get_openclaw_conversation(agent_id, oc_session_id) do
-    GenServer.call(via(agent_id), {:get_oc_conversation, oc_session_id})
-  end
-
   defp via(agent_id) do
     {:via, Registry, {Ema.Agents.Registry, {:memory, agent_id}}}
   end
@@ -99,9 +76,7 @@ defmodule Ema.Agents.AgentMemory do
     {:ok,
      %{
        agent_id: agent_id,
-       threshold: @default_threshold,
-       # Map from oc_session_id -> conversation_id for this agent
-       oc_sessions: %{}
+       threshold: @default_threshold
      }}
   end
 
@@ -126,28 +101,6 @@ defmodule Ema.Agents.AgentMemory do
   @impl true
   def handle_call({:get_memory_summary_async, conversation_id, on_complete}, _from, state) do
     result = build_memory_summary_async(conversation_id, on_complete)
-    {:reply, result, state}
-  end
-
-  @impl true
-  def handle_call({:record_oc_session, oc_session_id, conversation_id}, _from, state) do
-    # Also register in SessionStore for cross-agent lookup
-    SessionStore.put_openclaw_session(oc_session_id, state.agent_id,
-      conversation_id: conversation_id
-    )
-
-    new_oc_sessions = Map.put(state.oc_sessions, oc_session_id, conversation_id)
-
-    Logger.info(
-      "[AgentMemory] #{state.agent_id}: linked OC session #{oc_session_id} → conversation #{conversation_id}"
-    )
-
-    {:reply, :ok, %{state | oc_sessions: new_oc_sessions}}
-  end
-
-  @impl true
-  def handle_call({:get_oc_conversation, oc_session_id}, _from, state) do
-    result = Map.fetch(state.oc_sessions, oc_session_id)
     {:reply, result, state}
   end
 
