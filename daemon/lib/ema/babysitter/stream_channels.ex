@@ -212,7 +212,7 @@ defmodule Ema.Babysitter.StreamChannels do
       [
         "💓 **heartbeat ##{n}** · #{now}",
         "#{heartbeat_emoji(heartbeat.heartbeat_state)} #{heartbeat.narrative}",
-        "VM: **#{heartbeat.status}** / `#{heartbeat.heartbeat_state}` · trend `#{heartbeat.trend}` · latency #{fmt_ms(heartbeat.latency_ms)}",
+        "Host: **#{heartbeat.status}** / `#{heartbeat.heartbeat_state}` · trend `#{heartbeat.trend}` · latency #{fmt_ms(heartbeat.latency_ms)}",
         "BEAM: **#{mem} MB** · #{procs} processes · uptime #{uptime}",
         "Flow: **#{task_q}** active tasks · **#{proposal_q}** queued proposals · #{db_pool}",
         note_line,

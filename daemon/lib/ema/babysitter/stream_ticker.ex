@@ -290,7 +290,7 @@ defmodule Ema.Babysitter.StreamTicker do
       degraded_summary?: degraded_summary?,
       reason:
         cond do
-          degraded_summary? -> "heartbeat degraded summary changed"
+          degraded_summary? -> "host heartbeat degraded summary changed"
           has_recent_activity?(snap) -> "recent activity changed"
           true -> "state changed"
         end
@@ -344,12 +344,12 @@ defmodule Ema.Babysitter.StreamTicker do
     lines = if events_section, do: lines ++ [events_section], else: lines
 
     # Memory
-    mem_str = if snap.memory_mb, do: "#{snap.memory_mb} MB VM", else: "?"
+    mem_str = if snap.memory_mb, do: "#{snap.memory_mb} MB BEAM", else: "?"
 
     lines =
       lines ++
         [
-          "-# 🔧 #{mem_str} · started #{Calendar.strftime(started_at, "%H:%M UTC")} · babysitter OTP live"
+          "-# 🔧 #{mem_str} · started #{Calendar.strftime(started_at, "%H:%M UTC")} · EMA host babysitter live"
         ]
 
     Enum.join(lines, "\n")
