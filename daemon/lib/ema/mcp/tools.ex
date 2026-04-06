@@ -569,4 +569,15 @@ defmodule Ema.MCP.Tools do
       end
     end)
   end
+  defp resolve_project_id(project_ref) do
+    with {:ok, %{status: 200, body: body}} <- get("/api/projects"),
+         projects <- Map.get(body, "projects", []),
+         project when not is_nil(project) <- Enum.find(projects, fn p -> project_ref in [p["id"], p["slug"], p["name"]] end) do
+      {:ok, project["id"]}
+    else
+      nil -> {:error, "Project not found: #{project_ref}"}
+      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 end
