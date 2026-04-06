@@ -1,7 +1,8 @@
 defmodule Ema.Ingestor.Processor do
   @moduledoc """
-  GenServer that periodically checks for pending ingest jobs and processes them.
-  Currently stubs actual processing — transitions pending -> processing -> done.
+  GenServer that watches for pending ingest jobs and processes them.
+  Currently a stub that transitions jobs through status states.
+  Full implementation will extract content, run AI summarization, and store in vault.
   """
 
   use GenServer
@@ -9,86 +10,68 @@ defmodule Ema.Ingestor.Processor do
 
   alias Ema.Ingestor
 
-  @poll_interval :timer.seconds(30)
+  @poll_interval_ms 10_000
 
-  def start_link(opts \\ []) do
+  def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
   def init(_opts) do
     schedule_poll()
-    {:ok, %{}}
+    {:ok, %{processing: false}}
   end
 
   @impl true
   def handle_info(:poll, state) do
-    process_pending_jobs()
+    state = maybe_process_next(state)
     schedule_poll()
     {:noreply, state}
   end
 
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  defp maybe_process_next(%{processing: true} = state), do: state
+
+  defp maybe_process_next(state) do
+    case Ingestor.list_jobs(status: "pending", limit: 1) do
+      [job] ->
+        process_job(job)
+        state
+
+      _ ->
+        state
+    end
+  end
+
+  defp process_job(job) do
+    Logger.info("Ingestor processing job #{job.id} (#{job.source_type})")
+
+    case Ingestor.mark_processing(job.id) do
+      {:ok, _} ->
+        # Stub: mark done with placeholder extraction
+        Ingestor.mark_done(job.id, %{
+          extracted_title: extract_title(job),
+          extracted_summary: "Ingested from #{job.source_type}",
+          extracted_tags: Jason.encode!(["ingested", job.source_type])
+        })
+
+      {:error, reason} ->
+        Logger.warning("Failed to process ingest job #{job.id}: #{inspect(reason)}")
+    end
+  end
+
+  defp extract_title(job) do
+    cond do
+      job.source_uri && String.length(job.source_uri) > 0 ->
+        job.source_uri |> String.split("/") |> List.last() |> String.slice(0, 100)
+
+      true ->
+        "Untitled #{job.source_type} import"
+    end
+  end
+
   defp schedule_poll do
-    Process.send_after(self(), :poll, @poll_interval)
-  end
-
-  defp process_pending_jobs do
-    jobs = Ingestor.list_pending_jobs()
-
-    Enum.each(jobs, fn job ->
-      Logger.info("Processing ingest job #{job.id} (#{job.source_type}: #{job.source_uri})")
-
-      with {:ok, processing} <- Ingestor.update_job(job, %{status: "processing"}),
-           {:ok, _done} <- run_extraction(processing) do
-        Logger.info("Ingest job #{job.id} completed")
-      else
-        {:error, reason} ->
-          Logger.warning("Ingest job #{job.id} failed: #{inspect(reason)}")
-          Ingestor.update_job(job, %{status: "failed"})
-      end
-    end)
-  end
-
-  # Stub: actual extraction would parse content, extract metadata, write to vault.
-  # For now, just mark as done with placeholder metadata.
-  defp run_extraction(job) do
-    parsed =
-      if String.starts_with?(job.source_uri || "", "/") and File.exists?(job.source_uri) do
-        Ema.IntentionFarmer.Parser.parse_external_import(job.source_uri)
-      else
-        {:error, :missing_source}
-      end
-
-    {title, summary, tags} =
-      case parsed do
-        {:ok, result} ->
-          metadata = result[:metadata] || %{}
-
-          {
-            Path.basename(job.source_uri || "import"),
-            Map.get(metadata, "preview", "Auto-imported from #{job.source_type}"),
-            [
-              "imported",
-              job.source_type,
-              Map.get(metadata, "provider_guess"),
-              Map.get(metadata, "dataset_guess")
-            ]
-            |> Enum.reject(&is_nil/1)
-          }
-
-        _ ->
-          {
-            "Imported: #{job.source_uri}",
-            "Auto-imported from #{job.source_type}",
-            ["imported", job.source_type]
-          }
-      end
-
-    Ingestor.update_job(job, %{
-      status: "done",
-      extracted_title: title,
-      extracted_summary: summary,
-      extracted_tags: tags
-    })
+    Process.send_after(self(), :poll, @poll_interval_ms)
   end
 end

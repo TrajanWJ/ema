@@ -1,72 +1,63 @@
 defmodule Ema.FileVault do
-  @moduledoc """
-  File Vault — manage and tag files with project association.
-  """
+  @moduledoc "P2P encrypted file storage with content-addressed naming."
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.FileVault.ManagedFile
+  alias Ema.FileVault.{VaultFile, Storage}
 
-  def list_files(opts \\ []) do
-    query =
-      ManagedFile
-      |> order_by(desc: :uploaded_at, desc: :inserted_at)
-
-    query =
-      case Keyword.get(opts, :project_id) do
-        nil -> query
-        pid -> where(query, [f], f.project_id == ^pid)
-      end
-
-    Repo.all(query)
+  def list_files do
+    VaultFile |> order_by(desc: :inserted_at) |> Repo.all()
   end
 
-  def get_file(id), do: Repo.get(ManagedFile, id)
+  def get_file(id), do: Repo.get(VaultFile, id)
 
-  def get_file!(id), do: Repo.get!(ManagedFile, id)
+  def upload(name, mime_type, content, opts \\ []) do
+    {_disk_path, hash, size} = Storage.store(content)
+    id = generate_id()
 
-  def create_file(attrs) do
-    id = generate_id("file")
+    attrs = %{
+      id: id,
+      name: name,
+      path: hash,
+      size_bytes: size,
+      mime_type: mime_type,
+      checksum_sha256: hash,
+      encrypted: Keyword.get(opts, :encrypted, false),
+      uploaded_by: Keyword.get(opts, :uploaded_by)
+    }
 
-    attrs =
-      attrs
-      |> Map.put(:id, id)
-      |> Map.put_new(:uploaded_at, DateTime.utc_now())
-
-    %ManagedFile{}
-    |> ManagedFile.changeset(attrs)
+    %VaultFile{}
+    |> VaultFile.changeset(attrs)
     |> Repo.insert()
-    |> tap_broadcast(:file_created)
+  end
+
+  def download(id) do
+    case get_file(id) do
+      nil -> {:error, :not_found}
+      file -> Storage.read(file.checksum_sha256)
+    end
   end
 
   def delete_file(id) do
     case get_file(id) do
-      nil -> {:error, :not_found}
-      file -> Repo.delete(file) |> tap_broadcast(:file_deleted)
+      nil ->
+        {:error, :not_found}
+
+      file ->
+        # Only delete from disk if no other records reference same hash
+        count =
+          VaultFile
+          |> where([f], f.checksum_sha256 == ^file.checksum_sha256 and f.id != ^id)
+          |> Repo.aggregate(:count)
+
+        if count == 0, do: Storage.delete(file.checksum_sha256)
+        Repo.delete(file)
     end
   end
 
-  def by_project(project_id) do
-    ManagedFile
-    |> where([f], f.project_id == ^project_id)
-    |> order_by(desc: :uploaded_at)
-    |> Repo.all()
-  end
-
-  defp tap_broadcast(result, event) do
-    case result do
-      {:ok, record} ->
-        Phoenix.PubSub.broadcast(Ema.PubSub, "file_vault:updates", {event, record})
-        {:ok, record}
-
-      error ->
-        error
-    end
-  end
-
-  defp generate_id(prefix) do
-    timestamp = System.system_time(:millisecond) |> Integer.to_string()
-    random = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-    "#{prefix}_#{timestamp}_#{random}"
+  defp generate_id do
+    ts = System.system_time(:millisecond) |> Integer.to_string()
+    rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+    "vf_#{ts}_#{rand}"
   end
 end

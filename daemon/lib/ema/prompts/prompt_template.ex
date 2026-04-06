@@ -2,24 +2,27 @@ defmodule Ema.Prompts.PromptTemplate do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @valid_categories ~w(system agent task custom)
+  @primary_key {:id, :string, autogenerate: false}
 
   schema "prompt_templates" do
     field :name, :string
-    field :category, :string
-    field :body, :string
-    field :variables, {:array, :string}, default: []
+    field :category, :string, default: "custom"
+    field :body, :string, default: ""
+    field :variables, :string, default: "[]"
     field :version, :integer, default: 1
-
-    belongs_to :parent, __MODULE__
+    field :parent_id, :string
 
     timestamps(type: :utc_datetime)
   end
 
+  @valid_categories ~w(system agent task custom)
+  @required_fields ~w(id name category)a
+  @optional_fields ~w(body variables version parent_id)a
+
   def changeset(template, attrs) do
     template
-    |> cast(attrs, [:name, :category, :body, :variables, :version, :parent_id])
-    |> validate_required([:name, :category, :body])
+    |> cast(attrs, @required_fields ++ @optional_fields)
+    |> validate_required(@required_fields)
     |> validate_inclusion(:category, @valid_categories)
     |> validate_number(:version, greater_than: 0)
   end

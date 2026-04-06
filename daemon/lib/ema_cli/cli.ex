@@ -29,6 +29,12 @@ defmodule EmaCli.CLI do
   defp dispatch("routing", sub, opts), do: EmaCli.Routing.run(sub, opts)
   defp dispatch("health", sub, opts), do: EmaCli.Health.run(sub, opts)
   defp dispatch("test", sub, opts), do: EmaCli.TestRunner.run(sub, opts)
+  defp dispatch("pipe", sub, opts), do: EmaCli.Pipe.run(sub, opts)
+  defp dispatch("campaign", sub, opts), do: EmaCli.Campaign.run(sub, opts)
+  defp dispatch("channel", sub, opts), do: EmaCli.Channel.run(sub, opts)
+  defp dispatch("ai-session", sub, opts), do: EmaCli.AiSession.run(sub, opts)
+  defp dispatch("evolution", sub, opts), do: EmaCli.Evolution.run(sub, opts)
+  defp dispatch("superman", sub, opts), do: EmaCli.Superman.run(sub, opts)
   defp dispatch(_, _, _), do: print_help()
 
   def parse_opts(args) do
@@ -140,13 +146,19 @@ defmodule EmaCli.CLI do
     USAGE: ema <feature> <subcommand> [options]
 
     FEATURES:
-      intent    search, graph, list, trace
-      proposal  list, show, validate, approve, reject, generate, genealogy
-      session   state, list, crystallize, export
-      quality   report, friction, gradient, budget, threats, improve
-      routing   status, fitness, dispatch
-      health    dashboard, check
-      test      run [--suite=unit|integration|ai|stress|all]
+      intent      search, graph, list, trace
+      proposal    list, show, validate, approve, reject, generate, genealogy
+      session     state, list, crystallize, export
+      quality     report, friction, gradient, budget, threats, improve
+      routing     status, fitness, dispatch
+      health      dashboard, check
+      test        run [--suite=unit|integration|ai|stress|all]
+      pipe        list, show, create, toggle, catalog, history
+      campaign    list, show, create, run, advance, runs
+      channel     list, health, inbox, send, messages
+      ai-session  list, show, create, resume, fork
+      evolution   rules, signals, stats, scan, propose, activate, rollback
+      superman    ask, context, health, index, gaps, flows
 
     OPTIONS:
       --format=table|json|csv   Output format

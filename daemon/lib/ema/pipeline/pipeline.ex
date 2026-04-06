@@ -1,136 +1,172 @@
 defmodule Ema.Pipeline do
   @moduledoc """
-  Pipeline analytics — aggregates metrics across Proposals and Tasks contexts.
-  Provides stats, bottleneck detection, and throughput tracking.
+  Pipeline Commander — aggregate stats across the AI task pipeline.
+  Reads from proposals, tasks, and claude_sessions to show funnel metrics.
   """
 
   import Ecto.Query
   alias Ema.Repo
-  alias Ema.Proposals.{Proposal, Seed}
-  alias Ema.Tasks.Task
 
   @doc """
-  Returns counts at each pipeline stage: seeds, proposals by status, tasks by status,
-  and active Claude sessions.
+  Returns counts at each pipeline stage: seeds, proposals by status,
+  tasks by status, and active sessions.
   """
   def get_pipeline_stats do
+    seed_counts = count_seeds()
+    proposal_counts = count_proposals_by_status()
+    task_counts = count_tasks_by_status()
+    session_counts = count_sessions_by_status()
+
     %{
-      seeds: count_seeds(),
-      proposals: count_proposals_by_status(),
-      tasks: count_tasks_by_status(),
-      active_sessions: count_active_sessions()
+      seeds: %{
+        active: seed_counts[:active] || 0,
+        inactive: seed_counts[:inactive] || 0,
+        total: Map.values(seed_counts) |> Enum.sum()
+      },
+      proposals: %{
+        queued: proposal_counts["queued"] || 0,
+        reviewing: proposal_counts["reviewing"] || 0,
+        approved: proposal_counts["approved"] || 0,
+        redirected: proposal_counts["redirected"] || 0,
+        killed: proposal_counts["killed"] || 0,
+        total: Map.values(proposal_counts) |> Enum.sum()
+      },
+      tasks: %{
+        backlog: task_counts["backlog"] || 0,
+        ready: task_counts["ready"] || 0,
+        in_progress: task_counts["in_progress"] || 0,
+        done: task_counts["done"] || 0,
+        total: Map.values(task_counts) |> Enum.sum()
+      },
+      sessions: %{
+        active: session_counts["active"] || 0,
+        completed: session_counts["completed"] || 0,
+        total: Map.values(session_counts) |> Enum.sum()
+      }
     }
   end
 
   @doc """
-  Finds proposals stuck at a stage for more than 1 hour.
-  Returns a list of maps with proposal info and how long they've been stuck.
+  Identifies pipeline bottlenecks — stages where items have been stuck too long.
+  Returns a list of %{stage, count, oldest_age_minutes}.
   """
   def get_bottlenecks do
-    one_hour_ago = DateTime.utc_now() |> DateTime.add(-3600, :second)
+    now = DateTime.utc_now()
+    threshold = DateTime.add(now, -3600, :second)
 
-    Proposal
-    |> where([p], p.status not in ["approved", "killed", "redirected"])
-    |> where([p], p.updated_at < ^one_hour_ago)
-    |> order_by([p], asc: :updated_at)
-    |> Repo.all()
-    |> Enum.map(fn proposal ->
-      stuck_minutes =
-        DateTime.diff(DateTime.utc_now(), proposal.updated_at, :second)
-        |> div(60)
+    bottlenecks = []
 
-      %{
-        id: proposal.id,
-        title: proposal.title,
-        status: proposal.status,
-        stuck_minutes: stuck_minutes,
-        updated_at: proposal.updated_at,
-        project_id: proposal.project_id
-      }
-    end)
+    # Proposals stuck in queued for >1hr
+    queued_stuck =
+      from(p in "proposals",
+        where: p.status == "queued" and p.updated_at < ^threshold,
+        select: %{count: count(), oldest: min(p.updated_at)}
+      )
+      |> Repo.one()
+
+    bottlenecks =
+      if queued_stuck && queued_stuck.count > 0 do
+        age = DateTime.diff(now, queued_stuck.oldest, :minute)
+        [%{stage: "proposals_queued", count: queued_stuck.count, oldest_age_minutes: age} | bottlenecks]
+      else
+        bottlenecks
+      end
+
+    # Tasks stuck in ready for >1hr
+    tasks_stuck =
+      from(t in "tasks",
+        where: t.status == "ready" and t.updated_at < ^threshold,
+        select: %{count: count(), oldest: min(t.updated_at)}
+      )
+      |> Repo.one()
+
+    bottlenecks =
+      if tasks_stuck && tasks_stuck.count > 0 do
+        age = DateTime.diff(now, tasks_stuck.oldest, :minute)
+        [%{stage: "tasks_ready", count: tasks_stuck.count, oldest_age_minutes: age} | bottlenecks]
+      else
+        bottlenecks
+      end
+
+    bottlenecks
   end
 
   @doc """
-  Counts items completed per period over the last 7 days.
-  Period can be :hour, :day, or :week.
-
-  Returns a list of maps with `period_start` and `count`.
+  Returns throughput stats: how many items moved through each stage
+  in the given period (:hour, :day, :week).
   """
-  def get_throughput(period) when period in [:hour, :day, :week] do
-    seven_days_ago = DateTime.utc_now() |> DateTime.add(-7 * 86_400, :second)
+  def get_throughput(period \\ :day) do
+    since = period_start(period)
 
-    approved_proposals =
-      Proposal
-      |> where([p], p.status in ["approved", "redirected"])
-      |> where([p], p.updated_at >= ^seven_days_ago)
-      |> select([p], p.updated_at)
-      |> Repo.all()
+    proposals_created =
+      from(p in "proposals", where: p.inserted_at >= ^since, select: count())
+      |> Repo.one() || 0
 
-    completed_tasks =
-      Task
-      |> where([t], t.status == "done")
-      |> where([t], t.updated_at >= ^seven_days_ago)
-      |> select([t], t.updated_at)
-      |> Repo.all()
+    proposals_approved =
+      from(p in "proposals",
+        where: p.status == "approved" and p.updated_at >= ^since,
+        select: count()
+      )
+      |> Repo.one() || 0
 
-    all_timestamps = approved_proposals ++ completed_tasks
+    tasks_completed =
+      from(t in "tasks",
+        where: t.status == "done" and t.updated_at >= ^since,
+        select: count()
+      )
+      |> Repo.one() || 0
 
-    all_timestamps
-    |> Enum.group_by(&truncate_to_period(&1, period))
-    |> Enum.map(fn {period_start, items} ->
-      %{period_start: period_start, count: length(items)}
-    end)
-    |> Enum.sort_by(& &1.period_start, DateTime)
+    %{
+      period: period,
+      since: since,
+      proposals_created: proposals_created,
+      proposals_approved: proposals_approved,
+      tasks_completed: tasks_completed
+    }
   end
 
-  # --- Private ---
+  # --- Private helpers ---
 
   defp count_seeds do
-    Seed
-    |> select([s], count(s.id))
-    |> Repo.one()
+    from(s in "seeds",
+      group_by: s.active,
+      select: {s.active, count()}
+    )
+    |> Repo.all()
+    |> Enum.into(%{}, fn {active, count} ->
+      key = if active, do: :active, else: :inactive
+      {key, count}
+    end)
   end
 
   defp count_proposals_by_status do
-    Proposal
-    |> group_by([p], p.status)
-    |> select([p], {p.status, count(p.id)})
+    from(p in "proposals",
+      group_by: p.status,
+      select: {p.status, count()}
+    )
     |> Repo.all()
-    |> Map.new()
+    |> Enum.into(%{})
   end
 
   defp count_tasks_by_status do
-    Task
-    |> group_by([t], t.status)
-    |> select([t], {t.status, count(t.id)})
+    from(t in "tasks",
+      group_by: t.status,
+      select: {t.status, count()}
+    )
     |> Repo.all()
-    |> Map.new()
+    |> Enum.into(%{})
   end
 
-  defp count_active_sessions do
-    case Code.ensure_loaded(Ema.ClaudeSessions) do
-      {:module, _} ->
-        Ema.ClaudeSessions.get_active_sessions() |> length()
-
-      {:error, _} ->
-        0
-    end
+  defp count_sessions_by_status do
+    from(s in "claude_sessions",
+      group_by: s.status,
+      select: {s.status, count()}
+    )
+    |> Repo.all()
+    |> Enum.into(%{})
   end
 
-  defp truncate_to_period(datetime, :hour) do
-    %{datetime | minute: 0, second: 0, microsecond: {0, 0}}
-  end
-
-  defp truncate_to_period(datetime, :day) do
-    %{datetime | hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
-  end
-
-  defp truncate_to_period(datetime, :week) do
-    day_of_week = Date.day_of_week(DateTime.to_date(datetime))
-    days_since_monday = day_of_week - 1
-
-    datetime
-    |> DateTime.add(-days_since_monday * 86_400, :second)
-    |> then(&%{&1 | hour: 0, minute: 0, second: 0, microsecond: {0, 0}})
-  end
+  defp period_start(:hour), do: DateTime.add(DateTime.utc_now(), -3600, :second)
+  defp period_start(:day), do: DateTime.add(DateTime.utc_now(), -86400, :second)
+  defp period_start(:week), do: DateTime.add(DateTime.utc_now(), -604_800, :second)
 end
