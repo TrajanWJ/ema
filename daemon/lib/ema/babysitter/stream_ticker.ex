@@ -139,6 +139,12 @@ defmodule Ema.Babysitter.StreamTicker do
       projects: safe(fn -> query_projects() end),
       recent_events:
         safe(fn -> Ema.Babysitter.VisibilityHub.drain_since(state.last_tick_at) end, []),
+      session_snapshot:
+        safe(
+          fn -> Ema.Babysitter.SessionObserver.snapshot() end,
+          %{sessions: [], stalled: [], just_completed: []}
+        ),
+      heartbeat: safe(fn -> Ema.Intelligence.VmMonitor.heartbeat_snapshot() end),
       git_sha: safe(fn -> git_head_sha() end),
       git_recent: safe(fn -> git_recent_commits(3) end, []),
       memory_mb: safe(fn -> process_memory_mb() end),
@@ -324,6 +330,10 @@ defmodule Ema.Babysitter.StreamTicker do
       lines ++
         ["⚡ **tick ##{tick_n}** · #{time_str} · uptime #{uptime_str} · every #{interval_str}"]
 
+    # Host heartbeat
+    host_section = render_host_heartbeat(snap.heartbeat)
+    lines = if host_section, do: lines ++ [host_section], else: lines
+
     # Git state
     lines = lines ++ [render_git(snap)]
 
@@ -342,6 +352,10 @@ defmodule Ema.Babysitter.StreamTicker do
     # Recent PubSub events (since last tick)
     events_section = render_events(snap.recent_events)
     lines = if events_section, do: lines ++ [events_section], else: lines
+
+    # Operator next step
+    next_section = render_operator_focus(snap)
+    lines = if next_section, do: lines ++ [next_section], else: lines
 
     # Memory
     mem_str = if snap.memory_mb, do: "#{snap.memory_mb} MB BEAM", else: "?"
@@ -468,6 +482,65 @@ defmodule Ema.Babysitter.StreamTicker do
 
     "🔔 **since last tick** (#{length(events)} events)\n#{lines}"
   end
+
+  defp render_host_heartbeat(nil), do: nil
+
+  defp render_host_heartbeat(heartbeat) do
+    backend = if heartbeat[:backend_available] || heartbeat[:openclaw_up], do: "up", else: "down"
+    latency = if is_integer(heartbeat[:latency_ms]), do: "#{heartbeat.latency_ms}ms", else: "?"
+    narrative = heartbeat[:narrative] || "host state unavailable"
+
+    "💓 **host heartbeat** — #{narrative}\n  └ backend #{backend} · status #{heartbeat[:status] || "unknown"} / #{heartbeat[:heartbeat_state] || "unknown"} · trend #{heartbeat[:trend] || "?"} · latency #{latency}"
+  end
+
+  defp render_operator_focus(snap) do
+    stalled = get_in(snap, [:session_snapshot, :stalled]) || []
+    completed = get_in(snap, [:session_snapshot, :just_completed]) || []
+    active_sessions = get_in(snap, [:sessions, :active_count]) || 0
+    queued_proposals = get_in(snap, [:proposals, :total]) || 0
+
+    pending_tasks =
+      snap.tasks
+      |> Map.get(:by_status, %{})
+      |> Map.take(["proposed", "in_progress", "active", "blocked"])
+      |> Map.values()
+      |> Enum.sum()
+
+    recommendation =
+      cond do
+        stalled != [] ->
+          names = stalled |> Enum.take(3) |> Enum.map(&session_name/1) |> Enum.join(", ")
+          "inspect stalled sessions: #{names}"
+
+        completed != [] ->
+          names = completed |> Enum.take(3) |> Enum.map(&session_name/1) |> Enum.join(", ")
+          "harvest finished session output: #{names}"
+
+        pending_tasks > 0 and active_sessions == 0 ->
+          "spawn or resume an agent run against the pending task queue"
+
+        queued_proposals > 0 ->
+          "push queued proposals through approval / execution"
+
+        active_sessions > 0 ->
+          "monitor live sessions and harvest meaningful deltas"
+
+        true ->
+          "system is calm; keep watching for new work or drift"
+      end
+
+    "🧭 **operator next** — #{recommendation}"
+  end
+
+  defp session_name(%{project_path: path}) when is_binary(path) do
+    path |> String.split("/") |> List.last() |> truncate(30)
+  end
+
+  defp session_name(%{path: path}) when is_binary(path) do
+    path |> String.split("/") |> List.last() |> truncate(30)
+  end
+
+  defp session_name(_), do: "unknown"
 
   # --- Helpers ---
 

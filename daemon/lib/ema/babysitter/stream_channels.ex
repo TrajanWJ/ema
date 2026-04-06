@@ -336,46 +336,43 @@ defmodule Ema.Babysitter.StreamChannels do
     now = ts()
     total = safe_int(fn -> Ema.Repo.aggregate(Ema.ClaudeSessions.ClaudeSession, :count) end)
 
-    # Use live session file data if available from SessionObserver
-    {live_sessions, stalled, just_completed} =
-      case session_snapshot do
-        %{sessions: s, stalled: st, just_completed: jc} ->
-          {s, st, jc}
-
-        nil ->
-          try do
-            snap = Ema.Babysitter.SessionObserver.snapshot()
-            {snap[:sessions] || [], snap[:stalled] || [], snap[:just_completed] || []}
-          rescue
-            _ -> {[], [], []}
-          end
-      end
+    {live_sessions, stalled, just_completed} = normalize_session_snapshot(session_snapshot)
 
     active_live = live_sessions |> Enum.filter(&(&1.status == :active))
     active_count = length(active_live)
+
+    pending_tasks =
+      safe_int(fn ->
+        Ema.Repo.aggregate(
+          from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress", "active", "blocked"]),
+          :count
+        )
+      end)
+
+    queued_proposals =
+      safe_int(fn ->
+        Ema.Repo.aggregate(
+          from(p in Ema.Proposals.Proposal, where: p.status == "queued"),
+          :count
+        )
+      end)
 
     session_lines =
       if active_live == [] do
         "  └ no active sessions"
       else
         active_live
+        |> Enum.take(5)
         |> Enum.map(fn s ->
-          _proj =
+          proj =
             (s.project_path || "?")
             |> String.split("/")
-            |> Enum.take(-2)
-            |> Enum.join("/")
-            |> truncate(30)
+            |> List.last()
+            |> truncate(24)
 
-          tool = if s.last_tool, do: " · ", else: ""
-
-          text =
-            if s.last_text,
-              do: "
-    _#{truncate(s.last_text, 70)}_",
-              else: ""
-
-          "  └ 🤖 #{tool}#{text}"
+          tool = if s.last_tool, do: " · tool `#{s.last_tool}`", else: ""
+          text = if s.last_text, do: " · #{truncate(s.last_text, 52)}", else: ""
+          "  └ 🤖 `#{proj}`#{tool}#{text}"
         end)
         |> Enum.join("
 ")
@@ -383,36 +380,49 @@ defmodule Ema.Babysitter.StreamChannels do
 
     stall_line =
       if stalled != [] do
-        names =
-          stalled
-          |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last()))
-          |> Enum.join(", ")
-
-        "
-⚠️ **stalled >5m:** #{names}"
-      else
-        ""
+        names = stalled |> Enum.take(4) |> Enum.map(&session_label/1) |> Enum.join(", ")
+        "⚠️ **stalled >5m:** #{names}"
       end
 
     done_line =
       if just_completed != [] do
-        names =
-          just_completed
-          |> Enum.map(&((&1.project_path || "?") |> String.split("/") |> List.last()))
-          |> Enum.join(", ")
-
-        "
-✅ **just completed:** #{names}"
-      else
-        ""
+        names = just_completed |> Enum.take(4) |> Enum.map(&session_label/1) |> Enum.join(", ")
+        "✅ **just completed:** #{names}"
       end
 
-    """
-    🤖 **agent thoughts ##{n}** · #{now}
-    **#{active_count} active live** / #{total} total sessions#{stall_line}#{done_line}
-    #{session_lines}
-    -# Live .jsonl file scan · tool calls · assistant text
-    """
+    next_line =
+      cond do
+        stalled != [] ->
+          "🧭 **next:** inspect stalled sessions before spawning more work"
+
+        just_completed != [] ->
+          "🧭 **next:** harvest completed session output into tasks / proposals / memory"
+
+        active_count == 0 and pending_tasks > 0 ->
+          "🧭 **next:** queue an agent run for the pending task backlog"
+
+        queued_proposals > 0 ->
+          "🧭 **next:** move queued proposals toward approval or execution"
+
+        active_count > 0 ->
+          "🧭 **next:** keep monitoring active sessions and capture deltas worth keeping"
+
+        true ->
+          "🧭 **next:** system is idle; wait for fresh intent or operator input"
+      end
+
+    lines = [
+      "🤖 **agent thoughts ##{n}** · #{now}",
+      "**#{active_count} active live** / #{total} total sessions · **#{pending_tasks}** pending tasks · **#{queued_proposals}** queued proposals",
+      stall_line,
+      done_line,
+      session_lines,
+      next_line,
+      "-# Live .jsonl file scan + EMA queue state + babysitter session posture"
+    ] |> Enum.reject(&is_nil/1)
+
+    Enum.join(lines, "
+")
   end
 
   defp build_message(:intelligence, n, _started, _snap) do
@@ -1040,6 +1050,16 @@ defmodule Ema.Babysitter.StreamChannels do
   end
 
   defp degraded_stream_summary?(_stream, _session_snapshot), do: false
+
+  defp session_label(%{project_path: path}) when is_binary(path) do
+    path |> String.split("/") |> List.last() |> truncate(24)
+  end
+
+  defp session_label(%{path: path}) when is_binary(path) do
+    path |> String.split("/") |> List.last() |> truncate(24)
+  end
+
+  defp session_label(_), do: "unknown"
 
   defp normalize_session_snapshot(%{
          sessions: sessions,
