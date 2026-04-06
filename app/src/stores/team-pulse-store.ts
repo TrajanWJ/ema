@@ -49,11 +49,6 @@ interface TeamPulseState {
   loading: boolean;
   error: string | null;
   loadViaRest: () => Promise<void>;
-  loadStandups: () => Promise<void>;
-  submitStandup: (data: {
-    agent_id: string;
-    content: string;
-  }) => Promise<void>;
 }
 
 export const useTeamPulseStore = create<TeamPulseState>((set) => ({
@@ -89,23 +84,4 @@ export const useTeamPulseStore = create<TeamPulseState>((set) => ({
     }
   },
 
-  async loadStandups() {
-    try {
-      const data = await api.get<{ members: TeamMember[] }>(
-        "/team-pulse/standups",
-      );
-      set({ members: data.members });
-    } catch (e) {
-      console.warn("Failed to load standups:", e);
-    }
-  },
-
-  async submitStandup(payload) {
-    try {
-      await api.post("/team-pulse/standups", payload);
-      await useTeamPulseStore.getState().loadStandups();
-    } catch (e) {
-      set({ error: String(e) });
-    }
-  },
 }));

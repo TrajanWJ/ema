@@ -31,8 +31,6 @@ interface MetaMindState {
   savePrompt: (data: Partial<SavedPrompt>) => Promise<void>;
   deletePrompt: (id: string) => Promise<void>;
   trackOutcome: (id: string, success: boolean) => Promise<void>;
-  loadStats: () => Promise<void>;
-  triggerResearch: () => Promise<void>;
   setSearchQuery: (query: string) => void;
   setCategoryFilter: (category: string | null) => void;
 }
@@ -50,7 +48,7 @@ export const useMetaMindStore = create<MetaMindState>((set, get) => ({
   categoryFilter: null,
 
   async loadPrompts() {
-    const data = await api.get<{ prompts: SavedPrompt[] }>("/metamind/prompts");
+    const data = await api.get<{ prompts: SavedPrompt[] }>("/metamind/library");
     set({ prompts: data.prompts });
   },
 
@@ -135,38 +133,21 @@ export const useMetaMindStore = create<MetaMindState>((set, get) => ({
       return;
     }
     const data = await api.get<{ prompts: SavedPrompt[] }>(
-      `/metamind/prompts/search?q=${encodeURIComponent(query)}`
+      `/metamind/library?q=${encodeURIComponent(query)}`
     );
     set({ prompts: data.prompts });
   },
 
   async savePrompt(data) {
-    await api.post("/metamind/prompts", data);
+    await api.post("/metamind/library", data);
   },
 
   async deletePrompt(id) {
-    await api.delete(`/metamind/prompts/${id}`);
+    await api.delete(`/metamind/library/${id}`);
   },
 
   async trackOutcome(id, success) {
-    await api.post(`/metamind/prompts/${id}/outcome`, { success });
-  },
-
-  async loadStats() {
-    const data = await api.get<{
-      interceptor: InterceptorStats;
-      reviewer: ReviewerStats;
-      researcher: ResearcherStats;
-    }>("/metamind/stats");
-    set({
-      interceptorStats: data.interceptor,
-      reviewerStats: data.reviewer,
-      researcherStats: data.researcher,
-    });
-  },
-
-  async triggerResearch() {
-    await api.post("/metamind/research", {});
+    await api.post(`/metamind/library/${id}/outcome`, { success });
   },
 
   setSearchQuery(query) {

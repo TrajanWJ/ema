@@ -40,11 +40,10 @@ const DOCK_APPS = [
   { id: "routine-builder", icon: "\u21BB", label: "Routines" },
   { id: "finance-tracker", icon: "\uD83D\uDCB0", label: "Finance" },
   { id: "contacts-crm", icon: "\uD83D\uDC64", label: "Contacts" },
-  { id: "goal-planner", icon: "\uD83C\uDFAF", label: "Goal Planner" },
   // Chunk 5
   { id: "team-pulse", icon: "\uD83D\uDC65", label: "Team Pulse" },
   { id: "meeting-room", icon: "\uD83D\uDCC5", label: "Meetings" },
-  { id: "project-portfolio", icon: "\u25A3", label: "Portfolio" },
+
   { id: "invoice-billing", icon: "\uD83D\uDCC4", label: "Invoices" },
   { id: "audit-trail", icon: "\uD83D\uDD0D", label: "Audit Trail" },
   // Monitoring & Intelligence
@@ -61,7 +60,7 @@ const DOCK_APPS = [
   // Organizations & P2P
   { id: "org", icon: "\u2B21", label: "Organizations" },
   // Learning Loop
-  { id: "outcome-dashboard", icon: "📊", label: "Outcome Dashboard" },
+
   { id: "obsidian-vault", icon: "📚", label: "Obsidian Vault" },
 ] as const;
 
