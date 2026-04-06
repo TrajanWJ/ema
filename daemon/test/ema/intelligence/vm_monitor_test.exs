@@ -16,7 +16,7 @@ defmodule Ema.Intelligence.VmMonitorTest do
     assert heartbeat.sample_count == 6
     assert heartbeat.consecutive_good == 6
     assert heartbeat.consecutive_bad == 0
-    assert heartbeat.narrative =~ "holding steady"
+    assert heartbeat.narrative =~ "looks steady"
   end
 
   test "marks healthy service after recent misses as recovering" do

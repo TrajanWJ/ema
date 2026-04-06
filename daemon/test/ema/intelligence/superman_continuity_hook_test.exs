@@ -9,8 +9,9 @@ defmodule Ema.Intelligence.SupermanContinuityHookTest do
   import Ema.Factory
 
   setup do
-    # Start SessionStore (disabled in test config)
+    # Start SessionStore and SessionManager (disabled in test config)
     start_supervised!(SessionStore)
+    start_supervised!(SessionManager)
     :ok
   end
 

@@ -3,6 +3,11 @@ defmodule Ema.Agents.SupervisorTest do
 
   alias Ema.Agents
 
+  setup do
+    start_supervised!({Ema.Agents.Supervisor, []})
+    :ok
+  end
+
   test "start_active_agents starts workers for active agents" do
     {:ok, agent} =
       Agents.create_agent(%{

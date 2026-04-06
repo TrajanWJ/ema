@@ -4,6 +4,8 @@ defmodule Ema.Babysitter.ChannelTopologyTest do
   alias Ema.Babysitter.{ChannelTopology, StreamChannels, StreamTicker}
   alias Ema.Feedback.DiscordDelivery
 
+  @moduletag :requires_runtime
+
   test "topology exposes one live stream and keeps speculative feed dormant" do
     live = ChannelTopology.live_stream()
     dormant = ChannelTopology.dormant_streams()

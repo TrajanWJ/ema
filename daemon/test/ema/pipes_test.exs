@@ -4,6 +4,11 @@ defmodule Ema.PipesTest do
   alias Ema.Pipes
   alias Ema.Pipes.Registry
 
+  setup do
+    start_supervised!(Ema.Pipes.Supervisor)
+    :ok
+  end
+
   describe "create_pipe/1" do
     test "creates a pipe with valid attrs" do
       assert {:ok, pipe} =

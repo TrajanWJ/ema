@@ -11,6 +11,8 @@ defmodule Ema.Intelligence.ScopeAdvisorTest do
     Application.put_env(:ema, :ema_tracker_path, tmp_path)
     File.rm(tmp_path)
 
+    start_supervised!(Ema.Intelligence.OutcomeTracker)
+
     on_exit(fn ->
       File.rm(tmp_path)
 
