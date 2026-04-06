@@ -16,24 +16,18 @@ defmodule Ema.Babysitter.VisibilityHub do
   use GenServer
   require Logger
 
-  # Active topics (have actual PubSub broadcasters)
   @active_topics [
     "brain_dump",
     "executions",
     "task_events",
     "goals",
-    "pipes:config"
+    "pipes:config",
+    "claude_sessions",
+    "proposals:events",
+    "pipes:runs",
+    "projects",
+    "intents"
   ]
-
-  # TODO: Planned topics — no PubSub broadcasters yet.
-  # These domains broadcast via Endpoint.broadcast to Phoenix channels, not PubSub.
-  # Add PubSub broadcasts in the respective context modules when needed:
-  #   "claude_sessions"      — SessionWatcher uses Endpoint.broadcast
-  #   "proposals"            — Proposal engine uses Endpoint.broadcast
-  #   "pipes:runs"           — PipeExecutor uses Endpoint.broadcast
-  #   "projects"             — Projects context uses Endpoint.broadcast
-  #   "intelligence:routing" — not yet implemented
-  #   "babysitter:control"   — not yet implemented
 
   @default_buffer_size 100
 
@@ -158,6 +152,12 @@ defmodule Ema.Babysitter.VisibilityHub do
   defp topic_from_message({:goals, _, _}), do: "goals"
   # pipes:config broadcasts :pipes_changed atom
   defp topic_from_message(:pipes_changed), do: "pipes:config"
+  defp topic_from_message({:projects, _, _}), do: "projects"
+  defp topic_from_message({"proposal_" <> _, _}), do: "proposals:events"
+  defp topic_from_message({:pipe_run, _, _}), do: "pipes:runs"
+  defp topic_from_message({:session_detected, _}), do: "claude_sessions"
+  defp topic_from_message({:session_imported, _}), do: "claude_sessions"
+  defp topic_from_message({:intents, _, _}), do: "intents"
   defp topic_from_message(_), do: nil
 
   defp categorize("brain_dump"), do: :build
@@ -165,5 +165,10 @@ defmodule Ema.Babysitter.VisibilityHub do
   defp categorize("task_events"), do: :pipeline
   defp categorize("goals"), do: :pipeline
   defp categorize("pipes:config"), do: :system
+  defp categorize("proposals:events"), do: :pipeline
+  defp categorize("projects"), do: :build
+  defp categorize("pipes:runs"), do: :system
+  defp categorize("claude_sessions"), do: :sessions
+  defp categorize("intents"), do: :pipeline
   defp categorize(_), do: :unknown
 end

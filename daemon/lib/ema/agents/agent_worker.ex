@@ -433,15 +433,9 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   defp execute_tool(tool_name, input) do
-    case tool_name do
-      "brain_dump:create_item" ->
-        case Ema.BrainDump.create_item(input) do
-          {:ok, item} -> %{tool: tool_name, result: %{id: item.id}}
-          {:error, reason} -> %{tool: tool_name, error: inspect(reason)}
-        end
-
-      _ ->
-        %{tool: tool_name, error: "Tool not implemented: #{tool_name}"}
+    case Ema.Agents.ToolDispatch.execute(tool_name, input) do
+      {:ok, result} -> %{tool: tool_name, result: result}
+      {:error, reason} -> %{tool: tool_name, error: inspect(reason)}
     end
   end
 

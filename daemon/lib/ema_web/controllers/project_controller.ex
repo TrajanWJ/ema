@@ -30,11 +30,13 @@ defmodule EmaWeb.ProjectController do
     }
 
     with {:ok, project} <- Projects.create_project(attrs) do
-      EmaWeb.Endpoint.broadcast("projects:lobby", "project_created", serialize_project(project))
+      serialized = serialize_project(project)
+      EmaWeb.Endpoint.broadcast("projects:lobby", "project_created", serialized)
+      Phoenix.PubSub.broadcast(Ema.PubSub, "projects", {:projects, :created, serialized})
 
       conn
       |> put_status(:created)
-      |> json(serialize_project(project))
+      |> json(serialized)
     end
   end
 
@@ -70,6 +72,7 @@ defmodule EmaWeb.ProjectController do
           )
 
           EmaWeb.Endpoint.broadcast("projects:lobby", "project_updated", serialized)
+          Phoenix.PubSub.broadcast(Ema.PubSub, "projects", {:projects, :updated, serialized})
 
           json(conn, serialized)
         end
@@ -84,6 +87,7 @@ defmodule EmaWeb.ProjectController do
       project ->
         with {:ok, _} <- Projects.delete_project(project) do
           EmaWeb.Endpoint.broadcast("projects:lobby", "project_deleted", %{id: id})
+          Phoenix.PubSub.broadcast(Ema.PubSub, "projects", {:projects, :deleted, %{id: id}})
           json(conn, %{ok: true})
         end
     end

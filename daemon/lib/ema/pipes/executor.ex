@@ -133,19 +133,19 @@ defmodule Ema.Pipes.Executor do
       error: error
     })
 
+    run_summary = %{
+      pipe_id: pipe.id,
+      pipe_name: pipe.name,
+      trigger: trigger_pattern,
+      status: status,
+      error: error,
+      started_at: started_at,
+      completed_at: completed_at
+    }
+
     # Broadcast execution status for the monitor UI
-    Phoenix.PubSub.broadcast(Ema.PubSub, "pipes:monitor", {
-      :pipe_executed,
-      %{
-        pipe_id: pipe.id,
-        pipe_name: pipe.name,
-        trigger: trigger_pattern,
-        status: status,
-        error: error,
-        started_at: started_at,
-        completed_at: completed_at
-      }
-    })
+    Phoenix.PubSub.broadcast(Ema.PubSub, "pipes:monitor", {:pipe_executed, run_summary})
+    Phoenix.PubSub.broadcast(Ema.PubSub, "pipes:runs", {:pipe_run, :completed, run_summary})
   end
 
   defp run_transforms(transforms, payload) do

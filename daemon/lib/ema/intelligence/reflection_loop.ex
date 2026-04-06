@@ -7,6 +7,7 @@ defmodule Ema.Intelligence.ReflectionLoop do
 
   require Logger
   alias Ema.Orchestration.AgentFitnessStore
+  alias Ema.Intelligence.ReflexionStore
 
   @doc "Async wrapper — fire and forget."
   def reflect_async(execution_id, result_text, agent_id \\ nil) do
@@ -37,6 +38,14 @@ defmodule Ema.Intelligence.ReflectionLoop do
         duration_ms: duration_ms,
         lesson_keywords: lesson
       })
+
+      ReflexionStore.record(
+        effective_agent,
+        execution.mode || "code",
+        execution.project_slug || "",
+        "#{execution.mode}: #{Enum.join(lesson.top_words, ", ")}",
+        Atom.to_string(outcome)
+      )
     end
 
     Ema.Intelligence.SignalProcessor.record(%{

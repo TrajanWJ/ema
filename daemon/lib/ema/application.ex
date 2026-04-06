@@ -121,7 +121,7 @@ defmodule Ema.Application do
             Ema.Agents.Supervisor.start_active_agents()
           end)
 
-          maybe_run_startup_bootstrap()
+          # BootstrapWatcher now handles startup bootstrap (with retry + rescan)
         end
 
       _ ->

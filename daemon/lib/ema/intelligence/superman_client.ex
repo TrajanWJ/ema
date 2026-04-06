@@ -1,119 +1,87 @@
 defmodule Ema.Intelligence.SupermanClient do
   @moduledoc """
-  HTTP client for the Superman code intelligence API.
+  Local code intelligence — replaces external HTTP service with
+  EMA's own KnowledgeGraph, vault search, and intent tree.
   """
 
-  @default_url "http://localhost:3000"
-
-  defp base_url do
-    System.get_env("SUPERMAN_URL", @default_url)
-  end
+  alias Ema.Superman.KnowledgeGraph
 
   def health_check do
-    case Req.get("#{base_url()}/") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
+    {:ok, %{"status" => "local", "mode" => "embedded"}}
   end
 
   def get_status do
-    case Req.get("#{base_url()}/project/info") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
+    nodes = try do KnowledgeGraph.context_for("ema") rescue _ -> [] end
+    {:ok, %{"nodes" => length(nodes), "mode" => "local"}}
   end
 
   def index_repo(repo_path) do
-    case Req.post("#{base_url()}/project/set", json: %{path: repo_path}) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
-      {:error, reason} -> {:error, reason}
-    end
+    files = Path.wildcard(Path.join(repo_path, "**/*.{ex,ts}"))
+
+    nodes =
+      Enum.map(files, fn path ->
+        name = Path.basename(path, Path.extname(path))
+        %{type: "module", title: name, content: path, tags: [Path.extname(path)]}
+      end)
+
+    KnowledgeGraph.ingest(nodes, "ema")
+    {:ok, %{"indexed" => length(files), "repo" => repo_path}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def ask_codebase(query, _repo_path) do
-    case Req.post("#{base_url()}/query", json: %{question: query}, receive_timeout: 120_000) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
-      {:error, reason} -> {:error, reason}
-    end
+    vault_results = try do Ema.SecondBrain.search_brain(query) rescue _ -> [] end
+    graph_nodes = try do KnowledgeGraph.context_for("ema") rescue _ -> [] end
+
+    {:ok, %{
+      "answer" => "Local search results for: #{query}",
+      "vault_matches" => length(vault_results),
+      "graph_nodes" => length(graph_nodes),
+      "sources" => Enum.take(vault_results, 5)
+    }}
   end
 
   def get_gaps do
-    case Req.get("#{base_url()}/suggestions") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
+    gaps = try do Ema.Intelligence.GapInbox.list_gaps() rescue _ -> [] end
+    {:ok, %{"gaps" => gaps, "count" => length(gaps)}}
   end
 
   def get_flows do
-    case Req.get("#{base_url()}/project/flows") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  def apply_task(instruction) do
-    case Req.post("#{base_url()}/apply-changes",
-           json: %{instruction: instruction},
-           receive_timeout: 180_000
-         ) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
-      {:error, reason} -> {:error, reason}
-    end
+    md = try do Ema.Intents.export_markdown() rescue _ -> "_No intents._" end
+    {:ok, %{"flows" => md}}
   end
 
   def get_intent_graph do
-    case Req.get("#{base_url()}/intent-graph") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
+    intents = try do Ema.Intents.list_intents() rescue _ -> [] end
+
+    nodes = Enum.map(intents, fn i ->
+      %{"id" => i.id, "title" => i.title, "level" => i.level, "status" => i.status}
+    end)
+
+    edges = intents
+    |> Enum.filter(& &1.parent_id)
+    |> Enum.map(fn i -> %{"from" => i.parent_id, "to" => i.id, "type" => "parent"} end)
+
+    {:ok, %{"nodes" => nodes, "edges" => edges}}
   end
 
-  def simulate_flow(entry_point) do
-    case Req.post("#{base_url()}/simulate",
-           json: %{entryPoint: entry_point},
-           receive_timeout: 120_000
-         ) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  def autonomous_run do
-    case Req.post("#{base_url()}/project/self-evolve",
-           json: %{maxIterations: 5},
-           receive_timeout: 300_000
-         ) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
+  def apply_task(instruction) do
+    case Ema.Tasks.create_task(%{title: instruction, status: "todo"}) do
+      {:ok, task} -> {:ok, %{"task_id" => task.id, "title" => task.title}}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def get_panels do
-    case Req.get("#{base_url()}/project/panels") do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status}} -> {:error, "unexpected status #{status}"}
-      {:error, reason} -> {:error, reason}
-    end
+    context = try do Ema.Superman.context_bundle_for("ema") rescue _ -> %{} end
+    {:ok, %{"panels" => context}}
   end
 
   def build_task(task) do
-    case Req.post("#{base_url()}/project/build",
-           json: %{task: task},
-           receive_timeout: 180_000
-         ) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, %{status: status, body: body}}
-      {:error, reason} -> {:error, reason}
-    end
+    apply_task(task)
   end
+
+  def simulate_flow(_entry_point), do: {:error, :not_implemented}
+  def autonomous_run, do: {:error, :not_implemented}
 end

@@ -11,7 +11,8 @@ defmodule Ema.IntentionFarmer.Supervisor do
       {Task.Supervisor, name: Ema.IntentionFarmer.TaskSupervisor},
       Ema.IntentionFarmer.SourceRegistry,
       Ema.IntentionFarmer.Watcher,
-      Ema.IntentionFarmer.BacklogFarmer
+      Ema.IntentionFarmer.BacklogFarmer,
+      Ema.IntentionFarmer.BootstrapWatcher
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

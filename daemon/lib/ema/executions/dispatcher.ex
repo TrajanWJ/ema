@@ -320,8 +320,10 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp format_prompt(packet) do
+    mode_prefix = Ema.Executions.Router.mode_system_prompt(packet.mode)
+
     """
-    # EMA Execution Delegation Packet
+    #{if mode_prefix != "", do: mode_prefix <> "\n\n---\n\n", else: ""}# EMA Execution Delegation Packet
 
     **Execution ID:** #{packet.execution_id}
     **Project:** #{packet.project_slug || "ema"}
