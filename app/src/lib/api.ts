@@ -1,13 +1,18 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-
 const BASE = "http://localhost:4488/api";
 
-// Use Tauri's HTTP plugin which bypasses CORS and respects capability permissions.
-// In Tauri 2, the global is __TAURI_INTERNALS__ (not __TAURI__).
-export const doFetch =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
-    ? tauriFetch
-    : globalThis.fetch;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+// Resolve fetch: Tauri HTTP plugin in desktop, native fetch in browser.
+// Dynamic import avoids crash when @tauri-apps/plugin-http isn't available.
+let resolvedFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis);
+
+if (isTauri) {
+  import("@tauri-apps/plugin-http")
+    .then((mod) => { resolvedFetch = mod.fetch as typeof globalThis.fetch; })
+    .catch(() => { /* browser fallback */ });
+}
+
+export const doFetch: typeof globalThis.fetch = (...args) => resolvedFetch(...args);
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await doFetch(`${BASE}${path}`, {

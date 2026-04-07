@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { saveWindowState } from "@/lib/window-manager";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 interface AppWindowChromeProps {
   readonly appId: string;
@@ -21,38 +21,54 @@ export function AppWindowChrome({
   children,
 }: AppWindowChromeProps) {
   useEffect(() => {
-    const win = getCurrentWindow();
-
-    const unlistenClose = win.onCloseRequested(async (event) => {
-      event.preventDefault();
-      await saveWindowState(appId);
-      await useWorkspaceStore.getState().updateWindow(appId, { is_open: false });
-      await win.destroy();
-    });
-
-    return () => {
-      unlistenClose.then((fn) => fn());
-    };
+    if (!isTauri) return;
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const { saveWindowState } = await import("@/lib/window-manager");
+        const win = getCurrentWindow();
+        const unlistenClose = await win.onCloseRequested(async (event) => {
+          event.preventDefault();
+          await saveWindowState(appId);
+          await useWorkspaceStore.getState().updateWindow(appId, { is_open: false });
+          await win.destroy();
+        });
+        cleanup = unlistenClose;
+      } catch {
+        // Not in Tauri — no-op
+      }
+    })();
+    return () => { cleanup?.(); };
   }, [appId]);
 
   async function handleMinimize() {
-    await getCurrentWindow().minimize();
+    if (!isTauri) return;
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
+    } catch { /* browser */ }
   }
 
   async function handleMaximize() {
-    const win = getCurrentWindow();
-    const maximized = await win.isMaximized();
-    if (maximized) {
-      await win.unmaximize();
-    } else {
-      await win.maximize();
-    }
+    if (!isTauri) return;
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const win = getCurrentWindow();
+      const maximized = await win.isMaximized();
+      if (maximized) { await win.unmaximize(); } else { await win.maximize(); }
+    } catch { /* browser */ }
   }
 
   async function handleClose() {
-    await saveWindowState(appId);
-    await useWorkspaceStore.getState().updateWindow(appId, { is_open: false });
-    await getCurrentWindow().destroy();
+    if (!isTauri) return;
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const { saveWindowState } = await import("@/lib/window-manager");
+      await saveWindowState(appId);
+      await useWorkspaceStore.getState().updateWindow(appId, { is_open: false });
+      await getCurrentWindow().destroy();
+    } catch { /* browser */ }
   }
 
   return (
