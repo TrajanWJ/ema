@@ -25,7 +25,17 @@ defmodule Ema.Intents.Populator do
     Phoenix.PubSub.subscribe(Ema.PubSub, "brain_dump")
     Phoenix.PubSub.subscribe(Ema.PubSub, "executions")
     Phoenix.PubSub.subscribe(Ema.PubSub, "vault:changes")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "ai:sessions")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "intention_farmer:events")
+
+    # Periodic backfeed: harvest unprocessed intents into wiki pages
+    schedule_backfeed()
     {:ok, %{}}
+  end
+
+  defp schedule_backfeed do
+    Process.send_after(self(), :backfeed_harvested_intents, :timer.minutes(10))
   end
 
   # ── Wiki Intent Page → DB Intent ────────────────────────────────
@@ -56,6 +66,35 @@ defmodule Ema.Intents.Populator do
 
   def handle_info({"execution:completed", %{execution: execution, signal: _signal}}, state) do
     handle_execution_completed(execution)
+    {:noreply, state}
+  end
+
+  # ── Session Completed → Extract Intent ───────────────────────────
+
+  def handle_info({:session_completed, session}, state) do
+    handle_session_backfeed(session)
+    {:noreply, state}
+  end
+
+  # ── Proposal Created → Check for Intent Linkage ─────────────────
+
+  def handle_info({:proposals, :queued, proposal}, state) do
+    handle_proposal_intent_link(proposal)
+    {:noreply, state}
+  end
+
+  # ── IntentionFarmer Bootstrap Complete → Backfeed Harvested ──────
+
+  def handle_info({:startup_bootstrap_complete, _payload}, state) do
+    Task.start(fn -> backfeed_harvested_intents() end)
+    {:noreply, state}
+  end
+
+  # ── Periodic Backfeed Timer ─────────────────────────────────────
+
+  def handle_info(:backfeed_harvested_intents, state) do
+    Task.start(fn -> backfeed_harvested_intents() end)
+    schedule_backfeed()
     {:noreply, state}
   end
 
@@ -270,4 +309,150 @@ defmodule Ema.Intents.Populator do
   end
 
   defp find_intent_from_execution_anchor(_), do: nil
+
+  # ── Session Backfeed ─────────────────────────────────────────────
+
+  defp handle_session_backfeed(session) do
+    # Extract intent from session metadata and create wiki page if new
+    project_path = Map.get(session, :project_path) || Map.get(session, "project_path")
+    title = Map.get(session, :title) || Map.get(session, "title") || "Session #{Map.get(session, :id, "unknown")}"
+
+    fingerprint = "session:#{Map.get(session, :id) || Map.get(session, "id")}"
+
+    unless Intents.get_intent_by_fingerprint(fingerprint) do
+      project_id = if project_path, do: resolve_project_from_path(project_path)
+
+      attrs = %{
+        title: String.slice(title, 0, 120),
+        description: "Extracted from coding session. Project: #{project_path || "unknown"}",
+        level: 5,
+        kind: "task",
+        source_type: "wiki",
+        source_fingerprint: fingerprint,
+        provenance_class: "medium",
+        status: "planned",
+        project_id: project_id
+      }
+
+      case Intents.create_intent(attrs) do
+        {:ok, intent} ->
+          Logger.debug("[Populator] Created intent from session: #{intent.slug}")
+          # IntentProjector will auto-create wiki page
+
+        {:error, _} -> :ok
+      end
+    end
+  rescue
+    _ -> :ok
+  end
+
+  defp handle_proposal_intent_link(proposal) do
+    # When a proposal reaches "queued", check if it should be linked to an intent
+    title = Map.get(proposal, :title) || Map.get(proposal, "title") || ""
+
+    # Try to find a matching intent by slug similarity
+    slug = Ema.Executions.IntentFolder.slugify(String.slice(title, 0, 60))
+
+    case Intents.get_intent_by_slug(slug) do
+      %{id: intent_id} ->
+        proposal_id = Map.get(proposal, :id) || Map.get(proposal, "id")
+        if proposal_id do
+          Intents.link_intent(intent_id, "proposal", to_string(proposal_id),
+            role: "evidence",
+            provenance: "system"
+          )
+        end
+
+      nil -> :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  # ── Periodic Harvested Intent Backfeed ───────────────────────────
+
+  defp backfeed_harvested_intents do
+    # Read HarvestedIntent records that haven't been converted to intents yet
+    import Ecto.Query
+
+    harvested =
+      try do
+        if Code.ensure_loaded?(Ema.IntentionFarmer.HarvestedIntent) do
+          Ema.Repo.all(
+            from hi in Ema.IntentionFarmer.HarvestedIntent,
+              where: hi.loaded == false,
+              limit: 20,
+              order_by: [desc: hi.inserted_at]
+          )
+        else
+          []
+        end
+      rescue
+        _ -> []
+      end
+
+    for hi <- harvested do
+      fingerprint = "harvest:#{hi.id}"
+
+      unless Intents.get_intent_by_fingerprint(fingerprint) do
+        attrs = %{
+          title: String.slice(hi.title || hi.content || "", 0, 120),
+          description: hi.content,
+          level: 4,
+          kind: to_string(hi.intent_type || "task"),
+          source_type: "wiki",
+          source_fingerprint: fingerprint,
+          provenance_class: "medium",
+          status: "planned",
+          project_id: hi.project_id
+        }
+
+        case Intents.create_intent(attrs) do
+          {:ok, intent} ->
+            Logger.info("[Populator] Backfed harvested intent → #{intent.slug}")
+            # Mark as loaded
+            try do
+              hi
+              |> Ecto.Changeset.change(%{loaded: true})
+              |> Ema.Repo.update()
+            rescue
+              _ -> :ok
+            end
+
+          {:error, _} -> :ok
+        end
+      end
+    end
+
+    if length(harvested) > 0 do
+      Logger.info("[Populator] Backfed #{length(harvested)} harvested intents")
+    end
+  rescue
+    e -> Logger.debug("[Populator] Backfeed skipped: #{Exception.message(e)}")
+  end
+
+  defp resolve_project_from_path(nil), do: nil
+  defp resolve_project_from_path(path) when is_binary(path) do
+    # Try to match project by linked_path
+    import Ecto.Query
+
+    case Ema.Repo.one(
+           from p in Ema.Projects.Project,
+             where: not is_nil(p.linked_path) and p.linked_path == ^path,
+             select: p.id,
+             limit: 1
+         ) do
+      nil ->
+        # Fallback: match by path suffix
+        slug = path |> String.split("/") |> List.last()
+        case Ema.Projects.get_project_by_slug(slug || "") do
+          %{id: id} -> id
+          nil -> nil
+        end
+
+      id -> id
+    end
+  rescue
+    _ -> nil
+  end
 end
