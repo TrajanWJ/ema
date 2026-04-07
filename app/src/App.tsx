@@ -24,14 +24,14 @@ import { AgentsApp } from "@/components/agents/AgentsApp";
 import { CanvasApp } from "@/components/canvas/CanvasApp";
 import { PipesApp } from "@/components/pipes/PipesApp";
 import { EvolutionDashboard } from "@/components/evolution/EvolutionDashboard";
-// TODO: WhiteboardApp — Excalidraw-powered free-form drawing (Phase 5)
-// TODO: StoryboardApp — sequential narrative planning (Phase 5)
+import { WhiteboardApp } from "@/components/whiteboard/WhiteboardApp";
+import { StoryboardApp } from "@/components/storyboard/StoryboardApp";
 
 // Operations
 import { DecisionLogApp } from "@/components/decision-log/DecisionLogApp";
 import { CampaignsApp } from "@/components/campaigns/CampaignsApp";
-// TODO: GovernanceApp — policy engine, trust scoring, cost gates (Phase 5)
-// TODO: BabysitterApp — system health, anomaly detection (Phase 5)
+import { GovernanceApp } from "@/components/governance/GovernanceApp";
+import { BabysitterApp } from "@/components/babysitter/BabysitterApp";
 
 // Life
 import { HabitsApp } from "@/components/habits/HabitsApp";
@@ -45,9 +45,11 @@ import { GoalsApp } from "@/components/goals/GoalsApp";
 import { SettingsApp } from "@/components/settings/SettingsApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
 // TODO: AgentWorkspaceApp — MCP phase cadence viewer (Phase 5)
-// TODO: OperatorChatApp — calm unified chat to drive EMA (Phase 5)
-// TODO: AgentChatApp — chat WITH agents (Phase 5)
-// TODO: HQApp — dynamic widget home surface (Phase 3)
+import { HQApp } from "@/components/hq/HQApp";
+
+// Chat
+import { OperatorChatApp } from "@/components/operator-chat/OperatorChatApp";
+import { AgentChatApp } from "@/components/agent-chat/AgentChatApp";
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -84,12 +86,20 @@ function AppContent() {
       return <PipesApp />;
     case "evolution":
       return <EvolutionDashboard />;
+    case "whiteboard":
+      return <WhiteboardApp />;
+    case "storyboard":
+      return <StoryboardApp />;
 
     // Operations
     case "decision-log":
       return <DecisionLogApp />;
     case "campaigns":
       return <CampaignsApp />;
+    case "governance":
+      return <GovernanceApp />;
+    case "babysitter":
+      return <BabysitterApp />;
 
     // Life
     case "habits":
@@ -111,7 +121,16 @@ function AppContent() {
     case "voice":
       return <VoiceApp />;
 
-    // Default: Launchpad (will become HQ in Phase 3)
+    case "hq":
+      return <HQApp />;
+
+    // Chat
+    case "operator-chat":
+      return <OperatorChatApp />;
+    case "agent-chat":
+      return <AgentChatApp />;
+
+    // Default: Launchpad
     default:
       return (
         <Shell>

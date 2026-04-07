@@ -52,9 +52,13 @@ const APP_REGISTRY: readonly AppEntry[] = [
   { id: "canvas", name: "Canvas", category: "creative" },
   { id: "pipes", name: "Pipes", category: "creative" },
   { id: "evolution", name: "Evolution", category: "creative" },
+  { id: "whiteboard", name: "Whiteboard", category: "creative" },
+  { id: "storyboard", name: "Storyboard", category: "creative" },
   // Operations
   { id: "decision-log", name: "Decisions", category: "operations" },
   { id: "campaigns", name: "Campaigns", category: "operations" },
+  { id: "governance", name: "Governance", category: "operations" },
+  { id: "babysitter", name: "Babysitter", category: "operations" },
   // Life
   { id: "habits", name: "Habits", category: "life" },
   { id: "journal", name: "Journal", category: "life" },
