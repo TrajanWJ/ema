@@ -4,10 +4,10 @@ defmodule Ema.IntentionFarmer.ImportCatalog do
   alias Ema.Ingestor
   alias Ema.IntentionFarmer.{Parser, SourceRegistry}
 
-  @catalog_dir Path.expand("~/.local/share/ema/import-manifests")
+  defp catalog_dir, do: Path.join(Ema.Config.data_dir(), "import-manifests")
 
   def sync do
-    File.mkdir_p!(@catalog_dir)
+    File.mkdir_p!(catalog_dir())
 
     imports =
       SourceRegistry.sources()
@@ -21,9 +21,9 @@ defmodule Ema.IntentionFarmer.ImportCatalog do
   end
 
   def list do
-    File.mkdir_p!(@catalog_dir)
+    File.mkdir_p!(catalog_dir())
 
-    Path.wildcard(Path.join(@catalog_dir, "*.json"))
+    Path.wildcard(Path.join(catalog_dir(), "*.json"))
     |> Enum.map(fn path ->
       path
       |> File.read!()
@@ -83,7 +83,7 @@ defmodule Ema.IntentionFarmer.ImportCatalog do
   end
 
   defp write_manifest(entry) do
-    path = Path.join(@catalog_dir, "#{entry["id"]}.json")
+    path = Path.join(catalog_dir(), "#{entry["id"]}.json")
     File.write!(path, Jason.encode_to_iodata!(entry, pretty: true))
   end
 

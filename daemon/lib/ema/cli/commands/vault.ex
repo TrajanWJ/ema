@@ -200,7 +200,7 @@ defmodule Ema.CLI.Commands.Vault do
   end
 
   def handle([:imports], _parsed, _transport, opts) do
-    vault_root = Application.get_env(:ema, :vault_path, "~/.local/share/ema/vault")
+    vault_root = Ema.Config.vault_path()
     provenance = Path.expand("#{vault_root}/imports/_provenance.md")
 
     if File.exists?(provenance) do
@@ -217,7 +217,7 @@ defmodule Ema.CLI.Commands.Vault do
   end
 
   def handle([:stale], _parsed, _transport, opts) do
-    vault_root = Application.get_env(:ema, :vault_path, "~/.local/share/ema/vault")
+    vault_root = Ema.Config.vault_path()
     intents_dir = Path.expand("#{vault_root}/intents")
 
     if File.dir?(intents_dir) do

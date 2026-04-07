@@ -1,9 +1,7 @@
 defmodule Ema.Ingestor.ImportWorkspace do
   @moduledoc "Stages import inputs into EMA's managed import workspace."
 
-  @workspace_root Path.expand("~/.local/share/ema/imports")
-
-  def workspace_root, do: @workspace_root
+  def workspace_root, do: Path.join(Ema.Config.data_dir(), "imports")
 
   def stage(params) do
     File.mkdir_p!(@workspace_root)

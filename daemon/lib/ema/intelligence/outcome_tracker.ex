@@ -168,7 +168,7 @@ defmodule Ema.Intelligence.OutcomeTracker do
     Application.get_env(
       :ema,
       :ema_tracker_path,
-      Path.expand("~/.local/share/ema/outcome-tracker.json")
+      Path.join(Ema.Config.data_dir(), "outcome-tracker.json")
     )
   end
 end

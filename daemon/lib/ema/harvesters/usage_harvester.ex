@@ -13,7 +13,7 @@ defmodule Ema.Harvesters.UsageHarvester do
 
   require Logger
 
-  @tracker_path Path.expand("~/.local/share/ema/outcome-tracker.json")
+  defp tracker_path, do: Path.join(Ema.Config.data_dir(), "outcome-tracker.json")
   @low_success_threshold 0.7
   @min_executions_for_alert 5
 
@@ -28,7 +28,7 @@ defmodule Ema.Harvesters.UsageHarvester do
     outcomes = read_outcomes()
 
     if outcomes == [] do
-      Logger.debug("[UsageHarvester] No outcome data found at #{@tracker_path}")
+      Logger.debug("[UsageHarvester] No outcome data found at #{tracker_path()}")
       {:ok, %{items_found: 0, seeds_created: 0, metadata: %{note: "no outcome data"}}}
     else
       stats = aggregate_stats(outcomes)
@@ -229,7 +229,7 @@ defmodule Ema.Harvesters.UsageHarvester do
       Application.get_env(
         :ema,
         :ema_tracker_path,
-        @tracker_path
+        tracker_path()
       )
 
     case File.read(path) do

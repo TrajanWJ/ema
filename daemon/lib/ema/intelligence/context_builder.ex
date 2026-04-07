@@ -11,12 +11,10 @@ defmodule Ema.Intelligence.ContextBuilder do
   All reads degrade gracefully — missing files return empty strings/lists.
   """
 
-  # NOTE: vault_path resolved at runtime via Ema.Config.vault_path/0 — do NOT use compile_env here
-  @ema_tracker_path Application.compile_env(
-                      :ema,
-                      :ema_tracker_path,
-                      Path.expand("~/.local/share/ema/outcome-tracker.json")
-                    )
+  defp ema_tracker_path do
+    Application.get_env(:ema, :ema_tracker_path) ||
+      Path.join(Ema.Config.data_dir(), "outcome-tracker.json")
+  end
 
   @doc """
   Build a context map for the given execution.
@@ -52,7 +50,7 @@ defmodule Ema.Intelligence.ContextBuilder do
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp get_recent_outcomes(domain, n) do
-    case File.read(@ema_tracker_path) do
+    case File.read(ema_tracker_path()) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, entries} when is_list(entries) ->

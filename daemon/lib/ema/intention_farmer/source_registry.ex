@@ -10,7 +10,7 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
   @claude_tasks_root Path.expand("~/.claude/tasks")
   @codex_sessions_root Path.expand("~/.codex/sessions")
   @codex_history_path Path.expand("~/.codex/history.jsonl")
-  @imports_root Path.expand("~/.local/share/ema/imports")
+  defp imports_root, do: Path.join(Ema.Config.data_dir(), "imports")
   @downloads_root Path.expand("~/Downloads")
 
   def start_link(opts \\ []) do
@@ -129,7 +129,7 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
 
   defp discover_import_sources do
     import_roots = [
-      {@imports_root, true},
+      {imports_root(), true},
       {@downloads_root, false}
     ]
 

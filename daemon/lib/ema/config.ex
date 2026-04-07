@@ -13,10 +13,24 @@ defmodule Ema.Config do
   Configure via: config :ema, vault_path: "/custom/path"
   or at runtime via EMA_VAULT_PATH environment variable (legacy; prefer app config).
   """
+  @doc """
+  Returns the EMA data directory root. All EMA state lives under this path.
+
+  Configure via: config :ema, data_dir: "/custom/path"
+  or EMA_DATA_DIR environment variable.
+
+  Default: ~/.local/share/ema
+  """
+  def data_dir do
+    System.get_env("EMA_DATA_DIR") ||
+      Application.get_env(:ema, :data_dir) ||
+      Path.expand("~/.local/share/ema")
+  end
+
   def vault_path do
     System.get_env("EMA_VAULT_PATH") ||
       Application.get_env(:ema, :vault_path) ||
-      Path.expand("~/.local/share/ema/vault")
+      Path.join(data_dir(), "vault")
   end
 
   @doc """

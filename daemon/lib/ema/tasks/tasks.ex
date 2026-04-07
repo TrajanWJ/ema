@@ -163,7 +163,7 @@ defmodule Ema.Tasks do
   end
 
   defp append_bypass_log(entry) do
-    dir = Path.expand("~/.local/share/ema")
+    dir = Ema.Config.data_dir()
     path = Path.join(dir, "deliberation-bypasses.jsonl")
 
     with :ok <- File.mkdir_p(dir) do
