@@ -6,27 +6,37 @@ defmodule Ema.CLI.Commands.Watch do
   @channel_topics %{
     "all" => [
       "babysitter:sessions",
+      "brain_dump",
       "campaigns:events",
       "campaigns:updates",
       "channels:messages",
+      "claude_sessions",
       "executions",
       "focus:updates",
-      "goals:updates",
+      "goals",
+      "intents",
       "pipes:monitor",
+      "pipes:runs",
+      "projects",
+      "proposals:events",
       "proposals:pipeline",
-      "vault:changes",
-      "pipe_trigger:tasks:created",
-      "pipe_trigger:tasks:completed"
+      "task_events",
+      "vault:changes"
     ],
     "babysitter" => ["babysitter:sessions"],
+    "brain-dump" => ["brain_dump"],
     "campaigns" => ["campaigns:events", "campaigns:updates"],
     "channels" => ["channels:messages"],
     "executions" => ["executions"],
     "focus" => ["focus:updates"],
-    "goals" => ["goals:updates"],
-    "pipes" => ["pipes:monitor"],
-    "proposals" => ["proposals:pipeline"],
-    "tasks" => ["pipe_trigger:tasks:created", "pipe_trigger:tasks:completed"],
+    "goals" => ["goals"],
+    "intents" => ["intents"],
+    "pipeline" => ["proposals:pipeline", "proposals:events"],
+    "pipes" => ["pipes:monitor", "pipes:runs"],
+    "projects" => ["projects"],
+    "proposals" => ["proposals:pipeline", "proposals:events"],
+    "sessions" => ["claude_sessions"],
+    "tasks" => ["task_events"],
     "vault" => ["vault:changes"]
   }
 
@@ -39,8 +49,8 @@ defmodule Ema.CLI.Commands.Watch do
       is_nil(topics) ->
         Output.error("Unknown watch channel: #{channel}")
 
-      transport != Ema.CLI.Transport.Direct ->
-        Output.error("watch requires a direct runtime; HTTP polling mode was removed")
+      transport == Ema.CLI.Transport.Http ->
+        run_http_watch(channel, format, transport)
 
       opts[:json] ->
         Output.json(%{channel: channel, topics: topics, mode: "pubsub"})
@@ -87,6 +97,41 @@ defmodule Ema.CLI.Commands.Watch do
 
       {:EXIT, _pid, _reason} ->
         receive_loop(format)
+    end
+  end
+
+  defp run_http_watch(channel, format, transport) do
+    IO.puts("EMA Watch #{channel} (HTTP polling, 3s interval)  Ctrl+C to exit")
+    IO.puts(String.duplicate("-", 80))
+    cursor = DateTime.utc_now() |> DateTime.to_iso8601()
+    http_poll_loop(format, transport, cursor)
+  end
+
+  defp http_poll_loop(format, transport, cursor) do
+    case transport.get("/babysitter/state") do
+      {:ok, %{"events" => events}} ->
+        new_events = events |> Enum.filter(fn e -> (e["at"] || "") > cursor end)
+
+        Enum.each(new_events, fn e ->
+          time = (e["at"] || "") |> String.slice(11, 8) || "??:??:??"
+          topic = e["topic"] || "unknown"
+          cat = category_for(topic)
+          IO.puts("[#{time}] #{label_for(cat)} #{topic}")
+          IO.puts("  #{inspect(e["event"], pretty: false, limit: 8)}")
+        end)
+
+        new_cursor = case List.last(new_events) do
+          %{"at" => at} -> at
+          _ -> cursor
+        end
+
+        Process.sleep(3_000)
+        http_poll_loop(format, transport, new_cursor)
+
+      {:error, reason} ->
+        IO.puts("[error] #{inspect(reason)}")
+        Process.sleep(5_000)
+        http_poll_loop(format, transport, cursor)
     end
   end
 
@@ -159,25 +204,33 @@ defmodule Ema.CLI.Commands.Watch do
   end
 
   defp category_for("babysitter:" <> _), do: :babysitter
+  defp category_for("brain_dump"), do: :brain_dump
   defp category_for("campaigns:" <> _), do: :campaign
   defp category_for("channels:" <> _), do: :channel
+  defp category_for("claude_sessions"), do: :session
   defp category_for("executions"), do: :execution
   defp category_for("focus:" <> _), do: :focus
-  defp category_for("goals:" <> _), do: :goal
+  defp category_for("goals" <> _), do: :goal
+  defp category_for("intents"), do: :intent
   defp category_for("pipes:" <> _), do: :pipe
+  defp category_for("projects"), do: :project
   defp category_for("proposals:" <> _), do: :proposal
+  defp category_for("task_events"), do: :task
   defp category_for("vault:" <> _), do: :vault
-  defp category_for("pipe_trigger:tasks:" <> _), do: :task
   defp category_for(_), do: :event
 
   defp label_for(:babysitter), do: "BABY"
+  defp label_for(:brain_dump), do: "DUMP"
   defp label_for(:campaign), do: "CAMP"
   defp label_for(:channel), do: "CHAN"
   defp label_for(:execution), do: "EXEC"
   defp label_for(:focus), do: "FOCS"
   defp label_for(:goal), do: "GOAL"
+  defp label_for(:intent), do: "INTN"
   defp label_for(:pipe), do: "PIPE"
+  defp label_for(:project), do: "PROJ"
   defp label_for(:proposal), do: "PROP"
+  defp label_for(:session), do: "SESS"
   defp label_for(:task), do: "TASK"
   defp label_for(:vault), do: "VAUL"
   defp label_for(_), do: "EVNT"

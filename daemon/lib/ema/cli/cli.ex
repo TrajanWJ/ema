@@ -24,6 +24,7 @@ defmodule Ema.CLI do
 
     case maybe_dispatch_actor_command(args) do
       :continue ->
+        args = normalize_help_args(args)
         optimus = build_optimus()
 
         case Optimus.parse(optimus, args) do
@@ -877,7 +878,8 @@ defmodule Ema.CLI do
           options: [
             project: [short: "-p", long: "--project", help: "Filter by project", parser: :string],
             active: [long: "--active", help: "Filter active only", parser: :string],
-            type: [short: "-t", long: "--type", help: "Filter by seed type", parser: :string]
+            type: [short: "-t", long: "--type", help: "Filter by seed type", parser: :string],
+            limit: [short: "-l", long: "--limit", help: "Max results", parser: :integer]
           ]
         ],
         show: [
@@ -1460,7 +1462,12 @@ defmodule Ema.CLI do
 
   defp intent_spec, do: [name: "intent", about: "Intent engine", subcommands: [
     list: [name: "list", about: "List intents",
-      options: [project: [short: "-p", long: "--project", help: "Filter by project", parser: :string]]],
+      options: [
+        project: [short: "-p", long: "--project", help: "Filter by project", parser: :string],
+        status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
+        level: [short: "-l", long: "--level", help: "Filter by level (0-5)", parser: :integer],
+        limit: [long: "--limit", help: "Max results", parser: :integer]
+      ]],
     show: [name: "show", about: "Show intent", args: [id: [required: true, help: "Intent ID"]]],
     create: [name: "create", about: "Create intent",
       args: [title: [required: true, help: "Intent title"]],
@@ -1518,6 +1525,7 @@ defmodule Ema.CLI do
   ]]
 
   defp maybe_dispatch_actor_command([root | _rest]) when root in @builtin_roots, do: :continue
+  defp maybe_dispatch_actor_command(["help" | _]), do: :continue
   defp maybe_dispatch_actor_command([]), do: :continue
 
   defp maybe_dispatch_actor_command([first | _] = args) do
@@ -1696,6 +1704,17 @@ defmodule Ema.CLI do
     end
   end
 
+  # Transform "proposal --help" → "help proposal" for Optimus
+  # Transform "proposal list --help" → "help proposal list"
+  # Leave bare "--help" alone — Optimus handles it natively
+  defp normalize_help_args(args) do
+    case Enum.split_while(args, &(not (&1 in ["--help", "-h"]))) do
+      {[], _} -> args
+      {before, [_ | after_help]} -> ["help" | before] ++ after_help
+      _ -> args
+    end
+  end
+
   defp columns do
     case :io.columns() do
       {:ok, cols} -> cols
@@ -1705,7 +1724,10 @@ defmodule Ema.CLI do
 
   defp put_lines(lines) when is_list(lines), do: Enum.each(lines, &IO.puts/1)
   defp put_lines(line), do: IO.puts(line)
-  defp actor_command_root?(value) when is_binary(value), do: String.trim(value) != "" and value not in @builtin_roots
+  defp actor_command_root?(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    trimmed != "" and not String.starts_with?(trimmed, "-") and value not in @builtin_roots
+  end
   defp parse_module(module_name), do: module_name |> String.split(".", trim: true) |> drop_elixir_prefix() |> Module.concat()
   defp drop_elixir_prefix(["Elixir" | rest]), do: rest
   defp drop_elixir_prefix(rest), do: rest
