@@ -116,18 +116,18 @@ export function Launchpad() {
       case "habits": return { status: `${completedToday}/${habitCount} today`, progress: habitProgress };
       case "journal": return { status: entry?.updated_at ? `last ${timeAgo(entry.updated_at)}` : "no entry today" };
       case "executions": return { badge: runningExecutions, status: `${runningExecutions} running` };
-      case "intent-schematic": return { status: `${activeIntents} active · ${intents.length} total` };
+      case "intent-schematic": return { status: `${activeIntents} active · ${(intents ?? []).length} total` };
       case "proposals": return { badge: queuedProposals, status: `${queuedProposals} queued` };
       case "agents": return { status: `${agentCount} agents` };
       case "tasks": return { badge: activeTasks, status: `${activeTasks} active` };
-      case "projects": return { status: `${projects.length} projects` };
+      case "projects": return { status: `${(projects ?? []).length} projects` };
       case "vault": return { status: "knowledge vault" };
       default: return {};
     }
   }
 
   function handleOpenApp(appId: string) {
-    const saved = windows.find((w) => w.app_id === appId) ?? null;
+    const saved = (windows ?? []).find((w) => w.app_id === appId) ?? null;
     openApp(appId, saved);
   }
 
