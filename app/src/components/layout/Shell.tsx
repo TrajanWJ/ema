@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { AmbientStrip } from "./AmbientStrip";
 import { Dock } from "./Dock";
 import { CommandBar } from "./CommandBar";
+// EMA UI 2.0 — only stores for the 22 active apps
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useHabitsStore } from "@/stores/habits-store";
@@ -15,21 +16,11 @@ import { useAgentsStore } from "@/stores/agents-store";
 import { useVaultStore } from "@/stores/vault-store";
 import { useCanvasStore } from "@/stores/canvas-store";
 import { usePipesStore } from "@/stores/pipes-store";
-import { useChannelsStore } from "@/stores/channels-store";
 import { useGoalsStore } from "@/stores/goals-store";
 import { useFocusStore } from "@/stores/focus-store";
-import { useOrgStore } from "@/stores/org-store";
-import { useMemoryStore } from "@/stores/memory-store";
-import { useGapStore } from "@/stores/gap-store";
 import { useIntentStore } from "@/stores/intent-store";
 import { useExecutionStore } from "@/stores/execution-store";
-import { useTokenMonitorStore } from "@/stores/token-monitor-store";
-import { useVmHealthStore } from "@/stores/vm-health-store";
-import { usePipelineStore } from "@/stores/pipeline-store";
 import { useDecisionLogStore } from "@/stores/decision-log-store";
-import { usePromptWorkshopStore } from "@/stores/prompt-workshop-store";
-import { useProjectGraphStore } from "@/stores/project-graph-store";
-import { useCodeHealthStore } from "@/stores/code-health-store";
 import { useActorsStore } from "@/stores/actors-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 import { doFetch } from "@/lib/api";
@@ -88,21 +79,11 @@ export function Shell({ children }: ShellProps) {
       useVaultStore.getState().loadViaRest().catch(() => {}),
       useCanvasStore.getState().loadViaRest().catch(() => {}),
       usePipesStore.getState().loadViaRest().catch(() => {}),
-      useChannelsStore.getState().loadViaRest().catch(() => {}),
       useGoalsStore.getState().loadViaRest().catch(() => {}),
       useFocusStore.getState().loadViaRest().catch(() => {}),
-      useOrgStore.getState().loadViaRest().catch(() => {}),
-      useMemoryStore.getState().loadViaRest().catch(() => {}),
-      useGapStore.getState().loadViaRest().catch(() => {}),
       useIntentStore.getState().loadViaRest().catch(() => {}),
       useExecutionStore.getState().loadViaRest().catch(() => {}),
-      useTokenMonitorStore.getState().loadViaRest().catch(() => {}),
-      useVmHealthStore.getState().loadViaRest().catch(() => {}),
-      usePipelineStore.getState().loadViaRest().catch(() => {}),
       useDecisionLogStore.getState().loadViaRest().catch(() => {}),
-      usePromptWorkshopStore.getState().loadViaRest().catch(() => {}),
-      useProjectGraphStore.getState().loadViaRest().catch(() => {}),
-      useCodeHealthStore.getState().loadViaRest().catch(() => {}),
       useActorsStore.getState().loadViaRest().catch(() => {}),
     ]);
   }, []);
@@ -122,20 +103,11 @@ export function Shell({ children }: ShellProps) {
       useVaultStore.getState().connect().catch(() => {}),
       useCanvasStore.getState().connect().catch(() => {}),
       usePipesStore.getState().connect().catch(() => {}),
-      useChannelsStore.getState().connect().catch(() => {}),
       useGoalsStore.getState().connect().catch(() => {}),
       useFocusStore.getState().connect().catch(() => {}),
-      useOrgStore.getState().connect().catch(() => {}),
-      useMemoryStore.getState().connect().catch(() => {}),
-      useGapStore.getState().connect().catch(() => {}),
       useIntentStore.getState().connect().catch(() => {}),
       useExecutionStore.getState().connect().catch(() => {}),
-      useTokenMonitorStore.getState().connect().catch(() => {}),
-      usePipelineStore.getState().connect().catch(() => {}),
       useDecisionLogStore.getState().connect().catch(() => {}),
-      usePromptWorkshopStore.getState().connect().catch(() => {}),
-      useProjectGraphStore.getState().connect().catch(() => {}),
-      useCodeHealthStore.getState().connect().catch(() => {}),
       useActorsStore.getState().connect().catch(() => {}),
     ]);
   }, []);
@@ -155,7 +127,6 @@ export function Shell({ children }: ShellProps) {
       const alive = await pingDaemon();
       if (!alive) {
         setStatus("waiting");
-        // Ask Tauri to start the daemon if we're in the desktop app
         if (tries === 1) await requestDaemonStart();
         delay = Math.min(delay * 1.5, MAX_RETRY_DELAY);
         await new Promise((r) => setTimeout(r, delay));
@@ -187,17 +158,14 @@ export function Shell({ children }: ShellProps) {
     connectingRef.current = false;
   }, [loadAllStores, connectAllChannels]);
 
-  // Initial connection
   useEffect(() => {
     cancelledRef.current = false;
     tryConnect();
     return () => { cancelledRef.current = true; };
   }, [tryConnect]);
 
-  // Background health-check: auto-reconnect if daemon comes back after losing connection
   useEffect(() => {
     if (ready) return;
-
     const interval = setInterval(async () => {
       if (connectingRef.current) return;
       const alive = await pingDaemon();
@@ -205,7 +173,6 @@ export function Shell({ children }: ShellProps) {
         tryConnect();
       }
     }, PING_INTERVAL);
-
     return () => clearInterval(interval);
   }, [ready, tryConnect]);
 
@@ -222,7 +189,6 @@ export function Shell({ children }: ShellProps) {
         className="h-screen flex flex-col items-center justify-center gap-3 rounded-xl overflow-hidden"
         style={{ background: "rgba(8, 9, 14, 0.85)" }}
       >
-        {/* spinner */}
         <div
           className="w-5 h-5 rounded-full border-2 animate-spin"
           style={{
