@@ -281,6 +281,120 @@ react-markdown + remark-gfm  — fallback for simple read-only rendering (non-wi
 
 ---
 
+## 7. Interactive Elements & Visual Assets (Round 2 Research)
+
+### Intent Schematic Interactivity (from codebase-to-course patterns)
+
+**Source:** [codebase-to-course](https://github.com/zarazhangrui/codebase-to-course)
+
+Key patterns to adopt for intent schematic pages:
+
+| Pattern | Source | EMA Application |
+|---------|--------|-----------------|
+| **Embedded quizzes** | codebase-to-course | Intent review questions: "What would completing this intent unblock?" "Which children are blocked?" — tests understanding of schematic |
+| **Scroll-based progression** | codebase-to-course | Intent pages reveal context progressively: status → description → children → history → agent notes |
+| **Code-explanation pairs** | codebase-to-course | Side-by-side: code architecture (left) + intent description (right) for Code layer pages |
+| **Glossary tooltips** | codebase-to-course | Hover over wikilinks to see page summary + status without navigating away |
+| **Animated state diagrams** | codebase-to-course | Intent status flow visualization: planned → active → implementing → complete |
+
+### Code Hike Patterns (annotations as React components)
+
+**Source:** [Code Hike](https://codehike.org/) — MIT
+
+Key adoption points:
+- **Annotations as React components** — code comments like `// !highlight` become interactive overlays. Apply to wiki: frontmatter flags trigger visual annotations on page sections.
+- **Scrollytelling layouts** — content steps tied to scroll position. For intent pages: scroll through the intent hierarchy, each level expands with context.
+- **MDX plugin architecture** — `remarkCodeHike` + `recmaCodeHike` transform markdown into structured objects accessed as React components. EMA could use similar plugins to transform intent frontmatter into interactive widgets.
+
+### Diagram & Visualization Components
+
+| Component | Source | License | What it provides |
+|-----------|--------|---------|-----------------|
+| **Mermaid React** | [mermaid-graph (npm)](https://www.npmjs.com/package/mermaid-graph) | MIT | Clickable flowcharts/sequence diagrams from markdown. Nodes navigate to wiki pages. |
+| **react-force-graph** | [vasturiano/react-force-graph](https://github.com/vasturiano/react-force-graph) | MIT | 2D/3D force-directed graph. Click nodes to navigate. Used for intent/knowledge graphs. |
+| **Excalidraw** | [@excalidraw/excalidraw](https://github.com/excalidraw/excalidraw) | MIT | Embeddable whiteboard React component. Hand-drawn diagrams inline in wiki pages. |
+| **Markmap** | [markmap.js.org](https://markmap.js.org/) | MIT | Markdown headings → interactive mind map. Intent hierarchy as expandable tree diagram. |
+
+### Annotation & Highlighting Systems
+
+| System | Source | License | Approach |
+|--------|--------|---------|----------|
+| **Hypothesis** | [hypothesis/client](https://github.com/hypothesis/client) | BSD-2 | Web annotation overlay — select text → annotate → shared layer. Works on any webpage. Could be embedded in wiki renderer. |
+| **Tiptap Comment marks** | [tiptap-comment-extension](https://github.com/sereneinserenade/tiptap-comment-extension-react) | MIT | Comments stored as ProseMirror marks in document. Survive edits. Best for edit-mode annotations. |
+| **ProseMirror mark-based highlights** | [Collaborne article](https://medium.com/collaborne-engineering/prosemirror-highlights-comments-20ce820149ed) | N/A | Hybrid: positions in document (marks), metadata in database. Best for collaborative annotation. |
+
+### Structured Content Frameworks
+
+| Framework | Source | What it provides for EMA |
+|-----------|--------|------------------------|
+| **Markdoc** | [markdoc.dev](https://markdoc.dev/) — MIT | Custom tags in markdown: `{% callout %}`, `{% tabs %}`, `{% if %}`. Could power intent layer toggles, conditional content by role, expandable sections. |
+| **MyST Markdown** | [mystmd.org](https://mystmd.org/) | Roles and directives extending markdown: `{note}`, `{warning}`, `{figure}`. Academic-grade structured content. React rendering pipeline. |
+| **Code Hike** | [codehike.org](https://codehike.org/) — MIT | Annotations as React components. MDX transform pipeline. Scrollytelling. Best for the Code layer. |
+
+### Intent Schematic Questions (Superpowers Integration)
+
+For the intent schematic layer, adopt the codebase-to-course quiz pattern:
+
+```markdown
+<!-- Embedded in intent wiki page -->
+{% quiz %}
+question: "What would completing Actor Workspace unblock?"
+options:
+  - "Frontend actor toggle" (correct)
+  - "Proposal pipeline"
+  - "Bridge functions"
+hint: "Check the Children section — which intents depend on this one?"
+{% /quiz %}
+
+{% quiz %}
+question: "Which agent should execute the next phase?"
+options:
+  - "agent:coder" (correct, based on current assignment)
+  - "agent:researcher"
+  - "agent:strategist"
+context: "Check entity_data sprint_week assignment"
+{% /quiz %}
+```
+
+These questions serve dual purposes:
+1. **For human:** Tests understanding of the intent hierarchy and what matters
+2. **For agent:** Prompts for self-evaluation — "should I continue on this intent or escalate?"
+
+---
+
+## 8. Updated Code Donor Summary
+
+### Tier 1: Core (build on these)
+| Project | What | License |
+|---------|------|---------|
+| Tiptap + Comment Extension | Wiki editor with inline annotations | MIT |
+| @wikimedia/codex-design-tokens | Wikipedia typography/spacing | MIT |
+| remark-wiki-link | Wikilink parsing | MIT |
+
+### Tier 2: Interactive Enrichment (adopt patterns)
+| Project | What | License |
+|---------|------|---------|
+| Code Hike | Annotations as React components, scrollytelling | MIT |
+| codebase-to-course | Quiz patterns, scroll progression, tooltips | MIT |
+| Markdoc | Custom markdown tags (callouts, tabs, conditionals) | MIT |
+| Excalidraw | Embeddable whiteboard for diagrams | MIT |
+| react-force-graph | Knowledge graph visualization | MIT |
+| Markmap | Markdown → mind map visualization | MIT |
+| Mermaid React | Interactive diagrams from markdown | MIT |
+
+### Tier 3: Study (architectural patterns)
+| Project | What | License |
+|---------|------|---------|
+| Docmost | Tiptap editor + Yjs collab + spaces | AGPL |
+| Outline | Plugin architecture, collections | BSL |
+| SilverBullet | Objects-in-markdown, inline queries | MIT |
+| Hypothesis | Web annotation overlay system | BSD-2 |
+| MyST Markdown | Roles/directives, React rendering | MIT |
+| DeepWiki | AI-generated interactive documentation from code | Proprietary (study) |
+| Quartz | remark/rehype plugin chain for wiki features | MIT |
+
+---
+
 ## Sources
 
 - [Docmost (GitHub)](https://github.com/docmost/docmost) — AGPL-3.0, Tiptap wiki
@@ -305,3 +419,18 @@ react-markdown + remark-gfm  — fallback for simple read-only rendering (non-wi
 - [Yoopta Editor](https://github.com/yoopta-editor/Yoopta-Editor) — Notion-style block editor
 - [Markdoc](https://markdoc.dev/docs/overview) — Stripe's structured markdown
 - [awesome-selfhosted Wikis](https://awesome-selfhosted.net/tags/wikis.html)
+- [codebase-to-course (GitHub)](https://github.com/zarazhangrui/codebase-to-course) — Interactive HTML courses from codebases
+- [Code Hike](https://codehike.org/) — MIT, annotations as React components
+- [Code Hike (GitHub)](https://github.com/code-hike/codehike) — MDX plugin for interactive code docs
+- [DeepWiki](https://deepwiki.com) — AI-generated interactive code documentation
+- [Excalidraw (GitHub)](https://github.com/excalidraw/excalidraw) — MIT, embeddable React whiteboard
+- [react-force-graph (GitHub)](https://github.com/vasturiano/react-force-graph) — MIT, 2D/3D force graph
+- [Markmap](https://markmap.js.org/) — MIT, markdown to mind map
+- [Mermaid React (npm)](https://www.npmjs.com/package/mermaid-graph) — MIT, interactive diagrams
+- [Hypothesis Client (GitHub)](https://github.com/hypothesis/client) — BSD-2, web annotation overlay
+- [Markdoc](https://markdoc.dev/) — MIT, custom tags in markdown (Stripe)
+- [MyST Markdown](https://mystmd.org/) — Roles and directives, React rendering
+- [Tiptap Commenting Tutorial](https://dev.to/sereneinserenade/how-i-implemented-google-docs-like-commenting-in-tiptap-k2k) — Mark-based implementation
+- [Wikimedia Codex Design Tokens (npm)](https://www.npmjs.com/package/@wikimedia/codex-design-tokens) — MIT
+- [MediaWiki Dark Mode](https://www.mediawiki.org/wiki/Manual:Dark_mode) — CSS custom properties approach
+- [MediaWiki Typography Update](https://www.mediawiki.org/wiki/Typography_Update) — Font decisions
