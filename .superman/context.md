@@ -67,7 +67,7 @@ brain dump item / proposal seed
 ## What's Missing (Phase 2 targets)
 
 1. **Intelligence.Router** — event classification, routing decisions
-2. **ContextInjector** — vault + goals + tasks enrichment for AI calls
+2. **ContextInjector** — now includes :intents and :wiki keys (shared context for all agents)
 3. **Domain agents** — Strategist, Coach, Archivist personas
 4. **CampaignManager** — named persistent session clusters
 5. **Outcome linker** — proposal → execution → result → feedback loop

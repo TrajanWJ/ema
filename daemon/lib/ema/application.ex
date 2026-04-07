@@ -49,6 +49,7 @@ defmodule Ema.Application do
           Ema.Intelligence.TokenTracker,
           Ema.Executions.Dispatcher,
           Ema.Intents.Populator,
+          Ema.Intents.IntentProjector,
           Ema.Intelligence.TrustScorer,
           Ema.Intelligence.VmMonitor,
           Ema.Intelligence.CostForecaster,

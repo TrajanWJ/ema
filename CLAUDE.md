@@ -332,6 +332,10 @@ Key tables: brain_dump_items, habits, habit_logs, journal_entries, settings, wor
 - Actor/workspace system: 18 actors bootstrapped on startup (1 human + 17 agents), phase cadence, mutual visibility
 - Actor-stamped tasks and executions with `actor_id` (defaults to human), REST `?actor_id=` filtering
 - Agent ↔ Actor bridge: FK on agents table + slug convention fallback + bidirectional lookup functions
+- Wiki intent schematic: 10+ intent pages in vault/wiki/Intents/ synced to DB via Populator
+- IntentProjector: reverse sync DB intent changes → wiki pages (non-wiki-sourced intents auto-projected)
+- Shared agent context: all agents get :intents (DB tree) + :wiki (intent pages) in every Claude call
+- Phase transitions linked to intents: phase_transitions.intent_id FK tracks which intent a phase advance is for
 - Canvas with data sources and element management
 - Seed data: 4 projects, 4 proposal seeds, 4 responsibilities
 

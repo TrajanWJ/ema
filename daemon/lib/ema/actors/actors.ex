@@ -50,6 +50,7 @@ defmodule Ema.Actors do
     summary = if is_list(opts), do: opts[:summary]
     space_id = if(is_list(opts), do: opts[:space_id]) || actor.space_id
     project_id = if is_list(opts), do: opts[:project_id]
+    intent_id = if is_list(opts), do: opts[:intent_id]
     week_number = if is_list(opts), do: opts[:week_number]
 
     Ecto.Multi.new()
@@ -58,6 +59,7 @@ defmodule Ema.Actors do
       actor_id: actor.id,
       space_id: space_id,
       project_id: project_id,
+      intent_id: intent_id,
       from_phase: old_phase,
       to_phase: new_phase,
       week_number: week_number,
