@@ -55,12 +55,12 @@ export const useIntentSchematicStore = create<IntentSchematicState>(
       try {
         const [treeRes, notesRes] = await Promise.all([
           api.get<{ tree: IntentNode[] }>("/intents/tree"),
-          api.get<{ notes?: VaultNote[]; tree?: VaultNote[] }>("/vault/tree"),
+          api.get<{ notes: VaultNote[] }>("/vault/search?q=Intent&space=wiki"),
         ]);
         const tree = treeRes?.tree ?? [];
-        const allNotes: VaultNote[] = notesRes?.notes ?? notesRes?.tree ?? [];
+        const allNotes: VaultNote[] = notesRes?.notes ?? [];
         const wikiNotes = allNotes.filter((n: VaultNote) =>
-          n.file_path?.startsWith("wiki/Intents/")
+          n.file_path?.startsWith("wiki/Intents/") && n.file_path.endsWith(".md")
         );
         set({ intentTree: tree, wikiNotes, loading: false });
       } catch (err) {
