@@ -9,7 +9,7 @@ defmodule Ema.Tasks do
   import Ecto.Query
   alias Ema.Repo
   alias Ema.Intelligence.ScopeAdvisor
-  alias Ema.Tasks.{Task, Comment}
+  alias Ema.Tasks.{Task, Comment, DependencyGraph}
 
   def list_tasks do
     Task |> order_by(asc: :sort_order, asc: :inserted_at) |> Repo.all()
@@ -184,7 +184,7 @@ defmodule Ema.Tasks do
       |> put_scope_advice(task)
 
     task
-    |> Task.changeset(attrs)
+    |> Task.update_changeset(attrs)
     |> Repo.update()
   end
 
@@ -245,6 +245,40 @@ defmodule Ema.Tasks do
     %Comment{}
     |> Comment.changeset(Map.merge(attrs, %{id: id, task_id: task_id}))
     |> Repo.insert()
+  end
+
+  # -- Dependencies --
+
+  @doc "Add a dependency: task depends on dependency."
+  def add_dependency(task_id, dependency_id) do
+    DependencyGraph.add_dependency(task_id, dependency_id)
+  end
+
+  @doc "Remove a dependency."
+  def remove_dependency(task_id, dependency_id) do
+    DependencyGraph.remove_dependency(task_id, dependency_id)
+  end
+
+  @doc "Set full dependency list for a task (replaces existing)."
+  def set_dependencies(task_id, dependency_ids) do
+    DependencyGraph.set_dependencies(task_id, dependency_ids)
+  end
+
+  @doc "Get dependency IDs for a task."
+  def dependency_ids(task_id) do
+    DependencyGraph.dependency_ids(task_id)
+  end
+
+  @doc "List tasks that are ready (all deps satisfied)."
+  def list_ready_tasks(opts \\ []) do
+    tasks = list_tasks(opts)
+    DependencyGraph.filter_ready(tasks)
+  end
+
+  @doc "List tasks that are blocked (have unsatisfied deps)."
+  def list_blocked_tasks(opts \\ []) do
+    tasks = list_tasks(opts)
+    DependencyGraph.filter_blocked(tasks)
   end
 
   def list_comments(task_id) do

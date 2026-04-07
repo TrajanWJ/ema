@@ -98,19 +98,17 @@ defmodule Ema.CLI.Commands.Goal do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{
-          "goal" =>
-            Helpers.compact_map([
-              {"title", title},
-              {"description", parsed.options[:description]},
-              {"status", parsed.options[:status] || "active"},
-              {"timeframe", parsed.options[:timeframe]},
-              {"parent_id", parsed.options[:parent]},
-              {"project_id", parsed.options[:project]},
-              {"space_id", parsed.options[:space]},
-              {"actor_id", parsed.options[:actor]}
-            ])
-        }
+        body =
+          Helpers.compact_map([
+            {"title", title},
+            {"description", parsed.options[:description]},
+            {"status", parsed.options[:status] || "active"},
+            {"timeframe", parsed.options[:timeframe]},
+            {"parent_id", parsed.options[:parent]},
+            {"project_id", parsed.options[:project]},
+            {"space_id", parsed.options[:space]},
+            {"actor_id", parsed.options[:actor]}
+          ])
 
         case transport.post("/goals", body) do
           {:ok, resp} ->
@@ -134,7 +132,8 @@ defmodule Ema.CLI.Commands.Goal do
             {:title, parsed.options[:title]},
             {:status, parsed.options[:status]},
             {:description, parsed.options[:description]},
-            {:timeframe, parsed.options[:timeframe]}
+            {:timeframe, parsed.options[:timeframe]},
+            {:project_id, parsed.options[:project]}
           ])
 
         case transport.call(Ema.Goals, :update_goal, [id, attrs]) do
@@ -147,15 +146,14 @@ defmodule Ema.CLI.Commands.Goal do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{
-          "goal" =>
-            Helpers.compact_map([
-              {"title", parsed.options[:title]},
-              {"status", parsed.options[:status]},
-              {"description", parsed.options[:description]},
-              {"timeframe", parsed.options[:timeframe]}
-            ])
-        }
+        body =
+          Helpers.compact_map([
+            {"title", parsed.options[:title]},
+            {"status", parsed.options[:status]},
+            {"description", parsed.options[:description]},
+            {"timeframe", parsed.options[:timeframe]},
+            {"project_id", parsed.options[:project]}
+          ])
 
         case transport.put("/goals/#{id}", body) do
           {:ok, _} -> Output.success("Updated goal ##{id}")

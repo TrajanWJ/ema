@@ -2,6 +2,7 @@ defmodule EmaWeb.TaskController do
   use EmaWeb, :controller
 
   alias Ema.Tasks
+  alias Ema.Tasks.DependencyGraph
 
   action_fallback EmaWeb.FallbackController
 
@@ -12,10 +13,16 @@ defmodule EmaWeb.TaskController do
       |> maybe_add_opt(:project_id, params["project_id"])
       |> maybe_add_opt(:actor_id, params["actor_id"])
 
+    ready_filter = params["ready"] in ["true", "1", true]
+
     tasks =
-      case opts do
-        [] -> Tasks.list_tasks()
-        _ -> Tasks.list_tasks(opts)
+      if ready_filter do
+        Tasks.list_ready_tasks(opts)
+      else
+        case opts do
+          [] -> Tasks.list_tasks()
+          _ -> Tasks.list_tasks(opts)
+        end
       end
       |> Enum.map(&serialize_task/1)
 
@@ -50,8 +57,15 @@ defmodule EmaWeb.TaskController do
     force_dispatch = params["force_dispatch"] == true or params["force_dispatch"] == "true"
     opts = [force_dispatch: force_dispatch]
 
+    dependencies = params["dependencies"] || []
+
     case Tasks.create_task(attrs, opts) do
       {:ok, task} ->
+        # Set dependencies if provided
+        if dependencies != [] do
+          Tasks.set_dependencies(task.id, dependencies)
+        end
+
         # Store computed scope_advice in metadata so it's queryable from DB
         task =
           case scope_advice_payload(task) do
@@ -123,21 +137,26 @@ defmodule EmaWeb.TaskController do
         {:error, :not_found}
 
       task ->
-        attrs = %{
-          title: params["title"],
-          description: params["description"],
-          priority: params["priority"],
-          effort: params["effort"],
-          due_date: parse_date(params["due_date"]),
-          recurrence: params["recurrence"],
-          sort_order: params["sort_order"],
-          metadata: params["metadata"],
-          project_id: params["project_id"],
-          goal_id: params["goal_id"],
-          agent: params["agent"]
-        }
+        attrs =
+          %{}
+          |> maybe_put(:title, params["title"])
+          |> maybe_put(:description, params["description"])
+          |> maybe_put(:priority, params["priority"])
+          |> maybe_put(:effort, params["effort"])
+          |> maybe_put(:due_date, parse_date(params["due_date"]))
+          |> maybe_put(:recurrence, params["recurrence"])
+          |> maybe_put(:sort_order, params["sort_order"])
+          |> maybe_put(:metadata, params["metadata"])
+          |> maybe_put(:project_id, params["project_id"])
+          |> maybe_put(:goal_id, params["goal_id"])
+          |> maybe_put(:agent, params["agent"])
+          |> maybe_put(:status, params["status"])
 
         with {:ok, updated} <- Tasks.update_task(task, attrs) do
+          if Map.has_key?(params, "dependencies") do
+            Tasks.set_dependencies(updated.id, params["dependencies"] || [])
+          end
+
           broadcast_task_event(updated, "task_updated")
           json(conn, serialize_task(updated))
         end
@@ -253,6 +272,7 @@ defmodule EmaWeb.TaskController do
       intent: task.intent,
       intent_confidence: task.intent_confidence,
       intent_overridden: task.intent_overridden,
+      dependencies: DependencyGraph.dependency_ids(task.id),
       created_at: task.inserted_at,
       updated_at: task.updated_at
     }
@@ -268,6 +288,9 @@ defmodule EmaWeb.TaskController do
       updated_at: comment.updated_at
     }
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, val), do: Map.put(map, key, val)
 
   defp parse_date(nil), do: nil
 

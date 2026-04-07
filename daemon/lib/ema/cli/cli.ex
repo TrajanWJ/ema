@@ -5,13 +5,14 @@ defmodule Ema.CLI do
 
   @version "3.0.0"
   @builtin_roots ~w(
-    task proposal vault focus agent exec goal brain-dump habit journal resp seed engine
+    task proposal wiki focus agent exec goal brain-dump habit journal resp seed engine
     pipe campaign evolution channel project babysitter session watch superman metamind
     ralph vectors quality dispatch-board tokens config em tag data canvas note voice
     org actor space intent gap integration reflexion ai-session routing git-sync tunnel
     file-vault messages team-pulse metrics feedback dashboard dump status
     contact finance invoice routine meeting temporal intelligence pipeline obsidian
-    security vm onboarding prompt decision clipboard orchestrator ingest provider
+    security vm onboarding prompt decision clipboard orchestrator ingest provider memory
+    briefing now
   )
   @actor_dispatch_switches [
     json: :boolean,
@@ -43,8 +44,8 @@ defmodule Ema.CLI do
           {:ok, [:proposal | sub], parsed} ->
             dispatch(:proposal, sub, parsed)
 
-          {:ok, [:vault | sub], parsed} ->
-            dispatch(:vault, sub, parsed)
+          {:ok, [:wiki | sub], parsed} ->
+            dispatch(:wiki, sub, parsed)
 
           {:ok, [:focus | sub], parsed} ->
             dispatch(:focus, sub, parsed)
@@ -199,6 +200,12 @@ defmodule Ema.CLI do
           {:ok, [:status], parsed} ->
             dispatch(:status, [], parsed)
 
+          {:ok, [:briefing], parsed} ->
+            dispatch(:briefing, [], parsed)
+
+          {:ok, [:now], parsed} ->
+            dispatch(:now, [], parsed)
+
           {:ok, [:contact | sub], parsed} ->
             dispatch(:contact, sub, parsed)
 
@@ -253,6 +260,9 @@ defmodule Ema.CLI do
           {:ok, [:provider | sub], parsed} ->
             dispatch(:provider, sub, parsed)
 
+          {:ok, [:memory | sub], parsed} ->
+            dispatch(:memory, sub, parsed)
+
           :help ->
             Optimus.Help.help(optimus, [], columns()) |> put_lines()
 
@@ -288,7 +298,7 @@ defmodule Ema.CLI do
     case command do
       :task -> Ema.CLI.Commands.Task.handle(sub, parsed, transport, opts)
       :proposal -> Ema.CLI.Commands.Proposal.handle(sub, parsed, transport, opts)
-      :vault -> Ema.CLI.Commands.Vault.handle(sub, parsed, transport, opts)
+      :wiki -> Ema.CLI.Commands.Vault.handle(sub, parsed, transport, opts)
       :focus -> Ema.CLI.Commands.Focus.handle(sub, parsed, transport, opts)
       :agent -> Ema.CLI.Commands.Agent.handle(sub, parsed, transport, opts)
       :exec -> Ema.CLI.Commands.Exec.handle(sub, parsed, transport, opts)
@@ -340,6 +350,8 @@ defmodule Ema.CLI do
       :watch -> Ema.CLI.Commands.Watch.handle(sub, parsed, transport, opts)
       :dump -> Ema.CLI.Commands.Dump.handle(sub, parsed, transport, opts)
       :status -> Ema.CLI.Commands.Status.handle(sub, parsed, transport, opts)
+      :briefing -> Ema.CLI.Commands.Briefing.handle(sub, parsed, transport, opts)
+      :now -> Ema.CLI.Commands.Now.handle(sub, parsed, transport, opts)
       :contact -> Ema.CLI.Commands.Contact.handle(sub, parsed, transport, opts)
       :finance -> Ema.CLI.Commands.Finance.handle(sub, parsed, transport, opts)
       :invoice -> Ema.CLI.Commands.Invoice.handle(sub, parsed, transport, opts)
@@ -358,15 +370,32 @@ defmodule Ema.CLI do
       :orchestrator -> Ema.CLI.Commands.Orchestrator.handle(sub, parsed, transport, opts)
       :ingest -> Ema.CLI.Commands.Ingest.handle(sub, parsed, transport, opts)
       :provider -> Ema.CLI.Commands.Provider.handle(sub, parsed, transport, opts)
+      :memory -> Ema.CLI.Commands.Memory.handle(sub, parsed, transport, opts)
     end
   end
 
   defp build_optimus do
     Optimus.new!(
       name: "ema",
-      description: "EMA — Executive Management Assistant",
+      description: "EMA — Executive Management Assistant #{@version}",
       version: @version,
-      about: "Operator CLI for the EMA daemon",
+      about:
+        "Operator CLI for the EMA daemon (localhost:4488).\n\n" <>
+          "EMA is a personal AI desktop app — an autonomous thinking companion and life OS.\n" <>
+          "The daemon runs Elixir/Phoenix with SQLite. This CLI talks to it over HTTP.\n\n" <>
+          "Quick start:\n" <>
+          "  ema now                             What should I do next?\n" <>
+          "  ema status                          Check daemon health\n" <>
+          "  ema dump \"my thought\"               Quick brain dump\n" <>
+          "  ema task list                       See all tasks\n" <>
+          "  ema proposal list --status queued   Review queued proposals\n" <>
+          "  ema goal list                       Track goals\n" <>
+          "  ema agent list                      See registered agents\n" <>
+          "  ema wiki search \"topic\"             Search knowledge wiki\n" <>
+          "  ema watch                           Live dashboard\n\n" <>
+          "All entity IDs are strings (e.g. task_abc123, prop_def456).\n" <>
+          "Use --json / -j on any command for machine-readable output.\n" <>
+          "Use --host / -H to point at a different daemon.",
       allow_unknown_args: false,
       parse_double_dash: true,
       flags: [
@@ -384,7 +413,7 @@ defmodule Ema.CLI do
       subcommands: [
         task: task_spec(),
         proposal: proposal_spec(),
-        vault: vault_spec(),
+        wiki: wiki_spec(),
         focus: focus_spec(),
         agent: agent_spec(),
         exec: exec_spec(),
@@ -436,6 +465,8 @@ defmodule Ema.CLI do
         watch: watch_spec(),
         dump: dump_spec(),
         status: status_spec(),
+        briefing: briefing_spec(),
+        now: now_spec(),
         contact: contact_spec(),
         finance: finance_spec(),
         invoice: invoice_spec(),
@@ -453,7 +484,8 @@ defmodule Ema.CLI do
         clipboard: clipboard_spec(),
         orchestrator: orchestrator_spec(),
         ingest: ingest_spec(),
-        provider: provider_spec()
+        provider: provider_spec(),
+        memory: memory_spec()
       ]
     )
   end
@@ -461,11 +493,23 @@ defmodule Ema.CLI do
   defp task_spec do
     [
       name: "task",
-      about: "Task management",
+      about:
+        "Task management — create, update, list, and transition work items.\n\n" <>
+          "  Examples:\n" <>
+          "    ema task list                          List all tasks\n" <>
+          "    ema task list -s todo                  Only pending tasks\n" <>
+          "    ema task list -p proj_abc123           Tasks for a project\n" <>
+          "    ema task create \"Fix auth bug\" -p ema  Create task on EMA project\n" <>
+          "    ema task show task_abc123              View task detail\n" <>
+          "    ema task update task_abc -s done       Mark task done\n" <>
+          "    ema task transition task_abc done      Same via transition\n" <>
+          "    ema task delete task_abc123            Delete a task\n\n" <>
+          "  Statuses: todo → in_progress → done\n" <>
+          "  Priorities: 1 (critical) through 5 (minimal)",
       subcommands: [
         list: [
           name: "list",
-          about: "List tasks",
+          about: "List tasks. Combine filters: ema task list -s todo -p proj_abc --limit 10",
           options: [
             status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
             actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
@@ -482,7 +526,7 @@ defmodule Ema.CLI do
         show: [
           name: "show",
           about: "Show task detail",
-          args: [id: [required: true, help: "Task ID", parser: :integer]]
+          args: [id: [required: true, help: "Task ID (e.g. task_abc123)", parser: :string]]
         ],
         create: [
           name: "create",
@@ -503,17 +547,38 @@ defmodule Ema.CLI do
               long: "--description",
               help: "Description",
               parser: :string
+            ],
+            depends_on: [
+              long: "--depends-on",
+              help: "Comma-separated task IDs this depends on",
+              parser: :string
+            ]
+          ]
+        ],
+        ready: [
+          name: "ready",
+          about: "List tasks whose dependencies are all satisfied (ready to work on)",
+          options: [
+            status: [short: "-s", long: "--status", help: "Filter by status", parser: :string],
+            actor: [short: "-a", long: "--actor", help: "Filter by actor ID", parser: :string],
+            space: [long: "--space", help: "Filter by space ID", parser: :string],
+            project: [
+              short: "-p",
+              long: "--project",
+              help: "Filter by project ID",
+              parser: :string
             ]
           ]
         ],
         update: [
           name: "update",
           about: "Update a task",
-          args: [id: [required: true, help: "Task ID", parser: :integer]],
+          args: [id: [required: true, help: "Task ID (e.g. task_abc123)", parser: :string]],
           options: [
             title: [long: "--title", help: "New title", parser: :string],
-            status: [short: "-s", long: "--status", help: "New status", parser: :string],
-            priority: [long: "--priority", help: "New priority", parser: :integer],
+            status: [short: "-s", long: "--status", help: "New status (todo|in_progress|done)", parser: :string],
+            priority: [long: "--priority", help: "New priority (1=critical, 5=minimal)", parser: :integer],
+            project: [short: "-p", long: "--project", help: "Project ID or slug", parser: :string],
             description: [
               short: "-d",
               long: "--description",
@@ -526,14 +591,22 @@ defmodule Ema.CLI do
           name: "transition",
           about: "Transition task to new status",
           args: [
-            id: [required: true, help: "Task ID", parser: :integer],
-            status: [required: true, help: "Target status"]
+            id: [required: true, help: "Task ID (e.g. task_abc123)", parser: :string],
+            status: [required: true, help: "Target status (todo|in_progress|done)"]
           ]
         ],
         delete: [
           name: "delete",
           about: "Delete a task",
-          args: [id: [required: true, help: "Task ID", parser: :integer]]
+          args: [id: [required: true, help: "Task ID (e.g. task_abc123)", parser: :string]]
+        ],
+        comment: [
+          name: "comment",
+          about: "Add a comment to a task",
+          args: [
+            id: [required: true, help: "Task ID", parser: :string],
+            body: [required: true, help: "Comment text"]
+          ]
         ]
       ]
     ]
@@ -542,7 +615,24 @@ defmodule Ema.CLI do
   defp proposal_spec do
     [
       name: "proposal",
-      about: "Proposal lifecycle",
+      about:
+        "Proposal lifecycle — AI-generated ideas queued for human review.\n\n" <>
+          "  Proposals flow through a pipeline: Generator → Refiner → Debater → Tagger.\n" <>
+          "  You review them and: approve (→ execution), redirect (→ 3 new seeds), or kill.\n\n" <>
+          "  Examples:\n" <>
+          "    ema proposal list                      List all proposals\n" <>
+          "    ema proposal list -s queued            Only queued (unreviewed)\n" <>
+          "    ema proposal show prop_abc123          View proposal detail\n" <>
+          "    ema proposal approve prop_abc123       Approve → creates execution\n" <>
+          "    ema proposal kill prop_abc123          Kill (records pattern)\n" <>
+          "    ema proposal redirect prop_abc -n \"try from UX angle\"\n" <>
+          "    ema proposal lineage prop_abc123       Show seed → proposal tree\n" <>
+          "    ema proposal cancel prop_abc123        Cancel a proposal\n" <>
+          "    ema proposal generate                  Manually trigger generation\n" <>
+          "    ema proposal generate --seed seed_123  Generate from specific seed\n" <>
+          "    ema proposal surfaced                  Show high-quality proposals\n" <>
+          "    ema proposal budget                    View generation budget\n" <>
+          "    ema proposal create \"My idea\" -b \"Detailed body\"",
       subcommands: [
         create: [
           name: "create",
@@ -575,22 +665,22 @@ defmodule Ema.CLI do
         show: [
           name: "show",
           about: "Show proposal detail",
-          args: [id: [required: true, help: "Proposal ID", parser: :integer]]
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]]
         ],
         approve: [
           name: "approve",
           about: "Approve a proposal (creates execution)",
-          args: [id: [required: true, help: "Proposal ID", parser: :integer]]
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]]
         ],
         kill: [
           name: "kill",
           about: "Kill a proposal",
-          args: [id: [required: true, help: "Proposal ID", parser: :integer]]
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]]
         ],
         redirect: [
           name: "redirect",
           about: "Redirect a proposal (creates 3 seed angles)",
-          args: [id: [required: true, help: "Proposal ID", parser: :integer]],
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]],
           options: [
             note: [short: "-n", long: "--note", help: "Redirect note", parser: :string]
           ]
@@ -598,20 +688,58 @@ defmodule Ema.CLI do
         lineage: [
           name: "lineage",
           about: "Show proposal lineage tree",
-          args: [id: [required: true, help: "Proposal ID", parser: :integer]]
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]]
+        ],
+        cancel: [
+          name: "cancel",
+          about: "Cancel a proposal",
+          args: [id: [required: true, help: "Proposal ID (e.g. prop_abc123)", parser: :string]]
+        ],
+        generate: [
+          name: "generate",
+          about: "Manually trigger proposal generation",
+          options: [
+            seed: [long: "--seed", help: "Seed ID to generate from", parser: :string]
+          ]
+        ],
+        surfaced: [
+          name: "surfaced",
+          about: "List high-quality surfaced proposals"
+        ],
+        budget: [
+          name: "budget",
+          about: "Show proposal generation budget"
         ]
       ]
     ]
   end
 
-  defp vault_spec do
+  defp wiki_spec do
     [
-      name: "vault",
-      about: "Knowledge vault (Second Brain)",
+      name: "wiki",
+      about:
+        "Knowledge wiki (Second Brain) — search, read, and write markdown pages.\n\n" <>
+          "  The wiki lives at ~/.local/share/ema/vault/ with wiki/ for curated pages\n" <>
+          "  and system/state/ for auto-generated projections.\n\n" <>
+          "  Examples:\n" <>
+          "    ema wiki search \"intent engine\"       Keyword search\n" <>
+          "    ema wiki tree                         Show directory structure\n" <>
+          "    ema wiki read wiki/Architecture/Overview.md\n" <>
+          "    ema wiki write wiki/Notes/new.md -c \"# My Note\"\n" <>
+          "    ema wiki graph                        Link graph stats (nodes/edges)\n" <>
+          "    ema wiki backlinks note_abc123        Find pages linking to a note\n" <>
+          "    ema wiki imports                      List imported content\n" <>
+          "    ema wiki stale                        Check stale intent projections\n" <>
+          "    ema wiki delete wiki/Notes/old.md     Delete a page\n" <>
+          "    ema wiki move wiki/a.md wiki/b.md     Move/rename a page\n" <>
+          "    ema wiki orphans                      List unlinked pages\n" <>
+          "    ema wiki neighbors note_abc123        Show linked neighbors\n" <>
+          "    ema wiki lint                          Run vault health checks\n" <>
+          "    ema wiki lint --check broken_links     Run a single check",
       subcommands: [
         search: [
           name: "search",
-          about: "Search vault notes",
+          about: "Search wiki pages",
           args: [query: [required: true, help: "Search query"]],
           options: [
             limit: [short: "-l", long: "--limit", help: "Max results", parser: :integer]
@@ -619,19 +747,19 @@ defmodule Ema.CLI do
         ],
         tree: [
           name: "tree",
-          about: "Show vault directory tree"
+          about: "Show wiki directory tree"
         ],
         read: [
           name: "read",
-          about: "Read a vault note",
-          args: [path: [required: true, help: "Note path (relative to vault root)"]]
+          about: "Read a wiki page",
+          args: [path: [required: true, help: "Page path (relative to wiki root)"]]
         ],
         write: [
           name: "write",
-          about: "Create or update a vault note",
-          args: [path: [required: true, help: "Note path"]],
+          about: "Create or update a wiki page",
+          args: [path: [required: true, help: "Page path"]],
           options: [
-            content: [short: "-c", long: "--content", help: "Note content", parser: :string]
+            content: [short: "-c", long: "--content", help: "Page content", parser: :string]
           ],
           flags: [
             stdin: [long: "--stdin", help: "Read content from stdin"]
@@ -639,12 +767,12 @@ defmodule Ema.CLI do
         ],
         graph: [
           name: "graph",
-          about: "Show vault link graph stats"
+          about: "Show wiki link graph stats"
         ],
         backlinks: [
           name: "backlinks",
-          about: "Show backlinks for a note",
-          args: [id: [required: true, help: "Note ID", parser: :integer]]
+          about: "Show backlinks for a page",
+          args: [id: [required: true, help: "Page ID or path", parser: :string]]
         ],
         imports: [
           name: "imports",
@@ -652,7 +780,57 @@ defmodule Ema.CLI do
         ],
         stale: [
           name: "stale",
-          about: "Show vault intent projections with file ages"
+          about: "Show wiki intent projections with file ages"
+        ],
+        delete: [
+          name: "delete",
+          about: "Delete a wiki page",
+          args: [path: [required: true, help: "Page path (relative to wiki root)"]]
+        ],
+        move: [
+          name: "move",
+          about: "Move/rename a wiki page",
+          args: [
+            from: [required: true, help: "Current path"],
+            to: [required: true, help: "New path"]
+          ]
+        ],
+        orphans: [
+          name: "orphans",
+          about: "List unlinked pages with no inbound or outbound links"
+        ],
+        neighbors: [
+          name: "neighbors",
+          about: "Show neighboring notes (inbound + outbound links)",
+          args: [id: [required: true, help: "Note ID or path", parser: :string]]
+        ],
+        lint: [
+          name: "lint",
+          about: "Run vault health checks (broken links, orphans, sparse, stale, etc.)",
+          options: [
+            check: [
+              short: "-c",
+              long: "--check",
+              help:
+                "Run a single check: broken_links, orphans, missing_backlinks, sparse, stale, missing_cross_refs",
+              parser: :string
+            ],
+            min_words: [
+              long: "--min-words",
+              help: "Minimum word count for sparse check (default: 50)",
+              parser: :integer
+            ],
+            max_age: [
+              long: "--max-age",
+              help: "Max days since update for stale check (default: 30)",
+              parser: :integer
+            ],
+            min_shared: [
+              long: "--min-shared",
+              help: "Min shared tags for cross-ref check (default: 3)",
+              parser: :integer
+            ]
+          ]
         ]
       ]
     ]
@@ -661,7 +839,14 @@ defmodule Ema.CLI do
   defp focus_spec do
     [
       name: "focus",
-      about: "Focus timer",
+      about:
+        "Focus timer — pomodoro-style sessions linked to tasks.\n\n" <>
+          "  Examples:\n" <>
+          "    ema focus start -d 25                  25-minute session\n" <>
+          "    ema focus start -d 50 -t task_abc      Linked to a task\n" <>
+          "    ema focus current                      Show active session\n" <>
+          "    ema focus stop                         End session\n" <>
+          "    ema focus today                        Today's focus stats",
       subcommands: [
         start: [
           name: "start",
@@ -673,7 +858,7 @@ defmodule Ema.CLI do
               help: "Duration in minutes (default: 25)",
               parser: :integer
             ],
-            task: [short: "-t", long: "--task", help: "Link to task ID", parser: :integer]
+            task: [short: "-t", long: "--task", help: "Link to task ID (e.g. task_abc123)", parser: :string]
           ]
         ],
         stop: [name: "stop", about: "Stop current focus session"],
@@ -689,7 +874,15 @@ defmodule Ema.CLI do
   defp agent_spec do
     [
       name: "agent",
-      about: "Agent management and chat",
+      about:
+        "Agent management and chat — interact with EMA's 17 AI agents.\n\n" <>
+          "  Each agent has a slug (e.g. right-hand, researcher, coder, ops).\n" <>
+          "  Agents are backed by Claude models with specialized system prompts.\n\n" <>
+          "  Examples:\n" <>
+          "    ema agent list                         List all agents with status\n" <>
+          "    ema agent show right-hand              View agent config\n" <>
+          "    ema agent chat coder \"review this fn\"  Send message to agent\n" <>
+          "    ema agent conversations coder          List past conversations",
       subcommands: [
         list: [name: "list", about: "List all agents"],
         show: [
@@ -720,7 +913,20 @@ defmodule Ema.CLI do
   defp exec_spec do
     [
       name: "exec",
-      about: "Execution lifecycle",
+      about:
+        "Execution lifecycle — dispatched work units (from approved proposals or manual).\n\n" <>
+          "  Executions run as Claude Code sessions with a defined objective and mode.\n" <>
+          "  Modes: research, implement, review, outline, refactor.\n\n" <>
+          "  Examples:\n" <>
+          "    ema exec list                          List all executions\n" <>
+          "    ema exec list -s running               Only running executions\n" <>
+          "    ema exec show DoXQki8hiYo              View execution detail\n" <>
+          "    ema exec create \"research auth patterns\" -m research\n" <>
+          "    ema exec approve exec_abc123           Approve pending execution\n" <>
+          "    ema exec cancel exec_abc123            Cancel running execution\n" <>
+          "    ema exec events exec_abc123            View execution event log\n" <>
+          "    ema exec complete exec_abc123          Mark execution complete\n" <>
+          "    ema exec diff exec_abc123              Show execution diff",
       subcommands: [
         list: [
           name: "list",
@@ -769,6 +975,16 @@ defmodule Ema.CLI do
           name: "events",
           about: "List execution events",
           args: [id: [required: true, help: "Execution ID"]]
+        ],
+        complete: [
+          name: "complete",
+          about: "Mark execution as complete",
+          args: [id: [required: true, help: "Execution ID", parser: :string]]
+        ],
+        diff: [
+          name: "diff",
+          about: "Show execution diff output",
+          args: [id: [required: true, help: "Execution ID", parser: :string]]
         ]
       ]
     ]
@@ -777,7 +993,18 @@ defmodule Ema.CLI do
   defp goal_spec do
     [
       name: "goal",
-      about: "Goal tracking",
+      about:
+        "Goal tracking — north-star objectives with timeframes and hierarchy.\n\n" <>
+          "  Goals require a timeframe: weekly, monthly, quarterly, yearly, or 3year.\n" <>
+          "  Goals can nest (--parent) and link to projects (--project).\n\n" <>
+          "  Examples:\n" <>
+          "    ema goal list                          List all goals\n" <>
+          "    ema goal list -s active                Active goals only\n" <>
+          "    ema goal create \"Ship v3\" --timeframe quarterly\n" <>
+          "    ema goal create \"Daily journal\" --timeframe monthly --parent goal_abc\n" <>
+          "    ema goal show goal_abc123              View goal + children\n" <>
+          "    ema goal update goal_abc -s completed  Mark complete\n" <>
+          "    ema goal delete goal_abc123            Delete a goal",
       subcommands: [
         list: [
           name: "list",
@@ -797,9 +1024,16 @@ defmodule Ema.CLI do
         ],
         create: [
           name: "create",
-          about: "Create a goal",
+          about:
+            "Create a goal. Requires --timeframe.\n\n  Examples:\n    ema goal create \"Ship EMA v3.1\" --timeframe quarterly\n    ema goal create \"Daily journaling habit\" --timeframe monthly -p proj_abc",
           args: [title: [required: true, help: "Goal title"]],
           options: [
+            timeframe: [
+              long: "--timeframe",
+              help: "REQUIRED. One of: weekly, monthly, quarterly, yearly, 3year",
+              parser: :string,
+              required: true
+            ],
             description: [
               short: "-d",
               long: "--description",
@@ -809,11 +1043,10 @@ defmodule Ema.CLI do
             status: [
               short: "-s",
               long: "--status",
-              help: "Status (default: active)",
+              help: "Status: active (default), completed, archived",
               parser: :string
             ],
-            timeframe: [long: "--timeframe", help: "Timeframe", parser: :string],
-            parent: [long: "--parent", help: "Parent goal ID", parser: :string],
+            parent: [long: "--parent", help: "Parent goal ID for nesting", parser: :string],
             actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
             space: [long: "--space", help: "Space ID", parser: :string],
             project: [short: "-p", long: "--project", help: "Project ID", parser: :string]
@@ -832,7 +1065,8 @@ defmodule Ema.CLI do
               help: "Description",
               parser: :string
             ],
-            timeframe: [long: "--timeframe", help: "Timeframe", parser: :string]
+            timeframe: [long: "--timeframe", help: "Timeframe", parser: :string],
+            project: [short: "-p", long: "--project", help: "Project ID", parser: :string]
           ]
         ],
         delete: [
@@ -847,7 +1081,14 @@ defmodule Ema.CLI do
   defp brain_dump_spec do
     [
       name: "brain-dump",
-      about: "Brain dump inbox management",
+      about:
+        "Brain dump inbox — quick capture for thoughts, links, and ideas.\n\n" <>
+          "  Items land in an inbox for later triage. Use 'ema dump' as a shortcut.\n\n" <>
+          "  Examples:\n" <>
+          "    ema brain-dump create \"investigate auth token expiry\"\n" <>
+          "    ema brain-dump list                    List all items\n" <>
+          "    ema brain-dump unprocessed             Unprocessed items only\n" <>
+          "    ema dump \"quick thought\"               Shortcut for create",
       subcommands: [
         list: [
           name: "list",
@@ -901,7 +1142,14 @@ defmodule Ema.CLI do
   defp habit_spec do
     [
       name: "habit",
-      about: "Habit tracking",
+      about:
+        "Habit tracking — daily/weekly/monthly habits with streak tracking.\n\n" <>
+          "  Examples:\n" <>
+          "    ema habit list                         List active habits\n" <>
+          "    ema habit create \"Morning journaling\" --cadence daily\n" <>
+          "    ema habit today                        Today's checklist\n" <>
+          "    ema habit toggle habit_abc              Mark habit done for today\n" <>
+          "    ema habit toggle habit_abc --date 2026-04-06",
       subcommands: [
         list: [name: "list", about: "List active habits"],
         create: [
@@ -924,7 +1172,17 @@ defmodule Ema.CLI do
         archive: [
           name: "archive",
           about: "Archive a habit",
-          args: [id: [required: true, help: "Habit ID"]]
+          args: [id: [required: true, help: "Habit ID", parser: :string]]
+        ],
+        show: [
+          name: "show",
+          about: "Show habit detail and log history",
+          args: [id: [required: true, help: "Habit ID", parser: :string]]
+        ],
+        delete: [
+          name: "delete",
+          about: "Delete (archive) a habit",
+          args: [id: [required: true, help: "Habit ID", parser: :string]]
         ]
       ]
     ]
@@ -933,7 +1191,14 @@ defmodule Ema.CLI do
   defp journal_spec do
     [
       name: "journal",
-      about: "Daily journal",
+      about:
+        "Daily journal — mood/energy tracking with full-text search.\n\n" <>
+          "  Examples:\n" <>
+          "    ema journal write \"Shipped the auth refactor\" --mood good\n" <>
+          "    ema journal read                       Read today's entry\n" <>
+          "    ema journal read --date 2026-04-06     Read a specific day\n" <>
+          "    ema journal search \"auth\"              Full-text search\n" <>
+          "    ema journal list                       Recent entries",
       subcommands: [
         read: [
           name: "read",
@@ -966,7 +1231,14 @@ defmodule Ema.CLI do
   defp resp_spec do
     [
       name: "resp",
-      about: "Responsibility tracking",
+      about:
+        "Responsibility tracking — recurring obligations with health scores.\n\n" <>
+          "  Responsibilities generate tasks on cadence and track completion health.\n\n" <>
+          "  Examples:\n" <>
+          "    ema resp list                          List all responsibilities\n" <>
+          "    ema resp create \"Code review\" --cadence weekly --role dev\n" <>
+          "    ema resp check-in resp_abc -s ok -n \"All clear\"\n" <>
+          "    ema resp at-risk                       List failing responsibilities",
       subcommands: [
         list: [
           name: "list",
@@ -1019,7 +1291,16 @@ defmodule Ema.CLI do
   defp seed_spec do
     [
       name: "seed",
-      about: "Proposal seed management",
+      about:
+        "Proposal seed management — seed ideas that feed the proposal engine.\n\n" <>
+          "  Seeds are prompts the engine uses to generate proposals. Types: intent, session, manual.\n" <>
+          "  Seeds run on schedule; use run-now to trigger immediately.\n\n" <>
+          "  Examples:\n" <>
+          "    ema seed list                          List all seeds\n" <>
+          "    ema seed list --active yes             Only active seeds\n" <>
+          "    ema seed create \"Explore caching\" --prompt \"Design a caching layer\"\n" <>
+          "    ema seed toggle seed_abc123            Pause/unpause a seed\n" <>
+          "    ema seed run-now seed_abc123           Generate proposal immediately",
       subcommands: [
         list: [
           name: "list",
@@ -1063,7 +1344,13 @@ defmodule Ema.CLI do
   defp engine_spec do
     [
       name: "engine",
-      about: "Proposal engine control",
+      about:
+        "Proposal engine control — manage the Generator→Refiner→Debater→Tagger pipeline.\n\n" <>
+          "  The engine checks seeds every 60s and dispatches to the pipeline.\n\n" <>
+          "  Examples:\n" <>
+          "    ema engine status                      Pipeline health + seed counts\n" <>
+          "    ema engine pause                       Pause all generation\n" <>
+          "    ema engine resume                      Resume generation",
       subcommands: [
         status: [name: "status", about: "Show engine pipeline status"],
         pause: [name: "pause", about: "Pause the engine"],
@@ -1075,7 +1362,14 @@ defmodule Ema.CLI do
   defp pipe_spec do
     [
       name: "pipe",
-      about: "Pipe automation",
+      about:
+        "Pipe automation — event-driven workflows (trigger → transform → action).\n\n" <>
+          "  Pipes connect events to actions. 22 triggers, 15 actions, transform chains.\n" <>
+          "  Stock pipes: approved proposal → task, brain dump → triage, etc.\n\n" <>
+          "  Examples:\n" <>
+          "    ema pipe list                          List all pipes\n" <>
+          "    ema pipe show pipe_abc123              View pipe config\n" <>
+          "    ema pipe runs                          Recent pipe executions",
       subcommands: [
         list: [
           name: "list",
@@ -1218,6 +1512,32 @@ defmodule Ema.CLI do
           name: "propose",
           about: "Propose a manual evolution",
           args: [description: [required: true, help: "Description"]]
+        ],
+        create: [
+          name: "create",
+          about: "Create a new evolution rule",
+          args: [name: [required: true, help: "Rule name", parser: :string]],
+          options: [
+            pattern: [short: "-p", long: "--pattern", help: "Signal pattern to match", parser: :string],
+            action: [short: "-a", long: "--action", help: "Action to take on match", parser: :string],
+            description: [short: "-d", long: "--description", help: "Rule description", parser: :string]
+          ]
+        ],
+        update: [
+          name: "update",
+          about: "Update an evolution rule",
+          args: [id: [required: true, help: "Rule ID", parser: :string]],
+          options: [
+            name: [short: "-n", long: "--name", help: "New rule name", parser: :string],
+            pattern: [short: "-p", long: "--pattern", help: "Signal pattern", parser: :string],
+            action: [short: "-a", long: "--action", help: "Action to take", parser: :string],
+            description: [short: "-d", long: "--description", help: "Rule description", parser: :string]
+          ]
+        ],
+        history: [
+          name: "history",
+          about: "Show rule version history",
+          args: [id: [required: true, help: "Rule ID", parser: :string]]
         ]
       ]
     ]
@@ -1246,7 +1566,15 @@ defmodule Ema.CLI do
   defp project_spec do
     [
       name: "project",
-      about: "Project management",
+      about:
+        "Project management — workspaces with linked paths and context docs.\n\n" <>
+          "  Projects organize tasks, proposals, and executions. Use slug or full ID.\n\n" <>
+          "  Examples:\n" <>
+          "    ema project list                       List all projects\n" <>
+          "    ema project show ema                   View project by slug\n" <>
+          "    ema project create \"My App\" --path ~/Projects/my-app\n" <>
+          "    ema project context ema                Context bundle for AI sessions\n" <>
+          "    ema project dependencies ema           Task dependency graph",
       subcommands: [
         list: [
           name: "list",
@@ -1270,6 +1598,7 @@ defmodule Ema.CLI do
             path: [long: "--path", help: "Local path", parser: :string],
             repo: [long: "--repo", help: "Repo URL", parser: :string],
             space: [long: "--space", help: "Space ID", parser: :string],
+            parent: [long: "--parent", help: "Parent project ID or slug", parser: :string],
             description: [
               short: "-d",
               long: "--description",
@@ -1278,9 +1607,25 @@ defmodule Ema.CLI do
             ]
           ]
         ],
+        update: [
+          name: "update",
+          about: "Update a project. Example: ema project update ema --description \"new desc\"",
+          args: [slug: [required: true, help: "Project slug or ID"]],
+          options: [
+            name: [long: "--name", help: "New name", parser: :string],
+            description: [
+              short: "-d",
+              long: "--description",
+              help: "New description",
+              parser: :string
+            ],
+            path: [long: "--path", help: "Local filesystem path", parser: :string],
+            status: [short: "-s", long: "--status", help: "New status", parser: :string]
+          ]
+        ],
         context: [
           name: "context",
-          about: "Show project context bundle",
+          about: "Show project context bundle (for AI session injection)",
           args: [slug: [required: true, help: "Project slug"]]
         ],
         dependencies: [
@@ -1295,7 +1640,18 @@ defmodule Ema.CLI do
   defp babysitter_spec do
     [
       name: "babysitter",
-      about: "System observability",
+      about:
+        "System observability — babysitter ticks, stream topology, and nudges.\n\n" <>
+          "  The babysitter monitors system state every 60s and streams to Discord.\n\n" <>
+          "  Examples:\n" <>
+          "    ema babysitter state                   Current babysitter state\n" <>
+          "    ema babysitter config                  Tick/stream configuration\n" <>
+          "    ema babysitter nudge \"check proposals\"  Send manual nudge\n" <>
+          "    ema babysitter tick                    Force immediate tick\n" <>
+          "    ema babysitter surfaces                All registered surfaces\n" <>
+          "    ema babysitter host-truth              Host truth surface\n" <>
+          "    ema babysitter gateway                 Gateway surface\n" <>
+          "    ema babysitter peers                   Connected peers",
       subcommands: [
         state: [name: "state", about: "Show babysitter state"],
         config: [name: "config", about: "Show babysitter config"],
@@ -1304,7 +1660,11 @@ defmodule Ema.CLI do
           about: "Send nudge message",
           args: [message: [required: true, help: "Nudge message"]]
         ],
-        tick: [name: "tick", about: "Trigger immediate tick"]
+        tick: [name: "tick", about: "Trigger immediate tick"],
+        surfaces: [name: "surfaces", about: "List all registered surfaces"],
+        "host-truth": [name: "host-truth", about: "Show host truth surface"],
+        gateway: [name: "gateway", about: "Show gateway surface"],
+        peers: [name: "peers", about: "List connected peers"]
       ]
     ]
   end
@@ -1312,7 +1672,16 @@ defmodule Ema.CLI do
   defp session_spec do
     [
       name: "session",
-      about: "Claude session management and orchestration",
+      about:
+        "Claude session management — spawn, monitor, and orchestrate Claude Code sessions.\n\n" <>
+          "  EMA detects active claude processes and imports session JSONL files.\n\n" <>
+          "  Examples:\n" <>
+          "    ema session list                       List all sessions\n" <>
+          "    ema session active                     Currently running sessions\n" <>
+          "    ema session spawn \"fix auth bug\" -p ema  Spawn new session\n" <>
+          "    ema session follow session_abc         Check session output\n" <>
+          "    ema session context -p ema             Show context bundle\n" <>
+          "    ema session kill session_abc           Kill running session",
       subcommands: [
         list: [
           name: "list",
@@ -1377,7 +1746,7 @@ defmodule Ema.CLI do
   defp dump_spec do
     [
       name: "dump",
-      about: "Quick brain dump",
+      about: "Quick brain dump — shortcut for 'ema brain-dump create'. Example: ema dump \"my idea\"",
       args: [thought: [required: true, help: "Thought to capture"]],
       options: [
         actor: [short: "-a", long: "--actor", help: "Actor ID", parser: :string],
@@ -1391,7 +1760,48 @@ defmodule Ema.CLI do
   defp status_spec do
     [
       name: "status",
-      about: "System status overview"
+      about: "System status overview — daemon health, active sessions, engine state. Quick check: ema status"
+    ]
+  end
+
+  defp briefing_spec do
+    [
+      name: "briefing",
+      about:
+        "Daily briefing — morning overview of system state.\n\n" <>
+          "  Sections: overdue tasks, habits, executions, proposals, responsibilities,\n" <>
+          "  brain dumps, recent activity, goal progress.\n\n" <>
+          "  Examples:\n" <>
+          "    ema briefing                              Today's briefing\n" <>
+          "    ema briefing --date 2026-04-01            Briefing for a specific date\n" <>
+          "    ema briefing --sections overdue_tasks,goals  Filter sections\n" <>
+          "    ema briefing --json                       Machine-readable output",
+      options: [
+        date: [short: "-d", long: "--date", help: "Date (ISO 8601, default: today)", parser: :string],
+        sections: [short: "-s", long: "--sections", help: "Comma-separated section keys to show", parser: :string]
+      ]
+    ]
+  end
+
+  defp now_spec do
+    [
+      name: "now",
+      about:
+        "What should I do? — context-aware next-action advisor.\n\n" <>
+          "  Scans tasks, proposals, brain dumps, habits, and gaps to recommend\n" <>
+          "  the best thing to work on right now. No AI calls — pure data queries.\n\n" <>
+          "  Examples:\n" <>
+          "    ema now                                Top 5 recommendations\n" <>
+          "    ema now --limit 3                      Top 3 only\n" <>
+          "    ema now --json                         Machine-readable output",
+      options: [
+        limit: [
+          short: "-l",
+          long: "--limit",
+          help: "Number of recommendations (default: 5, max: 20)",
+          parser: :integer
+        ]
+      ]
     ]
   end
 
@@ -1400,7 +1810,14 @@ defmodule Ema.CLI do
   defp superman_spec,
     do: [
       name: "superman",
-      about: "Intelligence layer",
+      about:
+        "Intelligence layer — semantic search index, knowledge gaps, and flow analysis.\n\n" <>
+          "  Examples:\n" <>
+          "    ema superman ask \"what's the auth architecture?\"\n" <>
+          "    ema superman health                    Index health check\n" <>
+          "    ema superman gaps                      Find knowledge gaps\n" <>
+          "    ema superman flows                     Analyze data flows\n" <>
+          "    ema superman index                     Trigger reindexing",
       subcommands: [
         ask: [
           name: "ask",
@@ -1410,7 +1827,37 @@ defmodule Ema.CLI do
         health: [name: "health", about: "Index health"],
         gaps: [name: "gaps", about: "Knowledge gaps"],
         flows: [name: "flows", about: "Flow analysis"],
-        index: [name: "index", about: "Trigger reindexing"]
+        index: [name: "index", about: "Trigger reindexing"],
+        apply: [
+          name: "apply",
+          about: "Apply a change",
+          args: [change: [required: true, help: "Change description"]]
+        ],
+        intent_graph: [
+          name: "intent_graph",
+          about: "Intent graph visualization",
+          options: [
+            project: [short: "-p", long: "--project", help: "Project slug", parser: :string]
+          ]
+        ],
+        simulate: [
+          name: "simulate",
+          about: "Simulate changes",
+          args: [scenario: [required: true, help: "Scenario to simulate"]]
+        ],
+        autonomous: [
+          name: "autonomous",
+          about: "Trigger autonomous analysis",
+          options: [
+            scope: [short: "-s", long: "--scope", help: "Analysis scope", parser: :string]
+          ]
+        ],
+        panels: [name: "panels", about: "Dashboard panels"],
+        build: [
+          name: "build",
+          about: "Trigger build",
+          args: [target: [required: true, help: "Build target"]]
+        ]
       ]
     ]
 
@@ -1843,7 +2290,13 @@ defmodule Ema.CLI do
   defp watch_spec do
     [
       name: "watch",
-      about: "Live event stream (Ctrl+C to exit)",
+      about:
+        "Live event stream — real-time system events (Ctrl+C to exit).\n\n" <>
+          "  Streams events from EMA's PubSub channels.\n\n" <>
+          "  Examples:\n" <>
+          "    ema watch                              All channels\n" <>
+          "    ema watch -c proposals                 Only proposal events\n" <>
+          "    ema watch -c executions -f compact     Compact format",
       options: [
         channel: [
           short: "-c",
@@ -1865,7 +2318,15 @@ defmodule Ema.CLI do
   defp actor_spec,
     do: [
       name: "actor",
-      about: "Actor management",
+      about:
+        "Actor management — workspace identities (human + 17 agents).\n\n" <>
+          "  Actors are the collaboration layer. Each agent has a corresponding actor.\n" <>
+          "  Phase cadence: idle → plan → execute → review → retro.\n\n" <>
+          "  Examples:\n" <>
+          "    ema actor list                         List all actors\n" <>
+          "    ema actor show human                   Show actor detail\n" <>
+          "    ema actor transition actor_abc execute  Advance phase\n" <>
+          "    ema actor phases actor_abc             View phase history",
       subcommands: [
         list: [
           name: "list",
@@ -1929,7 +2390,13 @@ defmodule Ema.CLI do
   defp space_spec,
     do: [
       name: "space",
-      about: "Space management",
+      about:
+        "Space management — isolated contexts (Work, Personal, Health, etc.).\n\n" <>
+          "  Spaces have separate settings and AI context.\n\n" <>
+          "  Examples:\n" <>
+          "    ema space list                         List all spaces\n" <>
+          "    ema space create \"Work\" --type project\n" <>
+          "    ema space show space_abc123",
       subcommands: [
         list: [name: "list", about: "List spaces"],
         show: [name: "show", about: "Show space", args: [id: [required: true, help: "Space ID"]]],
@@ -1953,7 +2420,16 @@ defmodule Ema.CLI do
   defp intent_spec,
     do: [
       name: "intent",
-      about: "Intent engine",
+      about:
+        "Intent engine — hierarchical intent tree driving proposals and executions.\n\n" <>
+          "  Intents are strategic goals that seed the proposal pipeline.\n" <>
+          "  Levels: 0 (mission) through 5 (micro-task). Wiki-sourced intents auto-sync.\n\n" <>
+          "  Examples:\n" <>
+          "    ema intent list                        List all intents\n" <>
+          "    ema intent list -l 1                   Level 1 intents only\n" <>
+          "    ema intent show intent_abc123          View intent detail\n" <>
+          "    ema intent create \"Improve CLI UX\" -l 2 -p ema\n" <>
+          "    ema intent tree                        Visual intent hierarchy",
       subcommands: [
         list: [
           name: "list",
@@ -1985,6 +2461,32 @@ defmodule Ema.CLI do
               parser: :string
             ]
           ]
+        ],
+        update: [
+          name: "update",
+          about: "Update an intent",
+          args: [id: [required: true, help: "Intent ID", parser: :string]],
+          options: [
+            title: [long: "--title", help: "New title", parser: :string],
+            status: [short: "-s", long: "--status", help: "New status", parser: :string],
+            level: [short: "-l", long: "--level", help: "New level (0-5)", parser: :integer],
+            description: [
+              short: "-d",
+              long: "--description",
+              help: "New description",
+              parser: :string
+            ]
+          ]
+        ],
+        delete: [
+          name: "delete",
+          about: "Delete an intent",
+          args: [id: [required: true, help: "Intent ID", parser: :string]]
+        ],
+        lineage: [
+          name: "lineage",
+          about: "Show intent lineage (ancestors + descendants)",
+          args: [id: [required: true, help: "Intent ID", parser: :string]]
         ],
         tree: [
           name: "tree",
@@ -2743,6 +3245,68 @@ defmodule Ema.CLI do
         status: [name: "status", about: "Show detailed provider status"],
         health: [name: "health", about: "Run health check on all providers"],
         detect: [name: "detect", about: "Trigger runtime provider discovery"]
+      ]
+    ]
+  end
+
+  defp memory_spec do
+    [
+      name: "memory",
+      about:
+        "Memory system — session memory, fragments, context, and extraction.\n\n" <>
+          "  Memory tracks session context, extracts reusable fragments,\n" <>
+          "  and provides contextual retrieval for AI-assisted workflows.\n\n" <>
+          "  Examples:\n" <>
+          "    ema memory sessions                    List all memory sessions\n" <>
+          "    ema memory session sess_abc123         Show session detail\n" <>
+          "    ema memory fragments                   List memory fragments\n" <>
+          "    ema memory context                     Get current memory context\n" <>
+          "    ema memory search -q \"auth flow\"       Search memory fragments\n" <>
+          "    ema memory extract sess_abc123         Extract memory from a session",
+      subcommands: [
+        sessions: [
+          name: "sessions",
+          about: "List all memory sessions"
+        ],
+        session: [
+          name: "session",
+          about: "Show memory session detail",
+          args: [id: [required: true, help: "Session ID", parser: :string]]
+        ],
+        fragments: [
+          name: "fragments",
+          about: "List all memory fragments"
+        ],
+        context: [
+          name: "context",
+          about: "Get current memory context for AI workflows"
+        ],
+        search: [
+          name: "search",
+          about:
+            "Search memory fragments by query.\n\n" <>
+              "  Examples:\n" <>
+              "    ema memory search -q \"authentication\"\n" <>
+              "    ema memory search -q \"deployment pipeline\"",
+          options: [
+            query: [
+              short: "-q",
+              long: "--query",
+              help: "Search query (required)",
+              parser: :string,
+              required: true
+            ]
+          ]
+        ],
+        extract: [
+          name: "extract",
+          about:
+            "Extract memory fragments from a session.\n\n" <>
+              "  Processes a session and creates reusable memory fragments.\n\n" <>
+              "  Examples:\n" <>
+              "    ema memory extract sess_abc123",
+          args: [session_id: [required: true, help: "Session ID to extract from", parser: :string]]
+        ]
       ]
     ]
   end

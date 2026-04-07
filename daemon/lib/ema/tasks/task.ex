@@ -99,6 +99,39 @@ defmodule Ema.Tasks.Task do
     |> maybe_set_completed_at()
   end
 
+  def update_changeset(task, attrs) do
+    task
+    |> cast(attrs, [
+      :title,
+      :description,
+      :status,
+      :priority,
+      :source_type,
+      :source_id,
+      :effort,
+      :due_date,
+      :recurrence,
+      :sort_order,
+      :completed_at,
+      :metadata,
+      :project_id,
+      :space_id,
+      :goal_id,
+      :responsibility_id,
+      :parent_id,
+      :actor_id,
+      :agent,
+      :intent,
+      :intent_confidence,
+      :intent_overridden
+    ])
+    |> validate_inclusion(:status, @valid_statuses)
+    |> validate_inclusion(:priority, @valid_priorities)
+    |> maybe_validate_inclusion(:source_type, @valid_source_types)
+    |> maybe_validate_inclusion(:effort, @valid_efforts)
+    |> maybe_set_completed_at()
+  end
+
   def valid_transition?(from, to) do
     to in Map.get(@valid_transitions, from, [])
   end

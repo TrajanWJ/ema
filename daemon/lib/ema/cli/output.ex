@@ -102,7 +102,12 @@ defmodule Ema.CLI.Output do
     do: format_relative(DateTime.from_naive!(dt, "Etc/UTC"))
 
   defp format_value(val) when is_binary(val), do: String.slice(val, 0, 80)
-  defp format_value(val) when is_list(val), do: Enum.join(val, ", ")
+  defp format_value(val) when is_list(val) do
+    val
+    |> Enum.map(&format_value/1)
+    |> Enum.join(", ")
+  end
+
   defp format_value(val) when is_map(val), do: Jason.encode!(val)
   defp format_value(val), do: to_string(val)
 
