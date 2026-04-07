@@ -17,7 +17,9 @@ config :ema,
   proposal_engine: [enabled: true],
   # Seed preflight quality gate: :observe | :enrich_only | :enforce
   seed_preflight: [mode: :enrich_only, minimum_score: 15, duplicate_similarity_threshold: 0.6],
-  vault_path: System.get_env("EMA_VAULT_PATH", "/home/trajan/vault")
+  vault_path: System.get_env("EMA_VAULT_PATH", "/home/trajan/vault"),
+  openclaw_gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://192.168.122.10:18789"),
+  openclaw_ssh_host: System.get_env("OPENCLAW_SSH_HOST", "trajan@192.168.122.10")
 
 # Configure the endpoint
 config :ema, EmaWeb.Endpoint,
