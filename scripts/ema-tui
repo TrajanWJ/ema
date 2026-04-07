@@ -73,8 +73,18 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Footer, Header, Static
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Input,
+    Label,
+    Static,
+    TabbedContent,
+    TabPane,
+)
 
 
 class StatusBar(Static):
@@ -233,6 +243,228 @@ class ProjectPanel(Widget):
             scroll.mount(Static(f"  {name:<20} {status}"))
 
 
+class TagPanel(Widget):
+    """Tags for the currently selected entity."""
+
+    DEFAULT_CSS = """
+    TagPanel { height: 1fr; border: solid $primary; }
+    TagPanel VerticalScroll { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Tags", classes="panel-title")
+        yield VerticalScroll()
+
+    def load_tags(self, entity_type, entity_id):
+        scroll = self.query_one(VerticalScroll)
+        scroll.remove_children()
+        if not entity_type or not entity_id:
+            scroll.mount(Static("  Select an entity to view tags"))
+            return
+        data = api_get("/api/tags", {"entity_type": entity_type, "entity_id": str(entity_id)})
+        tags = data.get("tags", data.get("data", [])) if isinstance(data, dict) else []
+        if not tags:
+            scroll.mount(Static("  No tags"))
+            return
+        for tag in tags:
+            name = tag.get("name") or tag.get("tag", "?")
+            actor = tag.get("actor_slug", tag.get("actor_id", ""))
+            scroll.mount(Static(f"  🏷  {name}  ({actor})"))
+
+
+class EntityDataPanel(Widget):
+    """Per-actor metadata for selected entity."""
+
+    DEFAULT_CSS = """
+    EntityDataPanel { height: 1fr; border: solid $secondary; }
+    EntityDataPanel VerticalScroll { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Entity Data", classes="panel-title")
+        yield VerticalScroll()
+
+    def load_data(self, entity_type, entity_id, actor_id="human"):
+        scroll = self.query_one(VerticalScroll)
+        scroll.remove_children()
+        if not entity_type or not entity_id:
+            scroll.mount(Static("  Select an entity to view data"))
+            return
+        data = api_get("/api/entity-data", {
+            "entity_type": entity_type,
+            "entity_id": str(entity_id),
+            "actor_id": actor_id,
+        })
+        items = data.get("entity_data", data.get("data", [])) if isinstance(data, dict) else []
+        if not items:
+            scroll.mount(Static("  No entity data"))
+            return
+        for item in items:
+            key = item.get("key", "?")
+            val = item.get("value", "?")
+            scroll.mount(Static(f"  {key}: {val}"))
+
+
+class ActorPanel(Widget):
+    """Actor list with phase status."""
+
+    DEFAULT_CSS = """
+    ActorPanel { height: 1fr; border: solid $warning; }
+    ActorPanel DataTable { height: 1fr; }
+    """
+
+    _actors: list = []
+
+    def compose(self) -> ComposeResult:
+        yield Static("Actors  (a=advance phase)", classes="panel-title")
+        yield DataTable(id="actor-table")
+
+    def on_mount(self):
+        table = self.query_one("#actor-table", DataTable)
+        table.add_columns("Name", "Type", "Phase", "Capabilities")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self, actors):
+        self._actors = actors
+        table = self.query_one("#actor-table", DataTable)
+        table.clear()
+        for a in actors[:30]:
+            name = a.get("name", a.get("slug", "?"))[:20]
+            atype = a.get("type", a.get("actor_type", "?"))
+            icon = "👤" if atype == "human" else "🤖"
+            phase = a.get("phase", "?")
+            caps = ", ".join((a.get("capabilities") or [])[:3])[:30]
+            table.add_row(f"{icon} {name}", atype, phase, caps)
+
+    def get_selected_actor(self):
+        table = self.query_one("#actor-table", DataTable)
+        if table.cursor_row is not None and 0 <= table.cursor_row < len(self._actors):
+            return self._actors[table.cursor_row]
+        return None
+
+
+class DetailScreen(ModalScreen):
+    """Full detail view for a task or execution."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "Close"),
+        Binding("q", "dismiss", "Close"),
+    ]
+
+    DEFAULT_CSS = """
+    DetailScreen {
+        align: center middle;
+    }
+    #detail-container {
+        width: 80;
+        max-height: 40;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    """
+
+    def __init__(self, entity_type: str, entity: dict):
+        super().__init__()
+        self.entity_type = entity_type
+        self.entity = entity
+
+    def compose(self) -> ComposeResult:
+        e = self.entity
+        lines = []
+        if self.entity_type == "task":
+            lines.append(f"[b]Task Detail[/b]")
+            lines.append(f"")
+            lines.append(f"Title:       {e.get('title', '?')}")
+            lines.append(f"Status:      {e.get('status', '?')}")
+            pri = {1: "critical", 2: "high", 3: "medium", 4: "low", 5: "minimal"}.get(
+                e.get("priority"), "?"
+            )
+            lines.append(f"Priority:    {pri}")
+            lines.append(f"Actor:       {e.get('actor_id', '—')}")
+            lines.append(f"Project:     {e.get('project_id', '—')}")
+            lines.append(f"Created:     {e.get('created_at', '—')}")
+            lines.append(f"Updated:     {e.get('updated_at', '—')}")
+            desc = e.get("description") or "—"
+            lines.append(f"")
+            lines.append(f"Description:")
+            for chunk in [desc[i:i+70] for i in range(0, len(desc), 70)]:
+                lines.append(f"  {chunk}")
+            # Fetch tags
+            tid = e.get("id")
+            if tid:
+                tag_data = api_get("/api/tags", {"entity_type": "task", "entity_id": str(tid)})
+                tags = tag_data.get("tags", tag_data.get("data", [])) if isinstance(tag_data, dict) else []
+                if tags:
+                    tag_names = [t.get("name", "?") for t in tags]
+                    lines.append(f"")
+                    lines.append(f"Tags:        {', '.join(tag_names)}")
+        elif self.entity_type == "execution":
+            lines.append(f"[b]Execution Detail[/b]")
+            lines.append(f"")
+            lines.append(f"Title:       {e.get('title', '?')}")
+            lines.append(f"Status:      {e.get('status', '?')}")
+            lines.append(f"Mode:        {e.get('mode', '?')}")
+            lines.append(f"Actor:       {e.get('actor_id', '—')}")
+            lines.append(f"Created:     {e.get('inserted_at', e.get('created_at', '—'))}")
+            lines.append(f"Updated:     {e.get('updated_at', '—')}")
+            desc = e.get("description") or e.get("output") or "—"
+            lines.append(f"")
+            lines.append(f"Description:")
+            for chunk in [desc[i:i+70] for i in range(0, len(desc), 70)]:
+                lines.append(f"  {chunk}")
+
+        lines.append(f"")
+        lines.append(f"[dim]Press Escape or q to close[/dim]")
+
+        with Vertical(id="detail-container"):
+            yield Static("\n".join(lines))
+
+
+class BrainDumpScreen(ModalScreen):
+    """Modal input for brain dumps."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "Cancel"),
+    ]
+
+    DEFAULT_CSS = """
+    BrainDumpScreen {
+        align: center middle;
+    }
+    #dump-container {
+        width: 70;
+        height: auto;
+        max-height: 12;
+        border: thick $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #dump-input {
+        margin-top: 1;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dump-container"):
+            yield Static("[b]Brain Dump[/b]  (Enter to submit, Escape to cancel)")
+            yield Input(placeholder="What's on your mind?", id="dump-input")
+
+    def on_mount(self):
+        self.query_one("#dump-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted):
+        text = event.value.strip()
+        if text:
+            result = api_post("/api/brain-dump/items", {"content": text, "source": "tui"})
+            if result:
+                self.app.notify("Brain dump captured")
+            else:
+                self.app.notify("Failed to submit brain dump", severity="error")
+        self.dismiss()
+
+
 class EmaDashboard(App):
     """EMA Executive Dashboard"""
 
@@ -254,17 +486,15 @@ class EmaDashboard(App):
         padding: 0 2;
         text-style: bold;
     }
-    #top-row {
-        height: 1fr;
-    }
-    #bottom-row {
-        height: 1fr;
-    }
-    #left-col {
+    .half-col {
         width: 1fr;
     }
-    #right-col {
-        width: 1fr;
+    TabbedContent {
+        height: 1fr;
+    }
+    TabPane {
+        height: 1fr;
+        padding: 0;
     }
     """
 
@@ -275,25 +505,58 @@ class EmaDashboard(App):
         Binding("d", "dump", "Brain Dump"),
         Binding("t", "focus_tasks", "Tasks"),
         Binding("e", "focus_exec", "Executions"),
+        Binding("1", "show_tab('dashboard')", "Dashboard"),
+        Binding("2", "show_tab('executive')", "Executive"),
+        Binding("3", "show_tab('project-tab')", "Projects"),
+        Binding("a", "advance_phase", "Advance Phase"),
+        Binding("enter", "detail_view", "Detail", show=False),
     ]
+
+    # Store fetched data for detail views
+    _tasks: list = []
+    _execs: list = []
+    _actors: list = []
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield StatusBar(id="status-bar")
-        yield Horizontal(
-            Vertical(
-                TaskPanel(id="tasks"),
-                PhasePanel(id="phases"),
-                id="left-col",
-            ),
-            Vertical(
-                ExecutionPanel(id="executions"),
-                BrainDumpPanel(id="braindump"),
-                ProjectPanel(id="projects"),
-                id="right-col",
-            ),
-            id="top-row",
-        )
+        with TabbedContent(initial="dashboard"):
+            with TabPane("Dashboard", id="dashboard"):
+                yield Horizontal(
+                    Vertical(
+                        TaskPanel(id="tasks"),
+                        PhasePanel(id="phases"),
+                        classes="half-col",
+                    ),
+                    Vertical(
+                        ExecutionPanel(id="executions"),
+                        BrainDumpPanel(id="braindump"),
+                        classes="half-col",
+                    ),
+                )
+            with TabPane("Executive", id="executive"):
+                yield Horizontal(
+                    Vertical(
+                        ActorPanel(id="actors"),
+                        classes="half-col",
+                    ),
+                    Vertical(
+                        EntityDataPanel(id="entity-data"),
+                        TagPanel(id="tags"),
+                        classes="half-col",
+                    ),
+                )
+            with TabPane("Projects", id="project-tab"):
+                yield Horizontal(
+                    Vertical(
+                        ProjectPanel(id="projects"),
+                        classes="half-col",
+                    ),
+                    Vertical(
+                        TagPanel(id="project-tags"),
+                        classes="half-col",
+                    ),
+                )
         yield Footer()
 
     def on_mount(self):
@@ -304,12 +567,15 @@ class EmaDashboard(App):
         # Fetch all data
         actors_data = api_get("/api/actors")
         actors = actors_data.get("actors", []) if isinstance(actors_data, dict) else []
+        self._actors = actors
 
         tasks_data = api_get("/api/tasks")
         tasks = tasks_data.get("tasks", []) if isinstance(tasks_data, dict) else []
+        self._tasks = tasks
 
         exec_data = api_get("/api/executions")
         execs = exec_data.get("executions", exec_data.get("data", [])) if isinstance(exec_data, dict) else []
+        self._execs = execs
 
         bd_data = api_get("/api/brain-dump/items")
         bd_items = bd_data.get("items", []) if isinstance(bd_data, dict) else []
@@ -324,13 +590,14 @@ class EmaDashboard(App):
         self.query_one("#braindump", BrainDumpPanel).refresh_data(bd_items)
         self.query_one("#phases", PhasePanel).refresh_data(actors)
         self.query_one("#projects", ProjectPanel).refresh_data(projects)
+        self.query_one("#actors", ActorPanel).refresh_data(actors)
 
     def action_refresh(self):
         self.refresh_all()
         self.notify("Refreshed")
 
     def action_dump(self):
-        self.push_screen(BrainDumpInput())
+        self.push_screen(BrainDumpScreen())
 
     def action_focus_tasks(self):
         self.query_one("#tasks-table", DataTable).focus()
@@ -338,10 +605,72 @@ class EmaDashboard(App):
     def action_focus_exec(self):
         self.query_one("#exec-table", DataTable).focus()
 
+    def action_show_tab(self, tab: str) -> None:
+        self.query_one(TabbedContent).active = tab
 
-class BrainDumpInput(Widget):
-    """Quick brain dump input screen."""
-    pass  # TODO: implement input screen
+    def action_advance_phase(self):
+        """Advance selected actor's phase."""
+        try:
+            actor_panel = self.query_one("#actors", ActorPanel)
+        except Exception:
+            self.notify("Switch to Executive tab first", severity="warning")
+            return
+        actor = actor_panel.get_selected_actor()
+        if not actor:
+            self.notify("No actor selected", severity="warning")
+            return
+        actor_id = actor.get("id")
+        current = actor.get("phase", "plan")
+        cycle = ["plan", "execute", "review", "retro"]
+        idx = cycle.index(current) if current in cycle else 0
+        next_phase = cycle[(idx + 1) % len(cycle)]
+        result = api_post(f"/api/actors/{actor_id}/phase", {"phase": next_phase})
+        if result:
+            self.notify(f"Phase: {current} → {next_phase}")
+            self.refresh_all()
+        else:
+            self.notify("Failed to advance phase", severity="error")
+
+    def action_detail_view(self):
+        """Show detail view for the focused table's selected row."""
+        focused = self.focused
+        if focused is None:
+            return
+        widget_id = focused.id
+        if widget_id == "tasks-table":
+            table = self.query_one("#tasks-table", DataTable)
+            row = table.cursor_row
+            if row is not None and 0 <= row < len(self._tasks):
+                self.push_screen(DetailScreen("task", self._tasks[row]))
+        elif widget_id == "exec-table":
+            table = self.query_one("#exec-table", DataTable)
+            row = table.cursor_row
+            if row is not None and 0 <= row < len(self._execs):
+                self.push_screen(DetailScreen("execution", self._execs[row]))
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        """When a row is selected, update tag/entity-data panels."""
+        table_id = event.data_table.id
+        if table_id == "tasks-table":
+            row = event.cursor_row
+            if 0 <= row < len(self._tasks):
+                task = self._tasks[row]
+                tid = task.get("id")
+                try:
+                    self.query_one("#tags", TagPanel).load_tags("task", tid)
+                    self.query_one("#entity-data", EntityDataPanel).load_data("task", tid)
+                except Exception:
+                    pass
+        elif table_id == "exec-table":
+            row = event.cursor_row
+            if 0 <= row < len(self._execs):
+                exc = self._execs[row]
+                eid = exc.get("id")
+                try:
+                    self.query_one("#tags", TagPanel).load_tags("execution", eid)
+                    self.query_one("#entity-data", EntityDataPanel).load_data("execution", eid)
+                except Exception:
+                    pass
 
 
 if __name__ == "__main__":

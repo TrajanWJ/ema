@@ -240,6 +240,96 @@ defmodule Ema.Actors do
     |> Repo.all()
   end
 
+  # ── Sprint Cycle Metrics ──
+
+  @doc "Get cycle metrics for an actor over a period. Uses entity_data with entity_type 'cycle'."
+  def get_cycle_metrics(actor_id, cycle_type, opts \\ []) do
+    cycle_id = opts[:cycle_id] || current_cycle_id(cycle_type)
+
+    data = list_data(actor_id, "cycle", cycle_id)
+    data_map = Map.new(data, fn ed -> {ed.key, ed.value} end)
+
+    transitions =
+      PhaseTransition
+      |> where([t], t.actor_id == ^actor_id)
+      |> filter_transitions_by_cycle(cycle_type, cycle_id)
+      |> order_by([t], desc: t.transitioned_at)
+      |> Repo.all()
+
+    %{
+      actor_id: actor_id,
+      cycle_type: cycle_type,
+      cycle_id: cycle_id,
+      status: data_map["status"] || "not_started",
+      backlog_count: parse_int(data_map["backlog_count"], 0),
+      completed_count: parse_int(data_map["completed_count"], 0),
+      carried_count: parse_int(data_map["carried_count"], 0),
+      velocity: parse_int(data_map["velocity"], 0),
+      started_at: data_map["started_at"],
+      completed_at: data_map["completed_at"],
+      transitions: transitions
+    }
+  end
+
+  @doc "Record cycle completion metrics as entity_data."
+  def record_cycle_completion(actor_id, cycle_type, metrics) do
+    cycle_id = Map.get(metrics, :cycle_id) || current_cycle_id(cycle_type)
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    entries = [
+      {"status", "completed"},
+      {"completed_at", now},
+      {"backlog_count", to_string(Map.get(metrics, :backlog_count, 0))},
+      {"completed_count", to_string(Map.get(metrics, :completed_count, 0))},
+      {"carried_count", to_string(Map.get(metrics, :carried_count, 0))},
+      {"velocity", to_string(Map.get(metrics, :velocity, 0))}
+    ]
+
+    Enum.each(entries, fn {key, value} ->
+      set_data(actor_id, "cycle", cycle_id, key, value)
+    end)
+
+    {:ok, %{cycle_id: cycle_id, cycle_type: cycle_type, status: "completed"}}
+  end
+
+  defp current_cycle_id("week") do
+    {year, week} = Date.utc_today() |> Date.to_erl() |> :calendar.iso_week_number()
+    "week_#{year}-W#{String.pad_leading(to_string(week), 2, "0")}"
+  end
+
+  defp current_cycle_id("month") do
+    today = Date.utc_today()
+    "month_#{today.year}-#{String.pad_leading(to_string(today.month), 2, "0")}"
+  end
+
+  defp current_cycle_id("quarter") do
+    today = Date.utc_today()
+    q = div(today.month - 1, 3) + 1
+    "quarter_#{today.year}-Q#{q}"
+  end
+
+  defp filter_transitions_by_cycle(query, "week", cycle_id) do
+    case Regex.run(~r/week_(\d+)-W(\d+)/, cycle_id) do
+      [_, year, week] ->
+        {y, w} = {String.to_integer(year), String.to_integer(week)}
+        where(query, [t], t.week_number == ^w and fragment("strftime('%Y', ?)", t.transitioned_at) == ^to_string(y))
+
+      _ ->
+        query
+    end
+  end
+
+  defp filter_transitions_by_cycle(query, _cycle_type, _cycle_id), do: query
+
+  defp parse_int(nil, default), do: default
+  defp parse_int(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} -> n
+      :error -> default
+    end
+  end
+  defp parse_int(val, _default) when is_integer(val), do: val
+
   # ── Bootstrap ──
 
   def ensure_default_human_actor do

@@ -30,6 +30,7 @@ import { useDecisionLogStore } from "@/stores/decision-log-store";
 import { usePromptWorkshopStore } from "@/stores/prompt-workshop-store";
 import { useProjectGraphStore } from "@/stores/project-graph-store";
 import { useCodeHealthStore } from "@/stores/code-health-store";
+import { useActorsStore } from "@/stores/actors-store";
 import { restoreWorkspace } from "@/lib/window-manager";
 import { doFetch } from "@/lib/api";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
@@ -102,6 +103,7 @@ export function Shell({ children }: ShellProps) {
       usePromptWorkshopStore.getState().loadViaRest().catch(() => {}),
       useProjectGraphStore.getState().loadViaRest().catch(() => {}),
       useCodeHealthStore.getState().loadViaRest().catch(() => {}),
+      useActorsStore.getState().loadViaRest().catch(() => {}),
     ]);
   }, []);
 
@@ -134,6 +136,7 @@ export function Shell({ children }: ShellProps) {
       usePromptWorkshopStore.getState().connect().catch(() => {}),
       useProjectGraphStore.getState().connect().catch(() => {}),
       useCodeHealthStore.getState().connect().catch(() => {}),
+      useActorsStore.getState().connect().catch(() => {}),
     ]);
   }, []);
 

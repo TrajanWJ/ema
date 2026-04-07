@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MCP_DIR="$ROOT/priv/mcp"
+SERVER="$MCP_DIR/wiki-mcp-server.js"
+PACKAGE_JSON="$MCP_DIR/package.json"
+LOCKFILE="$MCP_DIR/package-lock.json"
+
+if [ ! -f "$SERVER" ]; then
+  echo "ema-wiki-mcp: missing server at $SERVER" >&2
+  exit 1
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "ema-wiki-mcp: node is required but was not found in PATH" >&2
+  exit 1
+fi
+
+if [ ! -d "$MCP_DIR/node_modules" ]; then
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "ema-wiki-mcp: npm is required to install MCP dependencies" >&2
+    exit 1
+  fi
+
+  echo "ema-wiki-mcp: installing MCP dependencies in $MCP_DIR" >&2
+  cd "$MCP_DIR"
+
+  if [ -f "$LOCKFILE" ]; then
+    npm ci --no-audit --no-fund >&2
+  else
+    npm install --no-audit --no-fund >&2
+  fi
+fi
+
+cd "$MCP_DIR"
+exec node "$SERVER" "$@"

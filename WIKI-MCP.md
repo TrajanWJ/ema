@@ -29,6 +29,21 @@ Add to `~/.claude/settings.json` under `mcpServers`:
     }
   }
 }
+
+Recommended instead: use the launcher script so missing `node_modules` are installed automatically before the MCP server starts.
+
+```json
+{
+  "mcpServers": {
+    "ema-wiki": {
+      "command": "/home/trajan/Projects/ema/daemon/bin/ema-wiki-mcp",
+      "env": {
+        "EMA_BASE_URL": "http://localhost:4488"
+      }
+    }
+  }
+}
+```
 ```
 
 ### HTTP Mode (for agents)

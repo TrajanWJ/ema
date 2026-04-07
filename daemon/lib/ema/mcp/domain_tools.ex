@@ -23,6 +23,13 @@ defmodule Ema.MCP.DomainTools do
     ema_get_pipes ema_create_pipe ema_toggle_pipe ema_pipe_catalog ema_pipe_history
     ema_babysitter_state ema_babysitter_nudge
     ema_dashboard_today
+    ema_list_actors ema_get_actor ema_create_actor ema_advance_phase
+    ema_list_phases ema_actor_velocity
+    ema_tag_entity ema_list_tags ema_untag_entity
+    ema_set_entity_data ema_get_entity_data ema_delete_entity_data
+    ema_set_container_config ema_get_container_config
+    ema_list_spaces ema_create_space
+    ema_em_status
   )
 
   def tool_names, do: @tool_names
@@ -247,7 +254,93 @@ defmodule Ema.MCP.DomainTools do
       }, ["message"]),
 
       # ── Dashboard ──
-      tool("ema_dashboard_today", "Get today's dashboard overview", %{})
+      tool("ema_dashboard_today", "Get today's dashboard overview", %{}),
+
+      # ── Actors ──
+      tool("ema_list_actors", "List actors with optional type filter", %{
+        "type" => %{"type" => "string", "description" => "human|agent"}
+      }),
+      tool("ema_get_actor", "Get actor details by ID", %{
+        "id" => %{"type" => "string"}
+      }, ["id"]),
+      tool("ema_create_actor", "Create a new actor", %{
+        "name" => %{"type" => "string"},
+        "slug" => %{"type" => "string"},
+        "actor_type" => %{"type" => "string", "description" => "human|agent"}
+      }, ["name", "slug", "actor_type"]),
+      tool("ema_advance_phase", "Transition an actor to a new phase", %{
+        "id" => %{"type" => "string"},
+        "to_phase" => %{"type" => "string"},
+        "reason" => %{"type" => "string"},
+        "week_number" => %{"type" => "number"}
+      }, ["id", "to_phase"]),
+      tool("ema_list_phases", "List phase transitions for an actor", %{
+        "id" => %{"type" => "string"}
+      }, ["id"]),
+      tool("ema_actor_velocity", "Compute actor velocity — weeks completed and avg transitions", %{
+        "id" => %{"type" => "string"}
+      }, ["id"]),
+
+      # ── Tags ──
+      tool("ema_tag_entity", "Tag an entity (task, project, etc.)", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"},
+        "tag" => %{"type" => "string"},
+        "actor_id" => %{"type" => "string"},
+        "namespace" => %{"type" => "string"}
+      }, ["entity_type", "entity_id", "tag"]),
+      tool("ema_list_tags", "List tags for an entity", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"}
+      }, ["entity_type", "entity_id"]),
+      tool("ema_untag_entity", "Remove a tag from an entity", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"},
+        "tag" => %{"type" => "string"},
+        "actor_id" => %{"type" => "string"}
+      }, ["entity_type", "entity_id", "tag"]),
+
+      # ── Entity Data ──
+      tool("ema_set_entity_data", "Set per-actor metadata on an entity", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"},
+        "actor_id" => %{"type" => "string"},
+        "key" => %{"type" => "string"},
+        "value" => %{"type" => "string"}
+      }, ["entity_type", "entity_id", "key", "value"]),
+      tool("ema_get_entity_data", "Get per-actor metadata for an entity", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"},
+        "actor_id" => %{"type" => "string"}
+      }, ["entity_type", "entity_id"]),
+      tool("ema_delete_entity_data", "Delete per-actor metadata from an entity", %{
+        "entity_type" => %{"type" => "string"},
+        "entity_id" => %{"type" => "string"},
+        "actor_id" => %{"type" => "string"},
+        "key" => %{"type" => "string"}
+      }, ["entity_type", "entity_id", "key"]),
+
+      # ── Container Config ──
+      tool("ema_set_container_config", "Set config on a container (space/project/task)", %{
+        "container_type" => %{"type" => "string"},
+        "container_id" => %{"type" => "string"},
+        "key" => %{"type" => "string"},
+        "value" => %{"type" => "string"}
+      }, ["container_type", "container_id", "key", "value"]),
+      tool("ema_get_container_config", "Get config for a container", %{
+        "container_type" => %{"type" => "string"},
+        "container_id" => %{"type" => "string"}
+      }, ["container_type", "container_id"]),
+
+      # ── Spaces ──
+      tool("ema_list_spaces", "List all spaces", %{}),
+      tool("ema_create_space", "Create a new space", %{
+        "name" => %{"type" => "string"},
+        "space_type" => %{"type" => "string"}
+      }, ["name"]),
+
+      # ── Executive Management ──
+      tool("ema_em_status", "Executive overview — all actors with phase info", %{})
     ]
   end
 
@@ -352,6 +445,58 @@ defmodule Ema.MCP.DomainTools do
   # Dashboard
   def call("ema_dashboard_today", _, _), do: get("/dashboard/today")
 
+  # Actors
+  def call("ema_list_actors", args, _), do: get("/actors", pick(args, ~w(type)))
+  def call("ema_get_actor", %{"id" => id}, _), do: get("/actors/#{id}")
+  def call("ema_create_actor", args, _), do: post("/actors", pick(args, ~w(name slug actor_type)))
+  def call("ema_advance_phase", %{"id" => id} = a, _),
+    do: post("/actors/#{id}/transition", pick(a, ~w(to_phase reason week_number)))
+  def call("ema_list_phases", %{"id" => id}, _), do: get("/actors/#{id}/phases")
+
+  def call("ema_actor_velocity", %{"id" => id}, _) do
+    case get("/actors/#{id}/phases") do
+      {:ok, phases} when is_list(phases) ->
+        count = length(phases)
+        weeks = phases
+          |> Enum.map(& &1["week_number"])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+          |> length()
+        avg = if count > 0, do: Float.round(weeks / count, 2), else: 0.0
+        {:ok, %{"actor_id" => id, "total_transitions" => count, "weeks_completed" => weeks, "avg_transitions_per_week" => avg}}
+      other -> other
+    end
+  end
+
+  # Tags
+  def call("ema_tag_entity", args, _),
+    do: post("/tags", pick(args, ~w(entity_type entity_id tag actor_id namespace)))
+  def call("ema_list_tags", args, _),
+    do: get("/tags", pick(args, ~w(entity_type entity_id)))
+  def call("ema_untag_entity", args, _),
+    do: delete("/tags", pick(args, ~w(entity_type entity_id tag actor_id)))
+
+  # Entity Data
+  def call("ema_set_entity_data", args, _),
+    do: post("/entity-data", pick(args, ~w(entity_type entity_id actor_id key value)))
+  def call("ema_get_entity_data", args, _),
+    do: get("/entity-data", pick(args, ~w(entity_type entity_id actor_id)))
+  def call("ema_delete_entity_data", args, _),
+    do: delete("/entity-data", pick(args, ~w(entity_type entity_id actor_id key)))
+
+  # Container Config
+  def call("ema_set_container_config", args, _),
+    do: post("/container-config", pick(args, ~w(container_type container_id key value)))
+  def call("ema_get_container_config", args, _),
+    do: get("/container-config", pick(args, ~w(container_type container_id)))
+
+  # Spaces
+  def call("ema_list_spaces", _, _), do: get("/spaces")
+  def call("ema_create_space", args, _), do: post("/spaces", pick(args, ~w(name space_type)))
+
+  # Executive Management
+  def call("ema_em_status", _, _), do: get("/actors")
+
   # Catch-alls
   def call(name, _, _) when name in @tool_names, do: {:error, "Missing required parameters for #{name}"}
   def call(name, _, _), do: {:error, "Unknown domain tool: #{name}"}
@@ -368,6 +513,11 @@ defmodule Ema.MCP.DomainTools do
   defp put(path, body), do: http(:put, path, body)
   defp patch(path, body), do: http(:patch, path, body)
   defp delete(path), do: http(:delete, path)
+  defp delete(path, params) do
+    params = params |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end) |> Map.new()
+    qs = if map_size(params) > 0, do: "?" <> URI.encode_query(params), else: ""
+    http(:delete, "#{path}#{qs}")
+  end
 
   defp http(method, path, body \\ nil) do
     url = @base_url <> "/api" <> path
