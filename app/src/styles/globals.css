@@ -48,28 +48,28 @@
   --pn-dropdown-bg-solid: #0f1320;
   --pn-dropdown-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), 0 6px 18px rgba(0, 0, 0, 0.26);
   --pn-focus-ring: 0 0 0 2px rgba(45, 212, 168, 0.10);
-  --pn-window-wash: rgba(6, 8, 18, 0.38);
-  --pn-window-core: rgba(7, 9, 20, 0.58);
-  --pn-window-deep: rgba(5, 6, 22, 0.64);
-  --pn-window-panel: rgba(10, 14, 28, 0.42);
-  --pn-window-header: rgba(10, 14, 28, 0.40);
+  --pn-window-wash: rgba(6, 8, 18, 0.46);
+  --pn-window-core: rgba(7, 9, 20, 0.66);
+  --pn-window-deep: rgba(5, 6, 22, 0.72);
+  --pn-window-panel: rgba(10, 14, 28, 0.50);
+  --pn-window-header: rgba(10, 14, 28, 0.48);
 }
 
 .glass-ambient {
-  background: rgba(10, 14, 28, 0.30);
+  background: rgba(10, 14, 28, 0.38);
   backdrop-filter: blur(6px) saturate(120%);
   -webkit-backdrop-filter: blur(6px) saturate(120%);
 }
 
 .glass-surface {
-  background: rgba(10, 14, 28, 0.45);
+  background: rgba(10, 14, 28, 0.52);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .glass-elevated, .glass {
-  background: rgba(10, 14, 28, 0.55);
+  background: rgba(10, 14, 28, 0.62);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
