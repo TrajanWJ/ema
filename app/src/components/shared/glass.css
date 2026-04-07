@@ -1,0 +1,168 @@
+/* ── Shared Glass Component Styles ────────────────────── */
+
+/* ── Dock ─────────────────────────────────────────────── */
+
+.dock-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.dock-icon:hover {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--dock-accent, #6B95F0) 20%, transparent);
+  transform: scale(1.05);
+}
+
+.dock-icon:active {
+  transform: scale(0.95);
+}
+
+.dock-icon.active {
+  background: color-mix(in srgb, var(--dock-accent, #6B95F0) 10%, transparent);
+}
+
+.dock-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 18px;
+  border-radius: 0 2px 2px 0;
+}
+
+.dock-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-pn-success, #22C55E);
+  animation: dot-pulse 2.5s ease-in-out infinite;
+}
+
+.dock-sep {
+  width: 20px;
+  height: 1px;
+  margin: 0.375rem auto;
+  background: var(--pn-border-default);
+}
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { scrollbar-width: none; }
+
+/* Card */
+.glass-card {
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.glass-card-hover:hover {
+  background: rgba(10, 14, 28, 0.58);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* Button */
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+  color: var(--pn-text-secondary);
+}
+
+.glass-btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+}
+
+.glass-btn-md {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.glass-btn-ghost {
+  background: transparent;
+}
+
+.glass-btn-ghost:hover {
+  background: var(--pn-field-bg-hover);
+  color: var(--pn-text-primary);
+}
+
+.glass-btn-surface {
+  background: var(--pn-field-bg);
+  border: 1px solid var(--pn-border-subtle);
+}
+
+.glass-btn-surface:hover {
+  background: var(--pn-field-bg-hover);
+  border-color: var(--pn-border-default);
+}
+
+.glass-btn-solid:hover {
+  filter: brightness(1.15);
+}
+
+/* Input */
+.glass-input {
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.8125rem;
+  background: var(--pn-field-bg);
+  color: var(--pn-text-primary);
+  border: 1px solid var(--pn-border-default);
+  border-radius: 0.375rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.glass-input:focus {
+  border-color: var(--color-pn-secondary-400, #6B95F0);
+  box-shadow: var(--pn-focus-ring);
+}
+
+.glass-input::placeholder {
+  color: var(--pn-text-muted);
+}
+
+/* Status Dot Pulse */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-dot-pulse {
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+/* Accent Badge */
+.accent-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid;
+  white-space: nowrap;
+}
