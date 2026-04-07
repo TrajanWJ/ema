@@ -484,11 +484,22 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
 }) {
   const color = STATUS_COLORS[execution.status] || "#6b7280";
   const icon = MODE_ICONS[execution.mode] || "\u26A1";
-  const [activeTab, setActiveTab] = useState<"log" | "diff" | "details">("log");
+  const [activeTab, setActiveTab] = useState<"log" | "diff" | "sessions" | "details">("log");
+  const [sessions, setSessions] = useState<Array<{
+    id: string; agent_role: string | null; status: string;
+    started_at: string | null; ended_at: string | null; result_summary: string | null;
+  }>>([]);
 
-  const tabs: Array<{ id: "log" | "diff" | "details"; label: string }> = [
+  useEffect(() => {
+    api.get<{ agent_sessions: typeof sessions }>(`/executions/${execution.id}/agent-sessions`)
+      .then((res) => setSessions(res.agent_sessions ?? []))
+      .catch(() => setSessions([]));
+  }, [execution.id]);
+
+  const tabs: Array<{ id: "log" | "diff" | "sessions" | "details"; label: string }> = [
     { id: "log", label: "Log" },
     { id: "diff", label: "Diff" },
+    { id: "sessions", label: `Sessions (${sessions.length})` },
     { id: "details", label: "Details" },
   ];
 
@@ -580,6 +591,51 @@ function ExecutionDetail({ execution, events, loadingEvents, onApprove, onCancel
 
       {activeTab === "diff" && (
         <ExecutionDiff executionId={execution.id} />
+      )}
+
+      {activeTab === "sessions" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {sessions.length === 0 ? (
+            <div style={{ fontSize: 11, color: "var(--pn-text-muted)", textAlign: "center", padding: 16 }}>
+              No agent sessions
+            </div>
+          ) : sessions.map((session) => (
+            <div key={session.id} style={{
+              padding: 10, borderRadius: 8,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>⬡</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--pn-text-primary)" }}>
+                    {session.agent_role || "agent"}
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: 10, padding: "2px 8px", borderRadius: 4,
+                  background: session.status === "completed" ? "rgba(34,197,94,0.15)" :
+                    session.status === "running" ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.06)",
+                  color: session.status === "completed" ? "#22c55e" :
+                    session.status === "running" ? "#f97316" : "var(--pn-text-muted)",
+                }}>
+                  {session.status}
+                </span>
+              </div>
+              {session.started_at && (
+                <div style={{ marginTop: 4, fontSize: 10, color: "var(--pn-text-muted)" }}>
+                  Started: {new Date(session.started_at).toLocaleString()}
+                  {session.ended_at && <> · Ended: {new Date(session.ended_at).toLocaleString()}</>}
+                </div>
+              )}
+              {session.result_summary && (
+                <div style={{ marginTop: 6, fontSize: 11, color: "var(--pn-text-secondary)", lineHeight: 1.5 }}>
+                  {session.result_summary}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {activeTab === "details" && (
