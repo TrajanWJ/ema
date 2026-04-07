@@ -158,7 +158,7 @@ defmodule Ema.Claude.RuntimeBootstrap do
   end
 
   defp probe_openclaw(gateway_url) do
-    case Req.get("#{gateway_url}/rest/agents", receive_timeout: 3_000) do
+    case Req.get(gateway_url, receive_timeout: 3_000) do
       {:ok, %{status: 200}} -> :ok
       {:ok, %{status: code}} -> {:error, {:http_error, code}}
       {:error, reason} -> {:error, reason}

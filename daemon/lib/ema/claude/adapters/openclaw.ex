@@ -2,8 +2,11 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   @moduledoc """
   Adapter for the OpenClaw gateway on the agent VM.
 
-  Primary: HTTP to gateway REST API at `OPENCLAW_GATEWAY_URL`.
-  Fallback: SSH + CLI when gateway is unreachable.
+  Dispatches to agents via SSH + `openclaw agent` CLI on the VM.
+  The gateway web UI runs at the gateway URL but has no REST dispatch API —
+  all agent dispatch goes through the CLI with `--json` output.
+
+  Health check probes the gateway HTTP port to confirm it's running.
   """
 
   @behaviour Ema.Claude.Adapter
@@ -11,8 +14,9 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   require Logger
 
   @default_gateway_url "http://192.168.122.10:18789"
-  @poll_interval_ms 1_000
-  @poll_timeout_ms 120_000
+  @default_timeout_s 120
+
+  # ── Adapter Callbacks ─────────────────────────────────────────────────────
 
   @impl true
   def capabilities do
@@ -29,7 +33,7 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   @impl true
   def health_check do
-    url = "#{gateway_url()}/rest/agents"
+    url = gateway_url()
 
     case Req.get(url, receive_timeout: 5_000) do
       {:ok, %{status: 200}} -> :ok
@@ -81,17 +85,7 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   @impl true
   def start_session(prompt, _session_id, agent_id, opts \\ []) do
-    case dispatch_http(prompt, agent_id, opts) do
-      {:ok, pid} ->
-        {:ok, pid}
-
-      {:error, :gateway_unreachable} ->
-        Logger.warning("[OpenClaw] Gateway unreachable, falling back to SSH")
-        dispatch_ssh(prompt, agent_id, opts)
-
-      error ->
-        error
-    end
+    dispatch_ssh(prompt, agent_id, opts)
   end
 
   @impl true
@@ -100,14 +94,6 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   end
 
   @impl true
-  def stop_session(pid) when is_pid(pid) do
-    if Process.alive?(pid) do
-      Process.exit(pid, :normal)
-    end
-
-    :ok
-  end
-
   def stop_session(port) when is_port(port) do
     if Port.info(port) != nil do
       Port.close(port)
@@ -118,112 +104,30 @@ defmodule Ema.Claude.Adapters.OpenClaw do
 
   def stop_session(_), do: :ok
 
-  # ── HTTP Dispatch ─────────────────────────────────────────────────────────
+  # ── SSH + CLI Dispatch ────────────────────────────────────────────────────
 
   @doc """
-  Dispatch a prompt to the OpenClaw gateway via HTTP.
-  Starts a poller process that polls for completion and returns results.
+  Dispatch via SSH to the agent VM, running `openclaw agent` remotely.
+  Returns an Erlang Port that will emit JSON on completion.
+
+  The CLI supports `--json` for structured output and `--deliver` to
+  push the reply back to the agent's configured channel (e.g., Discord).
   """
-  def dispatch_http(prompt, agent_id, opts \\ []) do
-    url = "#{gateway_url()}/rest/sessions"
-
-    body = %{
-      "agent" => agent_id || "main",
-      "prompt" => prompt,
-      "opts" => Map.new(opts)
-    }
-
-    case Req.post(url, json: body, receive_timeout: 10_000) do
-      {:ok, %{status: status, body: %{"session_id" => session_id}}} when status in [200, 201] ->
-        {:ok, spawn_poller(session_id, opts)}
-
-      {:ok, %{status: code, body: body}} ->
-        {:error, {:http_error, code, body}}
-
-      {:error, %{reason: :econnrefused}} ->
-        {:error, :gateway_unreachable}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  rescue
-    e -> {:error, Exception.message(e)}
-  end
-
-  defp spawn_poller(session_id, opts) do
-    caller = self()
-    timeout = Keyword.get(opts, :timeout, @poll_timeout_ms)
-
-    spawn_link(fn ->
-      result = poll_until_complete(session_id, timeout)
-      send(caller, {:openclaw_result, session_id, result})
-    end)
-  end
-
-  defp poll_until_complete(session_id, timeout) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-    do_poll(session_id, deadline)
-  end
-
-  defp do_poll(session_id, deadline) do
-    if System.monotonic_time(:millisecond) > deadline do
-      {:error, :timeout}
-    else
-      url = "#{gateway_url()}/rest/sessions/#{session_id}"
-
-      case Req.get(url, receive_timeout: 5_000) do
-        {:ok, %{status: 200, body: %{"status" => "completed"} = body}} ->
-          {:ok,
-           %{
-             text: body["result"] || body["output"] || "",
-             usage: %{
-               input_tokens: get_in(body, ["usage", "input_tokens"]) || 0,
-               output_tokens: get_in(body, ["usage", "output_tokens"]) || 0
-             },
-             session_id: session_id
-           }}
-
-        {:ok, %{status: 200, body: %{"status" => "failed"} = body}} ->
-          {:error, body["error"] || "session failed"}
-
-        {:ok, %{status: 200, body: %{"status" => _running}}} ->
-          Process.sleep(@poll_interval_ms)
-          do_poll(session_id, deadline)
-
-        {:ok, %{status: 404}} ->
-          {:error, :session_not_found}
-
-        {:ok, %{status: code}} ->
-          {:error, {:http_error, code}}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
-    end
-  end
-
-  # ── SSH Fallback ──────────────────────────────────────────────────────────
-
-  @doc """
-  Dispatch via SSH to the agent VM, running `openclaw agent run` remotely.
-  Returns an Erlang Port for stream-json output.
-  """
-  def dispatch_ssh(prompt, agent_id, _opts) do
+  def dispatch_ssh(prompt, agent_id, opts \\ []) do
     ssh_path = System.find_executable("ssh")
 
     if is_nil(ssh_path) do
       {:error, :ssh_not_found}
     else
-      ssh_host = ssh_host()
+      host = ssh_host()
+      timeout = Keyword.get(opts, :timeout, @default_timeout_s)
+      deliver? = Keyword.get(opts, :deliver, false)
 
-      args = [
-        ssh_host,
-        "openclaw", "agent", "run",
-        "--print",
-        "--output-format", "stream-json",
-        "--agent", agent_id || "main",
-        prompt
-      ]
+      args =
+        [host, "openclaw", "agent"] ++
+          agent_args(agent_id) ++
+          ["--message", prompt, "--json", "--timeout", to_string(timeout)] ++
+          if(deliver?, do: ["--deliver"], else: [])
 
       port =
         Port.open({:spawn_executable, ssh_path}, [
@@ -238,6 +142,87 @@ defmodule Ema.Claude.Adapters.OpenClaw do
     end
   end
 
+  @doc """
+  Run a synchronous agent call via SSH. Blocks until completion.
+  Returns `{:ok, result_map}` or `{:error, reason}`.
+
+  Result map keys:
+  - `:text` — agent response text
+  - `:run_id` — OpenClaw run ID
+  - `:agent` — agent ID used
+  - `:model` — model used
+  - `:usage` — token usage map
+  - `:duration_ms` — execution time
+  """
+  def run(prompt, agent_id \\ "main", opts \\ []) do
+    host = ssh_host()
+    timeout = Keyword.get(opts, :timeout, @default_timeout_s)
+    deliver? = Keyword.get(opts, :deliver, false)
+
+    args =
+      ["agent"] ++
+        agent_args(agent_id) ++
+        ["--message", prompt, "--json", "--timeout", to_string(timeout)] ++
+        if(deliver?, do: ["--deliver"], else: [])
+
+    case System.cmd("ssh", [host, "openclaw" | args],
+           stderr_to_stdout: true,
+           timeout: (timeout + 10) * 1_000
+         ) do
+      {output, 0} ->
+        parse_json_result(output, agent_id)
+
+      {output, code} ->
+        {:error, {:exit_code, code, String.trim(output)}}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  # ── Result Parsing ────────────────────────────────────────────────────────
+
+  defp parse_json_result(output, agent_id) do
+    # openclaw agent --json outputs a single JSON object
+    case Jason.decode(String.trim(output)) do
+      {:ok, %{"status" => "ok", "result" => result}} ->
+        payloads = get_in(result, ["payloads"]) || []
+        text = payloads |> Enum.map_join("\n", & &1["text"]) |> String.trim()
+        meta = get_in(result, ["meta", "agentMeta"]) || %{}
+
+        {:ok,
+         %{
+           text: text,
+           run_id: result["runId"],
+           agent: agent_id,
+           model: meta["model"],
+           usage: %{
+             input_tokens: get_in(meta, ["usage", "input"]) || 0,
+             output_tokens: get_in(meta, ["usage", "output"]) || 0,
+             cache_read: get_in(meta, ["usage", "cacheRead"]) || 0
+           },
+           duration_ms: get_in(result, ["meta", "durationMs"]) || 0
+         }}
+
+      {:ok, %{"status" => status} = body} ->
+        {:error, {:openclaw_error, status, body["summary"] || "unknown error"}}
+
+      {:error, _} ->
+        # Not JSON — probably stderr noise before the JSON
+        case extract_json(output) do
+          {:ok, json} -> parse_json_result(json, agent_id)
+          :error -> {:error, {:invalid_output, String.slice(output, 0, 500)}}
+        end
+    end
+  end
+
+  defp extract_json(output) do
+    # Find the first { and last } to extract JSON from mixed output
+    case Regex.run(~r/\{.*\}/s, output) do
+      [json] -> {:ok, json}
+      _ -> :error
+    end
+  end
+
   # ── Config ────────────────────────────────────────────────────────────────
 
   def gateway_url do
@@ -249,4 +234,8 @@ defmodule Ema.Claude.Adapters.OpenClaw do
     System.get_env("OPENCLAW_SSH_HOST") ||
       Application.get_env(:ema, :openclaw_ssh_host, "trajan@192.168.122.10")
   end
+
+  defp agent_args(nil), do: []
+  defp agent_args(""), do: []
+  defp agent_args(agent_id), do: ["--agent", agent_id]
 end
