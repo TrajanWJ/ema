@@ -123,11 +123,13 @@ defmodule Ema.Claude.Adapters.OpenClaw do
       timeout = Keyword.get(opts, :timeout, @default_timeout_s)
       deliver? = Keyword.get(opts, :deliver, false)
 
-      args =
-        [host, "openclaw", "agent"] ++
+      remote_cmd =
+        ["openclaw", "agent"] ++
           agent_args(agent_id) ++
-          ["--message", prompt, "--json", "--timeout", to_string(timeout)] ++
+          ["--message", shell_escape(prompt), "--json", "--timeout", to_string(timeout)] ++
           if(deliver?, do: ["--deliver"], else: [])
+
+      args = [host, Enum.join(remote_cmd, " ")]
 
       port =
         Port.open({:spawn_executable, ssh_path}, [
@@ -159,21 +161,26 @@ defmodule Ema.Claude.Adapters.OpenClaw do
     timeout = Keyword.get(opts, :timeout, @default_timeout_s)
     deliver? = Keyword.get(opts, :deliver, false)
 
-    args =
-      ["agent"] ++
+    remote_cmd =
+      ["openclaw", "agent"] ++
         agent_args(agent_id) ++
-        ["--message", prompt, "--json", "--timeout", to_string(timeout)] ++
+        ["--message", shell_escape(prompt), "--json", "--timeout", to_string(timeout)] ++
         if(deliver?, do: ["--deliver"], else: [])
 
-    case System.cmd("ssh", [host, "openclaw" | args],
-           stderr_to_stdout: true,
-           timeout: (timeout + 10) * 1_000
-         ) do
-      {output, 0} ->
+    task =
+      Task.async(fn ->
+        System.cmd("ssh", [host, Enum.join(remote_cmd, " ")], stderr_to_stdout: true)
+      end)
+
+    case Task.yield(task, (timeout + 10) * 1_000) || Task.shutdown(task) do
+      {:ok, {output, 0}} ->
         parse_json_result(output, agent_id)
 
-      {output, code} ->
+      {:ok, {output, code}} ->
         {:error, {:exit_code, code, String.trim(output)}}
+
+      nil ->
+        {:error, :timeout}
     end
   rescue
     e -> {:error, Exception.message(e)}
@@ -238,4 +245,8 @@ defmodule Ema.Claude.Adapters.OpenClaw do
   defp agent_args(nil), do: []
   defp agent_args(""), do: []
   defp agent_args(agent_id), do: ["--agent", agent_id]
+
+  defp shell_escape(str) do
+    "'" <> String.replace(str, "'", "'\\''") <> "'"
+  end
 end
