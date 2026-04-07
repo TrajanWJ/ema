@@ -98,6 +98,12 @@ defmodule EmaWeb.Router do
     get("/projects/:project_id/tasks", TaskController, :by_project)
     resources("/projects", ProjectController, except: [:new, :edit])
 
+    # Providers — AI provider management
+    get("/providers", ProviderController, :index)
+    post("/providers/detect", ProviderController, :detect)
+    get("/providers/:id", ProviderController, :show)
+    post("/providers/:id/health", ProviderController, :health)
+
     # Routing / Intent Classification
     post("/routing/classify", RoutingController, :classify)
     get("/routing/stats", RoutingController, :stats)
