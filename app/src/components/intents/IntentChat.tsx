@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useIntentSchematicStore } from "@/stores/intent-schematic-store";
+import { useWikiEngineStore } from "@/stores/wiki-engine-store";
 
 export function IntentChat() {
   const [input, setInput] = useState("");
-  const messages = useIntentSchematicStore((s) => s.chatMessages);
-  const chatLoading = useIntentSchematicStore((s) => s.chatLoading);
-  const sendChat = useIntentSchematicStore((s) => s.sendChat);
-  const selectedIntent = useIntentSchematicStore((s) => s.selectedIntent);
+  const messages = useWikiEngineStore((s) => s.chatMessages);
+  const chatLoading = useWikiEngineStore((s) => s.chatLoading);
+  const sendChat = useWikiEngineStore((s) => s.sendChat);
+  const selectedIntent = useWikiEngineStore((s) => s.selectedIntent);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
