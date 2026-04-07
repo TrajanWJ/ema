@@ -131,13 +131,18 @@ defmodule Ema.CLI.Commands.Intent do
   end
 
   def handle([:create], parsed, transport, opts) do
-    attrs = %{
-      title: parsed.args.title,
-      level: parsed.options[:level] || 4,
-      kind: parsed.options[:kind] || "task",
-      project_id: parsed.options[:project],
-      description: parsed.options[:description]
-    }
+    level = resolve_level(parsed.options[:level])
+
+    attrs =
+      %{
+        title: parsed.args.title,
+        level: level,
+        kind: parsed.options[:kind] || "task",
+        project_id: parsed.options[:project],
+        description: parsed.options[:description]
+      }
+      |> maybe_put(:status, parsed.options[:status])
+      |> maybe_put(:parent_id, parsed.options[:parent])
 
     case transport do
       Ema.CLI.Transport.Direct ->
@@ -336,9 +341,81 @@ defmodule Ema.CLI.Commands.Intent do
     end
   end
 
+  def handle([:update], parsed, transport, opts) do
+    id = parsed.args.id
+
+    level = if parsed.options[:level], do: resolve_level(parsed.options[:level]), else: nil
+
+    attrs =
+      %{}
+      |> maybe_put(:title, parsed.options[:title])
+      |> maybe_put(:status, parsed.options[:status])
+      |> maybe_put(:level, level)
+      |> maybe_put(:description, parsed.options[:description])
+      |> maybe_put(:project_id, parsed.options[:project])
+      |> maybe_put(:parent_id, parsed.options[:parent])
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Intents, :update_intent, [id, attrs]) do
+          {:ok, intent} -> Output.detail(Ema.Intents.serialize(intent), json: opts[:json])
+          {:error, reason} -> Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.put("/intents/#{id}", attrs) do
+          {:ok, body} -> Output.detail(body, json: opts[:json])
+          {:error, :not_found} -> Output.error("Intent #{id} not found")
+          {:error, reason} -> Output.error(reason)
+        end
+    end
+  end
+
+  def handle([:delete], parsed, transport, _opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Intents, :delete_intent, [id]) do
+          {:ok, _} -> Output.success("Deleted intent #{id}")
+          {:error, reason} -> Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.delete("/intents/#{id}") do
+          {:ok, _} -> Output.success("Deleted intent #{id}")
+          {:error, :not_found} -> Output.error("Intent #{id} not found")
+          {:error, reason} -> Output.error(reason)
+        end
+    end
+  end
+
+  def handle([:lineage], parsed, transport, opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Intents, :get_intent_detail, [id]) do
+          {:ok, nil} -> Output.error("Intent #{id} not found")
+          {:ok, detail} -> Output.detail(detail, json: opts[:json])
+          {:error, reason} -> Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/intents/#{id}/lineage") do
+          {:ok, body} -> Output.detail(body, json: opts[:json])
+          {:error, :not_found} -> Output.error("Intent #{id} not found")
+          {:error, reason} -> Output.error(reason)
+        end
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown intent subcommand: #{inspect(sub)}")
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp print_context_result({:ok, nil}, id, _opts), do: Output.error("Intent #{id} not found")
   defp print_context_result({:ok, detail}, _id, opts), do: print_context(detail, opts)
@@ -400,4 +477,20 @@ defmodule Ema.CLI.Commands.Intent do
 
   defp maybe_param(params, _key, nil), do: params
   defp maybe_param(params, key, val), do: [{key, val} | params]
+
+  defp resolve_level(nil), do: 4
+  defp resolve_level(val) when is_integer(val), do: val
+  defp resolve_level("vision"), do: 0
+  defp resolve_level("goal"), do: 1
+  defp resolve_level("project"), do: 2
+  defp resolve_level("feature"), do: 3
+  defp resolve_level("task"), do: 4
+  defp resolve_level("execution"), do: 5
+
+  defp resolve_level(str) when is_binary(str) do
+    case Integer.parse(str) do
+      {n, ""} -> n
+      _ -> 4
+    end
+  end
 end

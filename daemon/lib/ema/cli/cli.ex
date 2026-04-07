@@ -2544,8 +2544,10 @@ defmodule Ema.CLI do
           args: [title: [required: true, help: "Intent title"]],
           options: [
             project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
-            level: [short: "-l", long: "--level", help: "Intent level", parser: :integer],
-            kind: [short: "-k", long: "--kind", help: "Intent kind", parser: :string],
+            level: [short: "-l", long: "--level", help: "Level: 0-5 or vision/goal/project/feature/task", parser: :string],
+            kind: [short: "-k", long: "--kind", help: "Kind: goal/project/feature/task", parser: :string],
+            status: [short: "-s", long: "--status", help: "Status: active/implementing/planned/complete", parser: :string],
+            parent: [long: "--parent", help: "Parent intent ID", parser: :string],
             description: [
               short: "-d",
               long: "--description",
@@ -2561,7 +2563,9 @@ defmodule Ema.CLI do
           options: [
             title: [long: "--title", help: "New title", parser: :string],
             status: [short: "-s", long: "--status", help: "New status", parser: :string],
-            level: [short: "-l", long: "--level", help: "New level (0-5)", parser: :integer],
+            level: [short: "-l", long: "--level", help: "New level (0-5 or name)", parser: :string],
+            project: [short: "-p", long: "--project", help: "Project ID", parser: :string],
+            parent: [long: "--parent", help: "Parent intent ID", parser: :string],
             description: [
               short: "-d",
               long: "--description",
