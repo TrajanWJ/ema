@@ -3,59 +3,81 @@ import { joinChannel } from "@/lib/ws";
 import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
 
-export interface IntentNode {
+export interface Intent {
   readonly id: string;
   readonly title: string;
+  readonly slug: string;
   readonly description: string | null;
   readonly level: number;
-  readonly level_name: string;
-  readonly parent_id: string | null;
+  readonly kind: string;
   readonly status: string;
+  readonly phase: number | null;
+  readonly completion_pct: number | null;
+  readonly clarity: number | null;
+  readonly energy: number | null;
+  readonly priority: number;
+  readonly confidence: number | null;
+  readonly parent_id: string | null;
   readonly project_id: string | null;
-  readonly linked_task_ids: readonly string[];
-  readonly linked_wiki_path: string | null;
-  readonly created_at: string;
-  readonly children?: readonly IntentNode[];
+  readonly source_fingerprint: string | null;
+  readonly provenance_class: string | null;
+  readonly inserted_at: string;
+  readonly updated_at: string;
 }
 
+export interface IntentLink {
+  readonly id: string;
+  readonly intent_id: string;
+  readonly linkable_type: string;
+  readonly linkable_id: string;
+  readonly role: string;
+  readonly provenance: string;
+}
+
+const LEVEL_NAMES = ["Vision", "Strategy", "Objective", "Initiative", "Task", "Step"];
+
 interface IntentState {
-  nodes: readonly IntentNode[];
-  tree: readonly IntentNode[];
-  selectedNode: IntentNode | null;
-  selectedProject: string | null;
-  zoomLevel: number;
+  intents: readonly Intent[];
+  tree: unknown | null;
+  selectedIntent: Intent | null;
+  lineage: unknown[] | null;
+  runtime: Record<string, unknown> | null;
   loading: boolean;
   connected: boolean;
   channel: Channel | null;
+
   loadViaRest: () => Promise<void>;
   connect: () => Promise<void>;
-  selectProject: (projectId: string | null) => void;
-  loadTree: (projectId: string) => Promise<void>;
-  selectNode: (node: IntentNode | null) => void;
-  createNode: (attrs: Record<string, unknown>) => Promise<void>;
-  updateNode: (id: string, attrs: Record<string, unknown>) => Promise<void>;
-  deleteNode: (id: string) => Promise<void>;
-  setZoomLevel: (level: number) => void;
-  exportMarkdown: (projectId: string) => Promise<string>;
+  loadTree: () => Promise<void>;
+  selectIntent: (intent: Intent | null) => void;
+  loadLineage: (id: string) => Promise<void>;
+  loadRuntime: (id: string) => Promise<void>;
+  createIntent: (attrs: Partial<Intent>) => Promise<Intent>;
+  updateIntent: (id: string, attrs: Partial<Intent>) => Promise<void>;
+  deleteIntent: (id: string) => Promise<void>;
+  getByLevel: (level: number) => readonly Intent[];
+  getChildren: (parentId: string) => readonly Intent[];
+  getRoots: () => readonly Intent[];
+  levelName: (level: number) => string;
 }
 
 export const useIntentStore = create<IntentState>((set, get) => ({
-  nodes: [],
-  tree: [],
-  selectedNode: null,
-  selectedProject: null,
-  zoomLevel: 4,
+  intents: [],
+  tree: null,
+  selectedIntent: null,
+  lineage: null,
+  runtime: null,
   loading: false,
   connected: false,
   channel: null,
 
+  levelName: (level: number) => LEVEL_NAMES[level] || `L${level}`,
+
   async loadViaRest() {
     set({ loading: true });
     try {
-      const { selectedProject } = get();
-      const params = selectedProject ? `?project_id=${selectedProject}` : "";
-      const data = await api.get<{ nodes: IntentNode[] }>(`/intent/nodes${params}`);
-      set({ nodes: data.nodes, loading: false });
+      const data = await api.get<{ intents: Intent[] }>("/intents");
+      set({ intents: data.intents, loading: false });
     } catch {
       set({ loading: false });
     }
@@ -63,62 +85,99 @@ export const useIntentStore = create<IntentState>((set, get) => ({
 
   async connect() {
     try {
-      const { channel, response } = await joinChannel("intent:live");
-      const data = response as { nodes: IntentNode[] };
-      set({ channel, connected: true, nodes: data.nodes });
+      const { channel, response } = await joinChannel("intents:lobby");
+      const data = response as { intents: Intent[] };
+      set({ channel, connected: true, intents: data.intents });
 
-      channel.on("node_created", () => { get().loadViaRest(); });
-      channel.on("node_updated", () => { get().loadViaRest(); });
-      channel.on("node_deleted", () => { get().loadViaRest(); });
+      channel.on("intent_created", (intent: Intent) => {
+        set((s) => ({ intents: [intent, ...s.intents] }));
+      });
+
+      channel.on("intent_updated", (updated: Intent) => {
+        set((s) => ({
+          intents: s.intents.map((i) => (i.id === updated.id ? updated : i)),
+          selectedIntent: s.selectedIntent?.id === updated.id ? updated : s.selectedIntent,
+        }));
+      });
+
+      channel.on("intent_deleted", (payload: { id: string }) => {
+        set((s) => ({
+          intents: s.intents.filter((i) => i.id !== payload.id),
+          selectedIntent: s.selectedIntent?.id === payload.id ? null : s.selectedIntent,
+        }));
+      });
     } catch {
-      // REST fallback
+      await get().loadViaRest();
     }
   },
 
-  selectProject(projectId) {
-    set({ selectedProject: projectId, tree: [], selectedNode: null });
-    if (projectId) {
-      get().loadTree(projectId);
+  async loadTree() {
+    try {
+      const tree = await api.get<unknown>("/intents/tree");
+      set({ tree });
+    } catch {
+      // silent
     }
   },
 
-  async loadTree(projectId) {
-    const data = await api.get<{ tree: IntentNode[] }>(`/intent/tree/${projectId}`);
-    set({ tree: data.tree });
+  selectIntent(intent) {
+    set({ selectedIntent: intent, lineage: null, runtime: null });
+    if (intent) {
+      get().loadLineage(intent.id);
+      get().loadRuntime(intent.id);
+    }
   },
 
-  selectNode(node) {
-    set({ selectedNode: node });
+  async loadLineage(id) {
+    try {
+      const data = await api.get<unknown>(`/intents/${id}/lineage`);
+      set({ lineage: Array.isArray(data) ? data : [] });
+    } catch {
+      set({ lineage: [] });
+    }
   },
 
-  async createNode(attrs) {
-    await api.post("/intent/nodes", attrs);
-    const { selectedProject } = get();
-    if (selectedProject) get().loadTree(selectedProject);
-    get().loadViaRest();
+  async loadRuntime(id) {
+    try {
+      const data = await api.get<Record<string, unknown>>(`/intents/${id}/runtime`);
+      set({ runtime: data });
+    } catch {
+      set({ runtime: null });
+    }
   },
 
-  async updateNode(id, attrs) {
-    await api.put(`/intent/nodes/${id}`, attrs);
-    const { selectedProject } = get();
-    if (selectedProject) get().loadTree(selectedProject);
-    get().loadViaRest();
+  async createIntent(attrs) {
+    const data = await api.post<{ intent: Intent }>("/intents", attrs);
+    set((s) => ({ intents: [data.intent, ...s.intents] }));
+    return data.intent;
   },
 
-  async deleteNode(id) {
-    await api.delete(`/intent/nodes/${id}`);
-    set({ selectedNode: null });
-    const { selectedProject } = get();
-    if (selectedProject) get().loadTree(selectedProject);
-    get().loadViaRest();
+  async updateIntent(id, attrs) {
+    const data = await api.put<{ intent: Intent }>(`/intents/${id}`, attrs);
+    set((s) => ({
+      intents: s.intents.map((i) => (i.id === id ? data.intent : i)),
+      selectedIntent: s.selectedIntent?.id === id ? data.intent : s.selectedIntent,
+    }));
   },
 
-  setZoomLevel(level) {
-    set({ zoomLevel: level });
+  async deleteIntent(id) {
+    await api.delete(`/intents/${id}`);
+    set((s) => ({
+      intents: s.intents.filter((i) => i.id !== id),
+      selectedIntent: s.selectedIntent?.id === id ? null : s.selectedIntent,
+    }));
   },
 
-  async exportMarkdown(projectId) {
-    const data = await api.get<{ markdown: string }>(`/intent/export/${projectId}`);
-    return data.markdown;
+  getByLevel(level) {
+    return get().intents.filter((i) => i.level === level);
+  },
+
+  getChildren(parentId) {
+    return get().intents.filter((i) => i.parent_id === parentId);
+  },
+
+  getRoots() {
+    const ids = new Set(get().intents.map((i) => i.id));
+    return get().intents.filter((i) => !i.parent_id || !ids.has(i.parent_id));
   },
 }));

@@ -1,83 +1,69 @@
 import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
-import { useIntentMapStore, type IntentNode } from "@/stores/intent-map-store";
+import { useIntentStore, type Intent } from "@/stores/intent-store";
 import { APP_CONFIGS } from "@/types/workspace";
-import type { Execution, ExecutionEvent } from "@/types/executions";
 
 const config = APP_CONFIGS["intent-map"];
 
+const LEVEL_COLORS = ["#fbbf24", "#fb923c", "#a78bfa", "#38bdf8", "#34d399", "#6b7280"];
+const LEVEL_NAMES = ["Vision", "Strategy", "Objective", "Initiative", "Task", "Step"];
+
 const STATUS_COLORS: Record<string, string> = {
-  completed: "#22C55E",
-  in_progress: "#6b95f0",
-  researched: "#eab308",
-  outlined: "#f59e0b",
+  planned: "#6b7280",
+  active: "#38bdf8",
+  researched: "#a78bfa",
+  outlined: "#a78bfa",
+  implementing: "#fb923c",
+  complete: "#22c55e",
   blocked: "#ef4444",
-  idle: "#6b7280",
+  archived: "#374151",
 };
 
-const EXEC_STATUS_COLORS: Record<string, string> = {
-  completed: "#22C55E",
-  running: "#6b95f0",
-  approved: "#5eead4",
-  created: "#a78bfa",
-  failed: "#ef4444",
-  cancelled: "#6b7280",
-  awaiting_approval: "#eab308",
-  proposed: "#eab308",
-  delegated: "#8b5cf6",
-  harvesting: "#f59e0b",
-};
-
-const MODE_COLORS: Record<string, string> = {
-  research: "#a78bfa",
-  outline: "#6b95f0",
-  implement: "#22C55E",
-  review: "#5eead4",
-  harvest: "#f59e0b",
-  refactor: "#f43f5e",
-};
-
-function toTitleCase(slug: string): string {
-  return slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+type ViewMode = "tree" | "flat";
 
 export function IntentMapApp() {
+  const {
+    intents, connected,
+    loadViaRest, connect, selectIntent, selectedIntent,
+    runtime, createIntent, getChildren, getRoots, levelName,
+  } = useIntentStore();
+
   const [ready, setReady] = useState(false);
-  const intents = useIntentMapStore((s) => s.intents);
-  const loading = useIntentMapStore((s) => s.loading);
-  const expandedSlug = useIntentMapStore((s) => s.expandedSlug);
-  const expandedExecutionId = useIntentMapStore((s) => s.expandedExecutionId);
-  const events = useIntentMapStore((s) => s.events);
-  const fetchIntents = useIntentMapStore((s) => s.fetchIntents);
-  const toggleExpanded = useIntentMapStore((s) => s.toggleExpanded);
-  const toggleExecutionEvents = useIntentMapStore((s) => s.toggleExecutionEvents);
+  const [viewMode, setViewMode] = useState<ViewMode>("tree");
+  const [filterLevel, setFilterLevel] = useState<number | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", level: 4, kind: "task", parent_id: "" });
 
   useEffect(() => {
     async function init() {
-      await fetchIntents().catch(() => {});
+      try { await connect(); } catch { await loadViaRest().catch(() => {}); }
       setReady(true);
     }
     init();
-  }, [fetchIntents]);
+  }, []);
+
+  const filtered = filterLevel != null
+    ? intents.filter((i) => i.level === filterLevel)
+    : intents;
+
+  async function handleCreate() {
+    if (!form.title.trim()) return;
+    await createIntent({
+      title: form.title,
+      description: form.description || null,
+      level: form.level,
+      kind: form.kind,
+      parent_id: form.parent_id || null,
+    } as Partial<Intent>);
+    setForm({ title: "", description: "", level: 4, kind: "task", parent_id: "" });
+    setShowCreate(false);
+  }
 
   if (!ready) {
     return (
       <AppWindowChrome appId="intent-map" title={config.title} icon={config.icon} accent={config.accent}>
-        <div className="flex items-center justify-center h-full">
-          <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>Loading...</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+          <span style={{ fontSize: 13, color: "var(--pn-text-secondary)" }}>Loading...</span>
         </div>
       </AppWindowChrome>
     );
@@ -85,65 +71,114 @@ export function IntentMapApp() {
 
   return (
     <AppWindowChrome appId="intent-map" title={config.title} icon={config.icon} accent={config.accent}>
-      <div className="flex flex-col gap-3 h-full">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%" }}>
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-[0.8rem] font-medium" style={{ color: "rgba(255,255,255,0.87)" }}>
-              Intent Map
-            </span>
-            <span className="text-[0.65rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
-              {intents.length} intents
-            </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: connected ? "#22C55E" : "var(--pn-text-muted)" }}>
+            {connected ? "\u25CF live" : "\u25CB rest"}
+          </span>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--pn-text-muted)" }}>
+            {intents.length} intents
+          </span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            <button
+              onClick={() => setViewMode(viewMode === "tree" ? "flat" : "tree")}
+              style={pillStyle(false)}
+            >
+              {viewMode === "tree" ? "Flat" : "Tree"}
+            </button>
+            <button onClick={() => setShowCreate(!showCreate)} style={pillStyle(false)}>
+              + New
+            </button>
           </div>
-          <button
-            onClick={() => fetchIntents()}
-            disabled={loading}
-            className="px-3 py-1.5 rounded-md text-[0.65rem] font-mono transition-all hover:brightness-110"
-            style={{ background: "rgba(107,149,240,0.15)", color: "#6b95f0", border: "1px solid rgba(107,149,240,0.2)" }}
-          >
-            {loading ? "Loading..." : "Refresh"}
+        </div>
+
+        {/* Level filters */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <button onClick={() => setFilterLevel(null)} style={pillStyle(filterLevel === null)}>
+            All
           </button>
+          {LEVEL_NAMES.map((name, i) => (
+            <button
+              key={i}
+              onClick={() => setFilterLevel(i)}
+              style={{
+                ...pillStyle(filterLevel === i),
+                color: filterLevel === i ? LEVEL_COLORS[i] : "var(--pn-text-muted)",
+                borderColor: filterLevel === i ? `${LEVEL_COLORS[i]}44` : "transparent",
+              }}
+            >
+              L{i} {name}
+            </button>
+          ))}
         </div>
 
-        {/* Status legend */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {Object.entries(STATUS_COLORS).map(([status, color]) => {
-            const count = intents.filter((i) => i.status === status).length;
-            if (count === 0) return null;
-            return (
-              <span
-                key={status}
-                className="flex items-center gap-1 text-[0.55rem] font-mono uppercase"
-                style={{ color }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                {status.replace("_", " ")} ({count})
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Intent list */}
-        <div className="flex-1 overflow-auto space-y-1.5">
-          {intents.length === 0 ? (
-            <div className="flex items-center justify-center h-32">
-              <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
-                No intents with executions found.
-              </span>
+        {/* Create form */}
+        {showCreate && (
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6,
+            padding: 10, borderRadius: 8,
+            background: "rgba(14,16,23,0.55)", border: "1px solid rgba(255,255,255,0.08)",
+          }}>
+            <input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              placeholder="Intent title"
+              style={inputStyle}
+            />
+            <div style={{ display: "flex", gap: 6 }}>
+              <select value={form.level} onChange={(e) => setForm({ ...form, level: Number(e.target.value) })} style={inputStyle}>
+                {LEVEL_NAMES.map((n, i) => <option key={i} value={i}>L{i} — {n}</option>)}
+              </select>
+              <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} style={inputStyle}>
+                {["goal", "question", "task", "exploration", "fix", "audit", "system"].map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })} style={inputStyle}>
+                <option value="">No parent</option>
+                {intents.filter((i) => i.level < form.level).map((i) => (
+                  <option key={i.id} value={i.id}>L{i.level} {i.title}</option>
+                ))}
+              </select>
             </div>
-          ) : (
-            intents.map((intent) => (
-              <IntentCard
-                key={intent.intent_slug}
-                intent={intent}
-                expanded={expandedSlug === intent.intent_slug}
-                expandedExecutionId={expandedExecutionId}
-                events={events}
-                onToggle={() => toggleExpanded(intent.intent_slug)}
-                onToggleExecution={toggleExecutionEvents}
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={handleCreate} style={{ ...pillStyle(true), background: "#6366f1", color: "#fff" }}>
+                Create
+              </button>
+              <button onClick={() => setShowCreate(false)} style={pillStyle(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Main content */}
+        <div style={{ display: "flex", flex: 1, gap: 10, minHeight: 0 }}>
+          {/* Intent list/tree */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {viewMode === "tree" ? (
+              <TreeView intents={filtered} selectedId={selectedIntent?.id ?? null} onSelect={(i) => selectIntent(i)} getChildren={getChildren} getRoots={getRoots} />
+            ) : (
+              <FlatView intents={filtered} selectedId={selectedIntent?.id ?? null} onSelect={(i) => selectIntent(i)} />
+            )}
+          </div>
+
+          {/* Detail panel */}
+          {selectedIntent && (
+            <div style={{
+              width: 300, flexShrink: 0, overflowY: "auto",
+              borderRadius: 10, padding: 14,
+              background: "rgba(14,16,23,0.60)", backdropFilter: "blur(20px)",
+              border: `1px solid ${LEVEL_COLORS[selectedIntent.level]}30`,
+            }}>
+              <DetailPanel
+                intent={selectedIntent}
+                allIntents={intents}
+                runtime={runtime}
+                levelName={levelName}
+                onClose={() => selectIntent(null)}
               />
-            ))
+            </div>
           )}
         </div>
       </div>
@@ -151,95 +186,90 @@ export function IntentMapApp() {
   );
 }
 
-function IntentCard({
-  intent,
-  expanded,
-  expandedExecutionId,
-  events,
-  onToggle,
-  onToggleExecution,
-}: {
-  readonly intent: IntentNode;
-  readonly expanded: boolean;
-  readonly expandedExecutionId: string | null;
-  readonly events: Record<string, readonly ExecutionEvent[]>;
-  readonly onToggle: () => void;
-  readonly onToggleExecution: (id: string) => void;
+// --- Tree View ---
+
+function TreeView({ intents, selectedId, onSelect, getChildren, getRoots }: {
+  intents: readonly Intent[];
+  selectedId: string | null;
+  onSelect: (i: Intent) => void;
+  getChildren: (id: string) => readonly Intent[];
+  getRoots: () => readonly Intent[];
 }) {
-  const statusColor = STATUS_COLORS[intent.status] ?? "#6b7280";
-  const pct = Math.round(intent.completion_pct);
+  const filteredIds = new Set(intents.map((i) => i.id));
+  const roots = getRoots().filter((r) => filteredIds.has(r.id));
+
+  if (roots.length === 0) {
+    return <div style={{ color: "var(--pn-text-muted)", textAlign: "center", paddingTop: 40, fontSize: 12 }}>No intents</div>;
+  }
 
   return (
-    <div
-      className="rounded-lg transition-all"
-      style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${expanded ? `${statusColor}30` : "rgba(255,255,255,0.05)"}` }}
-    >
-      {/* Intent header */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {roots.sort((a, b) => a.level - b.level || b.priority - a.priority).map((intent) => (
+        <TreeNode key={intent.id} intent={intent} depth={0} selectedId={selectedId} onSelect={onSelect} getChildren={getChildren} />
+      ))}
+    </div>
+  );
+}
+
+function TreeNode({ intent, depth, selectedId, onSelect, getChildren }: {
+  intent: Intent;
+  depth: number;
+  selectedId: string | null;
+  onSelect: (i: Intent) => void;
+  getChildren: (id: string) => readonly Intent[];
+}) {
+  const [expanded, setExpanded] = useState(depth < 2);
+  const children = getChildren(intent.id);
+  const hasChildren = children.length > 0;
+  const isSelected = intent.id === selectedId;
+  const color = LEVEL_COLORS[intent.level] || "#6b7280";
+
+  return (
+    <div>
       <button
-        onClick={onToggle}
-        className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-[rgba(255,255,255,0.02)] rounded-lg transition-all"
+        onClick={() => onSelect(intent)}
+        style={{
+          width: "100%", textAlign: "left",
+          marginLeft: depth * 18, maxWidth: `calc(100% - ${depth * 18}px)`,
+          padding: "8px 10px", borderRadius: 6, cursor: "pointer",
+          background: isSelected ? `${color}12` : "rgba(255,255,255,0.02)",
+          border: isSelected ? `1px solid ${color}30` : "1px solid rgba(255,255,255,0.04)",
+          display: "flex", alignItems: "center", gap: 8,
+          marginBottom: 2,
+        }}
       >
-        <span className="text-[0.5rem]" style={{ color: "var(--pn-text-muted)" }}>
-          {expanded ? "\u25BC" : "\u25B6"}
-        </span>
-
-        {/* Status badge */}
-        <span
-          className="text-[0.55rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: `${statusColor}15`, color: statusColor, border: `1px solid ${statusColor}25` }}
-        >
-          {intent.status.replace("_", " ")}
-        </span>
-
-        {/* Title */}
-        <span className="text-[0.75rem] font-medium flex-1 truncate" style={{ color: "rgba(255,255,255,0.87)" }}>
-          {toTitleCase(intent.intent_slug)}
-        </span>
-
-        {/* Completion bar */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${pct}%`, background: statusColor }}
-            />
-          </div>
-          <span className="text-[0.55rem] font-mono w-8 text-right" style={{ color: statusColor }}>
-            {pct}%
+        {hasChildren && (
+          <span
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            style={{ fontSize: 9, color: "var(--pn-text-muted)", cursor: "pointer", width: 10 }}
+          >
+            {expanded ? "\u25BE" : "\u25B8"}
           </span>
-        </div>
-
-        {/* Mode badges */}
-        <div className="flex items-center gap-1 shrink-0">
-          {Object.entries(intent.modes_executed).map(([mode, modeStatus]) => (
-            <span
-              key={mode}
-              className="text-[0.5rem] font-mono px-1 py-0.5 rounded"
-              style={{
-                background: `${MODE_COLORS[mode] ?? "#6b7280"}10`,
-                color: MODE_COLORS[mode] ?? "#6b7280",
-              }}
-            >
-              {mode.slice(0, 3)} {modeStatus === "completed" ? "\u2713" : "\u2717"}
-            </span>
-          ))}
-        </div>
+        )}
+        {!hasChildren && <span style={{ width: 10 }} />}
+        <span style={{
+          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+          background: STATUS_COLORS[intent.status] || "#6b7280",
+        }} />
+        <span style={{ fontSize: 10, color, fontWeight: 600, flexShrink: 0 }}>L{intent.level}</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--pn-text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {intent.title}
+        </span>
+        {intent.priority > 0 && (
+          <span style={{ fontSize: 9, color: "#fbbf24", fontFamily: "monospace" }}>P{intent.priority}</span>
+        )}
+        <span style={{
+          fontSize: 9, padding: "1px 6px", borderRadius: 6,
+          background: `${STATUS_COLORS[intent.status] || "#6b7280"}15`,
+          color: STATUS_COLORS[intent.status] || "#6b7280",
+        }}>
+          {intent.status}
+        </span>
       </button>
-
-      {/* Expanded: execution timeline */}
-      {expanded && (
-        <div className="px-3 pb-3 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-          <div className="text-[0.6rem] font-mono uppercase pt-2 pb-1" style={{ color: "var(--pn-text-muted)" }}>
-            Executions ({intent.executions.length})
-          </div>
-          {intent.executions.map((exec) => (
-            <ExecutionRow
-              key={exec.id}
-              execution={exec}
-              expanded={expandedExecutionId === exec.id}
-              events={events[exec.id]}
-              onToggle={() => onToggleExecution(exec.id)}
-            />
+      {expanded && hasChildren && (
+        <div>
+          {[...children].sort((a, b) => b.priority - a.priority).map((child) => (
+            <TreeNode key={child.id} intent={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} getChildren={getChildren} />
           ))}
         </div>
       )}
@@ -247,81 +277,161 @@ function IntentCard({
   );
 }
 
-function ExecutionRow({
-  execution,
-  expanded,
-  events,
-  onToggle,
-}: {
-  readonly execution: Execution;
-  readonly expanded: boolean;
-  readonly events: readonly ExecutionEvent[] | undefined;
-  readonly onToggle: () => void;
+// --- Flat View ---
+
+function FlatView({ intents, selectedId, onSelect }: {
+  intents: readonly Intent[];
+  selectedId: string | null;
+  onSelect: (i: Intent) => void;
 }) {
-  const modeColor = MODE_COLORS[execution.mode] ?? "#6b7280";
-  const statusColor = EXEC_STATUS_COLORS[execution.status] ?? "#6b7280";
+  const grouped = intents.reduce<Record<number, Intent[]>>((acc, i) => {
+    if (!acc[i.level]) acc[i.level] = [];
+    acc[i.level].push(i);
+    return acc;
+  }, {});
 
   return (
-    <div className="rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
-      <button
-        onClick={onToggle}
-        className="w-full text-left px-2.5 py-2 flex items-center gap-2 hover:bg-[rgba(255,255,255,0.02)] rounded transition-all"
-      >
-        <span
-          className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: `${modeColor}15`, color: modeColor }}
-        >
-          {execution.mode}
-        </span>
-        <span
-          className="text-[0.5rem] font-mono uppercase px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: `${statusColor}15`, color: statusColor }}
-        >
-          {execution.status.replace("_", " ")}
-        </span>
-        <span className="text-[0.65rem] truncate flex-1" style={{ color: "var(--pn-text-secondary)" }}>
-          {execution.title}
-        </span>
-        <span className="text-[0.55rem] font-mono shrink-0" style={{ color: "var(--pn-text-muted)" }}>
-          {relativeTime(execution.inserted_at)}
-        </span>
-      </button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b)).map(([level, items]) => (
+        <div key={level}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: LEVEL_COLORS[Number(level)], marginBottom: 6 }}>
+            L{level} — {LEVEL_NAMES[Number(level)]}
+            <span style={{ fontSize: 10, marginLeft: 6, color: "var(--pn-text-muted)" }}>({items.length})</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {items.map((intent) => (
+              <button
+                key={intent.id}
+                onClick={() => onSelect(intent)}
+                style={{
+                  width: "100%", textAlign: "left",
+                  padding: "8px 10px", borderRadius: 6, cursor: "pointer",
+                  background: selectedId === intent.id ? `${LEVEL_COLORS[intent.level]}12` : "rgba(255,255,255,0.02)",
+                  border: selectedId === intent.id ? `1px solid ${LEVEL_COLORS[intent.level]}30` : "1px solid rgba(255,255,255,0.04)",
+                  display: "flex", alignItems: "center", gap: 8,
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: STATUS_COLORS[intent.status] || "#6b7280" }} />
+                <span style={{ fontSize: 12, flex: 1, color: "var(--pn-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {intent.title}
+                </span>
+                <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 6, background: `${STATUS_COLORS[intent.status]}15`, color: STATUS_COLORS[intent.status] }}>
+                  {intent.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-      {expanded && (
-        <div className="px-2.5 pb-2 space-y-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
-          {execution.result_path && (
-            <div className="flex items-center gap-2 pt-1.5">
-              <span className="text-[0.55rem] font-mono" style={{ color: "var(--pn-text-tertiary)" }}>
-                Result: {execution.result_path}
-              </span>
+// --- Detail Panel ---
+
+function DetailPanel({ intent, allIntents, runtime, levelName, onClose }: {
+  intent: Intent;
+  allIntents: readonly Intent[];
+  runtime: Record<string, unknown> | null;
+  levelName: (l: number) => string;
+  onClose: () => void;
+}) {
+  const color = LEVEL_COLORS[intent.level] || "#6b7280";
+  const parent = intent.parent_id ? allIntents.find((i) => i.id === intent.parent_id) : null;
+  const children = allIntents.filter((i) => i.parent_id === intent.id);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color }}>
+          L{intent.level} — {levelName(intent.level)}
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--pn-text-muted)", cursor: "pointer", fontSize: 16 }}>×</button>
+      </div>
+
+      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--pn-text-primary)" }}>{intent.title}</div>
+
+      {intent.description && (
+        <div style={{ fontSize: 12, color: "var(--pn-text-secondary)", lineHeight: 1.5 }}>{intent.description}</div>
+      )}
+
+      {intent.completion_pct != null && intent.completion_pct > 0 && (
+        <div>
+          <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999 }}>
+            <div style={{ width: `${intent.completion_pct}%`, height: "100%", background: color, borderRadius: 999 }} />
+          </div>
+          <span style={{ fontSize: 10, color }}>{intent.completion_pct}%</span>
+        </div>
+      )}
+
+      {/* Metadata */}
+      <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 4 }}>
+        <MetaRow label="Status" value={intent.status} color={STATUS_COLORS[intent.status]} />
+        <MetaRow label="Kind" value={intent.kind} />
+        <MetaRow label="Priority" value={`P${intent.priority}`} />
+        {intent.phase != null && <MetaRow label="Phase" value={String(intent.phase)} />}
+        <MetaRow label="Slug" value={intent.slug} mono />
+      </div>
+
+      {/* Hierarchy */}
+      {(parent || children.length > 0) && (
+        <div style={{ fontSize: 11 }}>
+          <div style={{ fontWeight: 600, color: "var(--pn-text-secondary)", marginBottom: 4 }}>Hierarchy</div>
+          {parent && (
+            <div style={{ color: "var(--pn-text-muted)", marginBottom: 4 }}>
+              Parent: <span style={{ color: LEVEL_COLORS[parent.level] }}>L{parent.level}</span> {parent.title}
             </div>
           )}
-          {events === undefined ? (
-            <div className="text-[0.6rem] py-1" style={{ color: "var(--pn-text-muted)" }}>Loading events...</div>
-          ) : events.length === 0 ? (
-            <div className="text-[0.6rem] py-1" style={{ color: "var(--pn-text-muted)" }}>No events recorded.</div>
-          ) : (
-            <div className="space-y-0.5 pt-1">
-              {events.map((evt) => (
-                <div key={evt.id} className="flex items-center gap-2 text-[0.55rem] font-mono">
-                  <span style={{ color: "var(--pn-text-muted)" }}>
-                    {new Date(evt.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <span
-                    className="px-1 py-0.5 rounded"
-                    style={{ background: "rgba(255,255,255,0.04)", color: "var(--pn-text-secondary)" }}
-                  >
-                    {evt.type}
-                  </span>
-                  {evt.actor_kind && (
-                    <span style={{ color: "var(--pn-text-tertiary)" }}>{evt.actor_kind}</span>
-                  )}
+          {children.length > 0 && (
+            <div>
+              <span style={{ color: "var(--pn-text-muted)" }}>Children ({children.length})</span>
+              {children.slice(0, 8).map((c) => (
+                <div key={c.id} style={{ marginTop: 2, color: "var(--pn-text-muted)", paddingLeft: 8 }}>
+                  <span style={{ color: LEVEL_COLORS[c.level] }}>L{c.level}</span> {c.title}
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
+
+      {/* Runtime */}
+      {runtime && Object.keys(runtime).length > 0 && (
+        <div style={{ fontSize: 11 }}>
+          <div style={{ fontWeight: 600, color: "var(--pn-text-secondary)", marginBottom: 4 }}>Runtime</div>
+          <pre style={{
+            fontSize: 10, whiteSpace: "pre-wrap", margin: 0,
+            fontFamily: "JetBrains Mono, monospace",
+            background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 6,
+          }}>
+            {JSON.stringify(runtime, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
+
+function MetaRow({ label, value, color, mono }: { label: string; value: string; color?: string; mono?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+      <span style={{ color: "var(--pn-text-muted)", width: 60, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: color || "var(--pn-text-secondary)", fontFamily: mono ? "monospace" : undefined }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+const pillStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: 11, padding: "3px 10px", borderRadius: 10, cursor: "pointer",
+  background: active ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.04)",
+  color: active ? "#818cf8" : "var(--pn-text-muted)",
+  border: "none",
+});
+
+const inputStyle: React.CSSProperties = {
+  fontSize: 12, padding: "6px 10px", borderRadius: 6,
+  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+  color: "var(--pn-text-primary)", outline: "none", flex: 1,
+};
