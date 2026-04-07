@@ -72,6 +72,12 @@ defmodule Ema.MCP.Resources do
         "name" => "Intent Tree",
         "description" => "Full intent hierarchy as a nested tree. Add ?project_id=X to filter by project.",
         "mimeType" => "application/json"
+      },
+      %{
+        "uri" => "ema://workspace/briefing",
+        "name" => "Workspace Briefing",
+        "description" => "Agent workspace briefing — phase status, sprint backlog, assigned intents. Add ?actor=<slug>.",
+        "mimeType" => "application/json"
       }
     ]
   end
@@ -141,6 +147,23 @@ defmodule Ema.MCP.Resources do
       end
 
     fetch_resource(path, "intents/tree")
+  end
+
+  def read("ema://workspace/briefing" <> query_string) do
+    actor_slug = parse_query_param(query_string, "actor") || "trajan"
+
+    briefing = Ema.MCP.Orient.briefing(:workspace, actor_slug)
+    content = Jason.encode!(%{resource: "workspace/briefing", data: briefing, fetched_at: utc_now()})
+
+    %{
+      "contents" => [
+        %{
+          "uri" => "ema://workspace/briefing?actor=#{actor_slug}",
+          "mimeType" => "application/json",
+          "text" => content
+        }
+      ]
+    }
   end
 
   def read(uri) do

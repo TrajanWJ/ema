@@ -77,15 +77,19 @@ defmodule Ema.MCP.DomainTools do
 
       # ── Vault ──
       tool("ema_vault_tree", "Show vault directory tree", %{}),
-      tool("ema_vault_read", "Read a vault note by path", %{
-        "path" => %{"type" => "string", "description" => "Path relative to vault root"}
+      tool("ema_vault_read", "Read a vault note by path. Optionally include link graph data.", %{
+        "path" => %{"type" => "string", "description" => "Path relative to vault root"},
+        "include_links" => %{"type" => "boolean", "description" => "Include backlinks and forward links (default false)"}
       }, ["path"]),
       tool("ema_vault_write", "Create or update a vault note", %{
         "path" => %{"type" => "string", "description" => "Path relative to vault root"},
         "content" => %{"type" => "string", "description" => "Markdown content"},
         "title" => %{"type" => "string"}
       }, ["path", "content"]),
-      tool("ema_vault_graph", "Show vault link graph statistics", %{}),
+      tool("ema_vault_graph", "Vault link graph — stats, neighbors, typed neighbors, or orphans", %{
+        "mode" => %{"type" => "string", "description" => "stats (default), neighbors, typed_neighbors, or orphans", "enum" => ["stats", "neighbors", "typed_neighbors", "orphans"]},
+        "note_id" => %{"type" => "string", "description" => "Note ID (required for neighbors/typed_neighbors modes)"}
+      }),
 
       # ── Goals ──
       tool("ema_create_goal", "Create a new goal", %{
@@ -362,9 +366,31 @@ defmodule Ema.MCP.DomainTools do
 
   # Vault
   def call("ema_vault_tree", _, _), do: get("/vault/tree")
+
+  def call("ema_vault_read", %{"path" => p, "include_links" => true}, _) do
+    with {:ok, note} <- get("/vault/note", %{"path" => p}),
+         {:ok, graph} <- get("/vault/graph") do
+      {:ok, Map.put(note, "links", graph)}
+    else
+      {:ok, note} -> {:ok, note}
+      error -> error
+    end
+  end
+
   def call("ema_vault_read", %{"path" => p}, _), do: get("/vault/note", %{"path" => p})
+
   def call("ema_vault_write", %{"path" => p, "content" => c} = a, _),
     do: put("/vault/note", %{"path" => p, "content" => c, "title" => a["title"]})
+
+  def call("ema_vault_graph", %{"mode" => "neighbors", "note_id" => id}, _),
+    do: get("/vault/graph/neighbors/#{id}")
+
+  def call("ema_vault_graph", %{"mode" => "typed_neighbors", "note_id" => id}, _),
+    do: get("/vault/graph/typed-neighbors/#{id}")
+
+  def call("ema_vault_graph", %{"mode" => "orphans"}, _),
+    do: get("/vault/graph/orphans")
+
   def call("ema_vault_graph", _, _), do: get("/vault/graph")
 
   # Goals

@@ -17,6 +17,8 @@ defmodule EmaWeb.ProposalController do
   end
 
   def create(conn, params) do
+    project_id = resolve_project_id(params["project_id"])
+
     attrs = %{
       title: params["title"],
       body: params["body"],
@@ -26,7 +28,7 @@ defmodule EmaWeb.ProposalController do
       risks: params["risks"],
       benefits: params["benefits"],
       status: params["status"] || "queued",
-      project_id: params["project_id"]
+      project_id: project_id
     }
 
     case Proposals.create_proposal(attrs) do
@@ -279,4 +281,17 @@ defmodule EmaWeb.ProposalController do
 
   defp parse_int(val) when is_integer(val), do: val
   defp parse_int(_), do: nil
+
+  # Resolve project slug or name to actual project ID
+  defp resolve_project_id(nil), do: nil
+  defp resolve_project_id(ref) do
+    case Ema.Projects.get_project(ref) do
+      nil ->
+        case Ema.Projects.get_project_by_slug(ref) do
+          nil -> nil
+          project -> project.id
+        end
+      project -> project.id
+    end
+  end
 end

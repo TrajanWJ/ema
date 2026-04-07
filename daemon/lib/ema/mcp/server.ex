@@ -27,7 +27,7 @@ defmodule Ema.MCP.Server do
   use GenServer
   require Logger
 
-  alias Ema.MCP.{Protocol, Resources, Tools, SessionTools, DomainTools, RecursionGuard}
+  alias Ema.MCP.{Protocol, Resources, Tools, SessionTools, WorkspaceTools, DomainTools, RecursionGuard}
 
   @server_info %{
     "name" => "ema-mcp-server",
@@ -204,7 +204,7 @@ defmodule Ema.MCP.Server do
 
   defp handle_rpc(id, "tools/list", _params, state) do
     trace("rpc:tools/list")
-    tools = Tools.list() ++ SessionTools.list() ++ DomainTools.list()
+    tools = Tools.list() ++ SessionTools.list() ++ WorkspaceTools.list() ++ DomainTools.list()
     send_result(state, id, %{"tools" => tools})
     state
   end
@@ -233,6 +233,9 @@ defmodule Ema.MCP.Server do
                 ema_get_intent_runtime
               ) ->
                 Tools.call(tool_name, arguments, request_id)
+
+              tool_name in WorkspaceTools.tool_names() ->
+                WorkspaceTools.call(tool_name, arguments, request_id)
 
               tool_name in DomainTools.tool_names() ->
                 DomainTools.call(tool_name, arguments, request_id)
