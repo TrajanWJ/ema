@@ -95,19 +95,19 @@ export function Launchpad() {
   const tasks = useTasksStore((s) => s.tasks);
   const proposals = useProposalsStore((s) => s.proposals);
 
-  const unprocessedCount = inboxItems.filter((i) => !i.processed).length;
-  const completedToday = todayLogs.filter((l) => l.completed).length;
-  const habitCount = habits.length;
+  const unprocessedCount = (inboxItems ?? []).filter((i) => !i.processed).length;
+  const completedToday = (todayLogs ?? []).filter((l) => l.completed).length;
+  const habitCount = (habits ?? []).length;
   const habitProgress = habitCount > 0 ? Math.round((completedToday / habitCount) * 100) : 0;
 
-  const runningExecutions = executions.filter(
+  const runningExecutions = (executions ?? []).filter(
     (e) => e.status === "running" || e.status === "approved" || e.status === "delegated"
   ).length;
-  const awaitingApproval = executions.filter((e) => e.status === "awaiting_approval").length;
-  const activeIntents = intents.filter((i) => i.status === "active" || i.status === "implementing").length;
-  const agentCount = actors.filter((a) => a.type === "agent").length;
-  const activeTasks = tasks.filter((t: { status: string }) => t.status === "active").length;
-  const queuedProposals = proposals.filter((p: { status: string }) => p.status === "queued").length;
+  const awaitingApproval = (executions ?? []).filter((e) => e.status === "awaiting_approval").length;
+  const activeIntents = (intents ?? []).filter((i) => i.status === "active" || i.status === "implementing").length;
+  const agentCount = (actors ?? []).filter((a) => a.type === "agent").length;
+  const activeTasks = (tasks ?? []).filter((t: { status: string }) => t.status === "active").length;
+  const queuedProposals = (proposals ?? []).filter((p: { status: string }) => p.status === "queued").length;
 
   // Dynamic status for apps based on live data
   function getAppStatus(id: string): { status?: string; badge?: number; progress?: number } {

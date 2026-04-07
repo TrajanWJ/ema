@@ -1,12 +1,8 @@
-// EMA UI 2.0 — 27 apps
-// Keep: Brain Dump, Tasks, Projects, Executions, Intent Schematic, Wiki, Agents,
-//       Proposals, Canvas, Pipes, Evolution, Governance, Habits, Journal, Focus,
-//       Responsibilities, Settings, Voice, Campaigns, Babysitter, Temporal/Rhythm,
-//       Agent Workspace, Whiteboard, Storyboard, Operator Chat, Agent Chat, HQ
+// EMA UI 2.0 — 28 apps
+// VoiceOverlay removed — was causing mic permission errors and floating orb
 
 import { Shell } from "@/components/layout/Shell";
 import { Launchpad } from "@/components/layout/Launchpad";
-import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
 
 // Core Workflow
 import { BrainDumpApp } from "@/components/brain-dump/BrainDumpApp";
@@ -44,7 +40,6 @@ import { GoalsApp } from "@/components/goals/GoalsApp";
 // System
 import { SettingsApp } from "@/components/settings/SettingsApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
-// TODO: AgentWorkspaceApp — MCP phase cadence viewer (Phase 5)
 import { HQApp } from "@/components/hq/HQApp";
 
 // Chat
@@ -58,93 +53,63 @@ function getRoute(): string {
 function AppContent() {
   const route = getRoute();
 
-  switch (route) {
-    // Core Workflow
-    case "brain-dump":
-      return <BrainDumpApp />;
-    case "tasks":
-      return <TasksApp />;
-    case "projects":
-      return <ProjectsApp />;
-    case "executions":
-      return <ExecutionsApp />;
-    case "proposals":
-      return <ProposalsApp />;
+  // All routes wrapped in Shell for consistent chrome (AmbientStrip, Dock, CommandBar)
+  const content = (() => {
+    switch (route) {
+      // Core Workflow
+      case "brain-dump": return <BrainDumpApp />;
+      case "tasks": return <TasksApp />;
+      case "projects": return <ProjectsApp />;
+      case "executions": return <ExecutionsApp />;
+      case "proposals": return <ProposalsApp />;
 
-    // Intelligence
-    case "intent-schematic":
-      return <IntentSchematicApp />;
-    case "wiki":
-      return <WikiApp />;
-    case "agents":
-      return <AgentsApp />;
+      // Intelligence
+      case "intent-schematic": return <IntentSchematicApp />;
+      case "wiki": return <WikiApp />;
+      case "agents": return <AgentsApp />;
 
-    // Creative
-    case "canvas":
-      return <CanvasApp />;
-    case "pipes":
-      return <PipesApp />;
-    case "evolution":
-      return <EvolutionDashboard />;
-    case "whiteboard":
-      return <WhiteboardApp />;
-    case "storyboard":
-      return <StoryboardApp />;
+      // Creative
+      case "canvas": return <CanvasApp />;
+      case "pipes": return <PipesApp />;
+      case "evolution": return <EvolutionDashboard />;
+      case "whiteboard": return <WhiteboardApp />;
+      case "storyboard": return <StoryboardApp />;
 
-    // Operations
-    case "decision-log":
-      return <DecisionLogApp />;
-    case "campaigns":
-      return <CampaignsApp />;
-    case "governance":
-      return <GovernanceApp />;
-    case "babysitter":
-      return <BabysitterApp />;
+      // Operations
+      case "decision-log": return <DecisionLogApp />;
+      case "campaigns": return <CampaignsApp />;
+      case "governance": return <GovernanceApp />;
+      case "babysitter": return <BabysitterApp />;
 
-    // Life
-    case "habits":
-      return <HabitsApp />;
-    case "journal":
-      return <JournalApp />;
-    case "focus":
-      return <FocusApp />;
-    case "responsibilities":
-      return <ResponsibilitiesApp />;
-    case "temporal":
-      return <TemporalApp />;
-    case "goals":
-      return <GoalsApp />;
+      // Life
+      case "habits": return <HabitsApp />;
+      case "journal": return <JournalApp />;
+      case "focus": return <FocusApp />;
+      case "responsibilities": return <ResponsibilitiesApp />;
+      case "temporal": return <TemporalApp />;
+      case "goals": return <GoalsApp />;
 
-    // System
-    case "settings":
-      return <SettingsApp />;
-    case "voice":
-      return <VoiceApp />;
+      // System
+      case "settings": return <SettingsApp />;
+      case "voice": return <VoiceApp />;
+      case "hq": return <HQApp />;
 
-    case "hq":
-      return <HQApp />;
+      // Chat
+      case "operator-chat": return <OperatorChatApp />;
+      case "agent-chat": return <AgentChatApp />;
 
-    // Chat
-    case "operator-chat":
-      return <OperatorChatApp />;
-    case "agent-chat":
-      return <AgentChatApp />;
+      // Default
+      default: return <Launchpad />;
+    }
+  })();
 
-    // Default: Launchpad
-    default:
-      return (
-        <Shell>
-          <Launchpad />
-        </Shell>
-      );
-  }
+  return (
+    <Shell>
+      {content}
+    </Shell>
+  );
 }
 
 export default function App() {
-  return (
-    <>
-      <AppContent />
-      <VoiceOverlay />
-    </>
-  );
+  return <AppContent />;
 }
