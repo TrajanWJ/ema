@@ -75,6 +75,56 @@ defmodule Ema.ProposalEngine.OutcomeLinker do
 
   def classify_effectiveness(_status, _signal), do: "inconclusive"
 
+  @doc """
+  Feed outcome effectiveness back to the originating seed.
+  Deactivates seeds with avg < 0.3 after 3+ proposals; logs high-performers > 0.7.
+  """
+  def feed_seed_quality(%Proposal{seed_id: nil}, _effectiveness), do: :ok
+
+  def feed_seed_quality(%Proposal{seed_id: seed_id}, effectiveness) do
+    require Logger
+
+    with seed when not is_nil(seed) <- Ema.Proposals.get_seed(seed_id) do
+      score = effectiveness_score(effectiveness)
+      scores = Map.get(seed.metadata || %{}, "outcome_scores", [])
+      updated_scores = (scores ++ [score]) |> Enum.take(-20)
+      avg = Enum.sum(updated_scores) / length(updated_scores)
+
+      new_metadata =
+        Map.merge(seed.metadata || %{}, %{
+          "outcome_scores" => updated_scores,
+          "avg_effectiveness" => Float.round(avg, 3)
+        })
+
+      attrs = %{metadata: new_metadata}
+
+      attrs =
+        cond do
+          length(updated_scores) >= 3 and avg < 0.3 ->
+            Logger.info(
+              "[OutcomeLinker] Deactivating low-performing seed #{seed_id} (avg: #{avg})"
+            )
+
+            Map.put(attrs, :active, false)
+
+          length(updated_scores) >= 3 and avg > 0.7 ->
+            Logger.info("[OutcomeLinker] High-performing seed #{seed_id} (avg: #{avg})")
+            attrs
+
+          true ->
+            attrs
+        end
+
+      Ema.Proposals.update_seed(seed, attrs)
+    end
+  end
+
+  defp effectiveness_score("effective"), do: 1.0
+  defp effectiveness_score("mixed"), do: 0.5
+  defp effectiveness_score("ineffective"), do: 0.0
+  defp effectiveness_score("pending"), do: 0.5
+  defp effectiveness_score(_), do: 0.3
+
   defp excerpt(nil), do: nil
   defp excerpt(""), do: nil
 

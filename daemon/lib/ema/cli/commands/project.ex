@@ -203,6 +203,57 @@ defmodule Ema.CLI.Commands.Project do
     end
   end
 
+  def handle([:dependencies], parsed, transport, opts) do
+    slug = parsed.args.slug
+
+    case transport do
+      Ema.CLI.Transport.Http ->
+        case transport.get("/projects/#{slug}/tasks") do
+          {:ok, body} ->
+            task_cols = [
+              {"ID", :id},
+              {"Title", :title},
+              {"Status", :status},
+              {"Priority", :priority}
+            ]
+
+            Output.render(Helpers.extract_list(body, "tasks"), task_cols, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Projects, :get_project_by_slug, [slug]) do
+          {:ok, nil} ->
+            Output.error("Project '#{slug}' not found")
+
+          {:ok, project} ->
+            case transport.call(Ema.Tasks, :list_by_project, [project.id]) do
+              {:ok, tasks} ->
+                task_cols = [
+                  {"ID", :id},
+                  {"Title", :title},
+                  {"Status", :status},
+                  {"Priority", :priority}
+                ]
+
+                Output.render(tasks, task_cols, json: opts[:json])
+
+              {:error, reason} ->
+                Output.error(reason)
+            end
+
+          {:error, reason} ->
+            Output.error(reason)
+        end
+    end
+  end
+
+  def handle(sub, _parsed, _transport, _opts) do
+    Output.error("Unknown project subcommand: #{inspect(sub)}")
+  end
+
   defp render_context(ctx) do
     # Project header
     proj = ctx["project"] || ctx[:project] || %{}
@@ -321,55 +372,4 @@ defmodule Ema.CLI.Commands.Project do
   defp status_marker("queued"), do: "◌"
   defp status_marker("killed"), do: IO.ANSI.red() <> "✗" <> IO.ANSI.reset()
   defp status_marker(_), do: "·"
-
-  def handle([:dependencies], parsed, transport, opts) do
-    slug = parsed.args.slug
-
-    case transport do
-      Ema.CLI.Transport.Http ->
-        case transport.get("/projects/#{slug}/tasks") do
-          {:ok, body} ->
-            task_cols = [
-              {"ID", :id},
-              {"Title", :title},
-              {"Status", :status},
-              {"Priority", :priority}
-            ]
-
-            Output.render(Helpers.extract_list(body, "tasks"), task_cols, json: opts[:json])
-
-          {:error, reason} ->
-            Output.error(reason)
-        end
-
-      Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Projects, :get_project_by_slug, [slug]) do
-          {:ok, nil} ->
-            Output.error("Project '#{slug}' not found")
-
-          {:ok, project} ->
-            case transport.call(Ema.Tasks, :list_by_project, [project.id]) do
-              {:ok, tasks} ->
-                task_cols = [
-                  {"ID", :id},
-                  {"Title", :title},
-                  {"Status", :status},
-                  {"Priority", :priority}
-                ]
-
-                Output.render(tasks, task_cols, json: opts[:json])
-
-              {:error, reason} ->
-                Output.error(reason)
-            end
-
-          {:error, reason} ->
-            Output.error(reason)
-        end
-    end
-  end
-
-  def handle(sub, _parsed, _transport, _opts) do
-    Output.error("Unknown project subcommand: #{inspect(sub)}")
-  end
 end

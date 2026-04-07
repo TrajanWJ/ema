@@ -18,6 +18,7 @@ defmodule Ema.Claude.ContextInjector do
   require Logger
 
   alias Ema.{Goals, Tasks, Proposals, Projects, Journal, Intents}
+  alias Ema.Intelligence.ContextBudget
 
   # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -31,15 +32,37 @@ defmodule Ema.Claude.ContextInjector do
     - :tasks     — recent + blocked tasks
     - :energy    — recent energy trend from journal entries
     - :proposals — similar proposals by semantic/contextual match
+    - :intents   — active intent tree
+    - :wiki      — wiki intent pages
+
+  ## Options (passed via event map under :context_opts)
+    - :budget    — total token budget (default 8000)
+    - :focus     — focus map for relevance scoring
 
   Returns {:ok, map} with only the keys that succeeded.
   """
   def build_context(event, keys) when is_list(keys) do
     Logger.debug("[ContextInjector] Building context for #{inspect(keys)}")
 
+    context_opts = Map.get(event, :context_opts, %{})
+    budget = Map.get(context_opts, :budget, 8_000)
+    focus_terms = Map.get(context_opts, :focus_terms, extract_focus_terms(event))
+
+    # Allocate token budget across the requested sections
+    allocations = ContextBudget.allocate(budget: budget, sections: keys)
+
+    Logger.debug(
+      "[ContextInjector] Budget allocations: #{inspect(allocations)} (total: #{budget})"
+    )
+
+    focus = %{terms: focus_terms}
+
     context =
       keys
-      |> Enum.map(fn key -> {key, fetch_context_key(key, event)} end)
+      |> Enum.map(fn key ->
+        section_budget = Map.get(allocations, key, 1_000)
+        {key, fetch_context_key(key, event, budget: section_budget, focus: focus)}
+      end)
       |> Enum.reduce(%{}, fn {key, result}, acc ->
         case result do
           {:ok, value} ->
@@ -60,7 +83,7 @@ defmodule Ema.Claude.ContextInjector do
 
   # ── Private: Per-Key Fetchers ────────────────────────────────────────────────
 
-  defp fetch_context_key(:project, event) do
+  defp fetch_context_key(:project, event, _opts) do
     project_id = extract_project_id(event)
 
     if project_id do
@@ -78,7 +101,7 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :project, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:goals, _event) do
+  defp fetch_context_key(:goals, _event, _opts) do
     goals = Goals.list_goals(status: "active")
     tree = build_goal_tree(goals)
     {:ok, tree}
@@ -86,8 +109,7 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :goals, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:vault, event) do
-    # VaultIndex.semantic_search is deprecated/stub — use graceful fallback
+  defp fetch_context_key(:vault, event, _opts) do
     query = extract_vault_query(event)
 
     result =
@@ -95,7 +117,6 @@ defmodule Ema.Claude.ContextInjector do
            function_exported?(Ema.VaultIndex, :semantic_search, 2) do
         Ema.VaultIndex.semantic_search(query, limit: 5)
       else
-        # VaultIndex not yet implemented — return empty results
         []
       end
 
@@ -104,28 +125,38 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :vault, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:tasks, event) do
+  defp fetch_context_key(:tasks, event, opts) do
     project_id = extract_project_id(event)
+    budget = Keyword.get(opts, :budget, 1_200)
+    focus = Keyword.get(opts, :focus, %{})
 
-    recent =
+    # Fetch a generous candidate pool, then let ContextBudget pick the best
+    candidates =
       if project_id do
-        Tasks.list_by_project(project_id)
-        |> Enum.take(10)
+        Tasks.list_by_project(project_id) |> Enum.take(50)
       else
-        Tasks.list_by_status("in_progress")
-        |> Enum.take(10)
+        Tasks.list_by_status("in_progress") |> Enum.take(50)
       end
 
-    blocked =
-      Tasks.list_by_status("blocked")
-      |> Enum.take(5)
+    blocked = Tasks.list_by_status("blocked") |> Enum.take(20)
 
-    {:ok, %{recent: format_tasks(recent), blocked: format_tasks(blocked)}}
+    # Score and select within the token budget
+    formatted_recent = format_tasks(candidates)
+    formatted_blocked = format_tasks(blocked)
+
+    # Split budget: 70% recent, 30% blocked
+    {selected_recent, _} =
+      ContextBudget.score_and_select(formatted_recent, focus: focus, budget: round(budget * 0.7))
+
+    {selected_blocked, _} =
+      ContextBudget.score_and_select(formatted_blocked, focus: focus, budget: round(budget * 0.3))
+
+    {:ok, %{recent: selected_recent, blocked: selected_blocked}}
   rescue
     e -> {:error, {:fetch_failed, :tasks, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:energy, _event) do
+  defp fetch_context_key(:energy, _event, _opts) do
     recent_entries = Journal.list_entries(7)
 
     trend =
@@ -151,33 +182,41 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :energy, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:proposals, event) do
+  defp fetch_context_key(:proposals, event, opts) do
     project_id = extract_project_id(event)
     event_title = extract_event_title(event)
+    budget = Keyword.get(opts, :budget, 800)
+    focus = Keyword.get(opts, :focus, %{})
 
-    similar =
+    candidates =
       if project_id do
-        Proposals.list_proposals(project_id: project_id, limit: 5)
+        Proposals.list_proposals(project_id: project_id, limit: 30)
       else
-        Proposals.list_proposals(limit: 5)
+        Proposals.list_proposals(limit: 30)
       end
 
-    {:ok, %{similar: format_proposals(similar), query: event_title}}
+    formatted = format_proposals(candidates)
+    {selected, _} = ContextBudget.score_and_select(formatted, focus: focus, budget: budget)
+
+    {:ok, %{similar: selected, query: event_title}}
   rescue
     e -> {:error, {:fetch_failed, :proposals, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:intents, event) do
+  defp fetch_context_key(:intents, event, opts) do
     project_id = extract_project_id(event)
+    budget = Keyword.get(opts, :budget, 1_200)
 
     intents =
       if project_id do
-        Intents.list_intents(project_id: project_id, limit: 20)
+        Intents.list_intents(project_id: project_id, limit: 50)
       else
-        Intents.list_intents(status: "active", limit: 20)
+        Intents.list_intents(status: "active", limit: 50)
       end
 
+    # Build the tree markdown and truncate to budget
     tree_md = Intents.export_markdown(project_id: project_id)
+    tree_md = ContextBudget.truncate_text(tree_md, budget)
 
     {:ok,
      %{
@@ -189,8 +228,10 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :intents, Exception.message(e)}}
   end
 
-  defp fetch_context_key(:wiki, event) do
+  defp fetch_context_key(:wiki, event, opts) do
     project_id = extract_project_id(event)
+    budget = Keyword.get(opts, :budget, 1_200)
+    focus = Keyword.get(opts, :focus, %{})
     vault_root = Ema.SecondBrain.vault_root()
     wiki_dir = Path.join([vault_root, "wiki", "Intents"])
 
@@ -203,7 +244,6 @@ defmodule Ema.Claude.ContextInjector do
           fm = Ema.SecondBrain.VaultWatcher.parse_frontmatter(content)
 
           if fm["intent_level"] do
-            # Strip frontmatter for the content preview
             body =
               content
               |> String.replace(~r/\A---.*?---\n*/s, "")
@@ -216,7 +256,9 @@ defmodule Ema.Claude.ContextInjector do
               status: fm["intent_status"],
               project: fm["project"],
               body: body,
-              path: Path.relative_to(path, vault_root)
+              content: body,
+              path: Path.relative_to(path, vault_root),
+              updated_at: file_mtime(path)
             }
           end
         end)
@@ -226,12 +268,15 @@ defmodule Ema.Claude.ContextInjector do
         []
       end
 
-    {:ok, %{intent_pages: pages, count: length(pages)}}
+    # Score and select wiki pages within budget
+    {selected, _} = ContextBudget.score_and_select(pages, focus: focus, budget: budget)
+
+    {:ok, %{intent_pages: selected, count: length(selected)}}
   rescue
     e -> {:error, {:fetch_failed, :wiki, Exception.message(e)}}
   end
 
-  defp fetch_context_key(unknown_key, _event) do
+  defp fetch_context_key(unknown_key, _event, _opts) do
     Logger.debug("[ContextInjector] Unknown context key: #{inspect(unknown_key)}")
     {:error, {:unknown_key, unknown_key}}
   end
@@ -334,4 +379,28 @@ defmodule Ema.Claude.ContextInjector do
 
   defp average([]), do: nil
   defp average(list), do: Enum.sum(list) / length(list)
+
+  defp extract_focus_terms(event) do
+    title = extract_event_title(event)
+
+    title
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9_ ]/u, " ")
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.reject(&(String.length(&1) < 3))
+    |> Enum.uniq()
+    |> Enum.take(10)
+  end
+
+  defp file_mtime(path) do
+    case File.stat(path) do
+      {:ok, %{mtime: mtime}} ->
+        mtime
+        |> NaiveDateTime.from_erl!()
+        |> DateTime.from_naive!("Etc/UTC")
+
+      _ ->
+        DateTime.utc_now()
+    end
+  end
 end

@@ -17,26 +17,33 @@ defmodule EmaWeb.ProposalController do
   end
 
   def create(conn, params) do
-    project_id = resolve_project_id(params["project_id"])
+    with :ok <- validate_title(params["title"]),
+         :ok <- validate_body(params["body"]),
+         :ok <- validate_confidence(params["confidence"]) do
+      project_id = resolve_project_id(params["project_id"])
 
-    attrs = %{
-      title: params["title"],
-      body: params["body"],
-      summary: params["summary"],
-      confidence: params["confidence"],
-      estimated_scope: params["estimated_scope"],
-      risks: params["risks"],
-      benefits: params["benefits"],
-      status: params["status"] || "queued",
-      project_id: project_id
-    }
+      attrs = %{
+        title: params["title"],
+        body: params["body"],
+        summary: params["summary"],
+        confidence: params["confidence"],
+        estimated_scope: params["estimated_scope"],
+        risks: params["risks"],
+        benefits: params["benefits"],
+        status: params["status"] || "queued",
+        project_id: project_id
+      }
 
-    case Proposals.create_proposal(attrs) do
-      {:ok, proposal} ->
-        conn |> put_status(:created) |> json(%{proposal: serialize_proposal(proposal)})
+      case Proposals.create_proposal(attrs) do
+        {:ok, proposal} ->
+          conn |> put_status(:created) |> json(%{proposal: serialize_proposal(proposal)})
 
-      {:error, changeset} ->
-        conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
+        {:error, changeset} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
+      end
+    else
+      {:error, message} ->
+        conn |> put_status(:bad_request) |> json(%{error: message})
     end
   end
 
@@ -213,6 +220,39 @@ defmodule EmaWeb.ProposalController do
     {:ok, count} = Proposals.purge_untitled()
     json(conn, %{purged: count, type: "untitled"})
   end
+
+  # ── Validation helpers ─────────────────────────────────────────────────────
+
+  @max_body_length 100_000
+
+  defp validate_title(nil), do: {:error, "title is required"}
+  defp validate_title(t) when is_binary(t) and byte_size(t) > 0, do: :ok
+  defp validate_title(_), do: {:error, "title must be a non-empty string"}
+
+  defp validate_body(nil), do: :ok
+
+  defp validate_body(body) when is_binary(body) do
+    if byte_size(body) > @max_body_length,
+      do: {:error, "body exceeds maximum length of #{@max_body_length} bytes"},
+      else: :ok
+  end
+
+  defp validate_body(_), do: :ok
+
+  defp validate_confidence(nil), do: :ok
+
+  defp validate_confidence(c) when is_number(c) do
+    if c >= 0 and c <= 1, do: :ok, else: {:error, "confidence must be between 0 and 1"}
+  end
+
+  defp validate_confidence(c) when is_binary(c) do
+    case Float.parse(c) do
+      {f, _} -> validate_confidence(f)
+      :error -> {:error, "confidence must be a number between 0 and 1"}
+    end
+  end
+
+  defp validate_confidence(_), do: {:error, "confidence must be a number between 0 and 1"}
 
   # ── Private helpers ────────────────────────────────────────────────────────
 

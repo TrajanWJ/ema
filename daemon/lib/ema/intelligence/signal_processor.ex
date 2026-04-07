@@ -166,7 +166,50 @@ defmodule Ema.Intelligence.SignalProcessor do
 
   defp process_and_store(state, signal) do
     process_signal(signal)
-    update_state(state, signal)
+    state = update_state(state, signal)
+    maybe_propose_evolution_rule(state, signal)
+    state
+  end
+
+  # When 3+ signals share the same source+outcome pattern, auto-create a draft evolution rule
+  defp maybe_propose_evolution_rule(state, signal) do
+    key = {signal.source, signal.outcome}
+
+    similar =
+      Enum.filter(state.signals, fn s ->
+        {s.source, s.outcome} == key
+      end)
+
+    count = length(similar)
+
+    if count >= 3 and rem(count, 3) == 0 do
+      content =
+        "Pattern detected: #{signal.source} producing #{signal.outcome} " <>
+          "#{count} times. Agent: #{signal.agent_id}, " <>
+          "task_type: #{signal.task_type}. Consider adjusting behavior."
+
+      attrs = %{
+        source: "signal",
+        content: content,
+        status: "proposed",
+        signal_metadata: %{
+          source_pattern: signal.source,
+          outcome: to_string(signal.outcome),
+          count: count,
+          agent_id: signal.agent_id
+        }
+      }
+
+      case Ema.Evolution.create_rule(attrs) do
+        {:ok, rule} ->
+          Logger.info(
+            "[SignalProcessor] Auto-proposed evolution rule #{rule.id} from #{signal.source} pattern"
+          )
+
+        {:error, reason} ->
+          Logger.warning("[SignalProcessor] Failed to propose evolution rule: #{inspect(reason)}")
+      end
+    end
   end
 
   defp process_signal(

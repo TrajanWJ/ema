@@ -30,6 +30,7 @@ defmodule Ema.MCP.DomainTools do
     ema_set_container_config ema_get_container_config
     ema_list_spaces ema_create_space
     ema_em_status
+    ema_safety_rules ema_check_safety
   )
 
   def tool_names, do: @tool_names
@@ -611,7 +612,18 @@ defmodule Ema.MCP.DomainTools do
       ),
 
       # ── Executive Management ──
-      tool("ema_em_status", "Executive overview — all actors with phase info", %{})
+      tool("ema_em_status", "Executive overview — all actors with phase info", %{}),
+
+      # ── Safety Rules ──
+      tool("ema_safety_rules", "List all agent safety rules (deny/warn patterns)", %{}),
+      tool(
+        "ema_check_safety",
+        "Check a command against safety rules. Returns allow, warn, or deny.",
+        %{
+          "command" => %{"type" => "string", "description" => "Command string to check"}
+        },
+        ["command"]
+      )
     ]
   end
 
@@ -843,6 +855,24 @@ defmodule Ema.MCP.DomainTools do
 
   # Executive Management
   def call("ema_em_status", _, _), do: get("/actors")
+
+  # Safety Rules (local — no HTTP)
+  def call("ema_safety_rules", _, _) do
+    {:ok, %{rules: Ema.Agents.SafetyRules.all_rules()}}
+  end
+
+  def call("ema_check_safety", %{"command" => command}, _) do
+    case Ema.Agents.SafetyRules.check(command) do
+      :allow ->
+        {:ok, %{result: "allow", command: command}}
+
+      {:warn, rule} ->
+        {:ok, %{result: "warn", rule_id: rule.id, reason: rule.reason, command: command}}
+
+      {:deny, rule} ->
+        {:ok, %{result: "deny", rule_id: rule.id, reason: rule.reason, command: command}}
+    end
+  end
 
   # Catch-alls
   def call(name, _, _) when name in @tool_names,

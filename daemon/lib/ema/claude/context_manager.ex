@@ -15,8 +15,9 @@ defmodule Ema.Claude.ContextManager do
 
   import Ecto.Query
   alias Ema.Repo
+  alias Ema.Intelligence.ContextBudget
 
-  # ── Existing Prompt Building (unchanged) ──────────────────────────────────
+  # ── Existing Prompt Building ──────────────────────────────────────────────
 
   @doc """
   Build a full prompt from a seed template and contextual data.
@@ -29,15 +30,47 @@ defmodule Ema.Claude.ContextManager do
     project = Keyword.get(opts, :project)
     stage = Keyword.get(opts, :stage, :generator)
     relevant_code_context = Keyword.get(opts, :relevant_code_context)
+    budget = Keyword.get(opts, :context_budget, 6_000)
+
+    # Allocate budget across the context sections
+    allocations =
+      ContextBudget.allocate(
+        budget: budget,
+        sections: [:project, :proposals, :tasks],
+        overrides: %{project: round(budget * 0.35)}
+      )
+
+    # Build focus terms from the seed for relevance scoring
+    focus = %{terms: extract_seed_terms(seed)}
 
     context = %{
       project_context: project && build_project_context(project),
-      recent_proposals: build_recent_proposals(project, stage),
-      active_tasks: build_active_tasks(project),
+      recent_proposals:
+        build_recent_proposals(project, stage,
+          budget: Map.get(allocations, :proposals, 800),
+          focus: focus
+        ),
+      active_tasks:
+        build_active_tasks(project,
+          budget: Map.get(allocations, :tasks, 800),
+          focus: focus
+        ),
       relevant_code_context: relevant_code_context
     }
 
     assemble(seed.prompt_template, context, stage)
+  end
+
+  defp extract_seed_terms(seed) do
+    text = "#{seed.prompt_template} #{seed.name}"
+
+    text
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9_ ]/u, " ")
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.reject(&(String.length(&1) < 3))
+    |> Enum.uniq()
+    |> Enum.take(10)
   end
 
   defp build_project_context(project) do
@@ -63,11 +96,15 @@ defmodule Ema.Claude.ContextManager do
     }
   end
 
-  defp build_recent_proposals(project, _stage) do
+  defp build_recent_proposals(project, _stage, opts) do
+    budget = Keyword.get(opts, :budget, 800)
+    focus = Keyword.get(opts, :focus, %{})
+
+    # Fetch a larger candidate pool for relevance-based selection
     query =
       Ema.Proposals.Proposal
       |> order_by(desc: :inserted_at)
-      |> limit(10)
+      |> limit(30)
 
     query =
       if project do
@@ -76,25 +113,50 @@ defmodule Ema.Claude.ContextManager do
         query
       end
 
-    query
-    |> Repo.all()
-    |> Enum.map(fn p ->
-      %{title: p.title, summary: p.summary, status: p.status, confidence: p.confidence}
-    end)
+    candidates =
+      query
+      |> Repo.all()
+      |> Enum.map(fn p ->
+        %{
+          title: p.title,
+          summary: p.summary,
+          status: p.status,
+          confidence: p.confidence,
+          content: p.summary,
+          updated_at: p.updated_at
+        }
+      end)
+
+    {selected, _tokens} = ContextBudget.score_and_select(candidates, focus: focus, budget: budget)
+    selected
   end
 
-  defp build_active_tasks(nil), do: []
+  defp build_active_tasks(nil, _opts), do: []
 
-  defp build_active_tasks(project) do
-    Ema.Tasks.Task
-    |> where([t], t.project_id == ^project.id)
-    |> where([t], t.status == "in_progress")
-    |> order_by(asc: :priority)
-    |> limit(10)
-    |> Repo.all()
-    |> Enum.map(fn t ->
-      %{title: t.title, status: t.status, priority: t.priority, effort: t.effort}
-    end)
+  defp build_active_tasks(project, opts) do
+    budget = Keyword.get(opts, :budget, 800)
+    focus = Keyword.get(opts, :focus, %{})
+
+    candidates =
+      Ema.Tasks.Task
+      |> where([t], t.project_id == ^project.id)
+      |> where([t], t.status == "in_progress")
+      |> order_by(asc: :priority)
+      |> limit(30)
+      |> Repo.all()
+      |> Enum.map(fn t ->
+        %{
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          effort: t.effort,
+          content: t.title,
+          updated_at: t.updated_at
+        }
+      end)
+
+    {selected, _tokens} = ContextBudget.score_and_select(candidates, focus: focus, budget: budget)
+    selected
   end
 
   defp assemble(template, context, stage) do
@@ -110,6 +172,8 @@ defmodule Ema.Claude.ContextManager do
     """
     #{stage_prefix}
 
+    #{verification_protocol()}
+
     #{context_block}
 
     ## Seed Prompt
@@ -117,6 +181,24 @@ defmodule Ema.Claude.ContextManager do
 
     Respond with valid JSON containing: title, summary, body, estimated_scope, risks (array), benefits (array).
     """
+  end
+
+  @doc """
+  Returns the verification protocol text injected into all agent prompts.
+  Enforces evidence-before-claims: agents must show output, not assert confidence.
+  """
+  def verification_protocol do
+    """
+    ## Verification Protocol
+    Before claiming any task is complete:
+    1. Run the verification command and read its output
+    2. Compare output against acceptance criteria
+    3. If tests exist, run them and report results
+    4. Show evidence: what you checked, what you observed, what you concluded
+
+    "I'm confident" is NOT evidence. Show the output.
+    """
+    |> String.trim()
   end
 
   defp stage_instruction(:generator) do

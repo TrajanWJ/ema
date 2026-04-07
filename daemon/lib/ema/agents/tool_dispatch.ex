@@ -1,9 +1,27 @@
 defmodule Ema.Agents.ToolDispatch do
   @moduledoc "Routes agent tool calls to EMA domain functions via direct Elixir calls."
 
+  require Logger
+
+  alias Ema.Agents.SafetyRules
+
   def execute(tool_name, input) do
-    dispatch(tool_name, input)
+    # Check safety rules for shell/command tools
+    case check_safety(tool_name, input) do
+      :allow -> dispatch(tool_name, input)
+      {:deny, rule} -> {:error, "DENIED by safety rule #{rule.id}: #{rule.reason}"}
+      {:warn, rule} ->
+        Logger.warning("[ToolDispatch] Safety warning #{rule.id}: #{rule.reason}")
+        dispatch(tool_name, input)
+    end
   end
+
+  defp check_safety(tool_name, input) when tool_name in ["bash", "shell", "exec", "command"] do
+    command = input["command"] || input[:command] || ""
+    SafetyRules.check(command)
+  end
+
+  defp check_safety(_tool_name, _input), do: :allow
 
   defp dispatch("brain_dump:create_item", input) do
     case Ema.BrainDump.create_item(input) do

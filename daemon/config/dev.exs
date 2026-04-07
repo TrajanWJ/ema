@@ -5,7 +5,8 @@ config :ema, Ema.Repo,
   database: Path.expand("~/.local/share/ema/ema_dev.db"),
   pool_size: 5,
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true
+  show_sensitive_data_on_connection_error: true,
+  after_connect: {Ecto.Adapters.SQL, :query!, ["PRAGMA foreign_keys = ON", []]}
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

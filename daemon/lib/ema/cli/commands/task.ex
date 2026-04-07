@@ -124,16 +124,34 @@ defmodule Ema.CLI.Commands.Task do
         filter_opts = build_filter_opts(parsed.options)
 
         case transport.call(Ema.Tasks, :list_ready_tasks, [filter_opts]) do
-          {:ok, tasks} -> Output.render(tasks, @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, tasks} ->
+            tasks = sort_by_priority(tasks)
+
+            if opts[:json] do
+              Output.json(tasks)
+            else
+              print_ready_tasks(tasks, parsed.options[:assign], transport)
+            end
+
+          {:error, reason} ->
+            Output.error(reason)
         end
 
       Ema.CLI.Transport.Http ->
         params = build_http_params(parsed.options) ++ [ready: true]
 
         case transport.get("/tasks", params: params) do
-          {:ok, body} -> Output.render(extract_list(body, "tasks"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            tasks = extract_list(body, "tasks")
+
+            if opts[:json] do
+              Output.json(tasks)
+            else
+              Output.render(tasks, @columns)
+            end
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -294,6 +312,78 @@ defmodule Ema.CLI.Commands.Task do
     |> String.split(",", trim: true)
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
+  end
+
+  defp sort_by_priority(tasks) do
+    Enum.sort_by(tasks, fn task ->
+      priority = Map.get(task, :priority) || Map.get(task, "priority") || 5
+      {priority, Map.get(task, :inserted_at)}
+    end)
+  end
+
+  defp print_ready_tasks([], _assign, _transport) do
+    IO.puts(IO.ANSI.faint() <> "No ready tasks." <> IO.ANSI.reset())
+  end
+
+  defp print_ready_tasks(tasks, assign_to, transport) do
+    IO.puts("")
+    IO.puts(IO.ANSI.bright() <> "  Ready Tasks" <> IO.ANSI.reset())
+    IO.puts("  " <> String.duplicate("─", 50))
+
+    Enum.each(tasks, fn task ->
+      id = Map.get(task, :id) || Map.get(task, "id")
+      title = Map.get(task, :title) || Map.get(task, "title") || "Untitled"
+      priority = Map.get(task, :priority) || Map.get(task, "priority")
+      project = Map.get(task, :project_id) || Map.get(task, "project_id")
+
+      priority_badge = priority_label(priority)
+      project_str = if project, do: " #{IO.ANSI.faint()}[#{project}]#{IO.ANSI.reset()}", else: ""
+
+      IO.puts("    #{priority_badge} #{title}#{project_str}")
+      IO.puts("      #{IO.ANSI.faint()}#{id}#{IO.ANSI.reset()}")
+    end)
+
+    IO.puts("")
+    IO.puts("  #{IO.ANSI.faint()}#{length(tasks)} task(s) ready#{IO.ANSI.reset()}")
+
+    if assign_to do
+      assign_ready_tasks(tasks, assign_to, transport)
+    end
+
+    IO.puts("")
+  end
+
+  defp priority_label(nil), do: IO.ANSI.faint() <> "P-" <> IO.ANSI.reset()
+  defp priority_label(1), do: IO.ANSI.red() <> "P1" <> IO.ANSI.reset()
+  defp priority_label(2), do: IO.ANSI.yellow() <> "P2" <> IO.ANSI.reset()
+  defp priority_label(3), do: IO.ANSI.cyan() <> "P3" <> IO.ANSI.reset()
+  defp priority_label(n), do: IO.ANSI.faint() <> "P#{n}" <> IO.ANSI.reset()
+
+  defp assign_ready_tasks(tasks, agent_slug, transport) do
+    IO.puts("")
+    IO.puts("  Assigning #{length(tasks)} task(s) to #{agent_slug}...")
+
+    Enum.each(tasks, fn task ->
+      id = Map.get(task, :id) || Map.get(task, "id")
+
+      case transport do
+        Ema.CLI.Transport.Direct ->
+          case transport.call(Ema.Tasks, :get_task, [id]) do
+            {:ok, t} when not is_nil(t) ->
+              transport.call(Ema.Tasks, :update_task, [t, %{actor_id: agent_slug}])
+              Output.success("  Assigned #{id} → #{agent_slug}")
+
+            _ ->
+              Output.warn("  Could not find task #{id}")
+          end
+
+        Ema.CLI.Transport.Http ->
+          case transport.put("/tasks/#{id}", %{"actor_id" => agent_slug}) do
+            {:ok, _} -> Output.success("  Assigned #{id} → #{agent_slug}")
+            {:error, reason} -> Output.error("  Failed #{id}: #{inspect(reason)}")
+          end
+      end
+    end)
   end
 
   defp extract_list(body, key), do: Helpers.extract_list(body, key)

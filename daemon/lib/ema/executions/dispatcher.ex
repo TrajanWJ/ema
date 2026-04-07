@@ -393,6 +393,8 @@ defmodule Ema.Executions.Dispatcher do
     ## Success Criteria
     #{Enum.map_join(packet.success_criteria, "\n", fn c -> "- #{c}" end)}
 
+    #{Ema.Claude.ContextManager.verification_protocol()}
+
     ## Files to Read First
     #{Enum.map_join(packet.read_files, "\n", fn f -> "- #{f}" end)}
 

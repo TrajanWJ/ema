@@ -22,7 +22,8 @@ defmodule Ema.Claude.Runner do
   """
   def run(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, "sonnet")
-    timeout = Keyword.get(opts, :timeout, 300_000)
+    default_timeout = Application.get_env(:ema, :timeouts, []) |> Keyword.get(:claude_runner, 300_000)
+    timeout = Keyword.get(opts, :timeout, default_timeout)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
     stage = Keyword.get(opts, :stage)
     skip_preflight = Keyword.get(opts, :skip_preflight, false)

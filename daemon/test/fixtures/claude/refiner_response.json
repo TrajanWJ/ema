@@ -1,0 +1,3 @@
+{
+  "result": "{\"title\":\"Automated vault tagging pipeline (refined)\",\"summary\":\"Build a system that watches vault files and auto-generates semantic tags using local LLM inference, with human review step.\",\"body\":\"## Refinements\\n\\n- Added human review queue before tag application\\n- Configurable confidence threshold for auto-apply vs queue\\n- Tag deduplication against existing taxonomy\",\"risks\":[\"Tag quality depends on model accuracy\",\"Review queue could build up if ignored\"],\"benefits\":[\"Hands-free organization\",\"Better discoverability\",\"Quality control via review\"],\"estimated_scope\":\"m\"}"
+}

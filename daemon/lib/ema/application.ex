@@ -60,7 +60,8 @@ defmodule Ema.Application do
           Ema.Intelligence.AutonomyConfig,
           Ema.Intelligence.UCBRouter,
           {Ema.Intelligence.PromptVariantStore, []},
-          Ema.Intelligence.VaultLearner
+          Ema.Intelligence.VaultLearner,
+          Ema.Intelligence.DailyDigest
         ]
       end
 

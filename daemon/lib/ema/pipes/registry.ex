@@ -202,6 +202,13 @@ defmodule Ema.Pipes.Registry do
         label: "Proposal Killed",
         description: "User red-lit a proposal"
       },
+      %Trigger{
+        id: "proposals:decomposed",
+        context: "proposals",
+        event_type: "decomposed",
+        label: "Proposal Decomposed",
+        description: "Approved proposal broken into tasks with dependencies"
+      },
 
       # Projects
       %Trigger{

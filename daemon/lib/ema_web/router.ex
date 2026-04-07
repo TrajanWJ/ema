@@ -16,6 +16,7 @@ defmodule EmaWeb.Router do
     get("/surfaces/peers", ControlPlaneController, :peers)
     get("/dashboard/today", DashboardController, :today)
     get("/briefing", BriefingController, :show)
+    get("/recap", RecapController, :show)
     get("/advisor/now", AdvisorController, :now)
 
     # Organizations
@@ -189,6 +190,10 @@ defmodule EmaWeb.Router do
     put("/agents/:slug/channels/:id", AgentChannelController, :update)
     delete("/agents/:slug/channels/:id", AgentChannelController, :delete)
     post("/agents/:slug/channels/:id/test", AgentChannelController, :test_connection)
+
+    # Safety Rules
+    get("/safety-rules", SafetyRulesController, :index)
+    post("/safety-rules/check", SafetyRulesController, :check)
 
     # Campaigns (templates + runs)
     get("/campaigns", CampaignController, :index)

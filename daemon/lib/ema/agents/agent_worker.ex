@@ -20,7 +20,8 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   def send_message(agent_id, conversation_id, content, metadata \\ %{}) do
-    GenServer.call(via(agent_id), {:message, conversation_id, content, metadata}, 180_000)
+    timeout = Application.get_env(:ema, :timeouts, []) |> Keyword.get(:agent_message, 180_000)
+    GenServer.call(via(agent_id), {:message, conversation_id, content, metadata}, timeout)
   end
 
   @doc "Send a message and route the response to the originating channel type."
@@ -240,15 +241,43 @@ defmodule Ema.Agents.AgentWorker do
   end
 
   defp build_domain_prompt(system_prompt, user_message, context) do
+    lessons_block = build_lessons_block(context)
+
     """
     #{system_prompt}
 
     ## Current Context
     #{inspect(context, pretty: true, limit: :infinity)}
-
+    #{lessons_block}
     ## User Request
     #{user_message}
     """
+  end
+
+  defp build_lessons_block(context) do
+    agent_id = context[:agent_id] || context["agent_id"]
+
+    if agent_id do
+      entries =
+        Ema.Intelligence.ReflexionStore.list_recent(agent: to_string(agent_id), limit: 5)
+
+      case entries do
+        [] ->
+          ""
+
+        entries ->
+          formatted =
+            Enum.map_join(entries, "\n", fn e ->
+              "- [#{e.domain}] #{e.lesson} (#{e.outcome_status})"
+            end)
+
+          "\n## Lessons from recent work\n#{formatted}\n"
+      end
+    else
+      ""
+    end
+  rescue
+    _ -> ""
   end
 
   defp extract_bridge_text(%{"result" => result}) when is_binary(result), do: result
@@ -369,12 +398,17 @@ defmodule Ema.Agents.AgentWorker do
   defp build_prompt(state, conversation_id, _current_content) do
     parts = []
 
-    # System prompt from script
+    # System prompt from script + verification protocol
+    verification = Ema.Claude.ContextManager.verification_protocol()
+
     parts =
       if state.script do
-        parts ++ ["[System]\n#{state.script}\n"]
+        parts ++ ["[System]\n#{state.script}\n\n#{verification}\n"]
       else
-        parts ++ ["[System]\nYou are #{state.agent.name}. #{state.agent.description || ""}\n"]
+        parts ++
+          [
+            "[System]\nYou are #{state.agent.name}. #{state.agent.description || ""}\n\n#{verification}\n"
+          ]
       end
 
     # Conversation history

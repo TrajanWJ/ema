@@ -11,8 +11,8 @@ defmodule Ema.CLI do
     org actor space intent gap integration reflexion ai-session routing git-sync tunnel
     file-vault messages team-pulse metrics feedback dashboard dump status
     contact finance invoice routine meeting temporal intelligence pipeline obsidian
-    security vm onboarding prompt decision clipboard orchestrator ingest provider memory
-    briefing now chronicle
+    security rules vm onboarding prompt decision clipboard orchestrator ingest provider memory
+    briefing now recap chronicle health
   )
   @actor_dispatch_switches [
     json: :boolean,
@@ -203,6 +203,12 @@ defmodule Ema.CLI do
           {:ok, [:briefing], parsed} ->
             dispatch(:briefing, [], parsed)
 
+          {:ok, [:recap], parsed} ->
+            dispatch(:recap, [], parsed)
+
+          {:ok, [:health], parsed} ->
+            dispatch(:health, [], parsed)
+
           {:ok, [:now], parsed} ->
             dispatch(:now, [], parsed)
 
@@ -235,6 +241,9 @@ defmodule Ema.CLI do
 
           {:ok, [:security | sub], parsed} ->
             dispatch(:security, sub, parsed)
+
+          {:ok, [:rules | sub], parsed} ->
+            dispatch(:rules, sub, parsed)
 
           {:ok, [:vm | sub], parsed} ->
             dispatch(:vm, sub, parsed)
@@ -351,6 +360,7 @@ defmodule Ema.CLI do
       :dump -> Ema.CLI.Commands.Dump.handle(sub, parsed, transport, opts)
       :status -> Ema.CLI.Commands.Status.handle(sub, parsed, transport, opts)
       :briefing -> Ema.CLI.Commands.Briefing.handle(sub, parsed, transport, opts)
+      :recap -> Ema.CLI.Commands.Recap.handle(sub, parsed, transport, opts)
       :now -> Ema.CLI.Commands.Now.handle(sub, parsed, transport, opts)
       :contact -> Ema.CLI.Commands.Contact.handle(sub, parsed, transport, opts)
       :finance -> Ema.CLI.Commands.Finance.handle(sub, parsed, transport, opts)
@@ -362,6 +372,7 @@ defmodule Ema.CLI do
       :pipeline -> Ema.CLI.Commands.Pipeline.handle(sub, parsed, transport, opts)
       :obsidian -> Ema.CLI.Commands.Obsidian.handle(sub, parsed, transport, opts)
       :security -> Ema.CLI.Commands.Security.handle(sub, parsed, transport, opts)
+      :rules -> Ema.CLI.Commands.Rules.handle(sub, parsed, transport, opts)
       :vm -> Ema.CLI.Commands.Vm.handle(sub, parsed, transport, opts)
       :onboarding -> Ema.CLI.Commands.Onboarding.handle(sub, parsed, transport, opts)
       :prompt -> Ema.CLI.Commands.Prompt.handle(sub, parsed, transport, opts)
@@ -467,6 +478,7 @@ defmodule Ema.CLI do
         dump: dump_spec(),
         status: status_spec(),
         briefing: briefing_spec(),
+        recap: recap_spec(),
         now: now_spec(),
         contact: contact_spec(),
         finance: finance_spec(),
@@ -478,6 +490,7 @@ defmodule Ema.CLI do
         pipeline: pipeline_spec(),
         obsidian: obsidian_spec(),
         security: security_spec(),
+        rules: rules_spec(),
         vm: vm_spec(),
         onboarding: onboarding_spec(),
         prompt: prompt_spec(),
@@ -1800,6 +1813,25 @@ defmodule Ema.CLI do
     ]
   end
 
+  defp recap_spec do
+    [
+      name: "recap",
+      about:
+        "Activity recap — summarize what happened in a period.\n\n" <>
+          "  Shows tasks completed/created, proposals, executions, brain dumps,\n" <>
+          "  journal entries, wiki changes, and AI cost. Pure DB queries, no AI calls.\n\n" <>
+          "  Examples:\n" <>
+          "    ema recap                                Today's recap\n" <>
+          "    ema recap --period yesterday             Yesterday's activity\n" <>
+          "    ema recap --period week                  This week\n" <>
+          "    ema recap --period month                 This month\n" <>
+          "    ema recap --json                         Machine-readable output",
+      options: [
+        period: [short: "-p", long: "--period", help: "Period: today, yesterday, week, month (default: today)", parser: :string]
+      ]
+    ]
+  end
+
   defp now_spec do
     [
       name: "now",
@@ -3022,6 +3054,21 @@ defmodule Ema.CLI do
       subcommands: [
         posture: [name: "posture", about: "Security posture overview"],
         audit: [name: "audit", about: "Run security audit"]
+      ]
+    ]
+  end
+
+  defp rules_spec do
+    [
+      name: "rules",
+      about: "Agent safety rules — deny/warn patterns for command execution",
+      subcommands: [
+        list: [name: "list", about: "List all safety rules"],
+        check: [
+          name: "check",
+          about: "Check a command against safety rules",
+          args: [command: [required: false, help: "Command to check"]]
+        ]
       ]
     ]
   end

@@ -90,6 +90,12 @@ defmodule Ema.Proposals do
         end)
         |> tap_ok(&broadcast_proposal_event("proposal_approved", &1))
         |> tap_ok(fn proposal -> Ema.Executions.on_proposal_approved(proposal.id) end)
+        |> tap_ok(fn proposal ->
+          Task.Supervisor.start_child(
+            Ema.ProposalEngine.TaskSupervisor,
+            fn -> Ema.ProposalEngine.AutoDecomposer.decompose(proposal) end
+          )
+        end)
     end
   end
 

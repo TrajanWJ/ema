@@ -8,7 +8,8 @@ import Config
 config :ema, Ema.Repo,
   database: Path.expand("~/.local/share/ema/ema_test.db"),
   pool_size: 5,
-  pool: Ecto.Adapters.SQL.Sandbox
+  pool: Ecto.Adapters.SQL.Sandbox,
+  after_connect: {Ecto.Adapters.SQL, :query!, ["PRAGMA foreign_keys = ON", []]}
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

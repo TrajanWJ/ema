@@ -37,8 +37,10 @@ defmodule Ema.ProposalEngine.KillMemory do
     similar =
       state.patterns
       |> Enum.filter(fn {_id, pattern} ->
-        title_overlap?(proposal.title, pattern.title) ||
-          tags_overlap?(proposal, pattern.tags)
+        recency = recency_factor(pattern.killed_at)
+
+        (title_overlap?(proposal.title, pattern.title, recency) ||
+           tags_overlap?(proposal, pattern.tags)) and recency > 0.1
       end)
       |> Enum.map(fn {id, _} -> id end)
 
@@ -80,14 +82,23 @@ defmodule Ema.ProposalEngine.KillMemory do
     end)
   end
 
-  defp title_overlap?(title1, title2) do
+  defp title_overlap?(title1, title2, recency) do
     words1 = title1 |> String.downcase() |> String.split(~r/\s+/) |> MapSet.new()
     words2 = title2 |> String.downcase() |> String.split(~r/\s+/) |> MapSet.new()
 
     intersection = MapSet.intersection(words1, words2) |> MapSet.size()
     union = MapSet.union(words1, words2) |> MapSet.size()
 
-    union > 0 and intersection / union > 0.5
+    # Apply temporal decay: older kills have weaker suppressive power
+    union > 0 and intersection / union * recency > 0.5
+  end
+
+  # Kills from >90 days ago lose suppressive power exponentially
+  defp recency_factor(nil), do: 1.0
+
+  defp recency_factor(killed_at) do
+    days_since = DateTime.diff(DateTime.utc_now(), killed_at, :second) / 86_400
+    1.0 / (1.0 + days_since / 90.0)
   end
 
   defp tags_overlap?(_proposal, []), do: false

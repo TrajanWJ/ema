@@ -192,22 +192,73 @@ defmodule Ema.Executions do
         signal = Router.classify_outcome(result_summary)
         result_path = write_result_artifact(execution, result_summary)
 
+        {final_status, verification_note} =
+          verify_completion(execution, result_summary)
+
         execution
         |> Execution.changeset(%{
-          status: "completed",
+          status: final_status,
           completed_at: DateTime.utc_now() |> DateTime.truncate(:second),
           result_path: result_path,
-          metadata: Map.put(execution.metadata || %{}, "result_summary", result_summary)
+          metadata:
+            execution.metadata
+            |> Kernel.||(%{})
+            |> Map.put("result_summary", result_summary)
+            |> then(fn m ->
+              if verification_note, do: Map.put(m, "verification", verification_note), else: m
+            end)
         })
         |> Repo.update()
         |> tap_ok(fn updated ->
           maybe_sync_intent_runtime(updated)
-          record_event(updated.id, "completed", %{signal: signal, result_path: result_path})
+
+          record_event(updated.id, final_status, %{
+            signal: signal,
+            result_path: result_path,
+            verification: verification_note
+          })
+
           broadcast("execution:completed", %{execution: updated, signal: signal})
           Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
           patch_intent_file(updated, result_summary)
           Ema.Intelligence.ReflectionLoop.reflect_async(updated.id, result_summary)
         end)
+    end
+  end
+
+  @doc """
+  Check whether an execution has sufficient evidence to be marked completed.
+  Returns `{"completed", nil}` if verified, or `{"needs_verification", reason}` if not.
+  """
+  def verify_completion(execution, result_summary) do
+    events = list_events(execution.id)
+
+    has_verification_event =
+      Enum.any?(events, fn e ->
+        e.type in ["verification_ran", "tests_passed", "diff_captured", "review_passed"]
+      end)
+
+    has_meaningful_output =
+      is_binary(result_summary) and byte_size(result_summary) > 20
+
+    has_diff =
+      not is_nil(Map.get(execution, :git_diff)) and
+        is_binary(Map.get(execution, :git_diff)) and
+        byte_size(Map.get(execution, :git_diff)) > 0
+
+    cond do
+      has_verification_event ->
+        {"completed", nil}
+
+      has_diff and has_meaningful_output ->
+        {"completed", nil}
+
+      has_meaningful_output ->
+        {"completed", nil}
+
+      true ->
+        {"needs_verification",
+         "No verification events, no diff, and result summary is empty or trivial"}
     end
   end
 

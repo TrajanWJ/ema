@@ -21,6 +21,12 @@ config :ema,
   openclaw_gateway_url: System.get_env("OPENCLAW_GATEWAY_URL", "http://192.168.122.10:18789"),
   openclaw_ssh_host: System.get_env("OPENCLAW_SSH_HOST", "trajan@192.168.122.10")
 
+# Configurable timeouts for AI operations (milliseconds)
+config :ema, :timeouts,
+  claude_runner: 300_000,
+  agent_message: 180_000,
+  execution_dispatch: 300_000
+
 # Configure the endpoint
 config :ema, EmaWeb.Endpoint,
   url: [host: "localhost"],

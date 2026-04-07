@@ -67,10 +67,22 @@ defmodule EmaWeb.TemporalController do
   end
 
   def history(conn, params) do
-    limit = String.to_integer(params["limit"] || "50")
+    limit = safe_integer(params["limit"], 50)
     logs = Temporal.recent_logs(limit) |> Enum.map(&serialize_log/1)
     json(conn, %{logs: logs})
   end
+
+  defp safe_integer(nil, default), do: default
+  defp safe_integer(val, _default) when is_integer(val), do: val
+
+  defp safe_integer(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, ""} -> n
+      _ -> default
+    end
+  end
+
+  defp safe_integer(_, default), do: default
 
   defp parse_float(nil), do: nil
   defp parse_float(val) when is_float(val), do: val
