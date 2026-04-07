@@ -4,7 +4,10 @@ import { APP_CONFIGS } from "@/types/workspace";
 import type { WindowState } from "@/types/workspace";
 
 export async function openApp(appId: string, savedState?: WindowState | null): Promise<void> {
-  const existing = await WebviewWindow.getByLabel(appId);
+  // Never open a second launchpad
+  if (appId === "launchpad") return;
+
+  const existing = await WebviewWindow.getByLabel(appId).catch(() => null);
   if (existing) {
     await existing.setFocus();
     return;
@@ -19,7 +22,7 @@ export async function openApp(appId: string, savedState?: WindowState | null): P
   const height = savedState?.height ?? config.defaultHeight;
 
   const webview = new WebviewWindow(appId, {
-    url: `/${appId}`,
+    url: `/${appId}?standalone`,
     title: config.title,
     width,
     height,
@@ -27,6 +30,7 @@ export async function openApp(appId: string, savedState?: WindowState | null): P
     y,
     decorations: false,
     transparent: true,
+    shadow: false,
     minWidth: config.minWidth,
     minHeight: config.minHeight,
   });
@@ -41,25 +45,27 @@ export async function openApp(appId: string, savedState?: WindowState | null): P
 }
 
 export async function closeApp(appId: string): Promise<void> {
-  const existing = await WebviewWindow.getByLabel(appId);
+  const existing = await WebviewWindow.getByLabel(appId).catch(() => null);
   if (existing) {
     await existing.close();
   }
 }
 
+/** Restore previously open windows — disabled to prevent artifact windows */
 export async function restoreWorkspace(): Promise<void> {
+  // Reset all is_open flags on startup to prevent stale windows
   const store = useWorkspaceStore.getState();
-  await store.load();
+  await store.load().catch(() => {});
 
-  const openWindows = store.windows.filter((w) => w.is_open);
-  for (const windowState of openWindows) {
-    if (windowState.app_id === "launchpad") continue;
-    await openApp(windowState.app_id, windowState);
+  for (const w of store.windows) {
+    if (w.is_open && w.app_id !== "launchpad") {
+      await store.updateWindow(w.app_id, { is_open: false }).catch(() => {});
+    }
   }
 }
 
 export async function saveWindowState(appId: string): Promise<void> {
-  const existing = await WebviewWindow.getByLabel(appId);
+  const existing = await WebviewWindow.getByLabel(appId).catch(() => null);
   if (!existing) return;
 
   const position = await existing.outerPosition();
