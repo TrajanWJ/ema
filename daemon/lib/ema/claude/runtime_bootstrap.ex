@@ -6,6 +6,8 @@ defmodule Ema.Claude.RuntimeBootstrap do
   machine state instead of relying on static provider/account definitions.
   """
 
+  require Logger
+
   alias Ema.Claude.Config
 
   @default_claude_paths ["~/.claude/.credentials.json", "~/.claude-work/.credentials.json"]
@@ -19,7 +21,8 @@ defmodule Ema.Claude.RuntimeBootstrap do
     provider_defs =
       [
         build_claude_provider(oauth_sources),
-        build_codex_provider()
+        build_codex_provider(),
+        build_openclaw_provider()
       ]
       |> Enum.reject(&is_nil/1)
 
@@ -116,6 +119,52 @@ defmodule Ema.Claude.RuntimeBootstrap do
 
       %{provider: provider, accounts: accounts}
     end
+  end
+
+  defp build_openclaw_provider do
+    gateway_url =
+      System.get_env("OPENCLAW_GATEWAY_URL") ||
+        Application.get_env(:ema, :openclaw_gateway_url, "http://192.168.122.10:18789")
+
+    case probe_openclaw(gateway_url) do
+      :ok ->
+        provider =
+          Config.build_provider(
+            id: "openclaw-vm",
+            type: :openclaw,
+            name: "OpenClaw Agent VM",
+            accounts: [%{name: "gateway", auth: :system}],
+            models: [],
+            url: gateway_url,
+            capabilities: %{agent_routing: true, tool_use: true}
+          )
+
+        accounts = [
+          %{
+            id: "openclaw-vm:gateway",
+            provider_id: "openclaw-vm",
+            name: "gateway",
+            auth: %{type: :system, gateway_url: gateway_url},
+            priority: 10
+          }
+        ]
+
+        %{provider: provider, accounts: accounts}
+
+      {:error, reason} ->
+        Logger.info("[RuntimeBootstrap] OpenClaw gateway not reachable (#{inspect(reason)}), skipping")
+        nil
+    end
+  end
+
+  defp probe_openclaw(gateway_url) do
+    case Req.get("#{gateway_url}/rest/agents", receive_timeout: 3_000) do
+      {:ok, %{status: 200}} -> :ok
+      {:ok, %{status: code}} -> {:error, {:http_error, code}}
+      {:error, reason} -> {:error, reason}
+    end
+  rescue
+    _ -> {:error, :unreachable}
   end
 
   defp discover_claude_oauth_sources do
