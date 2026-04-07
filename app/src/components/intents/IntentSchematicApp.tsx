@@ -5,7 +5,7 @@ import { WikiEditor } from "./tiptap/WikiEditor";
 import { IntentChat } from "./IntentChat";
 import { WikiPageRenderer } from "./WikiPageRenderer";
 import { STATUS_COLORS, LEVEL_LABELS } from "@/types/intents";
-import "./wiki-engine.css";
+import "./wikipedia.css";
 
 const isStandalone =
   typeof window !== "undefined" &&
@@ -96,8 +96,7 @@ export function IntentSchematicApp() {
 
   return (
     <div
-      className={`h-screen flex flex-col ${isStandalone ? "wiki-standalone" : ""}`}
-      style={{ background: isStandalone ? "#fff" : "var(--color-pn-base)" }}
+      className={`wiki-page-layout ${isStandalone ? "wiki-light" : "wiki-ema"}`}
     >
       {/* Header */}
       <header
@@ -218,7 +217,7 @@ export function IntentSchematicApp() {
                 {!selectedPath ? (
                   <MainPage />
                 ) : editMode ? (
-                  <div className="wiki-article">
+                  <div className="mw-parser-output">
                     <WikiEditor
                       content={editContent || selectedContent || ""}
                       editable
@@ -239,7 +238,7 @@ export function IntentSchematicApp() {
                     </div>
                   </div>
                 ) : selectedContent ? (
-                  <div className="wiki-article">
+                  <div className="mw-parser-output">
                     {frontmatter.intent_level && (
                       <Infobox frontmatter={frontmatter} intent={selectedIntent} />
                     )}
@@ -323,7 +322,7 @@ function MainPage() {
   const allNotes = useWikiEngineStore((s) => s.allNotes);
 
   return (
-    <div className="wiki-article">
+    <div className="mw-parser-output">
       <h1>EMA Wiki</h1>
       <p>
         Personal knowledge engine with {allNotes.length} pages across {namespaces.length} namespaces.
