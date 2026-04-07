@@ -1,98 +1,53 @@
+// EMA UI 2.0 — 27 apps
+// Keep: Brain Dump, Tasks, Projects, Executions, Intent Schematic, Wiki, Agents,
+//       Proposals, Canvas, Pipes, Evolution, Governance, Habits, Journal, Focus,
+//       Responsibilities, Settings, Voice, Campaigns, Babysitter, Temporal/Rhythm,
+//       Agent Workspace, Whiteboard, Storyboard, Operator Chat, Agent Chat, HQ
+
 import { Shell } from "@/components/layout/Shell";
 import { Launchpad } from "@/components/layout/Launchpad";
+import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
+
+// Core Workflow
 import { BrainDumpApp } from "@/components/brain-dump/BrainDumpApp";
-import { HabitsApp } from "@/components/habits/HabitsApp";
-import { JournalApp } from "@/components/journal/JournalApp";
-import { ProposalsApp } from "@/components/proposals/ProposalsApp";
-import { ProjectsApp } from "@/components/projects/ProjectsApp";
 import { TasksApp } from "@/components/tasks/TasksApp";
-import { SettingsApp } from "@/components/settings/SettingsApp";
-import { ResponsibilitiesApp } from "@/components/responsibilities/ResponsibilitiesApp";
+import { ProjectsApp } from "@/components/projects/ProjectsApp";
+import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
+import { ProposalsApp } from "@/components/proposals/ProposalsApp";
+
+// Intelligence
+import { IntentSchematicApp } from "@/components/intents/IntentSchematicApp";
+import { WikiApp } from "@/components/wiki/WikiApp";
 import { AgentsApp } from "@/components/agents/AgentsApp";
-import { VaultApp } from "@/components/vault/VaultApp";
-import { VaultBrowser } from "@/components/vault/VaultBrowser";
+
+// Creative
 import { CanvasApp } from "@/components/canvas/CanvasApp";
 import { PipesApp } from "@/components/pipes/PipesApp";
-import { ChannelsApp } from "@/components/channels/ChannelsApp";
-import { MetaMindApp } from "@/components/metamind/MetaMindApp";
 import { EvolutionDashboard } from "@/components/evolution/EvolutionDashboard";
-import { ClaudeBridgeApp } from "@/components/claude-bridge/ClaudeBridgeApp";
-import { VoiceApp } from "@/components/voice/VoiceApp";
-import { GoalsApp } from "@/components/goals/GoalsApp";
-import { FocusApp } from "@/components/focus/FocusApp";
-import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
-import { DispatchBoardApp } from "@/components/dispatch-board/DispatchBoardApp";
-import { GitSyncApp } from "@/components/git-sync/GitSyncApp";
-import { CliManagerApp } from "@/components/cli-manager/CliManagerApp";
-import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
-import { OrbWindow } from "@/components/orb/OrbWindow";
-import { JarvisApp } from "@/components/jarvis/JarvisApp";
-// Chunk 2: AI Pipeline & Management
-import PipelineApp from "@/components/pipeline/PipelineApp";
-import { AgentFleetApp } from "@/components/agent-fleet/AgentFleetApp";
-import { PromptWorkshopApp } from "@/components/prompt-workshop/PromptWorkshopApp";
-import { IngestorApp } from "@/components/ingestor/IngestorApp";
+// TODO: WhiteboardApp — Excalidraw-powered free-form drawing (Phase 5)
+// TODO: StoryboardApp — sequential narrative planning (Phase 5)
+
+// Operations
 import { DecisionLogApp } from "@/components/decision-log/DecisionLogApp";
-// Chunk 3: P2P Services
-import { FileVaultApp } from "@/components/file-vault/FileVaultApp";
-import { MessageHubApp } from "@/components/message-hub/MessageHubApp";
-import { SharedClipboardApp } from "@/components/shared-clipboard/SharedClipboardApp";
-import { ServiceDashboardApp } from "@/components/service-dashboard/ServiceDashboardApp";
-import { TunnelManagerApp } from "@/components/tunnel-manager/TunnelManagerApp";
-// Chunk 4: Personal Executive Management
-import { LifeDashboardApp } from "@/components/life-dashboard/LifeDashboardApp";
-import { RoutineBuilderApp } from "@/components/routine-builder/RoutineBuilderApp";
-import { FinanceTrackerApp } from "@/components/finance-tracker/FinanceTrackerApp";
-import { ContactsCRMApp } from "@/components/contacts-crm/ContactsCRMApp";
-// Chunk 5: Business/Organization Management
-import { TeamPulseApp } from "@/components/team-pulse/TeamPulseApp";
-import { MeetingRoomApp } from "@/components/meeting-room/MeetingRoomApp";
-
-import { InvoiceBillingApp } from "@/components/invoice-billing/InvoiceBillingApp";
-import { AuditTrailApp } from "@/components/audit-trail/AuditTrailApp";
-// Monitoring & Intelligence
-import { TokenMonitorApp } from "@/components/tokens/TokenMonitor";
-import { VMHealthApp } from "@/components/vm/VMHealthPanel";
-import { SecurityPanelApp } from "@/components/security/SecurityPanel";
-// Intelligence & Knowledge (Batch 3)
-import { SessionMemoryApp } from "@/components/memory/SessionMemoryApp";
-import { GapInboxApp } from "@/components/gaps/GapInboxApp";
-import { IntentMapApp } from "@/components/intent/IntentMapApp";
-import { CodeHealthDashboard } from "@/components/superman/CodeHealthDashboard";
-import { ProjectGraphApp } from "@/components/project-graph/ProjectGraphApp";
-// Wave2 B1: newly wired apps
-import { SupermanApp } from "@/components/superman/SupermanApp";
-import QualityApp from "@/components/quality/QualityApp";
-import { WikiApp } from "@/components/wiki/WikiApp";
-import { IntentSchematicApp } from "@/components/intents/IntentSchematicApp";
-import OrchestrationApp from "@/components/orchestration/OrchestrationApp";
-import { SessionsApp } from "@/components/sessions/SessionsApp";
-import { ContextApp } from "@/components/context/ContextApp";
-// Wave2 B2: temporal
-import { TemporalApp } from "@/components/temporal/TemporalApp";
-// Wave2 B3: campaigns, notes, mcp, vectors
 import { CampaignsApp } from "@/components/campaigns/CampaignsApp";
-import { NotesApp } from "@/components/notes/NotesApp";
-import { MCPApp } from "@/components/mcp/MCPApp";
-import { VectorsApp } from "@/components/vectors/VectorsApp";
-// Wave2 B4: harvesters, persistence
-import { HarvestersApp } from "@/components/harvesters/HarvestersApp";
-import { PersistenceApp } from "@/components/persistence/PersistenceApp";
-// Wave2 B5: build-it, briefing
-import { BuildItApp } from "@/components/build-it/BuildItApp";
-import { BriefingApp } from "@/components/briefing/BriefingApp";
-import { SoulEditorApp } from "@/components/soul-editor/SoulEditorApp";
+// TODO: GovernanceApp — policy engine, trust scoring, cost gates (Phase 5)
+// TODO: BabysitterApp — system health, anomaly detection (Phase 5)
 
-// Organizations & P2P
-import { OrgApp } from "@/components/org/OrgApp";
+// Life
+import { HabitsApp } from "@/components/habits/HabitsApp";
+import { JournalApp } from "@/components/journal/JournalApp";
+import { FocusApp } from "@/components/focus/FocusApp";
+import { ResponsibilitiesApp } from "@/components/responsibilities/ResponsibilitiesApp";
+import { TemporalApp } from "@/components/temporal/TemporalApp";
+import { GoalsApp } from "@/components/goals/GoalsApp";
 
-import { KnowledgeGraphApp } from "@/components/knowledge-graph/KnowledgeGraphApp";
-import { IntegrationsApp } from "@/components/integrations/IntegrationsApp";
-// Agent cross-pollination vApps
-import { AgentStreamApp } from "@/components/agent-stream/AgentStreamApp";
-import { AgentBridgeApp } from "@/components/agent-bridge/AgentBridgeApp";
-import { AgentSystemApp } from "@/components/agent-system/AgentSystemApp";
-import { AgentGraphApp } from "@/components/agent-graph/AgentGraphApp";
+// System
+import { SettingsApp } from "@/components/settings/SettingsApp";
+import { VoiceApp } from "@/components/voice/VoiceApp";
+// TODO: AgentWorkspaceApp — MCP phase cadence viewer (Phase 5)
+// TODO: OperatorChatApp — calm unified chat to drive EMA (Phase 5)
+// TODO: AgentChatApp — chat WITH agents (Phase 5)
+// TODO: HQApp — dynamic widget home surface (Phase 3)
 
 function getRoute(): string {
   return window.location.pathname.replace(/^\/+/, "") || "launchpad";
@@ -102,172 +57,61 @@ function AppContent() {
   const route = getRoute();
 
   switch (route) {
+    // Core Workflow
     case "brain-dump":
       return <BrainDumpApp />;
+    case "tasks":
+      return <TasksApp />;
+    case "projects":
+      return <ProjectsApp />;
+    case "executions":
+      return <ExecutionsApp />;
+    case "proposals":
+      return <ProposalsApp />;
+
+    // Intelligence
+    case "intent-schematic":
+      return <IntentSchematicApp />;
+    case "wiki":
+      return <WikiApp />;
+    case "agents":
+      return <AgentsApp />;
+
+    // Creative
+    case "canvas":
+      return <CanvasApp />;
+    case "pipes":
+      return <PipesApp />;
+    case "evolution":
+      return <EvolutionDashboard />;
+
+    // Operations
+    case "decision-log":
+      return <DecisionLogApp />;
+    case "campaigns":
+      return <CampaignsApp />;
+
+    // Life
     case "habits":
       return <HabitsApp />;
     case "journal":
       return <JournalApp />;
-    case "proposals":
-      return <ProposalsApp />;
-    case "projects":
-      return <ProjectsApp />;
-    case "tasks":
-      return <TasksApp />;
-    case "settings":
-      return <SettingsApp />;
-    case "responsibilities":
-      return <ResponsibilitiesApp />;
-    case "agents":
-      return <AgentsApp />;
-    case "vault":
-      return <VaultApp />;
-    case "obsidian-vault":
-      return <VaultBrowser />;
-    case "canvas":
-      return <CanvasApp />;
-    case "channels":
-      return <ChannelsApp />;
-    case "evolution":
-      return <EvolutionDashboard />;
-    case "pipes":
-      return <PipesApp />;
-    case "metamind":
-      return <MetaMindApp />;
-    case "claude-bridge":
-      return <ClaudeBridgeApp />;
-    case "voice":
-      return <VoiceApp />;
-    case "goals":
-      return <GoalsApp />;
     case "focus":
       return <FocusApp />;
-    case "git-sync":
-      return <GitSyncApp />;
-    case "executions":
-      return <ExecutionsApp />;
-    case "dispatch-board":
-        return <DispatchBoardApp />;
-case "cli-manager":
-      return <CliManagerApp />;
-    case "orb":
-      return <OrbWindow />;
-    case "jarvis":
-      return <JarvisApp />;
-    // Chunk 2
-    case "pipeline":
-      return <PipelineApp />;
-    case "agent-fleet":
-      return <AgentFleetApp />;
-    case "prompt-workshop":
-      return <PromptWorkshopApp />;
-    case "ingestor":
-      return <IngestorApp />;
-    case "decision-log":
-      return <DecisionLogApp />;
-    // Chunk 3
-    case "file-vault":
-      return <FileVaultApp />;
-    case "message-hub":
-      return <MessageHubApp />;
-    case "shared-clipboard":
-      return <SharedClipboardApp />;
-    case "service-dashboard":
-      return <ServiceDashboardApp />;
-    case "tunnel-manager":
-      return <TunnelManagerApp />;
-    // Chunk 4
-    case "life-dashboard":
-      return <LifeDashboardApp />;
-    case "routine-builder":
-      return <RoutineBuilderApp />;
-    case "finance-tracker":
-      return <FinanceTrackerApp />;
-    case "contacts-crm":
-      return <ContactsCRMApp />;
-    // Chunk 5
-    case "team-pulse":
-      return <TeamPulseApp />;
-    case "meeting-room":
-      return <MeetingRoomApp />;
-    case "invoice-billing":
-      return <InvoiceBillingApp />;
-    case "audit-trail":
-      return <AuditTrailApp />;
-    // Organizations
-    case "org":
-      return <OrgApp />;
-    // Monitoring & Intelligence
-    case "token-monitor":
-      return <TokenMonitorApp />;
-    case "vm-health":
-      return <VMHealthApp />;
-    case "security":
-      return <SecurityPanelApp />;
-    // Intelligence & Knowledge (Batch 3)
-    case "memory":
-      return <SessionMemoryApp />;
-    case "gaps":
-      return <GapInboxApp />;
-    case "intent-map":
-      return <IntentMapApp />;
-    case "project-graph":
-      return <ProjectGraphApp />;
-    case "code-health":
-      return <CodeHealthDashboard />;
-    // Wave2 B1
-    case "superman":
-      return <SupermanApp />;
-    case "quality":
-      return <QualityApp />;
-    case "wiki":
-      return <WikiApp />;
-    case "intent-schematic":
-      return <IntentSchematicApp />;
-    case "orchestration":
-      return <OrchestrationApp />;
-    case "sessions":
-      return <SessionsApp />;
-    case "context":
-      return <ContextApp />;
-    // Wave2 B2
+    case "responsibilities":
+      return <ResponsibilitiesApp />;
     case "temporal":
       return <TemporalApp />;
-    // Wave2 B3
-    case "campaigns":
-      return <CampaignsApp />;
-    case "notes":
-      return <NotesApp />;
-    case "mcp":
-      return <MCPApp />;
-    case "vectors":
-      return <VectorsApp />;
-    // Wave2 B4
-    case "harvesters":
-      return <HarvestersApp />;
-    case "persistence":
-      return <PersistenceApp />;
-    // Wave2 B5
-    case "build-it":
-      return <BuildItApp />;
-    case "briefing":
-      return <BriefingApp />;
-    case "soul-editor":
-      return <SoulEditorApp />;
-    case "knowledge-graph":
-      return <KnowledgeGraphApp />;
-    case "integrations":
-      return <IntegrationsApp />;
-    // Agent cross-pollination
-    case "agent-stream":
-      return <AgentStreamApp />;
-    case "agent-bridge":
-      return <AgentBridgeApp />;
-    case "agent-system":
-      return <AgentSystemApp />;
-    case "agent-graph":
-      return <AgentGraphApp />;
+    case "goals":
+      return <GoalsApp />;
 
+    // System
+    case "settings":
+      return <SettingsApp />;
+    case "voice":
+      return <VoiceApp />;
+
+    // Default: Launchpad (will become HQ in Phase 3)
     default:
       return (
         <Shell>

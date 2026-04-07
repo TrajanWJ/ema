@@ -31,74 +31,50 @@ function formatDate(): string {
 interface AppEntry {
   id: string;
   name: string;
-  category: "core" | "intelligence" | "management" | "monitoring" | "knowledge" | "personal" | "automation";
+  category: "work" | "intelligence" | "creative" | "operations" | "life" | "system";
 }
 
+// EMA UI 2.0 — 22 active apps (5 more coming in Phase 5)
 const APP_REGISTRY: readonly AppEntry[] = [
-  // Core
-  { id: "brain-dump", name: "Brain Dump", category: "core" },
-  { id: "habits", name: "Habits", category: "core" },
-  { id: "journal", name: "Journal", category: "core" },
-  { id: "tasks", name: "Tasks", category: "core" },
-  { id: "projects", name: "Projects", category: "core" },
-  { id: "goals", name: "Goals", category: "core" },
-  { id: "focus", name: "Focus", category: "core" },
-  { id: "responsibilities", name: "Responsibilities", category: "core" },
+  // Work
+  { id: "brain-dump", name: "Brain Dump", category: "work" },
+  { id: "tasks", name: "Tasks", category: "work" },
+  { id: "projects", name: "Projects", category: "work" },
+  { id: "executions", name: "Executions", category: "work" },
+  { id: "proposals", name: "Proposals", category: "work" },
   // Intelligence
-  { id: "executions", name: "Executions", category: "intelligence" },
-  { id: "dispatch-board", name: "Dispatch Board", category: "intelligence" },
-  { id: "intent-map", name: "Intent Engine", category: "intelligence" },
-  { id: "proposals", name: "Proposals", category: "intelligence" },
+  { id: "intent-schematic", name: "Intent Schematic", category: "intelligence" },
+  { id: "wiki", name: "Wiki", category: "intelligence" },
   { id: "agents", name: "Agents", category: "intelligence" },
-  { id: "build-it", name: "Build It", category: "intelligence" },
-  { id: "campaigns", name: "Campaigns", category: "intelligence" },
-  { id: "pipeline", name: "Pipeline", category: "intelligence" },
-  // Knowledge
-  { id: "vault", name: "Second Brain", category: "knowledge" },
-  { id: "wiki", name: "Wiki", category: "knowledge" },
-  { id: "canvas", name: "Canvas", category: "knowledge" },
-  { id: "notes", name: "Notes", category: "knowledge" },
-  { id: "knowledge-graph", name: "Knowledge Graph", category: "knowledge" },
-  { id: "vectors", name: "Vectors", category: "knowledge" },
-  // Management
-  { id: "org", name: "Organizations", category: "management" },
-  { id: "claude-bridge", name: "Claude Bridge", category: "management" },
-  { id: "sessions", name: "Sessions", category: "management" },
-  { id: "cli-manager", name: "CLI Manager", category: "management" },
-  { id: "settings", name: "Settings", category: "management" },
-  // Automation
-  { id: "pipes", name: "Pipes", category: "automation" },
-  { id: "harvesters", name: "Harvesters", category: "automation" },
-  { id: "git-sync", name: "Git Sync", category: "automation" },
-  { id: "mcp", name: "MCP", category: "automation" },
-  { id: "orchestration", name: "Orchestration", category: "automation" },
-  // Monitoring
-  { id: "token-monitor", name: "Token Monitor", category: "monitoring" },
-  { id: "vm-health", name: "VM Health", category: "monitoring" },
-  { id: "code-health", name: "Code Health", category: "monitoring" },
-  { id: "quality", name: "Quality", category: "monitoring" },
-  { id: "superman", name: "Superman", category: "monitoring" },
-  { id: "security", name: "Security", category: "monitoring" },
-  // Personal
-  { id: "life-dashboard", name: "Life Dashboard", category: "personal" },
-  { id: "routine-builder", name: "Routines", category: "personal" },
-  { id: "finance-tracker", name: "Finance", category: "personal" },
-  { id: "contacts-crm", name: "Contacts", category: "personal" },
-  { id: "temporal", name: "Rhythm", category: "personal" },
-  { id: "briefing", name: "Daily Brief", category: "personal" },
+  // Creative
+  { id: "canvas", name: "Canvas", category: "creative" },
+  { id: "pipes", name: "Pipes", category: "creative" },
+  { id: "evolution", name: "Evolution", category: "creative" },
+  // Operations
+  { id: "decision-log", name: "Decisions", category: "operations" },
+  { id: "campaigns", name: "Campaigns", category: "operations" },
+  // Life
+  { id: "habits", name: "Habits", category: "life" },
+  { id: "journal", name: "Journal", category: "life" },
+  { id: "focus", name: "Focus", category: "life" },
+  { id: "responsibilities", name: "Responsibilities", category: "life" },
+  { id: "temporal", name: "Rhythm", category: "life" },
+  { id: "goals", name: "Goals", category: "life" },
+  // System
+  { id: "settings", name: "Settings", category: "system" },
+  { id: "voice", name: "Voice", category: "system" },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
-  core: "Core",
+  work: "Work",
   intelligence: "Intelligence",
-  knowledge: "Knowledge",
-  management: "Management",
-  automation: "Automation",
-  monitoring: "Monitoring",
-  personal: "Personal",
+  creative: "Creative",
+  operations: "Operations",
+  life: "Life",
+  system: "System",
 };
 
-const CATEGORY_ORDER = ["core", "intelligence", "knowledge", "management", "automation", "monitoring", "personal"];
+const CATEGORY_ORDER = ["work", "intelligence", "creative", "operations", "life", "system"];
 
 export function Launchpad() {
   const inboxItems = useBrainDumpStore((s) => s.items);
@@ -134,8 +110,7 @@ export function Launchpad() {
       case "habits": return { status: `${completedToday}/${habitCount} today`, progress: habitProgress };
       case "journal": return { status: entry?.updated_at ? `last ${timeAgo(entry.updated_at)}` : "no entry today" };
       case "executions": return { badge: runningExecutions, status: `${runningExecutions} running` };
-      case "dispatch-board": return { badge: runningExecutions + awaitingApproval, status: `${runningExecutions} active · ${awaitingApproval} approval` };
-      case "intent-map": return { status: `${activeIntents} active · ${intents.length} total` };
+      case "intent-schematic": return { status: `${activeIntents} active · ${intents.length} total` };
       case "proposals": return { badge: queuedProposals, status: `${queuedProposals} queued` };
       case "agents": return { status: `${agentCount} agents` };
       case "tasks": return { badge: activeTasks, status: `${activeTasks} active` };
