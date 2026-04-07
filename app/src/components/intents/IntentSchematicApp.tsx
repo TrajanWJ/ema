@@ -83,11 +83,9 @@ export function IntentSchematicApp() {
 
   if (!ready) {
     return (
-      <div
-        className={`h-screen flex items-center justify-center ${isStandalone ? "wiki-standalone" : ""}`}
-        style={{ background: isStandalone ? "#fff" : "var(--color-pn-base)" }}
-      >
-        <span style={{ color: isStandalone ? "#72777d" : "var(--pn-text-secondary)", fontSize: "0.85rem" }}>
+      <div className={`wiki-page-layout ${isStandalone ? "wiki-light" : "wiki-ema"}`}
+        style={{ alignItems: "center", justifyContent: "center" }}>
+        <span style={{ color: "var(--color-placeholder)", fontSize: "0.85rem" }}>
           Loading wiki...
         </span>
       </div>
@@ -99,51 +97,28 @@ export function IntentSchematicApp() {
       className={`wiki-page-layout ${isStandalone ? "wiki-light" : "wiki-ema"}`}
     >
       {/* Header */}
-      <header
-        className="shrink-0 flex items-center justify-between px-5"
-        style={{
-          height: "46px",
-          background: isStandalone ? "#f8f9fa" : "var(--color-pn-surface-1)",
-          borderBottom: `1px solid ${isStandalone ? "#a7d7f9" : "var(--pn-border-default)"}`,
-        }}
-      >
+      <header className="wiki-header" data-tauri-drag-region>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setSidebarOpen((o) => !o)}
             className="text-[1rem] w-7 h-7 flex items-center justify-center rounded"
-            style={{ color: isStandalone ? "#3366cc" : "#a78bfa" }}
+            style={{ color: "var(--color-progressive)" }}
           >
             ☰
           </button>
-          <span
-            className="text-[1.1rem] font-bold"
-            style={{
-              color: isStandalone ? "#000" : "#a78bfa",
-              fontFamily: isStandalone ? "'Linux Libertine', Georgia, serif" : "inherit",
-            }}
-          >
-            {isStandalone ? "EMA Wiki" : "EMA"}
+          <span className="wiki-header-logo">EMA</span>
+          <span className="text-[0.7rem]" style={{ color: "var(--color-placeholder)" }}>
+            Wiki · {allNotes.length} pages · {namespaces.length} namespaces
           </span>
-          {!isStandalone && (
-            <span className="text-[0.7rem]" style={{ color: "var(--pn-text-muted)" }}>
-              Wiki · {allNotes.length} pages · {namespaces.length} namespaces
-            </span>
-          )}
         </div>
 
-        <div className="flex-1 max-w-lg mx-5">
+        <div className="wiki-header-search">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => useWikiEngineStore.getState().setSearch(e.target.value)}
             placeholder="Search wiki..."
-            className="w-full text-[0.8rem] px-3 py-1.5 rounded-lg outline-none"
-            style={{
-              background: isStandalone ? "#fff" : "var(--pn-field-bg)",
-              color: isStandalone ? "#252525" : "var(--pn-text-primary)",
-              border: `1px solid ${isStandalone ? "#a2a9b1" : "var(--pn-border-default)"}`,
-            }}
           />
         </div>
 
@@ -175,14 +150,7 @@ export function IntentSchematicApp() {
       <div className="flex-1 flex min-h-0">
         {/* Sidebar: namespaces + page list */}
         {sidebarOpen && (
-          <aside
-            className="shrink-0 overflow-hidden flex flex-col"
-            style={{
-              width: "250px",
-              background: isStandalone ? "#f8f9fa" : "var(--color-pn-surface-1)",
-              borderRight: `1px solid ${isStandalone ? "#eaecf0" : "var(--pn-border-subtle)"}`,
-            }}
-          >
+          <aside className="wiki-sidebar" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <WikiSidebar />
           </aside>
         )}
@@ -191,10 +159,7 @@ export function IntentSchematicApp() {
         <main className="flex-1 min-w-0 flex flex-col">
           {/* Breadcrumb */}
           {selectedPath && (
-            <div
-              className="shrink-0 px-6 py-1.5 flex items-center gap-2 text-[0.7rem]"
-              style={{ borderBottom: `1px solid ${isStandalone ? "#eaecf0" : "var(--pn-border-subtle)"}` }}
-            >
+            <div className="wiki-breadcrumb flex items-center gap-2">
               <Breadcrumb path={selectedPath} />
               {selectedIntent && (
                 <span
@@ -227,12 +192,12 @@ export function IntentSchematicApp() {
                     <div className="flex justify-end mt-4 gap-2">
                       <button type="button" onClick={() => setEditMode(false)}
                         className="px-4 py-1.5 rounded text-[0.75rem]"
-                        style={{ color: isStandalone ? "#72777d" : "var(--pn-text-tertiary)" }}>
+                        style={{ color: "var(--color-placeholder)" }}>
                         Cancel
                       </button>
                       <button type="button" onClick={handleSave}
                         className="px-4 py-1.5 rounded text-[0.75rem] font-medium"
-                        style={{ background: isStandalone ? "#3366cc" : "rgba(34,197,94,0.15)", color: isStandalone ? "#fff" : "#22c55e" }}>
+                        style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
                         Save changes
                       </button>
                     </div>
@@ -245,7 +210,7 @@ export function IntentSchematicApp() {
                     <WikiPageRenderer content={selectedContent} onNavigate={handleNavigate} />
                     {frontmatter.tags && (
                       <div className="wiki-categories">
-                        <span style={{ fontSize: "0.6rem", color: isStandalone ? "#54595d" : "var(--pn-text-muted)" }}>
+                        <span className="wiki-categories-label">
                           Categories:
                         </span>
                         {parseTags(frontmatter.tags).map((tag) => (
@@ -256,7 +221,7 @@ export function IntentSchematicApp() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-12">
-                    <span style={{ fontSize: "0.8rem", color: isStandalone ? "#72777d" : "var(--pn-text-tertiary)" }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-placeholder)" }}>
                       Loading...
                     </span>
                   </div>
@@ -267,19 +232,15 @@ export function IntentSchematicApp() {
             {/* Right sidebar: TOC or Chat */}
             {(tocOpen || chatOpen) && selectedPath && (
               <aside
-                className="shrink-0 overflow-auto"
-                style={{
-                  width: chatOpen ? "320px" : "200px",
-                  borderLeft: `1px solid ${isStandalone ? "#eaecf0" : "var(--pn-border-subtle)"}`,
-                  background: isStandalone ? "#f8f9fa" : "var(--color-pn-surface-1)",
-                }}
+                className="wiki-right-sidebar"
+                style={{ width: chatOpen ? "320px" : undefined }}
               >
                 {chatOpen ? (
                   <IntentChat />
                 ) : (
                   <div className="p-3">
                     <div className="text-[0.55rem] uppercase tracking-wider font-semibold mb-2"
-                      style={{ color: isStandalone ? "#72777d" : "var(--pn-text-muted)" }}>
+                      style={{ color: "var(--color-placeholder)" }}>
                       Contents
                     </div>
                     <nav className="wiki-toc">
@@ -300,13 +261,7 @@ export function IntentSchematicApp() {
 
       {/* Footer */}
       {selectedPath && (
-        <footer
-          className="shrink-0 px-6 py-1.5 flex items-center justify-between text-[0.55rem]"
-          style={{
-            borderTop: `1px solid ${isStandalone ? "#eaecf0" : "var(--pn-border-subtle)"}`,
-            color: isStandalone ? "#a2a9b1" : "var(--pn-text-muted)",
-          }}
-        >
+        <footer className="wiki-footer">
           <span>{selectedPath}</span>
           <span>EMA Wiki · {allNotes.length} pages</span>
         </footer>
@@ -338,8 +293,8 @@ function MainPage() {
             onClick={() => useWikiEngineStore.getState().setNamespace(ns.name)}
             className="text-left p-3 rounded-lg transition-colors"
             style={{
-              background: isStandalone ? "#f8f9fa" : "rgba(255,255,255,0.02)",
-              border: `1px solid ${isStandalone ? "#eaecf0" : "var(--pn-border-subtle)"}`,
+              background: "var(--background-color-interactive-subtle)",
+              border: "1px solid var(--border-color-subtle)",
             }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -347,12 +302,12 @@ function MainPage() {
               <span className="text-[0.8rem] font-medium" style={{ color: ns.color }}>
                 {ns.name}
               </span>
-              <span className="text-[0.6rem] ml-auto" style={{ color: isStandalone ? "#a2a9b1" : "var(--pn-text-muted)" }}>
+              <span className="text-[0.6rem] ml-auto" style={{ color: "var(--color-disabled)" }}>
                 {ns.count} pages
               </span>
             </div>
             {ns.description && (
-              <span className="text-[0.65rem]" style={{ color: isStandalone ? "#72777d" : "var(--pn-text-muted)" }}>
+              <span className="text-[0.65rem]" style={{ color: "var(--color-placeholder)" }}>
                 {ns.description}
               </span>
             )}
@@ -377,12 +332,12 @@ function Infobox({
   const statusColor = STATUS_COLORS[status] ?? "#64748b";
 
   return (
-    <div className="wiki-infobox">
-      <div className="wiki-infobox-title">{frontmatter.title ?? "Intent"}</div>
+    <div className="infobox">
+      <div className="infobox-title">{frontmatter.title ?? "Intent"}</div>
       <Row label="Type" value={LEVEL_LABELS[level] ?? `L${level}`} />
       <Row label="Kind" value={kind} />
-      <div className="wiki-infobox-row">
-        <span className="wiki-infobox-label">Status</span>
+      <div className="infobox-row">
+        <span className="infobox-label">Status</span>
         <span style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", borderRadius: "3px", background: `${statusColor}20`, color: statusColor }}>
           {status}
         </span>
@@ -391,7 +346,7 @@ function Infobox({
       {intent && intent.completion_pct > 0 && (
         <div style={{ padding: "0.3rem 0" }}>
           <Row label="Progress" value={`${intent.completion_pct}%`} />
-          <div style={{ height: "3px", borderRadius: "2px", background: isStandalone ? "#eaecf0" : "rgba(255,255,255,0.06)", marginTop: "0.2rem" }}>
+          <div style={{ height: "3px", borderRadius: "2px", background: "var(--background-color-interactive)", marginTop: "0.2rem" }}>
             <div style={{ height: "100%", borderRadius: "2px", width: `${intent.completion_pct}%`, background: statusColor }} />
           </div>
         </div>
@@ -404,9 +359,9 @@ function Infobox({
 
 function Row({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="wiki-infobox-row">
-      <span className="wiki-infobox-label">{label}</span>
-      <span className="wiki-infobox-value">{value}</span>
+    <div className="infobox-row">
+      <span className="infobox-label">{label}</span>
+      <span className="infobox-value">{value}</span>
     </div>
   );
 }
@@ -417,11 +372,9 @@ function Breadcrumb({ path }: { readonly path: string }) {
     <div className="flex items-center gap-1">
       {parts.map((part, i) => (
         <span key={i} className="flex items-center gap-1">
-          {i > 0 && <span style={{ color: isStandalone ? "#a2a9b1" : "var(--pn-text-muted)" }}>/</span>}
+          {i > 0 && <span className="wiki-breadcrumb-sep">/</span>}
           <span style={{
-            color: i === parts.length - 1
-              ? isStandalone ? "#252525" : "var(--pn-text-primary)"
-              : isStandalone ? "#72777d" : "var(--pn-text-tertiary)",
+            color: i === parts.length - 1 ? "var(--color-base)" : "var(--color-placeholder)",
           }}>
             {part}
           </span>
@@ -437,19 +390,12 @@ function TabBtn({ label, active, accent, onClick }: {
   readonly accent?: boolean;
   readonly onClick: () => void;
 }) {
-  const activeColor = isStandalone ? "#3366cc" : accent ? "#a78bfa" : "var(--pn-text-primary)";
   return (
     <button
       type="button"
       onClick={onClick}
-      className="px-3 py-1 rounded text-[0.7rem] font-medium transition-colors"
-      style={{
-        background: active
-          ? isStandalone ? "rgba(51,102,204,0.1)" : accent ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.08)"
-          : "transparent",
-        color: active ? activeColor : isStandalone ? "#72777d" : "var(--pn-text-tertiary)",
-        borderBottom: active ? `2px solid ${activeColor}` : "2px solid transparent",
-      }}
+      className={`wiki-header-tab ${active ? "active" : ""}`}
+      style={accent && active ? { color: "var(--color-progressive)", borderBottomColor: "var(--color-progressive)" } : undefined}
     >
       {label}
     </button>

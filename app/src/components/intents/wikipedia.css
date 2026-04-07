@@ -7,24 +7,25 @@
 /* ── Import Codex tokens as base ─────────────────────── */
 @import "@wikimedia/codex-design-tokens/theme-wikimedia-ui.css";
 
-/* ── EMA Dark Mode Override ──────────────────────────── */
+/* ── EMA Dark Mode Override (transparent glass) ──────── */
 .wiki-ema {
-  --color-base: rgba(255, 255, 255, 0.87);
+  --color-base: var(--pn-text-primary, rgba(255, 255, 255, 0.87));
   --color-emphasized: rgba(255, 255, 255, 0.95);
-  --color-subtle: rgba(255, 255, 255, 0.60);
-  --color-placeholder: rgba(255, 255, 255, 0.40);
-  --color-disabled: rgba(255, 255, 255, 0.25);
+  --color-subtle: var(--pn-text-secondary, rgba(255, 255, 255, 0.60));
+  --color-placeholder: var(--pn-text-tertiary, rgba(255, 255, 255, 0.40));
+  --color-disabled: var(--pn-text-muted, rgba(255, 255, 255, 0.25));
   --color-progressive: #a78bfa;
   --color-progressive--hover: #c4b5fd;
   --color-visited: #8b7ec8;
-  --background-color-base: var(--color-pn-base, #08090E);
-  --background-color-neutral: var(--color-pn-surface-1, #0E1017);
-  --background-color-neutral-subtle: var(--color-pn-surface-2, #141620);
-  --background-color-interactive: rgba(255, 255, 255, 0.04);
+  /* TRANSPARENT backgrounds — use glass rgba, not opaque hex */
+  --background-color-base: transparent;
+  --background-color-neutral: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
+  --background-color-neutral-subtle: rgba(14, 16, 23, 0.30);
+  --background-color-interactive: var(--pn-field-bg, rgba(255, 255, 255, 0.04));
   --background-color-interactive-subtle: rgba(255, 255, 255, 0.02);
-  --border-color-base: rgba(255, 255, 255, 0.08);
-  --border-color-subtle: rgba(255, 255, 255, 0.04);
-  --border-color-interactive: rgba(255, 255, 255, 0.12);
+  --border-color-base: var(--pn-border-default, rgba(255, 255, 255, 0.08));
+  --border-color-subtle: var(--pn-border-subtle, rgba(255, 255, 255, 0.04));
+  --border-color-interactive: var(--pn-border-strong, rgba(255, 255, 255, 0.15));
 }
 
 /* ── Wikipedia Light Mode (standalone) ───────────────── */
@@ -48,6 +49,11 @@
   line-height: 1.6;
 }
 
+/* Glass morphism on EMA dark mode */
+.wiki-ema.wiki-page-layout {
+  background: transparent;
+}
+
 .wiki-header {
   position: sticky;
   top: 0;
@@ -59,6 +65,12 @@
   background: var(--background-color-neutral);
   border-bottom: 1px solid var(--border-color-base);
   gap: 1rem;
+}
+
+.wiki-ema .wiki-header {
+  background: var(--pn-window-header, rgba(14, 16, 23, 0.5));
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
 
 .wiki-header-logo {
@@ -132,6 +144,12 @@
   padding: var(--spacing-75, 0.75rem) 0;
   background: var(--background-color-neutral);
   border-right: 1px solid var(--border-color-subtle);
+}
+
+.wiki-ema .wiki-sidebar {
+  background: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
 }
 
 .wiki-sidebar-section-title {
@@ -370,6 +388,12 @@
   border-collapse: collapse;
 }
 
+.wiki-ema .infobox {
+  background: rgba(14, 16, 23, 0.40);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+}
+
 .infobox-title {
   padding: 0.5em 0.75em;
   text-align: center;
@@ -545,6 +569,12 @@
   overflow-y: auto;
   border-left: 1px solid var(--border-color-subtle);
   background: var(--background-color-neutral);
+}
+
+.wiki-ema .wiki-right-sidebar {
+  background: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
 }
 
 /* ── Responsive ──────────────────────────────────────── */
