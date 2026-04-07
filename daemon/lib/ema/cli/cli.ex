@@ -11,7 +11,7 @@ defmodule Ema.CLI do
     org actor space intent gap integration reflexion ai-session routing git-sync tunnel
     file-vault messages team-pulse metrics feedback dashboard dump status
     contact finance invoice routine meeting temporal intelligence pipeline obsidian
-    security vm onboarding prompt decision clipboard orchestrator ingest
+    security vm onboarding prompt decision clipboard orchestrator ingest provider
   )
   @actor_dispatch_switches [json: :boolean, host: :string, actor: :string, space: :string, project: :string, task: :string]
   @actor_dispatch_aliases [j: :json, H: :host, a: :actor, s: :space, p: :project, t: :task]
@@ -243,6 +243,9 @@ defmodule Ema.CLI do
       {:ok, [:ingest | sub], parsed} ->
         dispatch(:ingest, sub, parsed)
 
+      {:ok, [:provider | sub], parsed} ->
+        dispatch(:provider, sub, parsed)
+
       :help ->
         Optimus.Help.help(optimus, [], columns()) |> put_lines()
 
@@ -347,6 +350,7 @@ defmodule Ema.CLI do
       :clipboard -> Ema.CLI.Commands.Clipboard.handle(sub, parsed, transport, opts)
       :orchestrator -> Ema.CLI.Commands.Orchestrator.handle(sub, parsed, transport, opts)
       :ingest -> Ema.CLI.Commands.Ingest.handle(sub, parsed, transport, opts)
+      :provider -> Ema.CLI.Commands.Provider.handle(sub, parsed, transport, opts)
     end
   end
 
@@ -441,7 +445,8 @@ defmodule Ema.CLI do
         decision: decision_spec(),
         clipboard: clipboard_spec(),
         orchestrator: orchestrator_spec(),
-        ingest: ingest_spec()
+        ingest: ingest_spec(),
+        provider: provider_spec()
       ]
     )
   end
@@ -1963,6 +1968,19 @@ defmodule Ema.CLI do
             status: [short: "-s", long: "--status", help: "Status", parser: :string]
           ]],
         delete: [name: "delete", about: "Delete job", args: [id: [required: true, help: "Job ID"]]]
+      ]
+    ]
+  end
+
+  defp provider_spec do
+    [
+      name: "provider",
+      about: "AI provider management",
+      subcommands: [
+        list: [name: "list", about: "List all providers"],
+        status: [name: "status", about: "Show detailed provider status"],
+        health: [name: "health", about: "Run health check on all providers"],
+        detect: [name: "detect", about: "Trigger runtime provider discovery"]
       ]
     ]
   end
