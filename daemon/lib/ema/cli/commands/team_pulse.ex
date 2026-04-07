@@ -3,22 +3,22 @@ defmodule Ema.CLI.Commands.TeamPulse do
 
   alias Ema.CLI.Output
 
-  def handle([:overview], _parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/team-pulse") do
+  def handle([:overview], _parsed, transport, opts) do
+    case transport.get("/team-pulse") do
       {:ok, body} -> if opts[:json], do: Output.json(body), else: Output.detail(body)
       {:error, reason} -> Output.error(inspect(reason))
     end
   end
 
-  def handle([:agents], _parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/team-pulse/agents") do
+  def handle([:agents], _parsed, transport, opts) do
+    case transport.get("/team-pulse/agents") do
       {:ok, body} -> if opts[:json], do: Output.json(body), else: Output.detail(body)
       {:error, reason} -> Output.error(inspect(reason))
     end
   end
 
-  def handle([:velocity], _parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/team-pulse/velocity") do
+  def handle([:velocity], _parsed, transport, opts) do
+    case transport.get("/team-pulse/velocity") do
       {:ok, body} -> if opts[:json], do: Output.json(body), else: Output.detail(body)
       {:error, reason} -> Output.error(inspect(reason))
     end

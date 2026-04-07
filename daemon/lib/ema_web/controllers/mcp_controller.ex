@@ -2,19 +2,18 @@ defmodule EmaWeb.MCPController do
   @moduledoc """
   HTTP bridge for MCP tool discovery and execution.
 
-  This is not a full JSON-RPC endpoint; it exposes the same underlying tool
-  registry and dispatch used by the stdio MCP server so local operators can
-  inspect and smoke-test the MCP surface over HTTP.
+  Exposes the same tool registry and dispatch used by the stdio MCP server
+  so local operators can inspect and smoke-test the MCP surface over HTTP.
   """
 
   use EmaWeb, :controller
 
-  alias Ema.MCP.{Resources, SessionTools, Tools}
+  alias Ema.MCP.{DomainTools, Resources, SessionTools, Tools, WorkspaceTools}
 
   # GET /api/mcp/tools
   def index(conn, _params) do
     json(conn, %{
-      tools: Tools.list() ++ SessionTools.list(),
+      tools: Tools.list() ++ SessionTools.list() ++ WorkspaceTools.list() ++ DomainTools.list(),
       resources: Resources.list()
     })
   end
@@ -46,19 +45,21 @@ defmodule EmaWeb.MCPController do
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)
 
+  # Mirrors server.ex dispatch order exactly
   defp dispatch_tool(name, arguments, request_id) do
     cond do
       name in ~w(
-        ema_get_intents
-        ema_create_intent
-        ema_get_intent_tree
-        ema_get_intent_context
-        ema_attach_intent_actor
-        ema_attach_intent_execution
-        ema_attach_intent_session
+        ema_get_intents ema_create_intent ema_get_intent_tree ema_get_intent_context
+        ema_attach_intent_actor ema_attach_intent_execution ema_attach_intent_session
         ema_get_intent_runtime
       ) ->
         Tools.call(name, arguments, request_id)
+
+      name in WorkspaceTools.tool_names() ->
+        WorkspaceTools.call(name, arguments, request_id)
+
+      name in DomainTools.tool_names() ->
+        DomainTools.call(name, arguments, request_id)
 
       String.starts_with?(name, "ema_") ->
         SessionTools.call(name, arguments, request_id)

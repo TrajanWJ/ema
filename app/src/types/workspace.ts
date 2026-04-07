@@ -480,6 +480,7 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   "superman": { title: "Superman", defaultWidth: 1100, defaultHeight: 750, minWidth: 900, minHeight: 600, accent: "#a78bfa", icon: "⚡" },
   "quality": { title: "Quality", defaultWidth: 900, defaultHeight: 700, minWidth: 700, minHeight: 500, accent: "#34d399", icon: "✓" },
   "wiki": { title: "Wiki", defaultWidth: 1000, defaultHeight: 750, minWidth: 800, minHeight: 600, accent: "#60a5fa", icon: "📖" },
+  "intent-schematic": { title: "Intent Schematic", defaultWidth: 1200, defaultHeight: 800, minWidth: 900, minHeight: 600, accent: "#a78bfa", icon: "🗺️" },
   "orchestration": { title: "Orchestration", defaultWidth: 900, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#ec4899", icon: "⚙" },
   "sessions": { title: "Sessions", defaultWidth: 950, defaultHeight: 700, minWidth: 700, minHeight: 500, accent: "#06b6d4", icon: "◈" },
   "context": { title: "Context", defaultWidth: 850, defaultHeight: 650, minWidth: 700, minHeight: 500, accent: "#8b5cf6", icon: "◎" },

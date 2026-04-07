@@ -10,6 +10,8 @@ defmodule Ema.CLI do
     ralph vectors quality dispatch-board tokens config em tag data canvas note voice
     org actor space intent gap integration reflexion ai-session routing git-sync tunnel
     file-vault messages team-pulse metrics feedback dashboard dump status
+    contact finance invoice routine meeting temporal intelligence pipeline obsidian
+    security vm onboarding prompt decision clipboard orchestrator ingest
   )
   @actor_dispatch_switches [json: :boolean, host: :string, actor: :string, space: :string, project: :string, task: :string]
   @actor_dispatch_aliases [j: :json, H: :host, a: :actor, s: :space, p: :project, t: :task]
@@ -190,6 +192,57 @@ defmodule Ema.CLI do
       {:ok, [:status], parsed} ->
         dispatch(:status, [], parsed)
 
+      {:ok, [:contact | sub], parsed} ->
+        dispatch(:contact, sub, parsed)
+
+      {:ok, [:finance | sub], parsed} ->
+        dispatch(:finance, sub, parsed)
+
+      {:ok, [:invoice | sub], parsed} ->
+        dispatch(:invoice, sub, parsed)
+
+      {:ok, [:routine | sub], parsed} ->
+        dispatch(:routine, sub, parsed)
+
+      {:ok, [:meeting | sub], parsed} ->
+        dispatch(:meeting, sub, parsed)
+
+      {:ok, [:temporal | sub], parsed} ->
+        dispatch(:temporal, sub, parsed)
+
+      {:ok, [:intelligence | sub], parsed} ->
+        dispatch(:intelligence, sub, parsed)
+
+      {:ok, [:pipeline | sub], parsed} ->
+        dispatch(:pipeline, sub, parsed)
+
+      {:ok, [:obsidian | sub], parsed} ->
+        dispatch(:obsidian, sub, parsed)
+
+      {:ok, [:security | sub], parsed} ->
+        dispatch(:security, sub, parsed)
+
+      {:ok, [:vm | sub], parsed} ->
+        dispatch(:vm, sub, parsed)
+
+      {:ok, [:onboarding | sub], parsed} ->
+        dispatch(:onboarding, sub, parsed)
+
+      {:ok, [:prompt | sub], parsed} ->
+        dispatch(:prompt, sub, parsed)
+
+      {:ok, [:decision | sub], parsed} ->
+        dispatch(:decision, sub, parsed)
+
+      {:ok, [:clipboard | sub], parsed} ->
+        dispatch(:clipboard, sub, parsed)
+
+      {:ok, [:orchestrator | sub], parsed} ->
+        dispatch(:orchestrator, sub, parsed)
+
+      {:ok, [:ingest | sub], parsed} ->
+        dispatch(:ingest, sub, parsed)
+
       :help ->
         Optimus.Help.help(optimus, [], columns()) |> put_lines()
 
@@ -277,6 +330,23 @@ defmodule Ema.CLI do
       :watch -> Ema.CLI.Commands.Watch.handle(sub, parsed, transport, opts)
       :dump -> Ema.CLI.Commands.Dump.handle(sub, parsed, transport, opts)
       :status -> Ema.CLI.Commands.Status.handle(sub, parsed, transport, opts)
+      :contact -> Ema.CLI.Commands.Contact.handle(sub, parsed, transport, opts)
+      :finance -> Ema.CLI.Commands.Finance.handle(sub, parsed, transport, opts)
+      :invoice -> Ema.CLI.Commands.Invoice.handle(sub, parsed, transport, opts)
+      :routine -> Ema.CLI.Commands.Routine.handle(sub, parsed, transport, opts)
+      :meeting -> Ema.CLI.Commands.Meeting.handle(sub, parsed, transport, opts)
+      :temporal -> Ema.CLI.Commands.Temporal.handle(sub, parsed, transport, opts)
+      :intelligence -> Ema.CLI.Commands.Intelligence.handle(sub, parsed, transport, opts)
+      :pipeline -> Ema.CLI.Commands.Pipeline.handle(sub, parsed, transport, opts)
+      :obsidian -> Ema.CLI.Commands.Obsidian.handle(sub, parsed, transport, opts)
+      :security -> Ema.CLI.Commands.Security.handle(sub, parsed, transport, opts)
+      :vm -> Ema.CLI.Commands.Vm.handle(sub, parsed, transport, opts)
+      :onboarding -> Ema.CLI.Commands.Onboarding.handle(sub, parsed, transport, opts)
+      :prompt -> Ema.CLI.Commands.Prompt.handle(sub, parsed, transport, opts)
+      :decision -> Ema.CLI.Commands.Decision.handle(sub, parsed, transport, opts)
+      :clipboard -> Ema.CLI.Commands.Clipboard.handle(sub, parsed, transport, opts)
+      :orchestrator -> Ema.CLI.Commands.Orchestrator.handle(sub, parsed, transport, opts)
+      :ingest -> Ema.CLI.Commands.Ingest.handle(sub, parsed, transport, opts)
     end
   end
 
@@ -354,7 +424,24 @@ defmodule Ema.CLI do
         gap: gap_spec(),
         watch: watch_spec(),
         dump: dump_spec(),
-        status: status_spec()
+        status: status_spec(),
+        contact: contact_spec(),
+        finance: finance_spec(),
+        invoice: invoice_spec(),
+        routine: routine_spec(),
+        meeting: meeting_spec(),
+        temporal: temporal_spec(),
+        intelligence: intelligence_spec(),
+        pipeline: pipeline_spec(),
+        obsidian: obsidian_spec(),
+        security: security_spec(),
+        vm: vm_spec(),
+        onboarding: onboarding_spec(),
+        prompt: prompt_spec(),
+        decision: decision_spec(),
+        clipboard: clipboard_spec(),
+        orchestrator: orchestrator_spec(),
+        ingest: ingest_spec()
       ]
     )
   end
@@ -1523,6 +1610,362 @@ defmodule Ema.CLI do
     "create-task": [name: "create-task", about: "Create task from gap", args: [id: [required: true, help: "Gap ID"]]],
     scan: [name: "scan", about: "Trigger gap scan"]
   ]]
+
+  # -- Phase 1: Life OS commands --
+
+  defp contact_spec do
+    [
+      name: "contact",
+      about: "Contact management",
+      subcommands: [
+        list: [name: "list", about: "List contacts"],
+        show: [name: "show", about: "Show contact", args: [id: [required: true, help: "Contact ID"]]],
+        create: [name: "create", about: "Create contact", args: [name: [required: true, help: "Contact name"]],
+          options: [
+            email: [short: "-e", long: "--email", help: "Email", parser: :string],
+            role: [short: "-r", long: "--role", help: "Role", parser: :string],
+            phone: [long: "--phone", help: "Phone", parser: :string],
+            notes: [short: "-n", long: "--notes", help: "Notes", parser: :string]
+          ]],
+        update: [name: "update", about: "Update contact", args: [id: [required: true, help: "Contact ID"]],
+          options: [
+            name: [long: "--name", help: "Name", parser: :string],
+            email: [short: "-e", long: "--email", help: "Email", parser: :string],
+            role: [short: "-r", long: "--role", help: "Role", parser: :string],
+            phone: [long: "--phone", help: "Phone", parser: :string],
+            notes: [short: "-n", long: "--notes", help: "Notes", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete contact", args: [id: [required: true, help: "Contact ID"]]]
+      ]
+    ]
+  end
+
+  defp finance_spec do
+    [
+      name: "finance",
+      about: "Finance tracking",
+      subcommands: [
+        summary: [name: "summary", about: "Financial summary"],
+        list: [name: "list", about: "List finance entries"],
+        show: [name: "show", about: "Show entry", args: [id: [required: true, help: "Entry ID"]]],
+        create: [name: "create", about: "Create entry", args: [amount: [required: true, help: "Amount"]],
+          options: [
+            type: [short: "-t", long: "--type", help: "Type (income/expense)", parser: :string],
+            category: [short: "-c", long: "--category", help: "Category", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            date: [long: "--date", help: "Date (YYYY-MM-DD)", parser: :string]
+          ]],
+        update: [name: "update", about: "Update entry", args: [id: [required: true, help: "Entry ID"]],
+          options: [
+            type: [short: "-t", long: "--type", help: "Type", parser: :string],
+            amount: [long: "--amount", help: "Amount", parser: :string],
+            category: [short: "-c", long: "--category", help: "Category", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            date: [long: "--date", help: "Date", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete entry", args: [id: [required: true, help: "Entry ID"]]]
+      ]
+    ]
+  end
+
+  defp invoice_spec do
+    [
+      name: "invoice",
+      about: "Invoice management",
+      subcommands: [
+        list: [name: "list", about: "List invoices"],
+        show: [name: "show", about: "Show invoice", args: [id: [required: true, help: "Invoice ID"]]],
+        create: [name: "create", about: "Create invoice", args: [client: [required: true, help: "Client name"]],
+          options: [
+            amount: [short: "-a", long: "--amount", help: "Amount", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            due: [long: "--due", help: "Due date (YYYY-MM-DD)", parser: :string]
+          ]],
+        update: [name: "update", about: "Update invoice", args: [id: [required: true, help: "Invoice ID"]],
+          options: [
+            client: [long: "--client", help: "Client", parser: :string],
+            amount: [short: "-a", long: "--amount", help: "Amount", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            due: [long: "--due", help: "Due date", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete invoice", args: [id: [required: true, help: "Invoice ID"]]],
+        send: [name: "send", about: "Send invoice", args: [id: [required: true, help: "Invoice ID"]]],
+        "mark-paid": [name: "mark-paid", about: "Mark invoice as paid", args: [id: [required: true, help: "Invoice ID"]]]
+      ]
+    ]
+  end
+
+  defp routine_spec do
+    [
+      name: "routine",
+      about: "Routine management",
+      subcommands: [
+        list: [name: "list", about: "List routines"],
+        show: [name: "show", about: "Show routine", args: [id: [required: true, help: "Routine ID"]]],
+        create: [name: "create", about: "Create routine", args: [name: [required: true, help: "Routine name"]],
+          options: [
+            cadence: [short: "-c", long: "--cadence", help: "Cadence (daily/weekly/monthly)", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        update: [name: "update", about: "Update routine", args: [id: [required: true, help: "Routine ID"]],
+          options: [
+            name: [long: "--name", help: "Name", parser: :string],
+            cadence: [short: "-c", long: "--cadence", help: "Cadence", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete routine", args: [id: [required: true, help: "Routine ID"]]],
+        toggle: [name: "toggle", about: "Toggle routine active/paused", args: [id: [required: true, help: "Routine ID"]]],
+        run: [name: "run", about: "Run routine now", args: [id: [required: true, help: "Routine ID"]]]
+      ]
+    ]
+  end
+
+  defp meeting_spec do
+    [
+      name: "meeting",
+      about: "Meeting management",
+      subcommands: [
+        list: [name: "list", about: "List meetings"],
+        show: [name: "show", about: "Show meeting", args: [id: [required: true, help: "Meeting ID"]]],
+        create: [name: "create", about: "Create meeting", args: [title: [required: true, help: "Meeting title"]],
+          options: [
+            date: [long: "--date", help: "Date (YYYY-MM-DD)", parser: :string],
+            time: [long: "--time", help: "Time (HH:MM)", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            attendees: [long: "--attendees", help: "Comma-separated attendees", parser: :string]
+          ]],
+        update: [name: "update", about: "Update meeting", args: [id: [required: true, help: "Meeting ID"]],
+          options: [
+            title: [long: "--title", help: "Title", parser: :string],
+            date: [long: "--date", help: "Date", parser: :string],
+            time: [long: "--time", help: "Time", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string],
+            attendees: [long: "--attendees", help: "Attendees", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete meeting", args: [id: [required: true, help: "Meeting ID"]]],
+        upcoming: [name: "upcoming", about: "List upcoming meetings"]
+      ]
+    ]
+  end
+
+  # -- Phase 2: Intelligence & Observability --
+
+  defp temporal_spec do
+    [
+      name: "temporal",
+      about: "Temporal intelligence — rhythm, timing, history",
+      subcommands: [
+        rhythm: [name: "rhythm", about: "Show current rhythm"],
+        now: [name: "now", about: "Current temporal context"],
+        "best-time": [name: "best-time", about: "Best time for activity",
+          options: [activity: [short: "-a", long: "--activity", help: "Activity type", parser: :string]]],
+        log: [name: "log", about: "Log temporal entry", args: [activity: [required: true, help: "Activity name"]],
+          options: [
+            energy: [short: "-e", long: "--energy", help: "Energy level (1-5)", parser: :integer],
+            mood: [short: "-m", long: "--mood", help: "Mood (1-5)", parser: :integer],
+            notes: [short: "-n", long: "--notes", help: "Notes", parser: :string]
+          ]],
+        history: [name: "history", about: "Temporal history"]
+      ]
+    ]
+  end
+
+  defp intelligence_spec do
+    [
+      name: "intelligence",
+      about: "Intelligence layer — outcomes, MCP calls, git events",
+      subcommands: [
+        "log-outcome": [name: "log-outcome", about: "Log an outcome", args: [outcome: [required: true, help: "Outcome description"]],
+          options: [
+            context: [short: "-c", long: "--context", help: "Context", parser: :string],
+            score: [short: "-s", long: "--score", help: "Score (0-1)", parser: :string]
+          ]],
+        "log-mcp": [name: "log-mcp", about: "Log MCP call", args: [tool: [required: true, help: "Tool name"]],
+          options: [
+            input: [short: "-i", long: "--input", help: "Input JSON", parser: :string],
+            output: [short: "-o", long: "--output", help: "Output JSON", parser: :string]
+          ]],
+        "git-events": [name: "git-events", about: "List git events"],
+        suggestions: [name: "suggestions", about: "Show suggestions for event",
+          args: [id: [required: true, help: "Event ID"]]],
+        apply: [name: "apply", about: "Apply a suggestion",
+          args: [
+            id: [required: true, help: "Event ID"],
+            action_id: [required: true, help: "Action ID"]
+          ]],
+        "sync-status": [name: "sync-status", about: "Git sync status"],
+        scan: [name: "scan", about: "Trigger git scan"]
+      ]
+    ]
+  end
+
+  defp pipeline_spec do
+    [
+      name: "pipeline",
+      about: "Pipeline observability",
+      subcommands: [
+        stats: [name: "stats", about: "Pipeline stats"],
+        bottlenecks: [name: "bottlenecks", about: "Pipeline bottlenecks"],
+        throughput: [name: "throughput", about: "Pipeline throughput"]
+      ]
+    ]
+  end
+
+  defp obsidian_spec do
+    [
+      name: "obsidian",
+      about: "Obsidian vault integration",
+      subcommands: [
+        list: [name: "list", about: "List notes"],
+        search: [name: "search", about: "Search notes", args: [query: [required: true, help: "Search query"]]],
+        read: [name: "read", about: "Read a note", args: [path: [required: true, help: "Note path"]]],
+        create: [name: "create", about: "Create a note", args: [path: [required: true, help: "Note path"]],
+          options: [content: [short: "-c", long: "--content", help: "Note content", parser: :string]]]
+      ]
+    ]
+  end
+
+  defp security_spec do
+    [
+      name: "security",
+      about: "Security posture and audit",
+      subcommands: [
+        posture: [name: "posture", about: "Security posture overview"],
+        audit: [name: "audit", about: "Run security audit"]
+      ]
+    ]
+  end
+
+  # -- Phase 3: Operations & Data --
+
+  defp vm_spec do
+    [
+      name: "vm",
+      about: "VM health and containers",
+      subcommands: [
+        health: [name: "health", about: "VM health status"],
+        containers: [name: "containers", about: "List containers"],
+        check: [name: "check", about: "Run system check"]
+      ]
+    ]
+  end
+
+  defp onboarding_spec do
+    [
+      name: "onboarding",
+      about: "Onboarding status and setup",
+      subcommands: [
+        status: [name: "status", about: "Onboarding status"],
+        readiness: [name: "readiness", about: "System readiness check"],
+        run: [name: "run", about: "Run onboarding"]
+      ]
+    ]
+  end
+
+  defp prompt_spec do
+    [
+      name: "prompt",
+      about: "Prompt management and versioning",
+      subcommands: [
+        list: [name: "list", about: "List prompts"],
+        show: [name: "show", about: "Show prompt", args: [id: [required: true, help: "Prompt ID"]]],
+        create: [name: "create", about: "Create prompt", args: [name: [required: true, help: "Prompt name"]],
+          options: [
+            content: [short: "-c", long: "--content", help: "Prompt content", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        update: [name: "update", about: "Update prompt", args: [id: [required: true, help: "Prompt ID"]],
+          options: [
+            name: [long: "--name", help: "Name", parser: :string],
+            content: [short: "-c", long: "--content", help: "Content", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete prompt", args: [id: [required: true, help: "Prompt ID"]]],
+        version: [name: "version", about: "Create prompt version", args: [id: [required: true, help: "Prompt ID"]]]
+      ]
+    ]
+  end
+
+  defp decision_spec do
+    [
+      name: "decision",
+      about: "Decision tracking",
+      subcommands: [
+        list: [name: "list", about: "List decisions"],
+        show: [name: "show", about: "Show decision", args: [id: [required: true, help: "Decision ID"]]],
+        create: [name: "create", about: "Create decision", args: [title: [required: true, help: "Decision title"]],
+          options: [
+            context: [short: "-c", long: "--context", help: "Context", parser: :string],
+            outcome: [short: "-o", long: "--outcome", help: "Outcome", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        update: [name: "update", about: "Update decision", args: [id: [required: true, help: "Decision ID"]],
+          options: [
+            title: [long: "--title", help: "Title", parser: :string],
+            context: [short: "-c", long: "--context", help: "Context", parser: :string],
+            outcome: [short: "-o", long: "--outcome", help: "Outcome", parser: :string],
+            status: [short: "-s", long: "--status", help: "Status", parser: :string],
+            description: [short: "-d", long: "--description", help: "Description", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete decision", args: [id: [required: true, help: "Decision ID"]]]
+      ]
+    ]
+  end
+
+  defp clipboard_spec do
+    [
+      name: "clipboard",
+      about: "Clipboard management",
+      subcommands: [
+        list: [name: "list", about: "List clipboard items"],
+        create: [name: "create", about: "Create clipboard item", args: [content: [required: true, help: "Content"]]],
+        delete: [name: "delete", about: "Delete clipboard item", args: [id: [required: true, help: "Item ID"]]],
+        pin: [name: "pin", about: "Pin clipboard item", args: [id: [required: true, help: "Item ID"]]]
+      ]
+    ]
+  end
+
+  # -- Phase 4: Orchestrator & Ingest --
+
+  defp orchestrator_spec do
+    [
+      name: "orchestrator",
+      about: "Session orchestrator",
+      subcommands: [
+        list: [name: "list", about: "List orchestrated sessions"],
+        show: [name: "show", about: "Show session", args: [id: [required: true, help: "Session ID"]]],
+        spawn: [name: "spawn", about: "Spawn session", args: [objective: [required: true, help: "Session objective"]],
+          options: [
+            agent: [short: "-a", long: "--agent", help: "Agent slug", parser: :string],
+            project: [short: "-p", long: "--project", help: "Project slug", parser: :string]
+          ]],
+        resume: [name: "resume", about: "Resume session", args: [id: [required: true, help: "Session ID"]]],
+        kill: [name: "kill", about: "Kill session", args: [id: [required: true, help: "Session ID"]]],
+        check: [name: "check", about: "Check session status", args: [id: [required: true, help: "Session ID"]]],
+        context: [name: "context", about: "Show orchestrator context"]
+      ]
+    ]
+  end
+
+  defp ingest_spec do
+    [
+      name: "ingest",
+      about: "Ingest job management",
+      subcommands: [
+        list: [name: "list", about: "List ingest jobs"],
+        show: [name: "show", about: "Show job", args: [id: [required: true, help: "Job ID"]]],
+        create: [name: "create", about: "Create ingest job", args: [source: [required: true, help: "Source identifier"]],
+          options: [config: [short: "-c", long: "--config", help: "Config JSON", parser: :string]]],
+        update: [name: "update", about: "Update job", args: [id: [required: true, help: "Job ID"]],
+          options: [
+            source: [long: "--source", help: "Source", parser: :string],
+            config: [short: "-c", long: "--config", help: "Config JSON", parser: :string],
+            status: [short: "-s", long: "--status", help: "Status", parser: :string]
+          ]],
+        delete: [name: "delete", about: "Delete job", args: [id: [required: true, help: "Job ID"]]]
+      ]
+    ]
+  end
 
   defp maybe_dispatch_actor_command([root | _rest]) when root in @builtin_roots, do: :continue
   defp maybe_dispatch_actor_command(["help" | _]), do: :continue

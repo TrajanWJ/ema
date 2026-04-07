@@ -257,7 +257,57 @@ defmodule Ema.CLI.Commands.McpServe do
       tool("context_operator", "Fetch operator context package", %{}),
       tool("context_project", "Fetch project context package", %{
         "project" => %{"type" => "string"}
-      }, ["project"])
+      }, ["project"]),
+
+      # Workspace (dispatched via HTTP MCP bridge)
+      tool("ema_orient", "Get current EMA state and orientation", %{
+        "mode" => %{"type" => "string", "enum" => ["operator", "workspace"]},
+        "actor_slug" => %{"type" => "string"}
+      }, ["mode"]),
+      tool("ema_phase_transition", "Advance actor phase: idle → plan → execute → review → retro", %{
+        "actor_slug" => %{"type" => "string"}, "to_phase" => %{"type" => "string"},
+        "reason" => %{"type" => "string"}, "summary" => %{"type" => "string"}
+      }, ["actor_slug", "to_phase"]),
+      tool("ema_phase_status", "Current phase + transition history for an actor", %{
+        "actor_slug" => %{"type" => "string"}
+      }, ["actor_slug"]),
+      tool("ema_sprint_cycle", "Start/review/complete planning cycles (week/month/quarter)", %{
+        "actor_slug" => %{"type" => "string"}, "cycle_type" => %{"type" => "string"},
+        "action" => %{"type" => "string"}
+      }, ["actor_slug", "cycle_type", "action"]),
+      tool("ema_workspace", "Actor workspace state: data, tags, config", %{
+        "op" => %{"type" => "string"}, "actor_slug" => %{"type" => "string"},
+        "entity_type" => %{"type" => "string"}, "entity_id" => %{"type" => "string"},
+        "key" => %{"type" => "string"}, "value" => %{"type" => "string"}
+      }, ["op"]),
+      tool("ema_search", "Unified search across all EMA entities", %{
+        "query" => %{"type" => "string"}, "scope" => %{"type" => "string"},
+        "project_id" => %{"type" => "string"}, "limit" => %{"type" => "number"}
+      }, ["query"]),
+      tool("ema_decide", "Record a decision with rationale", %{
+        "title" => %{"type" => "string"}, "rationale" => %{"type" => "string"},
+        "alternatives" => %{"type" => "string"}, "project_slug" => %{"type" => "string"}
+      }, ["title", "rationale"]),
+      tool("ema_dispatch", "Dispatch an execution for agent work", %{
+        "title" => %{"type" => "string"}, "objective" => %{"type" => "string"},
+        "mode" => %{"type" => "string"}, "project_slug" => %{"type" => "string"},
+        "auto_approve" => %{"type" => "boolean"}
+      }, ["title", "objective", "mode"]),
+      tool("ema_intelligence_gaps", "Operational gaps — stale tasks, orphan notes", %{
+        "project_id" => %{"type" => "string"}, "limit" => %{"type" => "number"}
+      }),
+      tool("ema_intelligence_reflexion", "Lessons from past executions", %{
+        "agent" => %{"type" => "string"}, "project_slug" => %{"type" => "string"}, "limit" => %{"type" => "number"}
+      }),
+      tool("ema_intelligence_memory", "Session memory fragments from past work", %{
+        "project_path" => %{"type" => "string"}, "query" => %{"type" => "string"}
+      }),
+      tool("ema_codebase_ask", "Query codebase via knowledge graph + vault", %{
+        "query" => %{"type" => "string"}, "project_slug" => %{"type" => "string"}
+      }, ["query"]),
+      tool("ema_codebase_index", "Rebuild knowledge graph for a project", %{
+        "project_slug" => %{"type" => "string"}, "repo_path" => %{"type" => "string"}
+      })
     ]
   end
 
@@ -399,6 +449,23 @@ defmodule Ema.CLI.Commands.McpServe do
   # Context
   defp call_tool("context_operator", _), do: api_get("/context/operator/package")
   defp call_tool("context_project", %{"project" => ref}), do: api_get("/context/project/#{ref}/package")
+
+  # Workspace tools — dispatch via HTTP MCP bridge to daemon
+  @workspace_tools ~w(
+    ema_orient ema_phase_transition ema_phase_status ema_sprint_cycle
+    ema_workspace ema_search ema_decide ema_dispatch
+    ema_intelligence_gaps ema_intelligence_reflexion ema_intelligence_memory
+    ema_codebase_ask ema_codebase_index
+  )
+
+  defp call_tool(name, args) when name in @workspace_tools do
+    api_post("/mcp/tools/execute", %{"name" => name, "arguments" => args})
+    |> case do
+      {:ok, %{"ok" => true, "result" => result}} -> {:ok, result}
+      {:ok, %{"ok" => false, "error" => error}} -> {:error, error}
+      other -> other
+    end
+  end
 
   defp call_tool(name, _), do: {:error, "Unknown tool: #{name}"}
 

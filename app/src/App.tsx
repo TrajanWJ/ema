@@ -64,6 +64,7 @@ import { ProjectGraphApp } from "@/components/project-graph/ProjectGraphApp";
 import { SupermanApp } from "@/components/superman/SupermanApp";
 import QualityApp from "@/components/quality/QualityApp";
 import { WikiApp } from "@/components/wiki/WikiApp";
+import { IntentSchematicApp } from "@/components/intents/IntentSchematicApp";
 import OrchestrationApp from "@/components/orchestration/OrchestrationApp";
 import { SessionsApp } from "@/components/sessions/SessionsApp";
 import { ContextApp } from "@/components/context/ContextApp";
@@ -221,6 +222,8 @@ case "cli-manager":
       return <QualityApp />;
     case "wiki":
       return <WikiApp />;
+    case "intent-schematic":
+      return <IntentSchematicApp />;
     case "orchestration":
       return <OrchestrationApp />;
     case "sessions":

@@ -16,12 +16,12 @@ defmodule Ema.CLI.Commands.Superman do
     http_get(transport, "/superman/context/#{slug}", opts)
   end
 
-  def handle([:ask], parsed, _transport, opts) do
+  def handle([:ask], parsed, transport, opts) do
     question = parsed.args.question
     project = parsed.options[:project]
     body = Helpers.compact_map([{"question", question}, {"project_slug", project}])
 
-    case Ema.CLI.Transport.Http.post("/superman/ask", body) do
+    case transport.post("/superman/ask", body) do
       {:ok, resp} ->
         answer = resp["answer"] || resp["response"] || inspect(resp)
         if opts[:json], do: Output.json(resp), else: IO.puts(answer)
@@ -36,10 +36,10 @@ defmodule Ema.CLI.Commands.Superman do
     http_get(transport, "/superman/gaps", opts, params)
   end
 
-  def handle([:index], parsed, _transport, _opts) do
+  def handle([:index], parsed, transport, _opts) do
     body = Helpers.compact_map([{"project_slug", parsed.options[:project]}])
 
-    case Ema.CLI.Transport.Http.post("/superman/index", body) do
+    case transport.post("/superman/index", body) do
       {:ok, _} -> Output.success("Indexing started")
       {:error, reason} -> Output.error(inspect(reason))
     end
@@ -49,8 +49,8 @@ defmodule Ema.CLI.Commands.Superman do
     Output.error("Unknown superman subcommand: #{inspect(sub)}")
   end
 
-  defp http_get(_transport, path, opts, params \\ []) do
-    case Ema.CLI.Transport.Http.get(path, params: params) do
+  defp http_get(transport, path, opts, params \\ []) do
+    case transport.get(path, params: params) do
       {:ok, body} ->
         if opts[:json], do: Output.json(body), else: Output.detail(body)
 

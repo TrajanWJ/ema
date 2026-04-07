@@ -5,17 +5,17 @@ defmodule Ema.CLI.Commands.Tunnel do
 
   @columns [{"PID", :pid}, {"Host", :host}, {"Port", :port}, {"Status", :status}]
 
-  def handle([:list], _parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/tunnels") do
+  def handle([:list], _parsed, transport, opts) do
+    case transport.get("/tunnels") do
       {:ok, body} -> Output.render(Helpers.extract_list(body, "tunnels"), @columns, json: opts[:json])
       {:error, reason} -> Output.error(inspect(reason))
     end
   end
 
-  def handle([:create], parsed, _transport, opts) do
+  def handle([:create], parsed, transport, opts) do
     body = Helpers.compact_map([{"host", parsed.args.host}, {"port", parsed.options[:port]}])
 
-    case Ema.CLI.Transport.Http.post("/tunnels", body) do
+    case transport.post("/tunnels", body) do
       {:ok, resp} ->
         Output.success("Tunnel created")
         if opts[:json], do: Output.json(resp)
@@ -25,8 +25,8 @@ defmodule Ema.CLI.Commands.Tunnel do
     end
   end
 
-  def handle([:delete], parsed, _transport, _opts) do
-    case Ema.CLI.Transport.Http.delete("/tunnels/#{parsed.args.pid}") do
+  def handle([:delete], parsed, transport, _opts) do
+    case transport.delete("/tunnels/#{parsed.args.pid}") do
       {:ok, _} -> Output.success("Tunnel deleted")
       {:error, reason} -> Output.error(inspect(reason))
     end

@@ -5,22 +5,22 @@ defmodule Ema.CLI.Commands.FileVault do
 
   @columns [{"ID", :id}, {"Name", :name}, {"Size", :size}, {"Created", :inserted_at}]
 
-  def handle([:list], _parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/file-vault") do
+  def handle([:list], _parsed, transport, opts) do
+    case transport.get("/file-vault") do
       {:ok, body} -> Output.render(Helpers.extract_list(body, "files"), @columns, json: opts[:json])
       {:error, reason} -> Output.error(inspect(reason))
     end
   end
 
-  def handle([:show], parsed, _transport, opts) do
-    case Ema.CLI.Transport.Http.get("/file-vault/#{parsed.args.id}") do
+  def handle([:show], parsed, transport, opts) do
+    case transport.get("/file-vault/#{parsed.args.id}") do
       {:ok, body} -> Output.detail(Helpers.extract_record(body, "file"), json: opts[:json])
       {:error, reason} -> Output.error(inspect(reason))
     end
   end
 
-  def handle([:delete], parsed, _transport, _opts) do
-    case Ema.CLI.Transport.Http.delete("/file-vault/#{parsed.args.id}") do
+  def handle([:delete], parsed, transport, _opts) do
+    case transport.delete("/file-vault/#{parsed.args.id}") do
       {:ok, _} -> Output.success("File deleted")
       {:error, reason} -> Output.error(inspect(reason))
     end

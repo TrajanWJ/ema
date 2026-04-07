@@ -1399,6 +1399,733 @@ def cmd_watch(client, args):
         out("Watch stopped.")
 
 
+# ── contact ──────────────────────────────────────────────────────────────────
+
+def cmd_contact_list(client, args):
+    data = client.get("/api/contacts")
+    contacts = data.get("contacts", data.get("data", []))
+    if USE_JSON:
+        out_json(contacts); return
+    rows = [[c.get("id",""), c.get("name",""), c.get("email","—"), c.get("role","—"), fmt_time(c.get("updated_at"))] for c in contacts]
+    table(rows, ["ID", "Name", "Email", "Role", "Updated"])
+
+def cmd_contact_show(client, args):
+    data = client.get(f"/api/contacts/{args.id}")
+    record = data.get("contact", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_contact_create(client, args):
+    payload = {"name": args.name}
+    if getattr(args, "email", None): payload["email"] = args.email
+    if getattr(args, "role", None): payload["role"] = args.role
+    data = client.post("/api/contacts", {"contact": payload})
+    c = data.get("contact", data.get("data", data))
+    if USE_JSON:
+        out_json(c)
+    else:
+        out(f"Created contact: {c.get('name', c.get('id'))}")
+
+def cmd_contact_update(client, args):
+    payload = {}
+    if getattr(args, "name", None): payload["name"] = args.name
+    if getattr(args, "email", None): payload["email"] = args.email
+    if getattr(args, "role", None): payload["role"] = args.role
+    data = client.put(f"/api/contacts/{args.id}", {"contact": payload})
+    c = data.get("contact", data.get("data", data))
+    if USE_JSON:
+        out_json(c)
+    else:
+        out(f"Updated contact: {c.get('name', c.get('id'))}")
+
+def cmd_contact_delete(client, args):
+    client.delete(f"/api/contacts/{args.id}")
+    out(f"Deleted contact {args.id}")
+
+
+# ── finance ──────────────────────────────────────────────────────────────────
+
+def cmd_finance_list(client, args):
+    data = client.get("/api/finance")
+    records = data.get("finance", data.get("data", []))
+    if USE_JSON:
+        out_json(records); return
+    rows = [[r.get("id",""), r.get("type",""), r.get("amount",""), r.get("category","—"), r.get("date","—")] for r in records]
+    table(rows, ["ID", "Type", "Amount", "Category", "Date"])
+
+def cmd_finance_show(client, args):
+    data = client.get(f"/api/finance/{args.id}")
+    record = data.get("finance", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_finance_create(client, args):
+    payload = {"type": args.type, "amount": args.amount}
+    if getattr(args, "category", None): payload["category"] = args.category
+    if getattr(args, "date", None): payload["date"] = args.date
+    data = client.post("/api/finance", {"finance": payload})
+    r = data.get("finance", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created finance record: {r.get('id')}")
+
+def cmd_finance_update(client, args):
+    payload = {}
+    if getattr(args, "type", None): payload["type"] = args.type
+    if getattr(args, "amount", None): payload["amount"] = args.amount
+    if getattr(args, "category", None): payload["category"] = args.category
+    if getattr(args, "date", None): payload["date"] = args.date
+    data = client.put(f"/api/finance/{args.id}", {"finance": payload})
+    r = data.get("finance", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated finance record: {r.get('id')}")
+
+def cmd_finance_delete(client, args):
+    client.delete(f"/api/finance/{args.id}")
+    out(f"Deleted finance record {args.id}")
+
+def cmd_finance_summary(client, args):
+    data = client.get("/api/finance/summary")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── invoice ──────────────────────────────────────────────────────────────────
+
+def cmd_invoice_list(client, args):
+    data = client.get("/api/invoices")
+    invoices = data.get("invoices", data.get("data", []))
+    if USE_JSON:
+        out_json(invoices); return
+    rows = [[i.get("id",""), i.get("number",""), i.get("client","—"), i.get("amount",""), i.get("status",""), i.get("due","")] for i in invoices]
+    table(rows, ["ID", "Number", "Client", "Amount", "Status", "Due"])
+
+def cmd_invoice_show(client, args):
+    data = client.get(f"/api/invoices/{args.id}")
+    record = data.get("invoice", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_invoice_create(client, args):
+    payload = {"client": args.client, "amount": args.amount}
+    if getattr(args, "due", None): payload["due"] = args.due
+    if getattr(args, "number", None): payload["number"] = args.number
+    data = client.post("/api/invoices", {"invoice": payload})
+    r = data.get("invoice", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created invoice: {r.get('number', r.get('id'))}")
+
+def cmd_invoice_update(client, args):
+    payload = {}
+    if getattr(args, "client", None): payload["client"] = args.client
+    if getattr(args, "amount", None): payload["amount"] = args.amount
+    if getattr(args, "due", None): payload["due"] = args.due
+    if getattr(args, "number", None): payload["number"] = args.number
+    data = client.put(f"/api/invoices/{args.id}", {"invoice": payload})
+    r = data.get("invoice", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated invoice: {r.get('number', r.get('id'))}")
+
+def cmd_invoice_delete(client, args):
+    client.delete(f"/api/invoices/{args.id}")
+    out(f"Deleted invoice {args.id}")
+
+def cmd_invoice_send(client, args):
+    data = client.post(f"/api/invoices/{args.id}/send", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Sent invoice {args.id}")
+
+def cmd_invoice_mark_paid(client, args):
+    data = client.post(f"/api/invoices/{args.id}/mark-paid", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Marked invoice {args.id} as paid")
+
+
+# ── routine ──────────────────────────────────────────────────────────────────
+
+def cmd_routine_list(client, args):
+    data = client.get("/api/routines")
+    routines = data.get("routines", data.get("data", []))
+    if USE_JSON:
+        out_json(routines); return
+    rows = [[r.get("id",""), r.get("name",""), r.get("cadence","—"), r.get("active",""), fmt_time(r.get("last_run"))] for r in routines]
+    table(rows, ["ID", "Name", "Cadence", "Active", "Last Run"])
+
+def cmd_routine_show(client, args):
+    data = client.get(f"/api/routines/{args.id}")
+    record = data.get("routine", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_routine_create(client, args):
+    payload = {"name": args.name}
+    if getattr(args, "cadence", None): payload["cadence"] = args.cadence
+    data = client.post("/api/routines", {"routine": payload})
+    r = data.get("routine", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created routine: {r.get('name', r.get('id'))}")
+
+def cmd_routine_update(client, args):
+    payload = {}
+    if getattr(args, "name", None): payload["name"] = args.name
+    if getattr(args, "cadence", None): payload["cadence"] = args.cadence
+    data = client.put(f"/api/routines/{args.id}", {"routine": payload})
+    r = data.get("routine", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated routine: {r.get('name', r.get('id'))}")
+
+def cmd_routine_delete(client, args):
+    client.delete(f"/api/routines/{args.id}")
+    out(f"Deleted routine {args.id}")
+
+def cmd_routine_toggle(client, args):
+    data = client.post(f"/api/routines/{args.id}/toggle", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Toggled routine {args.id}")
+
+def cmd_routine_run(client, args):
+    data = client.post(f"/api/routines/{args.id}/run", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Ran routine {args.id}")
+
+
+# ── meeting ──────────────────────────────────────────────────────────────────
+
+def cmd_meeting_list(client, args):
+    data = client.get("/api/meetings")
+    meetings = data.get("meetings", data.get("data", []))
+    if USE_JSON:
+        out_json(meetings); return
+    rows = [[m.get("id",""), m.get("title",""), m.get("date",""), m.get("time","—"), m.get("status","")] for m in meetings]
+    table(rows, ["ID", "Title", "Date", "Time", "Status"])
+
+def cmd_meeting_show(client, args):
+    data = client.get(f"/api/meetings/{args.id}")
+    record = data.get("meeting", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_meeting_create(client, args):
+    payload = {"title": args.title}
+    if getattr(args, "date", None): payload["date"] = args.date
+    if getattr(args, "time", None): payload["time"] = args.time
+    data = client.post("/api/meetings", {"meeting": payload})
+    r = data.get("meeting", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created meeting: {r.get('title', r.get('id'))}")
+
+def cmd_meeting_update(client, args):
+    payload = {}
+    if getattr(args, "title", None): payload["title"] = args.title
+    if getattr(args, "date", None): payload["date"] = args.date
+    if getattr(args, "time", None): payload["time"] = args.time
+    data = client.put(f"/api/meetings/{args.id}", {"meeting": payload})
+    r = data.get("meeting", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated meeting: {r.get('title', r.get('id'))}")
+
+def cmd_meeting_delete(client, args):
+    client.delete(f"/api/meetings/{args.id}")
+    out(f"Deleted meeting {args.id}")
+
+def cmd_meeting_upcoming(client, args):
+    data = client.get("/api/meetings/upcoming")
+    meetings = data.get("meetings", data.get("data", []))
+    if USE_JSON:
+        out_json(meetings); return
+    rows = [[m.get("id",""), m.get("title",""), m.get("date",""), m.get("time","—"), m.get("status","")] for m in meetings]
+    table(rows, ["ID", "Title", "Date", "Time", "Status"])
+
+
+# ── temporal ─────────────────────────────────────────────────────────────────
+
+def cmd_temporal_rhythm(client, args):
+    data = client.get("/api/temporal/rhythm")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_temporal_now(client, args):
+    data = client.get("/api/temporal/now")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_temporal_best_time(client, args):
+    data = client.get("/api/temporal/best-time")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_temporal_log(client, args):
+    payload = {"activity": args.activity}
+    if getattr(args, "energy", None): payload["energy"] = args.energy
+    if getattr(args, "mood", None): payload["mood"] = args.mood
+    if getattr(args, "notes", None): payload["notes"] = args.notes
+    data = client.post("/api/temporal/log", payload)
+    if USE_JSON:
+        out_json(data)
+    else:
+        out("Logged temporal entry")
+
+def cmd_temporal_history(client, args):
+    data = client.get("/api/temporal/history")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── intelligence ─────────────────────────────────────────────────────────────
+
+def cmd_intelligence_log_outcome(client, args):
+    payload = {"outcome": args.outcome}
+    if getattr(args, "context", None): payload["context"] = args.context
+    if getattr(args, "score", None): payload["score"] = args.score
+    data = client.post("/api/intelligence/outcomes", payload)
+    if USE_JSON:
+        out_json(data)
+    else:
+        out("Logged outcome")
+
+def cmd_intelligence_log_mcp(client, args):
+    payload = {"tool": args.tool}
+    if getattr(args, "input", None): payload["input"] = args.input
+    if getattr(args, "output", None): payload["output"] = args.output
+    data = client.post("/api/intelligence/mcp-calls", payload)
+    if USE_JSON:
+        out_json(data)
+    else:
+        out("Logged MCP call")
+
+def cmd_intelligence_git_events(client, args):
+    data = client.get("/api/intelligence/git-events")
+    if USE_JSON:
+        out_json(data); return
+    events = data.get("events", data.get("data", []))
+    for e in events:
+        out(f"  [{e.get('id','')}] {e.get('type','')} — {e.get('summary','')}")
+
+def cmd_intelligence_suggestions(client, args):
+    data = client.get(f"/api/intelligence/git-events/{args.id}/suggestions")
+    if USE_JSON:
+        out_json(data); return
+    suggestions = data.get("suggestions", data.get("data", []))
+    for s in suggestions:
+        out(f"  [{s.get('id','')}] {s.get('action','')} — {s.get('description','')}")
+
+def cmd_intelligence_apply(client, args):
+    data = client.post(f"/api/intelligence/git-events/{args.id}/apply/{args.action_id}", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Applied action {args.action_id} to event {args.id}")
+
+def cmd_intelligence_sync_status(client, args):
+    data = client.get("/api/intelligence/sync-status")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_intelligence_scan(client, args):
+    data = client.post("/api/intelligence/git-events/scan", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out("Git event scan triggered")
+
+
+# ── pipeline ─────────────────────────────────────────────────────────────────
+
+def cmd_pipeline_stats(client, args):
+    data = client.get("/api/pipeline/stats")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_pipeline_bottlenecks(client, args):
+    data = client.get("/api/pipeline/bottlenecks")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_pipeline_throughput(client, args):
+    data = client.get("/api/pipeline/throughput")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── obsidian ─────────────────────────────────────────────────────────────────
+
+def cmd_obsidian_list(client, args):
+    data = client.get("/api/obsidian/notes")
+    notes = data.get("notes", data.get("data", []))
+    if USE_JSON:
+        out_json(notes); return
+    for n in notes:
+        out(f"  {n.get('path', n.get('name', ''))}")
+
+def cmd_obsidian_search(client, args):
+    data = client.get(f"/api/obsidian/search?q={args.query}")
+    results = data.get("results", data.get("data", []))
+    if USE_JSON:
+        out_json(results); return
+    for r in results:
+        out(f"  {r.get('path', '')} — {r.get('snippet', '')}")
+
+def cmd_obsidian_read(client, args):
+    data = client.get(f"/api/obsidian/notes/{args.path}")
+    if USE_JSON:
+        out_json(data); return
+    content = data.get("content", data.get("body", str(data)))
+    out(content)
+
+def cmd_obsidian_create(client, args):
+    payload = {"path": args.path}
+    if getattr(args, "content", None): payload["content"] = args.content
+    data = client.post("/api/obsidian/notes", payload)
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Created note: {args.path}")
+
+
+# ── security ─────────────────────────────────────────────────────────────────
+
+def cmd_security_posture(client, args):
+    data = client.get("/api/security/posture")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_security_audit(client, args):
+    data = client.post("/api/security/audit", {})
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── vm ───────────────────────────────────────────────────────────────────────
+
+def cmd_vm_health(client, args):
+    data = client.get("/api/vm/health")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_vm_containers(client, args):
+    data = client.get("/api/vm/containers")
+    if USE_JSON:
+        out_json(data); return
+    containers = data.get("containers", data.get("data", []))
+    for c in containers:
+        out(f"  [{c.get('id','')}] {c.get('name','')} — {c.get('status','')}")
+
+def cmd_vm_check(client, args):
+    data = client.post("/api/vm/check", {})
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── onboarding ───────────────────────────────────────────────────────────────
+
+def cmd_onboarding_status(client, args):
+    data = client.get("/api/onboarding/status")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_onboarding_readiness(client, args):
+    data = client.get("/api/onboarding/readiness")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_onboarding_run(client, args):
+    data = client.post("/api/onboarding/run", {})
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── prompt ───────────────────────────────────────────────────────────────────
+
+def cmd_prompt_list(client, args):
+    data = client.get("/api/prompts")
+    prompts = data.get("prompts", data.get("data", []))
+    if USE_JSON:
+        out_json(prompts); return
+    rows = [[p.get("id",""), p.get("name",""), p.get("version",""), p.get("status","")] for p in prompts]
+    table(rows, ["ID", "Name", "Version", "Status"])
+
+def cmd_prompt_show(client, args):
+    data = client.get(f"/api/prompts/{args.id}")
+    record = data.get("prompt", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_prompt_create(client, args):
+    payload = {"name": args.name}
+    if getattr(args, "content", None): payload["content"] = args.content
+    data = client.post("/api/prompts", {"prompt": payload})
+    r = data.get("prompt", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created prompt: {r.get('name', r.get('id'))}")
+
+def cmd_prompt_update(client, args):
+    payload = {}
+    if getattr(args, "name", None): payload["name"] = args.name
+    if getattr(args, "content", None): payload["content"] = args.content
+    data = client.put(f"/api/prompts/{args.id}", {"prompt": payload})
+    r = data.get("prompt", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated prompt: {r.get('name', r.get('id'))}")
+
+def cmd_prompt_delete(client, args):
+    client.delete(f"/api/prompts/{args.id}")
+    out(f"Deleted prompt {args.id}")
+
+def cmd_prompt_version(client, args):
+    data = client.get(f"/api/prompts/{args.id}/version")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── decision ─────────────────────────────────────────────────────────────────
+
+def cmd_decision_list(client, args):
+    data = client.get("/api/decisions")
+    decisions = data.get("decisions", data.get("data", []))
+    if USE_JSON:
+        out_json(decisions); return
+    rows = [[d.get("id",""), d.get("title",""), d.get("status",""), d.get("context","—")] for d in decisions]
+    table(rows, ["ID", "Title", "Status", "Context"])
+
+def cmd_decision_show(client, args):
+    data = client.get(f"/api/decisions/{args.id}")
+    record = data.get("decision", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_decision_create(client, args):
+    payload = {"title": args.title}
+    if getattr(args, "context", None): payload["context"] = args.context
+    data = client.post("/api/decisions", {"decision": payload})
+    r = data.get("decision", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created decision: {r.get('title', r.get('id'))}")
+
+def cmd_decision_update(client, args):
+    payload = {}
+    if getattr(args, "title", None): payload["title"] = args.title
+    if getattr(args, "context", None): payload["context"] = args.context
+    data = client.put(f"/api/decisions/{args.id}", {"decision": payload})
+    r = data.get("decision", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated decision: {r.get('title', r.get('id'))}")
+
+def cmd_decision_delete(client, args):
+    client.delete(f"/api/decisions/{args.id}")
+    out(f"Deleted decision {args.id}")
+
+
+# ── clipboard ────────────────────────────────────────────────────────────────
+
+def cmd_clipboard_list(client, args):
+    data = client.get("/api/clipboard")
+    items = data.get("clipboard", data.get("data", []))
+    if USE_JSON:
+        out_json(items); return
+    rows = [[c.get("id",""), c.get("content","")[:60], c.get("pinned",""), fmt_time(c.get("inserted_at"))] for c in items]
+    table(rows, ["ID", "Content", "Pinned", "Created"])
+
+def cmd_clipboard_create(client, args):
+    payload = {"content": args.content}
+    data = client.post("/api/clipboard", {"clipboard": payload})
+    r = data.get("clipboard", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created clipboard entry: {r.get('id')}")
+
+def cmd_clipboard_delete(client, args):
+    client.delete(f"/api/clipboard/{args.id}")
+    out(f"Deleted clipboard entry {args.id}")
+
+def cmd_clipboard_pin(client, args):
+    data = client.post(f"/api/clipboard/{args.id}/pin", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Pinned clipboard entry {args.id}")
+
+
+# ── orchestrator ─────────────────────────────────────────────────────────────
+
+def cmd_orchestrator_list(client, args):
+    data = client.get("/api/orchestrator/sessions")
+    sessions = data.get("sessions", data.get("data", []))
+    if USE_JSON:
+        out_json(sessions); return
+    for s in sessions:
+        out(f"  [{s.get('id','')}] {s.get('objective','')} — {s.get('status','')}")
+
+def cmd_orchestrator_show(client, args):
+    data = client.get(f"/api/orchestrator/sessions/{args.id}")
+    record = data.get("session", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_orchestrator_spawn(client, args):
+    payload = {"objective": args.objective}
+    if getattr(args, "agent", None): payload["agent"] = args.agent
+    if getattr(args, "project", None): payload["project"] = args.project
+    data = client.post("/api/orchestrator/sessions/spawn", payload)
+    r = data.get("session", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Spawned session: {r.get('id')}")
+
+def cmd_orchestrator_resume(client, args):
+    data = client.post(f"/api/orchestrator/sessions/{args.id}/resume", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Resumed session {args.id}")
+
+def cmd_orchestrator_kill(client, args):
+    data = client.post(f"/api/orchestrator/sessions/{args.id}/kill", {})
+    if USE_JSON:
+        out_json(data)
+    else:
+        out(f"Killed session {args.id}")
+
+def cmd_orchestrator_check(client, args):
+    data = client.get(f"/api/orchestrator/sessions/{args.id}/check")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_orchestrator_context(client, args):
+    data = client.get("/api/orchestrator/context")
+    if USE_JSON:
+        out_json(data); return
+    for k, v in data.items():
+        out(f"  {k:<16} {v}")
+
+
+# ── ingest ───────────────────────────────────────────────────────────────────
+
+def cmd_ingest_list(client, args):
+    data = client.get("/api/ingest-jobs")
+    jobs = data.get("ingest_jobs", data.get("data", []))
+    if USE_JSON:
+        out_json(jobs); return
+    rows = [[j.get("id",""), j.get("source",""), j.get("status",""), j.get("items","")] for j in jobs]
+    table(rows, ["ID", "Source", "Status", "Items"])
+
+def cmd_ingest_show(client, args):
+    data = client.get(f"/api/ingest-jobs/{args.id}")
+    record = data.get("ingest_job", data.get("data", data))
+    if USE_JSON:
+        out_json(record); return
+    for k, v in record.items():
+        out(f"  {k:<16} {v}")
+
+def cmd_ingest_create(client, args):
+    payload = {"source": args.source}
+    data = client.post("/api/ingest-jobs", {"ingest_job": payload})
+    r = data.get("ingest_job", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Created ingest job: {r.get('id')}")
+
+def cmd_ingest_update(client, args):
+    payload = {}
+    if getattr(args, "source", None): payload["source"] = args.source
+    if getattr(args, "status", None): payload["status"] = args.status
+    data = client.put(f"/api/ingest-jobs/{args.id}", {"ingest_job": payload})
+    r = data.get("ingest_job", data.get("data", data))
+    if USE_JSON:
+        out_json(r)
+    else:
+        out(f"Updated ingest job: {r.get('id')}")
+
+def cmd_ingest_delete(client, args):
+    client.delete(f"/api/ingest-jobs/{args.id}")
+    out(f"Deleted ingest job {args.id}")
+
+
 # ─── Arg parsing ──────────────────────────────────────────────────────────────
 
 def build_parser():
@@ -1433,6 +2160,23 @@ Commands:
   ema dispatch status|logs
   ema health check
   ema status
+  ema contact list|show|create|update|delete
+  ema finance list|show|create|update|delete|summary
+  ema invoice list|show|create|update|delete|send|mark-paid
+  ema routine list|show|create|update|delete|toggle|run
+  ema meeting list|show|create|update|delete|upcoming
+  ema temporal rhythm|now|best-time|log|history
+  ema intelligence log-outcome|log-mcp|git-events|suggestions|apply|sync-status|scan
+  ema pipeline stats|bottlenecks|throughput
+  ema obsidian list|search|read|create
+  ema security posture|audit
+  ema vm health|containers|check
+  ema onboarding status|readiness|run
+  ema prompt list|show|create|update|delete|version
+  ema decision list|show|create|update|delete
+  ema clipboard list|create|delete|pin
+  ema orchestrator list|show|spawn|resume|kill|check|context
+  ema ingest list|show|create|update|delete
 
 Examples:
   ema dump "investigate auth token expiry"
@@ -1708,6 +2452,280 @@ Examples:
         choices=["all", "heartbeat", "pipeline", "executions", "tasks", "proposals", "agents", "braindump", "inbox", "focus", "babysitter", "tokens", "cost"],
         default="all", help="Channel to watch (default: all)")
 
+    # ── contact ──
+    contact_p = sub.add_parser("contact", help="Contact management", parents=[shared])
+    contact_sub = contact_p.add_subparsers(dest="action", metavar="ACTION")
+    contact_sub.add_parser("list", help="List contacts")
+    _cs = contact_sub.add_parser("show", help="Show contact")
+    _cs.add_argument("id", help="Contact ID")
+    _cc = contact_sub.add_parser("create", help="Create contact")
+    _cc.add_argument("name", help="Contact name")
+    _cc.add_argument("--email", "-e", help="Email")
+    _cc.add_argument("--role", "-r", help="Role")
+    _cc.add_argument("--phone", help="Phone")
+    _cc.add_argument("--notes", "-n", help="Notes")
+    _cu = contact_sub.add_parser("update", help="Update contact")
+    _cu.add_argument("id", help="Contact ID")
+    _cu.add_argument("--name", help="Name")
+    _cu.add_argument("--email", "-e", help="Email")
+    _cu.add_argument("--role", "-r", help="Role")
+    _cu.add_argument("--phone", help="Phone")
+    _cu.add_argument("--notes", "-n", help="Notes")
+    _cd = contact_sub.add_parser("delete", help="Delete contact")
+    _cd.add_argument("id", help="Contact ID")
+
+    # ── finance ──
+    fin_p = sub.add_parser("finance", help="Finance tracking", parents=[shared])
+    fin_sub = fin_p.add_subparsers(dest="action", metavar="ACTION")
+    fin_sub.add_parser("summary", help="Financial summary")
+    fin_sub.add_parser("list", help="List entries")
+    _fs = fin_sub.add_parser("show", help="Show entry")
+    _fs.add_argument("id", help="Entry ID")
+    _fc = fin_sub.add_parser("create", help="Create entry")
+    _fc.add_argument("amount", help="Amount")
+    _fc.add_argument("--type", "-t", help="Type (income/expense)")
+    _fc.add_argument("--category", "-c", help="Category")
+    _fc.add_argument("--description", "-d", help="Description")
+    _fc.add_argument("--date", help="Date (YYYY-MM-DD)")
+    _fu = fin_sub.add_parser("update", help="Update entry")
+    _fu.add_argument("id", help="Entry ID")
+    _fu.add_argument("--type", "-t", help="Type")
+    _fu.add_argument("--amount", help="Amount")
+    _fu.add_argument("--category", "-c", help="Category")
+    _fu.add_argument("--description", "-d", help="Description")
+    _fu.add_argument("--date", help="Date")
+    _fd = fin_sub.add_parser("delete", help="Delete entry")
+    _fd.add_argument("id", help="Entry ID")
+
+    # ── invoice ──
+    inv_p = sub.add_parser("invoice", help="Invoice management", parents=[shared])
+    inv_sub = inv_p.add_subparsers(dest="action", metavar="ACTION")
+    inv_sub.add_parser("list", help="List invoices")
+    _is = inv_sub.add_parser("show", help="Show invoice")
+    _is.add_argument("id", help="Invoice ID")
+    _ic = inv_sub.add_parser("create", help="Create invoice")
+    _ic.add_argument("client", help="Client name")
+    _ic.add_argument("--amount", "-a", help="Amount")
+    _ic.add_argument("--description", "-d", help="Description")
+    _ic.add_argument("--due", help="Due date (YYYY-MM-DD)")
+    _iu = inv_sub.add_parser("update", help="Update invoice")
+    _iu.add_argument("id", help="Invoice ID")
+    _iu.add_argument("--client", help="Client")
+    _iu.add_argument("--amount", "-a", help="Amount")
+    _iu.add_argument("--description", "-d", help="Description")
+    _iu.add_argument("--due", help="Due date")
+    _idl = inv_sub.add_parser("delete", help="Delete invoice")
+    _idl.add_argument("id", help="Invoice ID")
+    _isn = inv_sub.add_parser("send", help="Send invoice")
+    _isn.add_argument("id", help="Invoice ID")
+    _imp = inv_sub.add_parser("mark-paid", help="Mark invoice as paid")
+    _imp.add_argument("id", help="Invoice ID")
+
+    # ── routine ──
+    rtn_p = sub.add_parser("routine", help="Routine management", parents=[shared])
+    rtn_sub = rtn_p.add_subparsers(dest="action", metavar="ACTION")
+    rtn_sub.add_parser("list", help="List routines")
+    _rs = rtn_sub.add_parser("show", help="Show routine")
+    _rs.add_argument("id", help="Routine ID")
+    _rc = rtn_sub.add_parser("create", help="Create routine")
+    _rc.add_argument("name", help="Routine name")
+    _rc.add_argument("--cadence", "-c", help="Cadence (daily/weekly/monthly)")
+    _rc.add_argument("--description", "-d", help="Description")
+    _ru = rtn_sub.add_parser("update", help="Update routine")
+    _ru.add_argument("id", help="Routine ID")
+    _ru.add_argument("--name", help="Name")
+    _ru.add_argument("--cadence", "-c", help="Cadence")
+    _ru.add_argument("--description", "-d", help="Description")
+    _rd = rtn_sub.add_parser("delete", help="Delete routine")
+    _rd.add_argument("id", help="Routine ID")
+    _rt = rtn_sub.add_parser("toggle", help="Toggle routine")
+    _rt.add_argument("id", help="Routine ID")
+    _rr = rtn_sub.add_parser("run", help="Run routine")
+    _rr.add_argument("id", help="Routine ID")
+
+    # ── meeting ──
+    mtg_p = sub.add_parser("meeting", help="Meeting management", parents=[shared])
+    mtg_sub = mtg_p.add_subparsers(dest="action", metavar="ACTION")
+    mtg_sub.add_parser("list", help="List meetings")
+    _ms = mtg_sub.add_parser("show", help="Show meeting")
+    _ms.add_argument("id", help="Meeting ID")
+    _mc = mtg_sub.add_parser("create", help="Create meeting")
+    _mc.add_argument("title", help="Meeting title")
+    _mc.add_argument("--date", help="Date (YYYY-MM-DD)")
+    _mc.add_argument("--time", help="Time (HH:MM)")
+    _mc.add_argument("--description", "-d", help="Description")
+    _mc.add_argument("--attendees", help="Comma-separated attendees")
+    _mu = mtg_sub.add_parser("update", help="Update meeting")
+    _mu.add_argument("id", help="Meeting ID")
+    _mu.add_argument("--title", help="Title")
+    _mu.add_argument("--date", help="Date")
+    _mu.add_argument("--time", help="Time")
+    _mu.add_argument("--description", "-d", help="Description")
+    _mu.add_argument("--attendees", help="Attendees")
+    _md = mtg_sub.add_parser("delete", help="Delete meeting")
+    _md.add_argument("id", help="Meeting ID")
+    mtg_sub.add_parser("upcoming", help="List upcoming meetings")
+
+    # ── temporal ──
+    tmp_p = sub.add_parser("temporal", help="Temporal intelligence", parents=[shared])
+    tmp_sub = tmp_p.add_subparsers(dest="action", metavar="ACTION")
+    tmp_sub.add_parser("rhythm", help="Show current rhythm")
+    tmp_sub.add_parser("now", help="Current temporal context")
+    _tbt = tmp_sub.add_parser("best-time", help="Best time for activity")
+    _tbt.add_argument("--activity", "-a", help="Activity type")
+    _tl = tmp_sub.add_parser("log", help="Log temporal entry")
+    _tl.add_argument("activity", help="Activity name")
+    _tl.add_argument("--energy", "-e", type=int, help="Energy level (1-5)")
+    _tl.add_argument("--mood", "-m", type=int, help="Mood (1-5)")
+    _tl.add_argument("--notes", "-n", help="Notes")
+    tmp_sub.add_parser("history", help="Temporal history")
+
+    # ── intelligence ──
+    intl_p = sub.add_parser("intelligence", help="Intelligence layer", parents=[shared])
+    intl_sub = intl_p.add_subparsers(dest="action", metavar="ACTION")
+    _ilo = intl_sub.add_parser("log-outcome", help="Log an outcome")
+    _ilo.add_argument("outcome", help="Outcome description")
+    _ilo.add_argument("--context", "-c", help="Context")
+    _ilo.add_argument("--score", "-s", help="Score (0-1)")
+    _ilm = intl_sub.add_parser("log-mcp", help="Log MCP call")
+    _ilm.add_argument("tool", help="Tool name")
+    _ilm.add_argument("--input", "-i", help="Input JSON")
+    _ilm.add_argument("--output", "-o", help="Output JSON")
+    intl_sub.add_parser("git-events", help="List git events")
+    _isg = intl_sub.add_parser("suggestions", help="Show suggestions")
+    _isg.add_argument("id", help="Event ID")
+    _iap = intl_sub.add_parser("apply", help="Apply suggestion")
+    _iap.add_argument("id", help="Event ID")
+    _iap.add_argument("action_id", help="Action ID")
+    intl_sub.add_parser("sync-status", help="Git sync status")
+    intl_sub.add_parser("scan", help="Trigger git scan")
+
+    # ── pipeline ──
+    pip_p = sub.add_parser("pipeline", help="Pipeline observability", parents=[shared])
+    pip_sub = pip_p.add_subparsers(dest="action", metavar="ACTION")
+    pip_sub.add_parser("stats", help="Pipeline stats")
+    pip_sub.add_parser("bottlenecks", help="Pipeline bottlenecks")
+    pip_sub.add_parser("throughput", help="Pipeline throughput")
+
+    # ── obsidian ──
+    obs_p = sub.add_parser("obsidian", help="Obsidian vault", parents=[shared])
+    obs_sub = obs_p.add_subparsers(dest="action", metavar="ACTION")
+    obs_sub.add_parser("list", help="List notes")
+    _osr = obs_sub.add_parser("search", help="Search notes")
+    _osr.add_argument("query", help="Search query")
+    _ord = obs_sub.add_parser("read", help="Read a note")
+    _ord.add_argument("path", help="Note path")
+    _ocr = obs_sub.add_parser("create", help="Create a note")
+    _ocr.add_argument("path", help="Note path")
+    _ocr.add_argument("--content", "-c", help="Note content")
+
+    # ── security ──
+    sec_p = sub.add_parser("security", help="Security posture", parents=[shared])
+    sec_sub = sec_p.add_subparsers(dest="action", metavar="ACTION")
+    sec_sub.add_parser("posture", help="Security posture overview")
+    sec_sub.add_parser("audit", help="Run security audit")
+
+    # ── vm ──
+    vm_p = sub.add_parser("vm", help="VM health", parents=[shared])
+    vm_sub = vm_p.add_subparsers(dest="action", metavar="ACTION")
+    vm_sub.add_parser("health", help="VM health status")
+    vm_sub.add_parser("containers", help="List containers")
+    vm_sub.add_parser("check", help="Run system check")
+
+    # ── onboarding ──
+    onb_p = sub.add_parser("onboarding", help="Onboarding", parents=[shared])
+    onb_sub = onb_p.add_subparsers(dest="action", metavar="ACTION")
+    onb_sub.add_parser("status", help="Onboarding status")
+    onb_sub.add_parser("readiness", help="System readiness")
+    onb_sub.add_parser("run", help="Run onboarding")
+
+    # ── prompt ──
+    prm_p = sub.add_parser("prompt", help="Prompt management", parents=[shared])
+    prm_sub = prm_p.add_subparsers(dest="action", metavar="ACTION")
+    prm_sub.add_parser("list", help="List prompts")
+    _ps = prm_sub.add_parser("show", help="Show prompt")
+    _ps.add_argument("id", help="Prompt ID")
+    _pcr = prm_sub.add_parser("create", help="Create prompt")
+    _pcr.add_argument("name", help="Prompt name")
+    _pcr.add_argument("--content", "-c", help="Content")
+    _pcr.add_argument("--description", "-d", help="Description")
+    _pu = prm_sub.add_parser("update", help="Update prompt")
+    _pu.add_argument("id", help="Prompt ID")
+    _pu.add_argument("--name", help="Name")
+    _pu.add_argument("--content", "-c", help="Content")
+    _pu.add_argument("--description", "-d", help="Description")
+    _pdl = prm_sub.add_parser("delete", help="Delete prompt")
+    _pdl.add_argument("id", help="Prompt ID")
+    _pv = prm_sub.add_parser("version", help="Create prompt version")
+    _pv.add_argument("id", help="Prompt ID")
+
+    # ── decision ──
+    dec_p = sub.add_parser("decision", help="Decision tracking", parents=[shared])
+    dec_sub = dec_p.add_subparsers(dest="action", metavar="ACTION")
+    dec_sub.add_parser("list", help="List decisions")
+    _ds = dec_sub.add_parser("show", help="Show decision")
+    _ds.add_argument("id", help="Decision ID")
+    _dc = dec_sub.add_parser("create", help="Create decision")
+    _dc.add_argument("title", help="Decision title")
+    _dc.add_argument("--context", "-c", help="Context")
+    _dc.add_argument("--outcome", "-o", help="Outcome")
+    _dc.add_argument("--description", "-d", help="Description")
+    _du = dec_sub.add_parser("update", help="Update decision")
+    _du.add_argument("id", help="Decision ID")
+    _du.add_argument("--title", help="Title")
+    _du.add_argument("--context", "-c", help="Context")
+    _du.add_argument("--outcome", "-o", help="Outcome")
+    _du.add_argument("--status", "-s", help="Status")
+    _du.add_argument("--description", "-d", help="Description")
+    _dd = dec_sub.add_parser("delete", help="Delete decision")
+    _dd.add_argument("id", help="Decision ID")
+
+    # ── clipboard ──
+    clp_p = sub.add_parser("clipboard", help="Clipboard", parents=[shared])
+    clp_sub = clp_p.add_subparsers(dest="action", metavar="ACTION")
+    clp_sub.add_parser("list", help="List items")
+    _clc = clp_sub.add_parser("create", help="Create item")
+    _clc.add_argument("content", help="Content")
+    _cld = clp_sub.add_parser("delete", help="Delete item")
+    _cld.add_argument("id", help="Item ID")
+    _clp = clp_sub.add_parser("pin", help="Pin item")
+    _clp.add_argument("id", help="Item ID")
+
+    # ── orchestrator ──
+    orc_p = sub.add_parser("orchestrator", help="Session orchestrator", parents=[shared])
+    orc_sub = orc_p.add_subparsers(dest="action", metavar="ACTION")
+    orc_sub.add_parser("list", help="List sessions")
+    _os = orc_sub.add_parser("show", help="Show session")
+    _os.add_argument("id", help="Session ID")
+    _osp = orc_sub.add_parser("spawn", help="Spawn session")
+    _osp.add_argument("objective", help="Session objective")
+    _osp.add_argument("--agent", "-a", help="Agent slug")
+    _osp.add_argument("--project", "-p", help="Project slug")
+    _ore = orc_sub.add_parser("resume", help="Resume session")
+    _ore.add_argument("id", help="Session ID")
+    _ok = orc_sub.add_parser("kill", help="Kill session")
+    _ok.add_argument("id", help="Session ID")
+    _ock = orc_sub.add_parser("check", help="Check session")
+    _ock.add_argument("id", help="Session ID")
+    orc_sub.add_parser("context", help="Orchestrator context")
+
+    # ── ingest ──
+    ing_p = sub.add_parser("ingest", help="Ingest jobs", parents=[shared])
+    ing_sub = ing_p.add_subparsers(dest="action", metavar="ACTION")
+    ing_sub.add_parser("list", help="List jobs")
+    _igs = ing_sub.add_parser("show", help="Show job")
+    _igs.add_argument("id", help="Job ID")
+    _igc = ing_sub.add_parser("create", help="Create job")
+    _igc.add_argument("source", help="Source identifier")
+    _igc.add_argument("--config", "-c", help="Config JSON")
+    _igu = ing_sub.add_parser("update", help="Update job")
+    _igu.add_argument("id", help="Job ID")
+    _igu.add_argument("--source", help="Source")
+    _igu.add_argument("--config", "-c", help="Config JSON")
+    _igu.add_argument("--status", "-s", help="Status")
+    _igd = ing_sub.add_parser("delete", help="Delete job")
+    _igd.add_argument("id", help="Job ID")
+
     return p
 
 
@@ -1918,6 +2936,244 @@ def main():
             cmd_tokens_summary(client, args)
         elif args.action == "budget":
             cmd_tokens_budget(client, args)
+
+    elif args.group == "contact":
+        if not args.action:
+            parser.parse_args(["contact", "--help"])
+        elif args.action == "list":
+            cmd_contact_list(client, args)
+        elif args.action == "show":
+            cmd_contact_show(client, args)
+        elif args.action == "create":
+            cmd_contact_create(client, args)
+        elif args.action == "update":
+            cmd_contact_update(client, args)
+        elif args.action == "delete":
+            cmd_contact_delete(client, args)
+
+    elif args.group == "finance":
+        if not args.action:
+            parser.parse_args(["finance", "--help"])
+        elif args.action == "summary":
+            cmd_finance_summary(client, args)
+        elif args.action == "list":
+            cmd_finance_list(client, args)
+        elif args.action == "show":
+            cmd_finance_show(client, args)
+        elif args.action == "create":
+            cmd_finance_create(client, args)
+        elif args.action == "update":
+            cmd_finance_update(client, args)
+        elif args.action == "delete":
+            cmd_finance_delete(client, args)
+
+    elif args.group == "invoice":
+        if not args.action:
+            parser.parse_args(["invoice", "--help"])
+        elif args.action == "list":
+            cmd_invoice_list(client, args)
+        elif args.action == "show":
+            cmd_invoice_show(client, args)
+        elif args.action == "create":
+            cmd_invoice_create(client, args)
+        elif args.action == "update":
+            cmd_invoice_update(client, args)
+        elif args.action == "delete":
+            cmd_invoice_delete(client, args)
+        elif args.action == "send":
+            cmd_invoice_send(client, args)
+        elif args.action == "mark-paid":
+            cmd_invoice_mark_paid(client, args)
+
+    elif args.group == "routine":
+        if not args.action:
+            parser.parse_args(["routine", "--help"])
+        elif args.action == "list":
+            cmd_routine_list(client, args)
+        elif args.action == "show":
+            cmd_routine_show(client, args)
+        elif args.action == "create":
+            cmd_routine_create(client, args)
+        elif args.action == "update":
+            cmd_routine_update(client, args)
+        elif args.action == "delete":
+            cmd_routine_delete(client, args)
+        elif args.action == "toggle":
+            cmd_routine_toggle(client, args)
+        elif args.action == "run":
+            cmd_routine_run(client, args)
+
+    elif args.group == "meeting":
+        if not args.action:
+            parser.parse_args(["meeting", "--help"])
+        elif args.action == "list":
+            cmd_meeting_list(client, args)
+        elif args.action == "show":
+            cmd_meeting_show(client, args)
+        elif args.action == "create":
+            cmd_meeting_create(client, args)
+        elif args.action == "update":
+            cmd_meeting_update(client, args)
+        elif args.action == "delete":
+            cmd_meeting_delete(client, args)
+        elif args.action == "upcoming":
+            cmd_meeting_upcoming(client, args)
+
+    elif args.group == "temporal":
+        if not args.action:
+            parser.parse_args(["temporal", "--help"])
+        elif args.action == "rhythm":
+            cmd_temporal_rhythm(client, args)
+        elif args.action == "now":
+            cmd_temporal_now(client, args)
+        elif args.action == "best-time":
+            cmd_temporal_best_time(client, args)
+        elif args.action == "log":
+            cmd_temporal_log(client, args)
+        elif args.action == "history":
+            cmd_temporal_history(client, args)
+
+    elif args.group == "intelligence":
+        if not args.action:
+            parser.parse_args(["intelligence", "--help"])
+        elif args.action == "log-outcome":
+            cmd_intelligence_log_outcome(client, args)
+        elif args.action == "log-mcp":
+            cmd_intelligence_log_mcp(client, args)
+        elif args.action == "git-events":
+            cmd_intelligence_git_events(client, args)
+        elif args.action == "suggestions":
+            cmd_intelligence_suggestions(client, args)
+        elif args.action == "apply":
+            cmd_intelligence_apply(client, args)
+        elif args.action == "sync-status":
+            cmd_intelligence_sync_status(client, args)
+        elif args.action == "scan":
+            cmd_intelligence_scan(client, args)
+
+    elif args.group == "pipeline":
+        if not args.action:
+            parser.parse_args(["pipeline", "--help"])
+        elif args.action == "stats":
+            cmd_pipeline_stats(client, args)
+        elif args.action == "bottlenecks":
+            cmd_pipeline_bottlenecks(client, args)
+        elif args.action == "throughput":
+            cmd_pipeline_throughput(client, args)
+
+    elif args.group == "obsidian":
+        if not args.action:
+            parser.parse_args(["obsidian", "--help"])
+        elif args.action == "list":
+            cmd_obsidian_list(client, args)
+        elif args.action == "search":
+            cmd_obsidian_search(client, args)
+        elif args.action == "read":
+            cmd_obsidian_read(client, args)
+        elif args.action == "create":
+            cmd_obsidian_create(client, args)
+
+    elif args.group == "security":
+        if not args.action:
+            parser.parse_args(["security", "--help"])
+        elif args.action == "posture":
+            cmd_security_posture(client, args)
+        elif args.action == "audit":
+            cmd_security_audit(client, args)
+
+    elif args.group == "vm":
+        if not args.action:
+            parser.parse_args(["vm", "--help"])
+        elif args.action == "health":
+            cmd_vm_health(client, args)
+        elif args.action == "containers":
+            cmd_vm_containers(client, args)
+        elif args.action == "check":
+            cmd_vm_check(client, args)
+
+    elif args.group == "onboarding":
+        if not args.action:
+            parser.parse_args(["onboarding", "--help"])
+        elif args.action == "status":
+            cmd_onboarding_status(client, args)
+        elif args.action == "readiness":
+            cmd_onboarding_readiness(client, args)
+        elif args.action == "run":
+            cmd_onboarding_run(client, args)
+
+    elif args.group == "prompt":
+        if not args.action:
+            parser.parse_args(["prompt", "--help"])
+        elif args.action == "list":
+            cmd_prompt_list(client, args)
+        elif args.action == "show":
+            cmd_prompt_show(client, args)
+        elif args.action == "create":
+            cmd_prompt_create(client, args)
+        elif args.action == "update":
+            cmd_prompt_update(client, args)
+        elif args.action == "delete":
+            cmd_prompt_delete(client, args)
+        elif args.action == "version":
+            cmd_prompt_version(client, args)
+
+    elif args.group == "decision":
+        if not args.action:
+            parser.parse_args(["decision", "--help"])
+        elif args.action == "list":
+            cmd_decision_list(client, args)
+        elif args.action == "show":
+            cmd_decision_show(client, args)
+        elif args.action == "create":
+            cmd_decision_create(client, args)
+        elif args.action == "update":
+            cmd_decision_update(client, args)
+        elif args.action == "delete":
+            cmd_decision_delete(client, args)
+
+    elif args.group == "clipboard":
+        if not args.action:
+            parser.parse_args(["clipboard", "--help"])
+        elif args.action == "list":
+            cmd_clipboard_list(client, args)
+        elif args.action == "create":
+            cmd_clipboard_create(client, args)
+        elif args.action == "delete":
+            cmd_clipboard_delete(client, args)
+        elif args.action == "pin":
+            cmd_clipboard_pin(client, args)
+
+    elif args.group == "orchestrator":
+        if not args.action:
+            parser.parse_args(["orchestrator", "--help"])
+        elif args.action == "list":
+            cmd_orchestrator_list(client, args)
+        elif args.action == "show":
+            cmd_orchestrator_show(client, args)
+        elif args.action == "spawn":
+            cmd_orchestrator_spawn(client, args)
+        elif args.action == "resume":
+            cmd_orchestrator_resume(client, args)
+        elif args.action == "kill":
+            cmd_orchestrator_kill(client, args)
+        elif args.action == "check":
+            cmd_orchestrator_check(client, args)
+        elif args.action == "context":
+            cmd_orchestrator_context(client, args)
+
+    elif args.group == "ingest":
+        if not args.action:
+            parser.parse_args(["ingest", "--help"])
+        elif args.action == "list":
+            cmd_ingest_list(client, args)
+        elif args.action == "show":
+            cmd_ingest_show(client, args)
+        elif args.action == "create":
+            cmd_ingest_create(client, args)
+        elif args.action == "update":
+            cmd_ingest_update(client, args)
+        elif args.action == "delete":
+            cmd_ingest_delete(client, args)
 
     elif args.group == "watch":
         cmd_watch(client, args)
