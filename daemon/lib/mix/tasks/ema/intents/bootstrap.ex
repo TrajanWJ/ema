@@ -111,12 +111,29 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
     """)
 
     SQL.query!(Repo, "CREATE UNIQUE INDEX IF NOT EXISTS intents_slug_index ON intents(slug)")
-    SQL.query!(Repo, "CREATE UNIQUE INDEX IF NOT EXISTS intents_source_fingerprint_index ON intents(source_fingerprint) WHERE source_fingerprint IS NOT NULL")
+
+    SQL.query!(
+      Repo,
+      "CREATE UNIQUE INDEX IF NOT EXISTS intents_source_fingerprint_index ON intents(source_fingerprint) WHERE source_fingerprint IS NOT NULL"
+    )
+
     SQL.query!(Repo, "CREATE INDEX IF NOT EXISTS intents_parent_id_index ON intents(parent_id)")
     SQL.query!(Repo, "CREATE INDEX IF NOT EXISTS intents_project_id_index ON intents(project_id)")
-    SQL.query!(Repo, "CREATE INDEX IF NOT EXISTS intent_links_intent_id_index ON intent_links(intent_id)")
-    SQL.query!(Repo, "CREATE UNIQUE INDEX IF NOT EXISTS intent_links_unique_triple ON intent_links(intent_id, linkable_type, linkable_id)")
-    SQL.query!(Repo, "CREATE INDEX IF NOT EXISTS intent_events_intent_id_index ON intent_events(intent_id)")
+
+    SQL.query!(
+      Repo,
+      "CREATE INDEX IF NOT EXISTS intent_links_intent_id_index ON intent_links(intent_id)"
+    )
+
+    SQL.query!(
+      Repo,
+      "CREATE UNIQUE INDEX IF NOT EXISTS intent_links_unique_triple ON intent_links(intent_id, linkable_type, linkable_id)"
+    )
+
+    SQL.query!(
+      Repo,
+      "CREATE INDEX IF NOT EXISTS intent_events_intent_id_index ON intent_events(intent_id)"
+    )
   end
 
   defp import_legacy_nodes do
@@ -134,11 +151,12 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
         source_fingerprint: "legacy_node:#{node.id}",
         status: map_legacy_status(node.status),
         provenance_class: "high",
-        metadata: Jason.encode!(%{
-          imported_from: "intent_nodes",
-          linked_wiki_path: node.linked_wiki_path,
-          linked_task_ids: decode_json(node.linked_task_ids, [])
-        })
+        metadata:
+          Jason.encode!(%{
+            imported_from: "intent_nodes",
+            linked_wiki_path: node.linked_wiki_path,
+            linked_task_ids: decode_json(node.linked_task_ids, [])
+          })
       }
 
       case upsert_intent(attrs) do
@@ -164,10 +182,11 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
         source_fingerprint: "intent_folder:#{slug}",
         status: read_folder_status(dir),
         provenance_class: "medium",
-        metadata: Jason.encode!(%{
-          imported_from: "intent_folder",
-          path: dir
-        })
+        metadata:
+          Jason.encode!(%{
+            imported_from: "intent_folder",
+            path: dir
+          })
       }
 
       bump_stats(acc, upsert_intent(attrs))
@@ -179,7 +198,14 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
       nil ->
         case Intents.create_intent(attrs) do
           {:ok, intent} ->
-            _ = Intents.emit_event(intent.id, "imported", %{source: attrs.source_fingerprint}, "migration")
+            _ =
+              Intents.emit_event(
+                intent.id,
+                "imported",
+                %{source: attrs.source_fingerprint},
+                "migration"
+              )
+
             :created
 
           {:error, reason} ->
@@ -255,6 +281,7 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
   end
 
   defp decode_json(nil, fallback), do: fallback
+
   defp decode_json(raw, fallback) do
     case Jason.decode(raw) do
       {:ok, decoded} -> decoded
@@ -269,6 +296,7 @@ defmodule Mix.Tasks.Ema.Intents.Bootstrap do
   defp humanize_slug(slug), do: slug |> String.replace("-", " ") |> String.trim()
 
   defp normalize_parent_id(nil), do: nil
+
   defp normalize_parent_id(parent_id) do
     if Intents.get_intent(parent_id), do: parent_id, else: nil
   rescue

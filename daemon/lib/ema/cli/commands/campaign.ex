@@ -37,8 +37,11 @@ defmodule Ema.CLI.Commands.Campaign do
         params = Helpers.compact_keyword([{:project_id, parsed.options[:project]}])
 
         case transport.get("/campaigns", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "campaigns"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "campaigns"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -56,9 +59,14 @@ defmodule Ema.CLI.Commands.Campaign do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/campaigns/#{id}") do
-          {:ok, body} -> Output.detail(Helpers.extract_record(body, "campaign"), json: opts[:json])
-          {:error, :not_found} -> Output.error("Campaign #{id} not found")
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.detail(Helpers.extract_record(body, "campaign"), json: opts[:json])
+
+          {:error, :not_found} ->
+            Output.error("Campaign #{id} not found")
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -68,11 +76,12 @@ defmodule Ema.CLI.Commands.Campaign do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:name, name},
-          {:description, parsed.options[:description]},
-          {:project_id, parsed.options[:project]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:name, name},
+            {:description, parsed.options[:description]},
+            {:project_id, parsed.options[:project]}
+          ])
 
         case transport.call(Ema.Campaigns, :create_campaign, [attrs]) do
           {:ok, campaign} ->
@@ -84,11 +93,14 @@ defmodule Ema.CLI.Commands.Campaign do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"campaign" => Helpers.compact_map([
-          {"name", name},
-          {"description", parsed.options[:description]},
-          {"project_id", parsed.options[:project]}
-        ])}
+        body = %{
+          "campaign" =>
+            Helpers.compact_map([
+              {"name", name},
+              {"description", parsed.options[:description]},
+              {"project_id", parsed.options[:project]}
+            ])
+        }
 
         case transport.post("/campaigns", body) do
           {:ok, resp} ->
@@ -145,8 +157,11 @@ defmodule Ema.CLI.Commands.Campaign do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/campaigns/#{id}/runs") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "runs"), @run_columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "runs"), @run_columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

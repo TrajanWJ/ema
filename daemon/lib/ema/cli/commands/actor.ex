@@ -123,7 +123,11 @@ defmodule Ema.CLI.Commands.Actor do
 
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.Actors, :transition_phase, [actor, parsed.args.phase, parsed.options[:reason]]) do
+          case transport.call(Ema.Actors, :transition_phase, [
+                 actor,
+                 parsed.args.phase,
+                 parsed.options[:reason]
+               ]) do
             {:ok, updated} ->
               Output.success("#{updated.slug}: #{updated.phase}")
               if opts[:json], do: Output.json(updated)
@@ -133,7 +137,11 @@ defmodule Ema.CLI.Commands.Actor do
           end
 
         Ema.CLI.Transport.Http ->
-          body = Helpers.compact_map([{"phase", parsed.args.phase}, {"reason", parsed.options[:reason]}])
+          body =
+            Helpers.compact_map([
+              {"phase", parsed.args.phase},
+              {"reason", parsed.options[:reason]}
+            ])
 
           case transport.post("/actors/#{actor_id}/transition", body) do
             {:ok, resp} ->
@@ -163,8 +171,11 @@ defmodule Ema.CLI.Commands.Actor do
 
         Ema.CLI.Transport.Http ->
           case transport.get("/actors/#{actor_id}/commands") do
-            {:ok, body} -> Output.render(body["commands"] || [], @command_columns, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+            {:ok, body} ->
+              Output.render(body["commands"] || [], @command_columns, json: opts[:json])
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
       end
     else
@@ -185,8 +196,15 @@ defmodule Ema.CLI.Commands.Actor do
 
         Ema.CLI.Transport.Http ->
           case transport.get("/actors/#{actor_id}/phases") do
-            {:ok, body} -> Output.render(body["transitions"] || body["phase_transitions"] || [], @phase_columns, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+            {:ok, body} ->
+              Output.render(
+                body["transitions"] || body["phase_transitions"] || [],
+                @phase_columns,
+                json: opts[:json]
+              )
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
       end
     else
@@ -218,7 +236,8 @@ defmodule Ema.CLI.Commands.Actor do
         end
 
       Ema.CLI.Transport.Http ->
-        body = attrs |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end) |> Map.delete("actor_id")
+        body =
+          attrs |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end) |> Map.delete("actor_id")
 
         case transport.post("/actors/#{parsed.args.id}/commands", body) do
           {:ok, resp} ->

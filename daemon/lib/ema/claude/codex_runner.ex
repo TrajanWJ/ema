@@ -104,7 +104,10 @@ defmodule Ema.Claude.CodexRunner do
   end
 
   defp extract_result_text(output) do
-    case Regex.named_captures(~r/\ncodex\s*\n(?<body>.*?)(?:\ntokens used\s*\n.*)?$/s, "\n" <> output) do
+    case Regex.named_captures(
+           ~r/\ncodex\s*\n(?<body>.*?)(?:\ntokens used\s*\n.*)?$/s,
+           "\n" <> output
+         ) do
       %{"body" => body} ->
         body
         |> String.trim()

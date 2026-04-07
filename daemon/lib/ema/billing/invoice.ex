@@ -24,8 +24,17 @@ defmodule Ema.Billing.Invoice do
   def changeset(invoice, attrs) do
     invoice
     |> cast(attrs, [
-      :id, :client_id, :number, :status, :items, :subtotal,
-      :tax_rate, :total, :due_date, :paid_at, :notes
+      :id,
+      :client_id,
+      :number,
+      :status,
+      :items,
+      :subtotal,
+      :tax_rate,
+      :total,
+      :due_date,
+      :paid_at,
+      :notes
     ])
     |> validate_required([:id, :number])
     |> validate_inclusion(:status, @valid_statuses)

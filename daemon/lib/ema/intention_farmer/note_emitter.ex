@@ -40,7 +40,10 @@ defmodule Ema.IntentionFarmer.NoteEmitter do
           {:ok, note_path}
 
         {:error, reason} = error ->
-          Logger.warning("[IntentionFarmer.NoteEmitter] Failed to emit note for #{session.id}: #{inspect(reason)}")
+          Logger.warning(
+            "[IntentionFarmer.NoteEmitter] Failed to emit note for #{session.id}: #{inspect(reason)}"
+          )
+
           error
       end
     end

@@ -10,7 +10,7 @@ defmodule Ema.Clipboard do
 
     Clip
     |> where([c], is_nil(c.expires_at) or c.expires_at > ^now)
-    |> order_by([c], [desc: c.pinned, desc: c.inserted_at])
+    |> order_by([c], desc: c.pinned, desc: c.inserted_at)
     |> Repo.all()
   end
 

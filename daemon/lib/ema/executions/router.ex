@@ -105,12 +105,30 @@ defmodule Ema.Executions.Router do
   def mode_write_files(_, intent_path), do: ["#{intent_path}/result.md"]
 
   @spec mode_system_prompt(String.t()) :: String.t()
-  def mode_system_prompt("research"), do: "You are a researcher. Extract durable principles, define minimal runtime models, list unresolved questions, identify smallest viable implementation paths."
-  def mode_system_prompt("outline"), do: "You are an architect. Define filesystem structure, runtime schema, event flows, app boundaries, and build order."
-  def mode_system_prompt("implement"), do: "You are an implementer. Write complete, working code. Follow existing patterns. No stubs."
-  def mode_system_prompt("review"), do: "You are a reviewer. Assess correctness, identify edge cases, verify constraint adherence. Be specific."
-  def mode_system_prompt("refactor"), do: "You are a refactorer. Simplify without changing behavior. Remove duplication. Improve clarity."
-  def mode_system_prompt("harvest"), do: "You are a harvester. Extract reusable patterns, document learnings, update knowledge base."
+  def mode_system_prompt("research"),
+    do:
+      "You are a researcher. Extract durable principles, define minimal runtime models, list unresolved questions, identify smallest viable implementation paths."
+
+  def mode_system_prompt("outline"),
+    do:
+      "You are an architect. Define filesystem structure, runtime schema, event flows, app boundaries, and build order."
+
+  def mode_system_prompt("implement"),
+    do:
+      "You are an implementer. Write complete, working code. Follow existing patterns. No stubs."
+
+  def mode_system_prompt("review"),
+    do:
+      "You are a reviewer. Assess correctness, identify edge cases, verify constraint adherence. Be specific."
+
+  def mode_system_prompt("refactor"),
+    do:
+      "You are a refactorer. Simplify without changing behavior. Remove duplication. Improve clarity."
+
+  def mode_system_prompt("harvest"),
+    do:
+      "You are a harvester. Extract reusable patterns, document learnings, update knowledge base."
+
   def mode_system_prompt(_), do: ""
 
   @spec infer_mode_from_text(String.t()) :: String.t()

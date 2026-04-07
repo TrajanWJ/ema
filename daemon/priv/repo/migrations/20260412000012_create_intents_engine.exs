@@ -33,7 +33,11 @@ defmodule Ema.Repo.Migrations.CreateIntentsEngine do
     end
 
     create_if_not_exists unique_index(:intents, [:slug])
-    create_if_not_exists unique_index(:intents, [:source_fingerprint], where: "source_fingerprint IS NOT NULL")
+
+    create_if_not_exists unique_index(:intents, [:source_fingerprint],
+                           where: "source_fingerprint IS NOT NULL"
+                         )
+
     create_if_not_exists index(:intents, [:parent_id])
     create_if_not_exists index(:intents, [:project_id])
     create_if_not_exists index(:intents, [:level])
@@ -56,9 +60,10 @@ defmodule Ema.Repo.Migrations.CreateIntentsEngine do
 
     create_if_not_exists index(:intent_links, [:intent_id])
     create_if_not_exists index(:intent_links, [:linkable_type, :linkable_id])
+
     create_if_not_exists unique_index(:intent_links, [:intent_id, :linkable_type, :linkable_id],
-      name: :intent_links_unique_triple
-    )
+                           name: :intent_links_unique_triple
+                         )
 
     # ── Canonical: intent_events (lineage spine) ──────────────────
     create_if_not_exists table(:intent_events, primary_key: false) do

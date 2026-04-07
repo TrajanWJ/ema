@@ -24,8 +24,11 @@ defmodule Ema.CLI.Commands.Tag do
           params = Helpers.compact_keyword(entity_type: entity_type, entity_id: entity_id)
 
           case transport.get("/tags", params: params) do
-            {:ok, body} -> Output.render(Helpers.extract_list(body, "tags"), @columns, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+            {:ok, body} ->
+              Output.render(Helpers.extract_list(body, "tags"), @columns, json: opts[:json])
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
       end
     else
@@ -40,7 +43,13 @@ defmodule Ema.CLI.Commands.Tag do
     with {:ok, {entity_type, entity_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.Tags, :tag, [entity_type, entity_id, parsed.args.tag, actor_id, namespace]) do
+          case transport.call(Ema.Tags, :tag, [
+                 entity_type,
+                 entity_id,
+                 parsed.args.tag,
+                 actor_id,
+                 namespace
+               ]) do
             {:ok, tag} ->
               Output.success("Tagged #{entity_type}:#{entity_id} with #{parsed.args.tag}")
               if opts[:json], do: Output.json(tag)
@@ -78,7 +87,12 @@ defmodule Ema.CLI.Commands.Tag do
     with {:ok, {entity_type, entity_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.Tags, :untag, [entity_type, entity_id, parsed.args.tag, actor_id]) do
+          case transport.call(Ema.Tags, :untag, [
+                 entity_type,
+                 entity_id,
+                 parsed.args.tag,
+                 actor_id
+               ]) do
             {:ok, result} ->
               Output.success("Removed tag #{parsed.args.tag} from #{entity_type}:#{entity_id}")
               if opts[:json], do: Output.json(result)

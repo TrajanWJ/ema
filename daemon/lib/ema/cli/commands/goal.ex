@@ -17,13 +17,14 @@ defmodule Ema.CLI.Commands.Goal do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:timeframe, parsed.options[:timeframe]},
-          {:project_id, parsed.options[:project]},
-          {:space_id, parsed.options[:space]},
-          {:actor_id, parsed.options[:actor]}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:timeframe, parsed.options[:timeframe]},
+            {:project_id, parsed.options[:project]},
+            {:space_id, parsed.options[:space]},
+            {:actor_id, parsed.options[:actor]}
+          ])
 
         case transport.call(Ema.Goals, :list_goals, [filter]) do
           {:ok, goals} -> Output.render(goals, @columns, json: opts[:json])
@@ -31,17 +32,21 @@ defmodule Ema.CLI.Commands.Goal do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:timeframe, parsed.options[:timeframe]},
-          {:project_id, parsed.options[:project]},
-          {:space_id, parsed.options[:space]},
-          {:actor_id, parsed.options[:actor]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:timeframe, parsed.options[:timeframe]},
+            {:project_id, parsed.options[:project]},
+            {:space_id, parsed.options[:space]},
+            {:actor_id, parsed.options[:actor]}
+          ])
 
         case transport.get("/goals", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "goals"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "goals"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -71,16 +76,17 @@ defmodule Ema.CLI.Commands.Goal do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:title, title},
-          {:description, parsed.options[:description]},
-          {:status, parsed.options[:status] || "active"},
-          {:timeframe, parsed.options[:timeframe]},
-          {:parent_id, parsed.options[:parent]},
-          {:project_id, parsed.options[:project]},
-          {:space_id, parsed.options[:space]},
-          {:actor_id, parsed.options[:actor]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:title, title},
+            {:description, parsed.options[:description]},
+            {:status, parsed.options[:status] || "active"},
+            {:timeframe, parsed.options[:timeframe]},
+            {:parent_id, parsed.options[:parent]},
+            {:project_id, parsed.options[:project]},
+            {:space_id, parsed.options[:space]},
+            {:actor_id, parsed.options[:actor]}
+          ])
 
         case transport.call(Ema.Goals, :create_goal, [attrs]) do
           {:ok, goal} ->
@@ -92,16 +98,19 @@ defmodule Ema.CLI.Commands.Goal do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"goal" => Helpers.compact_map([
-          {"title", title},
-          {"description", parsed.options[:description]},
-          {"status", parsed.options[:status] || "active"},
-          {"timeframe", parsed.options[:timeframe]},
-          {"parent_id", parsed.options[:parent]},
-          {"project_id", parsed.options[:project]},
-          {"space_id", parsed.options[:space]},
-          {"actor_id", parsed.options[:actor]}
-        ])}
+        body = %{
+          "goal" =>
+            Helpers.compact_map([
+              {"title", title},
+              {"description", parsed.options[:description]},
+              {"status", parsed.options[:status] || "active"},
+              {"timeframe", parsed.options[:timeframe]},
+              {"parent_id", parsed.options[:parent]},
+              {"project_id", parsed.options[:project]},
+              {"space_id", parsed.options[:space]},
+              {"actor_id", parsed.options[:actor]}
+            ])
+        }
 
         case transport.post("/goals", body) do
           {:ok, resp} ->
@@ -120,12 +129,13 @@ defmodule Ema.CLI.Commands.Goal do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:title, parsed.options[:title]},
-          {:status, parsed.options[:status]},
-          {:description, parsed.options[:description]},
-          {:timeframe, parsed.options[:timeframe]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:title, parsed.options[:title]},
+            {:status, parsed.options[:status]},
+            {:description, parsed.options[:description]},
+            {:timeframe, parsed.options[:timeframe]}
+          ])
 
         case transport.call(Ema.Goals, :update_goal, [id, attrs]) do
           {:ok, goal} ->
@@ -137,12 +147,15 @@ defmodule Ema.CLI.Commands.Goal do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"goal" => Helpers.compact_map([
-          {"title", parsed.options[:title]},
-          {"status", parsed.options[:status]},
-          {"description", parsed.options[:description]},
-          {"timeframe", parsed.options[:timeframe]}
-        ])}
+        body = %{
+          "goal" =>
+            Helpers.compact_map([
+              {"title", parsed.options[:title]},
+              {"status", parsed.options[:status]},
+              {"description", parsed.options[:description]},
+              {"timeframe", parsed.options[:timeframe]}
+            ])
+        }
 
         case transport.put("/goals/#{id}", body) do
           {:ok, _} -> Output.success("Updated goal ##{id}")

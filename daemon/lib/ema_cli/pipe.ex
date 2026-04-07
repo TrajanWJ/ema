@@ -1,7 +1,8 @@
 defmodule EmaCli.Pipe do
   @moduledoc "CLI commands for Pipes automation"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("list", opts) do
     case api_get("/pipes") do
@@ -80,5 +81,8 @@ defmodule EmaCli.Pipe do
   end
 
   def run(unknown, _),
-    do: error("Unknown pipe subcommand: #{unknown}. Try: list, show, create, toggle, catalog, history")
+    do:
+      error(
+        "Unknown pipe subcommand: #{unknown}. Try: list, show, create, toggle, catalog, history"
+      )
 end

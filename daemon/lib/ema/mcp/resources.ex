@@ -34,13 +34,15 @@ defmodule Ema.MCP.Resources do
       %{
         "uri" => "ema://tasks/pending",
         "name" => "Pending Tasks",
-        "description" => "Tasks that are blocked or waiting for action, enriched with project and goal context.",
+        "description" =>
+          "Tasks that are blocked or waiting for action, enriched with project and goal context.",
         "mimeType" => "application/json"
       },
       %{
         "uri" => "ema://proposals/recent",
         "name" => "Recent Approved Proposals",
-        "description" => "The last 5 approved proposals — use these as quality examples when generating new proposals.",
+        "description" =>
+          "The last 5 approved proposals — use these as quality examples when generating new proposals.",
         "mimeType" => "application/json"
       },
       %{
@@ -58,25 +60,29 @@ defmodule Ema.MCP.Resources do
       %{
         "uri" => "ema://vault/search",
         "name" => "Vault Search",
-        "description" => "Semantic search over the EMA knowledge vault. Add ?q=your+query to the URI.",
+        "description" =>
+          "Semantic search over the EMA knowledge vault. Add ?q=your+query to the URI.",
         "mimeType" => "application/json"
       },
       %{
         "uri" => "ema://intents/active",
         "name" => "Active Intents",
-        "description" => "Active intents from the Intent Engine with context — the current semantic truth of what's in progress.",
+        "description" =>
+          "Active intents from the Intent Engine with context — the current semantic truth of what's in progress.",
         "mimeType" => "application/json"
       },
       %{
         "uri" => "ema://intents/tree",
         "name" => "Intent Tree",
-        "description" => "Full intent hierarchy as a nested tree. Add ?project_id=X to filter by project.",
+        "description" =>
+          "Full intent hierarchy as a nested tree. Add ?project_id=X to filter by project.",
         "mimeType" => "application/json"
       },
       %{
         "uri" => "ema://workspace/briefing",
         "name" => "Workspace Briefing",
-        "description" => "Agent workspace briefing — phase status, sprint backlog, assigned intents. Add ?actor=<slug>.",
+        "description" =>
+          "Agent workspace briefing — phase status, sprint backlog, assigned intents. Add ?actor=<slug>.",
         "mimeType" => "application/json"
       }
     ]
@@ -91,7 +97,10 @@ defmodule Ema.MCP.Resources do
 
     cond do
       is_nil(ref) or ref == "" ->
-        degraded_response("context/project", "Query parameter 'id' is required. Use ema://context/project?id=ema")
+        degraded_response(
+          "context/project",
+          "Query parameter 'id' is required. Use ema://context/project?id=ema"
+        )
 
       true ->
         with {:ok, project_id} <- resolve_project_id(ref) do
@@ -128,7 +137,10 @@ defmodule Ema.MCP.Resources do
     if query && query != "" do
       fetch_resource("/api/vectors/query?q=#{URI.encode(query)}&k=5", "vault/search")
     else
-      degraded_response("vault/search", "Query parameter 'q' is required. Use ema://vault/search?q=your+query")
+      degraded_response(
+        "vault/search",
+        "Query parameter 'q' is required. Use ema://vault/search?q=your+query"
+      )
     end
   end
 
@@ -153,7 +165,9 @@ defmodule Ema.MCP.Resources do
     actor_slug = parse_query_param(query_string, "actor") || "trajan"
 
     briefing = Ema.MCP.Orient.briefing(:workspace, actor_slug)
-    content = Jason.encode!(%{resource: "workspace/briefing", data: briefing, fetched_at: utc_now()})
+
+    content =
+      Jason.encode!(%{resource: "workspace/briefing", data: briefing, fetched_at: utc_now()})
 
     %{
       "contents" => [
@@ -181,7 +195,8 @@ defmodule Ema.MCP.Resources do
           p -> {:ok, p["id"]}
         end
 
-      _ -> {:error, :lookup_failed}
+      _ ->
+        {:error, :lookup_failed}
     end
   end
 
@@ -191,7 +206,16 @@ defmodule Ema.MCP.Resources do
     case Req.get(url, receive_timeout: @request_timeout, headers: [{"x-mcp-internal", "true"}]) do
       {:ok, %{status: 200, body: body}} ->
         content = Jason.encode!(%{resource: resource_name, data: body, fetched_at: utc_now()})
-        %{"contents" => [%{"uri" => "ema://#{resource_name}", "mimeType" => "application/json", "text" => content}]}
+
+        %{
+          "contents" => [
+            %{
+              "uri" => "ema://#{resource_name}",
+              "mimeType" => "application/json",
+              "text" => content
+            }
+          ]
+        }
 
       {:ok, %{status: status}} ->
         Logger.warning("[MCP Resources] #{resource_name} returned HTTP #{status}")
@@ -204,8 +228,20 @@ defmodule Ema.MCP.Resources do
   end
 
   defp degraded_response(resource_name, message) do
-    content = Jason.encode!(%{resource: resource_name, degraded: true, message: message, data: [], fetched_at: utc_now()})
-    %{"contents" => [%{"uri" => "ema://#{resource_name}", "mimeType" => "application/json", "text" => content}]}
+    content =
+      Jason.encode!(%{
+        resource: resource_name,
+        degraded: true,
+        message: message,
+        data: [],
+        fetched_at: utc_now()
+      })
+
+    %{
+      "contents" => [
+        %{"uri" => "ema://#{resource_name}", "mimeType" => "application/json", "text" => content}
+      ]
+    }
   end
 
   defp parse_query_param(query_string, param) do

@@ -15,11 +15,12 @@ defmodule Ema.CLI.Commands.Session do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:status, parsed.options[:status]},
-          {:limit, parsed.options[:limit] || 20}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:status, parsed.options[:status]},
+            {:limit, parsed.options[:limit] || 20}
+          ])
 
         case transport.call(Ema.ClaudeSessions, :list_sessions, [filter]) do
           {:ok, sessions} -> Output.render(sessions, @columns, json: opts[:json])
@@ -27,15 +28,19 @@ defmodule Ema.CLI.Commands.Session do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:status, parsed.options[:status]},
-          {:limit, parsed.options[:limit]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:status, parsed.options[:status]},
+            {:limit, parsed.options[:limit]}
+          ])
 
         case transport.get("/claude-sessions", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -50,8 +55,11 @@ defmodule Ema.CLI.Commands.Session do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/sessions/active") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -145,12 +153,13 @@ defmodule Ema.CLI.Commands.Session do
         end
 
       Ema.CLI.Transport.Http ->
-        body = Helpers.compact_map([
-          {"prompt", prompt},
-          {"project_slug", parsed.options[:project]},
-          {"task_id", parsed.options[:task]},
-          {"model", parsed.options[:model]}
-        ])
+        body =
+          Helpers.compact_map([
+            {"prompt", prompt},
+            {"project_slug", parsed.options[:project]},
+            {"task_id", parsed.options[:task]},
+            {"model", parsed.options[:model]}
+          ])
 
         case transport.post("/orchestrator/sessions/spawn", body) do
           {:ok, resp} ->
@@ -237,6 +246,7 @@ defmodule Ema.CLI.Commands.Session do
     case Ema.CLI.Transport.Http.get("/orchestrator/sessions") do
       {:ok, body} ->
         sessions = Helpers.extract_list(body, "sessions")
+
         all_cols = [
           {"ID", "id"},
           {"Type", "type"},
@@ -244,6 +254,7 @@ defmodule Ema.CLI.Commands.Session do
           {"Project", "project_path"},
           {"Live", "live"}
         ]
+
         Output.render(sessions, all_cols, json: opts[:json])
 
       {:error, reason} ->

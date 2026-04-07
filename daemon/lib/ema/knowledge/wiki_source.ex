@@ -22,7 +22,16 @@ defmodule Ema.Knowledge.WikiSource do
 
   def changeset(source, attrs) do
     source
-    |> cast(attrs, [:id, :path, :title, :source_type, :space_key, :project_key, :checksum, :metadata])
+    |> cast(attrs, [
+      :id,
+      :path,
+      :title,
+      :source_type,
+      :space_key,
+      :project_key,
+      :checksum,
+      :metadata
+    ])
     |> validate_required([:id, :path, :title])
     |> validate_inclusion(:source_type, @valid_source_types)
     |> unique_constraint(:path)

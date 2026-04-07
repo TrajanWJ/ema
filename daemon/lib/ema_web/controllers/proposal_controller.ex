@@ -34,6 +34,7 @@ defmodule EmaWeb.ProposalController do
     case Proposals.create_proposal(attrs) do
       {:ok, proposal} ->
         conn |> put_status(:created) |> json(%{proposal: serialize_proposal(proposal)})
+
       {:error, changeset} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(changeset.errors)})
     end
@@ -284,6 +285,7 @@ defmodule EmaWeb.ProposalController do
 
   # Resolve project slug or name to actual project ID
   defp resolve_project_id(nil), do: nil
+
   defp resolve_project_id(ref) do
     case Ema.Projects.get_project(ref) do
       nil ->
@@ -291,7 +293,9 @@ defmodule EmaWeb.ProposalController do
           nil -> nil
           project -> project.id
         end
-      project -> project.id
+
+      project ->
+        project.id
     end
   end
 end

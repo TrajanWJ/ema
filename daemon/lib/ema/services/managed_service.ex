@@ -24,7 +24,17 @@ defmodule Ema.Services.ManagedService do
 
   def changeset(service, attrs) do
     service
-    |> cast(attrs, [:id, :name, :type, :command, :port, :health_url, :status, :auto_start, :config])
+    |> cast(attrs, [
+      :id,
+      :name,
+      :type,
+      :command,
+      :port,
+      :health_url,
+      :status,
+      :auto_start,
+      :config
+    ])
     |> validate_required([:id, :name, :type])
     |> validate_inclusion(:type, @valid_types)
     |> validate_inclusion(:status, @valid_statuses)

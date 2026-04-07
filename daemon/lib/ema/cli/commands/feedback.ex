@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.Feedback do
 
   def handle([:list], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/feedback") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "feedback"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "feedback"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 
@@ -20,10 +23,11 @@ defmodule Ema.CLI.Commands.Feedback do
   end
 
   def handle([:emit], parsed, _transport, _opts) do
-    body = Helpers.compact_map([
-      {"message", parsed.args.message},
-      {"type", parsed.options[:type] || "info"}
-    ])
+    body =
+      Helpers.compact_map([
+        {"message", parsed.args.message},
+        {"type", parsed.options[:type] || "info"}
+      ])
 
     case Ema.CLI.Transport.Http.post("/feedback/emit", body) do
       {:ok, _} -> Output.success("Feedback emitted")

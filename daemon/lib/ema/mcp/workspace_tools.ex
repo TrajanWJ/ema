@@ -21,100 +21,175 @@ defmodule Ema.MCP.WorkspaceTools do
   def list do
     [
       # ── Orientation ──
-      tool("ema_orient", "Get current EMA state and orientation. Call first in conversations.", %{
-        "mode" => %{"type" => "string", "enum" => ["operator", "workspace"]},
-        "actor_slug" => %{"type" => "string"}
-      }, ["mode"]),
+      tool(
+        "ema_orient",
+        "Get current EMA state and orientation. Call first in conversations.",
+        %{
+          "mode" => %{"type" => "string", "enum" => ["operator", "workspace"]},
+          "actor_slug" => %{"type" => "string"}
+        },
+        ["mode"]
+      ),
 
       # ── Phase Cadence ──
-      tool("ema_phase_transition", "Advance actor phase: idle → plan → execute → review → retro", %{
-        "actor_slug" => %{"type" => "string"},
-        "to_phase" => %{"type" => "string", "enum" => ["idle", "plan", "execute", "review", "retro"]},
-        "reason" => %{"type" => "string"},
-        "summary" => %{"type" => "string"},
-        "project_id" => %{"type" => "string"},
-        "week_number" => %{"type" => "number"}
-      }, ["actor_slug", "to_phase"]),
-
-      tool("ema_phase_status", "Current phase + recent transition history for an actor", %{
-        "actor_slug" => %{"type" => "string"}
-      }, ["actor_slug"]),
-
-      tool("ema_sprint_cycle", "Start/review/complete accelerated planning cycles (week/month/quarter)", %{
-        "actor_slug" => %{"type" => "string"},
-        "cycle_type" => %{"type" => "string", "enum" => ["week", "month", "quarter"]},
-        "action" => %{"type" => "string", "enum" => ["start", "review", "complete"]},
-        "metrics" => %{"type" => "object", "properties" => %{
-          "backlog_count" => %{"type" => "number"},
-          "completed_count" => %{"type" => "number"},
-          "carried_count" => %{"type" => "number"},
-          "velocity" => %{"type" => "number"}
-        }}
-      }, ["actor_slug", "cycle_type", "action"]),
+      tool(
+        "ema_phase_transition",
+        "Advance actor phase: idle → plan → execute → review → retro",
+        %{
+          "actor_slug" => %{"type" => "string"},
+          "to_phase" => %{
+            "type" => "string",
+            "enum" => ["idle", "plan", "execute", "review", "retro"]
+          },
+          "reason" => %{"type" => "string"},
+          "summary" => %{"type" => "string"},
+          "project_id" => %{"type" => "string"},
+          "week_number" => %{"type" => "number"}
+        },
+        ["actor_slug", "to_phase"]
+      ),
+      tool(
+        "ema_phase_status",
+        "Current phase + recent transition history for an actor",
+        %{
+          "actor_slug" => %{"type" => "string"}
+        },
+        ["actor_slug"]
+      ),
+      tool(
+        "ema_sprint_cycle",
+        "Start/review/complete accelerated planning cycles (week/month/quarter)",
+        %{
+          "actor_slug" => %{"type" => "string"},
+          "cycle_type" => %{"type" => "string", "enum" => ["week", "month", "quarter"]},
+          "action" => %{"type" => "string", "enum" => ["start", "review", "complete"]},
+          "metrics" => %{
+            "type" => "object",
+            "properties" => %{
+              "backlog_count" => %{"type" => "number"},
+              "completed_count" => %{"type" => "number"},
+              "carried_count" => %{"type" => "number"},
+              "velocity" => %{"type" => "number"}
+            }
+          }
+        },
+        ["actor_slug", "cycle_type", "action"]
+      ),
 
       # ── Unified Workspace (replaces data + tags + config) ──
-      tool("ema_workspace", "Actor workspace: persist data, tag entities, set config. One tool for all workspace state.", %{
-        "op" => %{"type" => "string", "description" => "data_get|data_set|data_list|tag|untag|tags|config_get|config_set|config_list"},
-        "actor_slug" => %{"type" => "string"},
-        "entity_type" => %{"type" => "string"},
-        "entity_id" => %{"type" => "string"},
-        "key" => %{"type" => "string"},
-        "value" => %{"type" => "string"},
-        "tag" => %{"type" => "string"},
-        "namespace" => %{"type" => "string"},
-        "container_type" => %{"type" => "string", "description" => "For config ops: space|project|actor"},
-        "container_id" => %{"type" => "string", "description" => "For config ops"}
-      }, ["op"]),
+      tool(
+        "ema_workspace",
+        "Actor workspace: persist data, tag entities, set config. One tool for all workspace state.",
+        %{
+          "op" => %{
+            "type" => "string",
+            "description" =>
+              "data_get|data_set|data_list|tag|untag|tags|config_get|config_set|config_list"
+          },
+          "actor_slug" => %{"type" => "string"},
+          "entity_type" => %{"type" => "string"},
+          "entity_id" => %{"type" => "string"},
+          "key" => %{"type" => "string"},
+          "value" => %{"type" => "string"},
+          "tag" => %{"type" => "string"},
+          "namespace" => %{"type" => "string"},
+          "container_type" => %{
+            "type" => "string",
+            "description" => "For config ops: space|project|actor"
+          },
+          "container_id" => %{"type" => "string", "description" => "For config ops"}
+        },
+        ["op"]
+      ),
 
       # ── New Features ──
-      tool("ema_search", "Unified search across all EMA entities — tasks, intents, vault, proposals, brain dumps", %{
-        "query" => %{"type" => "string"},
-        "scope" => %{"type" => "string", "description" => "all|tasks|intents|vault|proposals|brain_dumps (default: all)"},
-        "project_id" => %{"type" => "string"},
-        "limit" => %{"type" => "number"}
-      }, ["query"]),
-
-      tool("ema_decide", "Record a decision with rationale — persisted in vault and linked to intent/project", %{
-        "title" => %{"type" => "string", "description" => "Decision title (e.g. 'Use ETS over Redis for KG')"},
-        "rationale" => %{"type" => "string", "description" => "Why this decision was made"},
-        "alternatives" => %{"type" => "string", "description" => "Alternatives considered"},
-        "project_slug" => %{"type" => "string"},
-        "intent_id" => %{"type" => "string"}
-      }, ["title", "rationale"]),
-
-      tool("ema_dispatch", "Dispatch an execution — create and optionally auto-approve for immediate agent work", %{
-        "title" => %{"type" => "string"},
-        "objective" => %{"type" => "string"},
-        "mode" => %{"type" => "string", "enum" => ["research", "outline", "implement", "review", "harvest", "refactor"]},
-        "project_slug" => %{"type" => "string"},
-        "intent_id" => %{"type" => "string"},
-        "auto_approve" => %{"type" => "boolean", "description" => "Skip approval gate (default false)"}
-      }, ["title", "objective", "mode"]),
+      tool(
+        "ema_search",
+        "Unified search across all EMA entities — tasks, intents, vault, proposals, brain dumps",
+        %{
+          "query" => %{"type" => "string"},
+          "scope" => %{
+            "type" => "string",
+            "description" => "all|tasks|intents|vault|proposals|brain_dumps (default: all)"
+          },
+          "project_id" => %{"type" => "string"},
+          "limit" => %{"type" => "number"}
+        },
+        ["query"]
+      ),
+      tool(
+        "ema_decide",
+        "Record a decision with rationale — persisted in vault and linked to intent/project",
+        %{
+          "title" => %{
+            "type" => "string",
+            "description" => "Decision title (e.g. 'Use ETS over Redis for KG')"
+          },
+          "rationale" => %{"type" => "string", "description" => "Why this decision was made"},
+          "alternatives" => %{"type" => "string", "description" => "Alternatives considered"},
+          "project_slug" => %{"type" => "string"},
+          "intent_id" => %{"type" => "string"}
+        },
+        ["title", "rationale"]
+      ),
+      tool(
+        "ema_dispatch",
+        "Dispatch an execution — create and optionally auto-approve for immediate agent work",
+        %{
+          "title" => %{"type" => "string"},
+          "objective" => %{"type" => "string"},
+          "mode" => %{
+            "type" => "string",
+            "enum" => ["research", "outline", "implement", "review", "harvest", "refactor"]
+          },
+          "project_slug" => %{"type" => "string"},
+          "intent_id" => %{"type" => "string"},
+          "auto_approve" => %{
+            "type" => "boolean",
+            "description" => "Skip approval gate (default false)"
+          }
+        },
+        ["title", "objective", "mode"]
+      ),
 
       # ── Intelligence ──
-      tool("ema_intelligence_gaps", "Operational gaps — stale tasks, orphan notes, incomplete goals", %{
-        "project_id" => %{"type" => "string"},
-        "limit" => %{"type" => "number"}
-      }),
-
-      tool("ema_intelligence_reflexion", "Lessons from past executions — what worked, what failed", %{
-        "agent" => %{"type" => "string"},
-        "project_slug" => %{"type" => "string"},
-        "limit" => %{"type" => "number"}
-      }),
-
-      tool("ema_intelligence_memory", "Session memory fragments — decisions, blockers, insights from past work", %{
-        "project_path" => %{"type" => "string"},
-        "query" => %{"type" => "string"},
-        "limit" => %{"type" => "number"}
-      }),
+      tool(
+        "ema_intelligence_gaps",
+        "Operational gaps — stale tasks, orphan notes, incomplete goals",
+        %{
+          "project_id" => %{"type" => "string"},
+          "limit" => %{"type" => "number"}
+        }
+      ),
+      tool(
+        "ema_intelligence_reflexion",
+        "Lessons from past executions — what worked, what failed",
+        %{
+          "agent" => %{"type" => "string"},
+          "project_slug" => %{"type" => "string"},
+          "limit" => %{"type" => "number"}
+        }
+      ),
+      tool(
+        "ema_intelligence_memory",
+        "Session memory fragments — decisions, blockers, insights from past work",
+        %{
+          "project_path" => %{"type" => "string"},
+          "query" => %{"type" => "string"},
+          "limit" => %{"type" => "number"}
+        }
+      ),
 
       # ── Codebase ──
-      tool("ema_codebase_ask", "Query codebase via local knowledge graph + vault. Replaces CodeGraphContext/Superman.", %{
-        "query" => %{"type" => "string"},
-        "project_slug" => %{"type" => "string"}
-      }, ["query"]),
-
+      tool(
+        "ema_codebase_ask",
+        "Query codebase via local knowledge graph + vault. Replaces CodeGraphContext/Superman.",
+        %{
+          "query" => %{"type" => "string"},
+          "project_slug" => %{"type" => "string"}
+        },
+        ["query"]
+      ),
       tool("ema_codebase_index", "Rebuild knowledge graph for a project's codebase", %{
         "project_slug" => %{"type" => "string"},
         "repo_path" => %{"type" => "string"}
@@ -131,9 +206,13 @@ defmodule Ema.MCP.WorkspaceTools do
 
   def call("ema_phase_transition", args, _rid) do
     with actor when not is_nil(actor) <- Actors.get_actor_by_slug(args["actor_slug"]),
-         opts <- compact_opts(reason: args["reason"], summary: args["summary"],
-           project_id: args["project_id"],
-           week_number: args["week_number"] && trunc(args["week_number"])),
+         opts <-
+           compact_opts(
+             reason: args["reason"],
+             summary: args["summary"],
+             project_id: args["project_id"],
+             week_number: args["week_number"] && trunc(args["week_number"])
+           ),
          {:ok, updated} <- Actors.transition_phase(actor, args["to_phase"], opts) do
       {:ok, %{slug: updated.slug, phase: updated.phase}}
     else
@@ -144,17 +223,29 @@ defmodule Ema.MCP.WorkspaceTools do
 
   def call("ema_phase_status", args, _rid) do
     case Actors.get_actor_by_slug(args["actor_slug"]) do
-      nil -> {:error, "Actor not found: #{args["actor_slug"]}"}
+      nil ->
+        {:error, "Actor not found: #{args["actor_slug"]}"}
+
       actor ->
         transitions = Actors.list_phase_transitions(actor.id) |> Enum.take(10)
-        {:ok, %{
-          slug: actor.slug, phase: actor.phase,
-          minutes_in_phase: phase_minutes(actor),
-          transitions: Enum.map(transitions, fn t ->
-            %{from: t.from_phase, to: t.to_phase, reason: t.reason, summary: t.summary,
-              week: t.week_number, at: t.transitioned_at && DateTime.to_iso8601(t.transitioned_at)}
-          end)
-        }}
+
+        {:ok,
+         %{
+           slug: actor.slug,
+           phase: actor.phase,
+           minutes_in_phase: phase_minutes(actor),
+           transitions:
+             Enum.map(transitions, fn t ->
+               %{
+                 from: t.from_phase,
+                 to: t.to_phase,
+                 reason: t.reason,
+                 summary: t.summary,
+                 week: t.week_number,
+                 at: t.transitioned_at && DateTime.to_iso8601(t.transitioned_at)
+               }
+             end)
+         }}
     end
   end
 
@@ -180,38 +271,60 @@ defmodule Ema.MCP.WorkspaceTools do
   end
 
   def call("ema_intelligence_reflexion", args, _rid) do
-    opts = compact_opts(agent: args["agent"], project_slug: args["project_slug"], limit: args["limit"] || 10)
+    opts =
+      compact_opts(
+        agent: args["agent"],
+        project_slug: args["project_slug"],
+        limit: args["limit"] || 10
+      )
+
     entries = safe_call(fn -> Ema.Intelligence.ReflexionStore.list_recent(opts) end) || []
     {:ok, %{entries: entries, count: length(entries)}}
   end
 
   def call("ema_intelligence_memory", args, _rid) do
     path = args["project_path"] || args["query"]
+
     case path do
-      nil -> {:ok, %{context: "Provide project_path or query", fragment_count: 0}}
+      nil ->
+        {:ok, %{context: "Provide project_path or query", fragment_count: 0}}
+
       p ->
-        result = safe_call(fn -> Ema.Intelligence.SessionMemory.context_for_project(p, args["limit"] || 20) end)
+        result =
+          safe_call(fn ->
+            Ema.Intelligence.SessionMemory.context_for_project(p, args["limit"] || 20)
+          end)
+
         {:ok, result || %{context: "No fragments found", fragment_count: 0}}
     end
   end
 
   def call("ema_codebase_ask", args, _rid) do
     slug = args["project_slug"] || "ema"
-    repo_path = case Ema.Projects.get_project_by_slug(slug) do
-      %{linked_path: p} when is_binary(p) -> p
-      _ -> nil
-    end
+
+    repo_path =
+      case Ema.Projects.get_project_by_slug(slug) do
+        %{linked_path: p} when is_binary(p) -> p
+        _ -> nil
+      end
+
     Ema.Intelligence.SupermanClient.ask_codebase(args["query"], repo_path)
   end
 
   def call("ema_codebase_index", args, _rid) do
-    repo_path = args["repo_path"] || case args["project_slug"] do
-      nil -> nil
-      slug -> case Ema.Projects.get_project_by_slug(slug) do
-        %{linked_path: p} when is_binary(p) -> p
-        _ -> nil
-      end
-    end
+    repo_path =
+      args["repo_path"] ||
+        case args["project_slug"] do
+          nil ->
+            nil
+
+          slug ->
+            case Ema.Projects.get_project_by_slug(slug) do
+              %{linked_path: p} when is_binary(p) -> p
+              _ -> nil
+            end
+        end
+
     case repo_path do
       nil -> {:error, "No repo_path or project_slug"}
       path -> Ema.Intelligence.SupermanClient.index_repo(path)
@@ -250,6 +363,7 @@ defmodule Ema.MCP.WorkspaceTools do
   defp handle_workspace(%{"op" => "tag", "actor_slug" => slug} = a) do
     with_actor(slug, fn id ->
       ns = a["namespace"] || "default"
+
       case Actors.tag_entity(a["entity_type"], a["entity_id"], a["tag"], id, ns) do
         {:ok, _} -> {:ok, %{tagged: true}}
         {:error, e} -> {:error, inspect(e)}
@@ -266,7 +380,9 @@ defmodule Ema.MCP.WorkspaceTools do
 
   defp handle_workspace(%{"op" => "tags"} = a) do
     tags = Actors.tags_for_entity(a["entity_type"], a["entity_id"])
-    {:ok, %{tags: Enum.map(tags, fn t -> %{tag: t.tag, actor_id: t.actor_id, ns: t.namespace} end)}}
+
+    {:ok,
+     %{tags: Enum.map(tags, fn t -> %{tag: t.tag, actor_id: t.actor_id, ns: t.namespace} end)}}
   end
 
   defp handle_workspace(%{"op" => "config_get"} = a) do
@@ -299,40 +415,74 @@ defmodule Ema.MCP.WorkspaceTools do
     limit = args["limit"] || 10
     results = %{}
 
-    results = if scope in ["all", "intents"] do
-      intents = safe_call(fn -> Intents.list_intents(search: q, project_id: project_id, limit: limit) end) || []
-      Map.put(results, :intents, Enum.map(intents, fn i -> %{id: i.id, title: i.title, level: i.level, status: i.status} end))
-    else
-      results
-    end
+    results =
+      if scope in ["all", "intents"] do
+        intents =
+          safe_call(fn ->
+            Intents.list_intents(search: q, project_id: project_id, limit: limit)
+          end) || []
 
-    results = if scope in ["all", "tasks"] do
-      tasks = safe_call(fn -> Ema.Tasks.list_tasks(search: q, project_id: project_id, limit: limit) end) || []
-      Map.put(results, :tasks, Enum.map(tasks, fn t -> %{id: t.id, title: t.title, status: t.status} end))
-    else
-      results
-    end
+        Map.put(
+          results,
+          :intents,
+          Enum.map(intents, fn i ->
+            %{id: i.id, title: i.title, level: i.level, status: i.status}
+          end)
+        )
+      else
+        results
+      end
 
-    results = if scope in ["all", "vault"] do
-      vault = safe_call(fn -> Ema.SecondBrain.search_brain(q) end) || []
-      Map.put(results, :vault, Enum.take(vault, limit))
-    else
-      results
-    end
+    results =
+      if scope in ["all", "tasks"] do
+        tasks =
+          safe_call(fn ->
+            Ema.Tasks.list_tasks(search: q, project_id: project_id, limit: limit)
+          end) || []
 
-    results = if scope in ["all", "proposals"] do
-      proposals = safe_call(fn -> Ema.Proposals.list_proposals(search: q, limit: limit) end) || []
-      Map.put(results, :proposals, Enum.map(proposals, fn p -> %{id: p.id, title: p.title, status: p.status} end))
-    else
-      results
-    end
+        Map.put(
+          results,
+          :tasks,
+          Enum.map(tasks, fn t -> %{id: t.id, title: t.title, status: t.status} end)
+        )
+      else
+        results
+      end
 
-    results = if scope in ["all", "brain_dumps"] do
-      items = safe_call(fn -> Ema.BrainDump.list_items(search: q, limit: limit) end) || []
-      Map.put(results, :brain_dumps, Enum.map(items, fn i -> %{id: i.id, content: String.slice(i.content || "", 0..120)} end))
-    else
-      results
-    end
+    results =
+      if scope in ["all", "vault"] do
+        vault = safe_call(fn -> Ema.SecondBrain.search_brain(q) end) || []
+        Map.put(results, :vault, Enum.take(vault, limit))
+      else
+        results
+      end
+
+    results =
+      if scope in ["all", "proposals"] do
+        proposals =
+          safe_call(fn -> Ema.Proposals.list_proposals(search: q, limit: limit) end) || []
+
+        Map.put(
+          results,
+          :proposals,
+          Enum.map(proposals, fn p -> %{id: p.id, title: p.title, status: p.status} end)
+        )
+      else
+        results
+      end
+
+    results =
+      if scope in ["all", "brain_dumps"] do
+        items = safe_call(fn -> Ema.BrainDump.list_items(search: q, limit: limit) end) || []
+
+        Map.put(
+          results,
+          :brain_dumps,
+          Enum.map(items, fn i -> %{id: i.id, content: String.slice(i.content || "", 0..120)} end)
+        )
+      else
+        results
+      end
 
     {:ok, results}
   end
@@ -365,25 +515,33 @@ defmodule Ema.MCP.WorkspaceTools do
     path = "wiki/Decisions/#{date}-#{slug}.md"
 
     # Write to vault
-    vault_result = safe_call(fn ->
-      Ema.SecondBrain.create_note(%{
-        file_path: path,
-        title: title,
-        content: String.trim(content),
-        space: "decisions"
-      })
-    end)
+    vault_result =
+      safe_call(fn ->
+        Ema.SecondBrain.create_note(%{
+          file_path: path,
+          title: title,
+          content: String.trim(content),
+          space: "decisions"
+        })
+      end)
 
     # Link to intent if provided
     if args["intent_id"] do
       safe_call(fn ->
-        Intents.link_intent(args["intent_id"], "vault_note", path, role: "evidence", provenance: "manual")
+        Intents.link_intent(args["intent_id"], "vault_note", path,
+          role: "evidence",
+          provenance: "manual"
+        )
       end)
     end
 
     case vault_result do
-      {:ok, _} -> {:ok, %{path: path, title: title, linked_intent: args["intent_id"]}}
-      _ -> {:ok, %{path: path, title: title, note: "Vault write may have failed but decision recorded"}}
+      {:ok, _} ->
+        {:ok, %{path: path, title: title, linked_intent: args["intent_id"]}}
+
+      _ ->
+        {:ok,
+         %{path: path, title: title, note: "Vault write may have failed but decision recorded"}}
     end
   end
 
@@ -401,25 +559,30 @@ defmodule Ema.MCP.WorkspaceTools do
     }
 
     # Link to intent if provided
-    attrs = if args["intent_id"] do
-      intent = safe_call(fn -> Intents.get_intent(args["intent_id"]) end)
-      if intent, do: Map.put(attrs, :intent_slug, intent.slug), else: attrs
-    else
-      attrs
-    end
+    attrs =
+      if args["intent_id"] do
+        intent = safe_call(fn -> Intents.get_intent(args["intent_id"]) end)
+        if intent, do: Map.put(attrs, :intent_slug, intent.slug), else: attrs
+      else
+        attrs
+      end
 
     case safe_call(fn -> Ema.Executions.create(attrs) end) do
       {:ok, exec} ->
-        {:ok, %{
-          id: exec.id,
-          title: exec.title,
-          mode: exec.mode,
-          status: exec.status,
-          requires_approval: exec.requires_approval
-        }}
+        {:ok,
+         %{
+           id: exec.id,
+           title: exec.title,
+           mode: exec.mode,
+           status: exec.status,
+           requires_approval: exec.requires_approval
+         }}
 
-      {:error, e} -> {:error, inspect(e)}
-      nil -> {:error, "Failed to create execution"}
+      {:error, e} ->
+        {:error, inspect(e)}
+
+      nil ->
+        {:error, "Failed to create execution"}
     end
   end
 
@@ -443,39 +606,63 @@ defmodule Ema.MCP.WorkspaceTools do
         Actors.set_data(actor.id, "cycle", metrics.cycle_id, "status", "active")
         Actors.set_data(actor.id, "cycle", metrics.cycle_id, "started_at", now)
 
-        {:ok, %{
-          cycle_id: metrics.cycle_id, phase: updated.phase,
-          previous: %{completed: metrics.completed_count, carried: metrics.carried_count, velocity: metrics.velocity},
-          context: %{
-            active_intents: Enum.take(active_intents, 10) |> Enum.map(fn i -> %{id: i.id, title: i.title, level: i.level} end),
-            pending_tasks: Enum.take(pending_tasks, 10) |> Enum.map(fn t -> %{id: t.id, title: t.title} end)
-          }
-        }}
+        {:ok,
+         %{
+           cycle_id: metrics.cycle_id,
+           phase: updated.phase,
+           previous: %{
+             completed: metrics.completed_count,
+             carried: metrics.carried_count,
+             velocity: metrics.velocity
+           },
+           context: %{
+             active_intents:
+               Enum.take(active_intents, 10)
+               |> Enum.map(fn i -> %{id: i.id, title: i.title, level: i.level} end),
+             pending_tasks:
+               Enum.take(pending_tasks, 10) |> Enum.map(fn t -> %{id: t.id, title: t.title} end)
+           }
+         }}
 
-      {:error, e} -> {:error, "Phase transition failed: #{inspect(e)}"}
+      {:error, e} ->
+        {:error, "Phase transition failed: #{inspect(e)}"}
     end
   end
 
   defp handle_sprint_cycle(actor, cycle_type, "review", _args) do
     metrics = Actors.get_cycle_metrics(actor.id, cycle_type)
-    {:ok, %{
-      cycle_id: metrics.cycle_id, phase: actor.phase, status: metrics.status,
-      completed: metrics.completed_count, carried: metrics.carried_count, velocity: metrics.velocity,
-      transitions: Enum.map(metrics.transitions, fn t -> %{from: t.from_phase, to: t.to_phase, reason: t.reason} end)
-    }}
+
+    {:ok,
+     %{
+       cycle_id: metrics.cycle_id,
+       phase: actor.phase,
+       status: metrics.status,
+       completed: metrics.completed_count,
+       carried: metrics.carried_count,
+       velocity: metrics.velocity,
+       transitions:
+         Enum.map(metrics.transitions, fn t ->
+           %{from: t.from_phase, to: t.to_phase, reason: t.reason}
+         end)
+     }}
   end
 
   defp handle_sprint_cycle(actor, cycle_type, "complete", args) do
     m = args["metrics"] || %{}
+
     completion = %{
-      backlog_count: m["backlog_count"] || 0, completed_count: m["completed_count"] || 0,
-      carried_count: m["carried_count"] || 0, velocity: m["velocity"] || 0
+      backlog_count: m["backlog_count"] || 0,
+      completed_count: m["completed_count"] || 0,
+      carried_count: m["carried_count"] || 0,
+      velocity: m["velocity"] || 0
     }
 
     with {:ok, result} <- Actors.record_cycle_completion(actor.id, cycle_type, completion),
-         {:ok, updated} <- Actors.transition_phase(actor, "idle",
-           reason: "#{cycle_type}_complete",
-           summary: "Done: #{completion.completed_count}, carried: #{completion.carried_count}") do
+         {:ok, updated} <-
+           Actors.transition_phase(actor, "idle",
+             reason: "#{cycle_type}_complete",
+             summary: "Done: #{completion.completed_count}, carried: #{completion.carried_count}"
+           ) do
       {:ok, Map.merge(result, %{phase: updated.phase})}
     else
       {:error, e} -> {:error, inspect(e)}
@@ -494,7 +681,9 @@ defmodule Ema.MCP.WorkspaceTools do
   end
 
   defp phase_minutes(%{phase_started_at: nil}), do: nil
-  defp phase_minutes(%{phase_started_at: at}), do: DateTime.diff(DateTime.utc_now(), at, :second) |> div(60)
+
+  defp phase_minutes(%{phase_started_at: at}),
+    do: DateTime.diff(DateTime.utc_now(), at, :second) |> div(60)
 
   defp compact_opts(opts), do: Enum.reject(opts, fn {_, v} -> is_nil(v) end)
 
@@ -505,7 +694,10 @@ defmodule Ema.MCP.WorkspaceTools do
   end
 
   defp tool(name, desc, props, required \\ []) do
-    %{"name" => name, "description" => desc,
-      "inputSchema" => %{"type" => "object", "properties" => props, "required" => required}}
+    %{
+      "name" => name,
+      "description" => desc,
+      "inputSchema" => %{"type" => "object", "properties" => props, "required" => required}
+    }
   end
 end

@@ -24,7 +24,17 @@ defmodule Ema.Goals.Goal do
 
   def changeset(goal, attrs) do
     goal
-    |> cast(attrs, [:id, :title, :description, :timeframe, :status, :parent_id, :project_id, :actor_id, :space_id])
+    |> cast(attrs, [
+      :id,
+      :title,
+      :description,
+      :timeframe,
+      :status,
+      :parent_id,
+      :project_id,
+      :actor_id,
+      :space_id
+    ])
     |> validate_required([:id, :title, :timeframe])
     |> validate_inclusion(:timeframe, @valid_timeframes)
     |> validate_inclusion(:status, @valid_statuses)

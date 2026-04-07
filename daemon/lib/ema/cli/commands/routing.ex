@@ -4,7 +4,11 @@ defmodule Ema.CLI.Commands.Routing do
   alias Ema.CLI.{Helpers, Output}
 
   def handle([:classify], parsed, transport, opts) do
-    body = Helpers.compact_map([{"text", parsed.args.text}, {"project_slug", parsed.options[:project]}])
+    body =
+      Helpers.compact_map([
+        {"text", parsed.args.text},
+        {"project_slug", parsed.options[:project]}
+      ])
 
     case transport.post("/routing/classify", body) do
       {:ok, resp} -> if opts[:json], do: Output.json(resp), else: Output.detail(resp)

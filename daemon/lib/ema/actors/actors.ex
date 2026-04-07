@@ -54,24 +54,31 @@ defmodule Ema.Actors do
     week_number = if is_list(opts), do: opts[:week_number]
 
     Ecto.Multi.new()
-    |> Ecto.Multi.update(:actor, Actor.changeset(actor, %{phase: new_phase, phase_started_at: now}))
-    |> Ecto.Multi.insert(:transition, PhaseTransition.changeset(%PhaseTransition{id: generate_id()}, %{
-      actor_id: actor.id,
-      space_id: space_id,
-      project_id: project_id,
-      intent_id: intent_id,
-      from_phase: old_phase,
-      to_phase: new_phase,
-      week_number: week_number,
-      reason: reason,
-      summary: summary,
-      transitioned_at: now
-    }))
+    |> Ecto.Multi.update(
+      :actor,
+      Actor.changeset(actor, %{phase: new_phase, phase_started_at: now})
+    )
+    |> Ecto.Multi.insert(
+      :transition,
+      PhaseTransition.changeset(%PhaseTransition{id: generate_id()}, %{
+        actor_id: actor.id,
+        space_id: space_id,
+        project_id: project_id,
+        intent_id: intent_id,
+        from_phase: old_phase,
+        to_phase: new_phase,
+        week_number: week_number,
+        reason: reason,
+        summary: summary,
+        transitioned_at: now
+      })
+    )
     |> Repo.transaction()
     |> case do
       {:ok, %{actor: actor, transition: _}} ->
         broadcast("actors", {"actor:phase_changed", actor})
         {:ok, actor}
+
       {:error, _step, changeset, _changes} ->
         {:error, changeset}
     end
@@ -80,7 +87,9 @@ defmodule Ema.Actors do
   @doc "Record a phase transition from a params map (used by PhaseTransitionController)."
   def record_phase_transition(%{"actor_id" => actor_id, "to_phase" => to_phase} = params) do
     case get_actor(actor_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       actor ->
         transition_phase(actor, to_phase,
           reason: params["reason"],
@@ -94,7 +103,9 @@ defmodule Ema.Actors do
 
   def record_phase_transition(%{actor_id: actor_id, to_phase: to_phase} = params) do
     case get_actor(actor_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       actor ->
         transition_phase(actor, to_phase,
           reason: Map.get(params, :reason),
@@ -136,12 +147,19 @@ defmodule Ema.Actors do
       actor_id: actor_id,
       namespace: namespace
     })
-    |> Repo.insert(on_conflict: :nothing, conflict_target: [:entity_type, :entity_id, :tag, :actor_id])
+    |> Repo.insert(
+      on_conflict: :nothing,
+      conflict_target: [:entity_type, :entity_id, :tag, :actor_id]
+    )
   end
 
   def untag_entity(entity_type, entity_id, tag_name, actor_id \\ "human") do
     Tag
-    |> where([t], t.entity_type == ^entity_type and t.entity_id == ^entity_id and t.tag == ^tag_name and t.actor_id == ^actor_id)
+    |> where(
+      [t],
+      t.entity_type == ^entity_type and t.entity_id == ^entity_id and t.tag == ^tag_name and
+        t.actor_id == ^actor_id
+    )
     |> Repo.delete_all()
   end
 
@@ -162,12 +180,22 @@ defmodule Ema.Actors do
 
   def get_data(actor_id, entity_type, entity_id, key) do
     EntityData
-    |> where([d], d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id and d.key == ^key)
+    |> where(
+      [d],
+      d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id and
+        d.key == ^key
+    )
     |> Repo.one()
   end
 
   def set_data(actor_id, entity_type, entity_id, key, value) do
-    attrs = %{actor_id: actor_id, entity_type: entity_type, entity_id: entity_id, key: key, value: value}
+    attrs = %{
+      actor_id: actor_id,
+      entity_type: entity_type,
+      entity_id: entity_id,
+      key: key,
+      value: value
+    }
 
     %EntityData{}
     |> EntityData.changeset(attrs)
@@ -179,13 +207,20 @@ defmodule Ema.Actors do
 
   def list_data(actor_id, entity_type, entity_id) do
     EntityData
-    |> where([d], d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id)
+    |> where(
+      [d],
+      d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id
+    )
     |> Repo.all()
   end
 
   def delete_data(actor_id, entity_type, entity_id, key) do
     EntityData
-    |> where([d], d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id and d.key == ^key)
+    |> where(
+      [d],
+      d.actor_id == ^actor_id and d.entity_type == ^entity_type and d.entity_id == ^entity_id and
+        d.key == ^key
+    )
     |> Repo.delete_all()
   end
 
@@ -193,7 +228,10 @@ defmodule Ema.Actors do
 
   def get_config(container_type, container_id, key) do
     ContainerConfig
-    |> where([c], c.container_type == ^container_type and c.container_id == ^container_id and c.key == ^key)
+    |> where(
+      [c],
+      c.container_type == ^container_type and c.container_id == ^container_id and c.key == ^key
+    )
     |> Repo.one()
   end
 
@@ -314,7 +352,13 @@ defmodule Ema.Actors do
     case Regex.run(~r/week_(\d+)-W(\d+)/, cycle_id) do
       [_, year, week] ->
         {y, w} = {String.to_integer(year), String.to_integer(week)}
-        where(query, [t], t.week_number == ^w and fragment("strftime('%Y', ?)", t.transitioned_at) == ^to_string(y))
+
+        where(
+          query,
+          [t],
+          t.week_number == ^w and
+            fragment("strftime('%Y', ?)", t.transitioned_at) == ^to_string(y)
+        )
 
       _ ->
         query
@@ -324,12 +368,14 @@ defmodule Ema.Actors do
   defp filter_transitions_by_cycle(query, _cycle_type, _cycle_id), do: query
 
   defp parse_int(nil, default), do: default
+
   defp parse_int(val, default) when is_binary(val) do
     case Integer.parse(val) do
       {n, _} -> n
       :error -> default
     end
   end
+
   defp parse_int(val, _default) when is_integer(val), do: val
 
   # ── Bootstrap ──
@@ -344,14 +390,17 @@ defmodule Ema.Actors do
           status: "active",
           phase: "idle"
         })
-      actor -> {:ok, actor}
+
+      actor ->
+        {:ok, actor}
     end
   end
 
   # ── Agent ↔ Actor Bridge ──
 
   @doc "Get the Actor record for an Agent (FK primary, slug fallback)."
-  def actor_for_agent(%Ema.Agents.Agent{actor_id: actor_id}) when is_binary(actor_id) and actor_id != "" do
+  def actor_for_agent(%Ema.Agents.Agent{actor_id: actor_id})
+      when is_binary(actor_id) and actor_id != "" do
     get_actor(actor_id)
   end
 

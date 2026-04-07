@@ -27,7 +27,15 @@ defmodule Ema.MCP.Server do
   use GenServer
   require Logger
 
-  alias Ema.MCP.{Protocol, Resources, Tools, SessionTools, WorkspaceTools, DomainTools, RecursionGuard}
+  alias Ema.MCP.{
+    Protocol,
+    Resources,
+    Tools,
+    SessionTools,
+    WorkspaceTools,
+    DomainTools,
+    RecursionGuard
+  }
 
   @server_info %{
     "name" => "ema-mcp-server",

@@ -188,7 +188,8 @@ defmodule Ema.IntentionFarmer.Parser do
        intents: intents,
        tool_call_count: 0,
        files_touched: [],
-       token_count: Enum.reduce(intents, 0, fn intent, acc -> acc + String.length(intent.content) end),
+       token_count:
+         Enum.reduce(intents, 0, fn intent, acc -> acc + String.length(intent.content) end),
        message_count: length(messages),
        started_at: started_at,
        ended_at: ended_at,
@@ -405,6 +406,7 @@ defmodule Ema.IntentionFarmer.Parser do
   end
 
   defp codex_history?(path), do: String.ends_with?(path, ".codex/history.jsonl")
+
   defp external_import?(path) do
     String.contains?(path, "/ema/imports/") or
       String.contains?(String.downcase(path), "/downloads/")
@@ -584,10 +586,6 @@ defmodule Ema.IntentionFarmer.Parser do
     end
   end
 
-  defp normalize_event_payload({:ok, %{"entries" => [first | _]}}), do: first
-  defp normalize_event_payload({:ok, data}) when is_map(data), do: data
-  defp normalize_event_payload(_), do: %{}
-
   defp parse_json_preview(path) do
     case decode_json_file(path) do
       {:ok, data} ->
@@ -661,12 +659,21 @@ defmodule Ema.IntentionFarmer.Parser do
     lower = String.downcase(path)
 
     cond do
-      String.contains?(lower, "chatgpt") -> "chatgpt_export"
-      String.contains?(lower, "takeout") -> "google_takeout"
-      String.contains?(lower, "github") -> "github_export"
-      String.contains?(lower, "apple") -> "apple_privacy_export"
+      String.contains?(lower, "chatgpt") ->
+        "chatgpt_export"
+
+      String.contains?(lower, "takeout") ->
+        "google_takeout"
+
+      String.contains?(lower, "github") ->
+        "github_export"
+
+      String.contains?(lower, "apple") ->
+        "apple_privacy_export"
+
       String.contains?(lower, "facebook") or String.contains?(lower, "instagram") ->
         "meta_export"
+
       true ->
         "generic_import"
     end
@@ -684,7 +691,7 @@ defmodule Ema.IntentionFarmer.Parser do
         end
 
       String.ends_with?(lower, ".tar") or String.ends_with?(lower, ".tar.gz") or
-          String.ends_with?(lower, ".tgz") or String.ends_with?(lower, ".gz") ->
+        String.ends_with?(lower, ".tgz") or String.ends_with?(lower, ".gz") ->
         case :erl_tar.table(char_path, [:compressed]) do
           {:ok, entries} -> {:ok, Enum.map(entries, &to_string/1)}
           error -> error

@@ -5,7 +5,12 @@ defmodule Ema.Babysitter.StreamTickerTest do
 
   describe "delivery_decision/2" do
     test "first delivery always posts" do
-      delivery = %{reason: "state changed", signature: %{git_sha: "abc"}, degraded_summary?: false}
+      delivery = %{
+        reason: "state changed",
+        signature: %{git_sha: "abc"},
+        degraded_summary?: false
+      }
+
       assert {:post, "state changed"} = StreamTicker.delivery_decision(nil, delivery)
     end
 
@@ -19,7 +24,12 @@ defmodule Ema.Babysitter.StreamTickerTest do
 
     test "posts when signature changes" do
       last = %{signature: %{git_sha: "abc"}, degraded_summary?: false}
-      delivery = %{signature: %{git_sha: "def"}, degraded_summary?: false, reason: "state changed"}
+
+      delivery = %{
+        signature: %{git_sha: "def"},
+        degraded_summary?: false,
+        reason: "state changed"
+      }
 
       assert {:post, "state changed"} = StreamTicker.delivery_decision(last, delivery)
     end

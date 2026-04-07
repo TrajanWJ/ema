@@ -70,7 +70,7 @@ defmodule Ema.IntentionFarmer.BacklogFarmer do
          intents_loaded: stats.intents,
          notes_emitted: note_stats.emitted,
          skipped: stats.skipped,
-          failed: stats.failed
+         failed: stats.failed
        }
      }}
   rescue

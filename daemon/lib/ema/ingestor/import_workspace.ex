@@ -4,7 +4,7 @@ defmodule Ema.Ingestor.ImportWorkspace do
   def workspace_root, do: Path.join(Ema.Config.data_dir(), "imports")
 
   def stage(params) do
-    File.mkdir_p!(@workspace_root)
+    File.mkdir_p!(workspace_root())
 
     source_type = get_param(params, "source_type") || "file"
 
@@ -105,7 +105,7 @@ defmodule Ema.Ingestor.ImportWorkspace do
     timestamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d-%H%M%S")
     digest = short_hash(to_string(entropy_source))
     file_name = "#{prefix}-#{timestamp}-#{digest}#{ext}"
-    Path.join(@workspace_root, file_name)
+    Path.join(workspace_root(), file_name)
   end
 
   defp short_hash(value) do

@@ -69,10 +69,17 @@ defmodule Ema.MCP.Orient do
     items = if blocked != [], do: [%{t: "blocked_tasks", n: length(blocked)} | items], else: items
 
     at_risk = safe_call(fn -> Ema.Responsibilities.list_at_risk() end) || []
-    items = if at_risk != [], do: [%{t: "at_risk", n: length(at_risk), names: Enum.map(at_risk, & &1.title)} | items], else: items
 
-    awaiting = safe_call(fn -> Ema.Executions.list_executions(status: "awaiting_approval") end) || []
-    items = if awaiting != [], do: [%{t: "awaiting_approval", n: length(awaiting)} | items], else: items
+    items =
+      if at_risk != [],
+        do: [%{t: "at_risk", n: length(at_risk), names: Enum.map(at_risk, & &1.title)} | items],
+        else: items
+
+    awaiting =
+      safe_call(fn -> Ema.Executions.list_executions(status: "awaiting_approval") end) || []
+
+    items =
+      if awaiting != [], do: [%{t: "awaiting_approval", n: length(awaiting)} | items], else: items
 
     Enum.reverse(items)
   end
@@ -96,19 +103,34 @@ defmodule Ema.MCP.Orient do
   end
 
   defp compact_actor(nil), do: nil
-  defp compact_actor(a), do: %{id: a.id, slug: a.slug, name: a.name, type: a.actor_type, phase: a.phase}
+
+  defp compact_actor(a),
+    do: %{id: a.id, slug: a.slug, name: a.name, type: a.actor_type, phase: a.phase}
 
   defp compact_focus(nil), do: nil
-  defp compact_focus(s), do: %{id: s.id, task_id: Map.get(s, :task_id), minutes: Map.get(s, :duration_minutes)}
+
+  defp compact_focus(s),
+    do: %{id: s.id, task_id: Map.get(s, :task_id), minutes: Map.get(s, :duration_minutes)}
 
   defp compact_transition(nil), do: nil
-  defp compact_transition(t), do: %{from: t.from_phase, to: t.to_phase, reason: t.reason, at: t.transitioned_at && DateTime.to_iso8601(t.transitioned_at)}
+
+  defp compact_transition(t),
+    do: %{
+      from: t.from_phase,
+      to: t.to_phase,
+      reason: t.reason,
+      at: t.transitioned_at && DateTime.to_iso8601(t.transitioned_at)
+    }
 
   defp phase_minutes(%{phase_started_at: nil}), do: nil
-  defp phase_minutes(%{phase_started_at: at}), do: DateTime.diff(DateTime.utc_now(), at, :second) |> div(60)
+
+  defp phase_minutes(%{phase_started_at: at}),
+    do: DateTime.diff(DateTime.utc_now(), at, :second) |> div(60)
 
   defp resolve_actor(nil), do: nil
-  defp resolve_actor(slug) when is_binary(slug), do: safe_call(fn -> Actors.get_actor_by_slug(slug) end)
+
+  defp resolve_actor(slug) when is_binary(slug),
+    do: safe_call(fn -> Actors.get_actor_by_slug(slug) end)
 
   defp safe_call(fun) do
     fun.()

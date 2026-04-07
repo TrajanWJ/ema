@@ -52,7 +52,8 @@ defmodule Ema.Tunnels do
     %{
       id: tunnel.id,
       service_id: tunnel.service_id,
-      service_name: if(Ecto.assoc_loaded?(tunnel.service) && tunnel.service, do: tunnel.service.name),
+      service_name:
+        if(Ecto.assoc_loaded?(tunnel.service) && tunnel.service, do: tunnel.service.name),
       provider: tunnel.provider,
       subdomain: tunnel.subdomain,
       public_url: tunnel.public_url,

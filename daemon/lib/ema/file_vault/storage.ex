@@ -4,8 +4,6 @@ defmodule Ema.FileVault.Storage do
   Files are stored in daemon/priv/vault_files/ named by their SHA-256 hash.
   """
 
-  @storage_dir Path.expand("priv/vault_files", :code.priv_dir(:ema) |> to_string() |> Path.join(".."))
-
   def storage_dir do
     dir = Application.app_dir(:ema, "priv/vault_files")
     File.mkdir_p!(dir)

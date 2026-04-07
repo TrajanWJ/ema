@@ -29,11 +29,17 @@ defmodule Ema.IntentionFarmer.Loader do
   """
   def load_batch(results) do
     Enum.reduce(results, %{loaded: 0, skipped: 0, failed: 0, intents: 0, sessions: []}, fn result,
-                                                                                             acc ->
+                                                                                           acc ->
       case load(result) do
         {:ok, %{intents_loaded: n, session: session}} ->
           Process.sleep(10)
-          %{acc | loaded: acc.loaded + 1, intents: acc.intents + n, sessions: [session | acc.sessions]}
+
+          %{
+            acc
+            | loaded: acc.loaded + 1,
+              intents: acc.intents + n,
+              sessions: [session | acc.sessions]
+          }
 
         {:error, :already_exists} ->
           %{acc | skipped: acc.skipped + 1}
@@ -205,9 +211,7 @@ defmodule Ema.IntentionFarmer.Loader do
     end)
   rescue
     e ->
-      Logger.warning(
-        "[Loader] Canonical intent creation failed (non-fatal): #{inspect(e)}"
-      )
+      Logger.warning("[Loader] Canonical intent creation failed (non-fatal): #{inspect(e)}")
   end
 
   defp broadcast_events(hs, intents_loaded) do

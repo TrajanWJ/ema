@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.GitSync do
 
   def handle([:events], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/intelligence/git-events") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "events"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "events"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 

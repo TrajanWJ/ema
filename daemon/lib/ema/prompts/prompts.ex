@@ -126,11 +126,13 @@ defmodule Ema.Prompts do
   def serialize(%{id: _} = map), do: map
 
   defp decode_json(nil), do: []
+
   defp decode_json(str) when is_binary(str) do
     case Jason.decode(str) do
       {:ok, val} -> val
       _ -> []
     end
   end
+
   defp decode_json(other), do: other
 end

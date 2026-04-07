@@ -17,13 +17,14 @@ defmodule Ema.CLI.Commands.Exec do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:project_slug, parsed.options[:project]},
-          {:space_id, parsed.options[:space]},
-          {:actor_id, parsed.options[:actor]},
-          {:limit, parsed.options[:limit]}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:project_slug, parsed.options[:project]},
+            {:space_id, parsed.options[:space]},
+            {:actor_id, parsed.options[:actor]},
+            {:limit, parsed.options[:limit]}
+          ])
 
         case transport.call(Ema.Executions, :list_executions, [filter]) do
           {:ok, execs} -> Output.render(execs, @columns, json: opts[:json])
@@ -31,15 +32,19 @@ defmodule Ema.CLI.Commands.Exec do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:project_slug, parsed.options[:project]},
-          {:limit, parsed.options[:limit]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:project_slug, parsed.options[:project]},
+            {:limit, parsed.options[:limit]}
+          ])
 
         case transport.get("/executions", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "executions"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "executions"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -57,9 +62,14 @@ defmodule Ema.CLI.Commands.Exec do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/executions/#{id}") do
-          {:ok, body} -> Output.detail(Helpers.extract_record(body, "execution"), json: opts[:json])
-          {:error, :not_found} -> Output.error("Execution #{id} not found")
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.detail(Helpers.extract_record(body, "execution"), json: opts[:json])
+
+          {:error, :not_found} ->
+            Output.error("Execution #{id} not found")
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -69,14 +79,15 @@ defmodule Ema.CLI.Commands.Exec do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:objective, objective},
-          {:title, parsed.options[:title]},
-          {:mode, parsed.options[:mode]},
-          {:project_slug, parsed.options[:project]},
-          {:space_id, parsed.options[:space]},
-          {:actor_id, parsed.options[:actor]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:objective, objective},
+            {:title, parsed.options[:title]},
+            {:mode, parsed.options[:mode]},
+            {:project_slug, parsed.options[:project]},
+            {:space_id, parsed.options[:space]},
+            {:actor_id, parsed.options[:actor]}
+          ])
 
         case transport.call(Ema.Executions, :create, [attrs]) do
           {:ok, exec} ->
@@ -88,14 +99,15 @@ defmodule Ema.CLI.Commands.Exec do
         end
 
       Ema.CLI.Transport.Http ->
-        body = Helpers.compact_map([
-          {"objective", objective},
-          {"title", parsed.options[:title]},
-          {"mode", parsed.options[:mode]},
-          {"project_slug", parsed.options[:project]},
-          {"space_id", parsed.options[:space]},
-          {"actor_id", parsed.options[:actor]}
-        ])
+        body =
+          Helpers.compact_map([
+            {"objective", objective},
+            {"title", parsed.options[:title]},
+            {"mode", parsed.options[:mode]},
+            {"project_slug", parsed.options[:project]},
+            {"space_id", parsed.options[:space]},
+            {"actor_id", parsed.options[:actor]}
+          ])
 
         case transport.post("/executions", body) do
           {:ok, body} ->
@@ -171,8 +183,11 @@ defmodule Ema.CLI.Commands.Exec do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/executions/#{id}/events") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "events"), event_cols, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "events"), event_cols, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

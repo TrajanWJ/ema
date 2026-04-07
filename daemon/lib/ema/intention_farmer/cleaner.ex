@@ -37,20 +37,22 @@ defmodule Ema.IntentionFarmer.Cleaner do
 
   defp attach_fingerprints(results) do
     Enum.map(results, fn result ->
-      fp = source_fingerprint(
-        to_string(result.source_type),
-        to_string(result.session_id),
-        to_string(result[:raw_path])
-      )
+      fp =
+        source_fingerprint(
+          to_string(result.source_type),
+          to_string(result.session_id),
+          to_string(result[:raw_path])
+        )
 
       intents =
         (result[:intents] || [])
         |> Enum.map(fn intent ->
-          ifp = intent_fingerprint(
-            intent.content,
-            to_string(intent.source_type),
-            to_string(result.session_id)
-          )
+          ifp =
+            intent_fingerprint(
+              intent.content,
+              to_string(intent.source_type),
+              to_string(result.session_id)
+            )
 
           Map.put(intent, :source_fingerprint, ifp)
         end)
@@ -118,8 +120,12 @@ defmodule Ema.IntentionFarmer.Cleaner do
     b_start = b[:started_at]
 
     case {a_end, b_start} do
-      {nil, _} -> false
-      {_, nil} -> false
+      {nil, _} ->
+        false
+
+      {_, nil} ->
+        false
+
       {a_end, b_start} ->
         diff = abs(DateTime.diff(b_start, a_end, :second))
         diff <= @merge_window_seconds

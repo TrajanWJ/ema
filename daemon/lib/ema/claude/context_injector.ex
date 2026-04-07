@@ -179,11 +179,12 @@ defmodule Ema.Claude.ContextInjector do
 
     tree_md = Intents.export_markdown(project_id: project_id)
 
-    {:ok, %{
-      tree: tree_md,
-      active_count: length(Enum.filter(intents, &(&1.status == "active"))),
-      implementing_count: length(Enum.filter(intents, &(&1.status == "implementing")))
-    }}
+    {:ok,
+     %{
+       tree: tree_md,
+       active_count: length(Enum.filter(intents, &(&1.status == "active"))),
+       implementing_count: length(Enum.filter(intents, &(&1.status == "implementing")))
+     }}
   rescue
     e -> {:error, {:fetch_failed, :intents, Exception.message(e)}}
   end
@@ -236,6 +237,7 @@ defmodule Ema.Claude.ContextInjector do
   end
 
   defp maybe_filter_wiki_by_project(pages, nil), do: pages
+
   defp maybe_filter_wiki_by_project(pages, project_id) do
     project = Projects.get_project(project_id)
     slug = if project, do: project.slug

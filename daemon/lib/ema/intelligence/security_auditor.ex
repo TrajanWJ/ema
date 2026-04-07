@@ -81,7 +81,15 @@ defmodule Ema.Intelligence.SecurityAuditor do
       fix_guide: "Daemon should bind to 127.0.0.1, not 0.0.0.0. Check endpoint config."
     }
   rescue
-    _ -> %{id: "localhost_only", name: "Services bound to localhost only", passed: false, points: 0, max_points: 15, fix_guide: "Could not check port bindings."}
+    _ ->
+      %{
+        id: "localhost_only",
+        name: "Services bound to localhost only",
+        passed: false,
+        points: 0,
+        max_points: 15,
+        fix_guide: "Could not check port bindings."
+      }
   end
 
   defp check_no_published_ports(containers) do
@@ -100,7 +108,8 @@ defmodule Ema.Intelligence.SecurityAuditor do
       passed: passed,
       points: if(passed, do: 15, else: 0),
       max_points: 15,
-      fix_guide: "Containers should not publish ports to 0.0.0.0. Use `-p 127.0.0.1:PORT:PORT` instead of `-p PORT:PORT` in docker-compose."
+      fix_guide:
+        "Containers should not publish ports to 0.0.0.0. Use `-p 127.0.0.1:PORT:PORT` instead of `-p PORT:PORT` in docker-compose."
     }
   end
 
@@ -115,7 +124,8 @@ defmodule Ema.Intelligence.SecurityAuditor do
       passed: passed,
       points: if(passed, do: 15, else: 0),
       max_points: 15,
-      fix_guide: "Add `cap_drop: [ALL]` and only `cap_add` specific capabilities needed. Check docker-compose.yml in the VM."
+      fix_guide:
+        "Add `cap_drop: [ALL]` and only `cap_add` specific capabilities needed. Check docker-compose.yml in the VM."
     }
   end
 
@@ -133,10 +143,19 @@ defmodule Ema.Intelligence.SecurityAuditor do
       passed: passed,
       points: if(passed, do: 15, else: 0),
       max_points: 15,
-      fix_guide: "Disable Bluetooth if not needed: `sudo systemctl disable bluetooth`. If needed, disable pairing in blueman settings."
+      fix_guide:
+        "Disable Bluetooth if not needed: `sudo systemctl disable bluetooth`. If needed, disable pairing in blueman settings."
     }
   rescue
-    _ -> %{id: "dm_pairing_disabled", name: "DM pairing disabled", passed: true, points: 15, max_points: 15, fix_guide: "Bluetooth not detected — assumed safe."}
+    _ ->
+      %{
+        id: "dm_pairing_disabled",
+        name: "DM pairing disabled",
+        passed: true,
+        points: 15,
+        max_points: 15,
+        fix_guide: "Bluetooth not detected — assumed safe."
+      }
   end
 
   defp check_docker_socket_proxy(containers) do
@@ -155,7 +174,8 @@ defmodule Ema.Intelligence.SecurityAuditor do
       passed: passed,
       points: if(passed, do: 10, else: 0),
       max_points: 10,
-      fix_guide: "Use docker-socket-proxy (tecnativa/docker-socket-proxy) instead of mounting /var/run/docker.sock directly into containers."
+      fix_guide:
+        "Use docker-socket-proxy (tecnativa/docker-socket-proxy) instead of mounting /var/run/docker.sock directly into containers."
     }
   end
 
@@ -179,10 +199,19 @@ defmodule Ema.Intelligence.SecurityAuditor do
       passed: passed,
       points: if(passed, do: 10, else: 0),
       max_points: 10,
-      fix_guide: "Run `sudo apt update && sudo apt upgrade` regularly. Consider enabling unattended-upgrades for security patches."
+      fix_guide:
+        "Run `sudo apt update && sudo apt upgrade` regularly. Consider enabling unattended-upgrades for security patches."
     }
   rescue
-    _ -> %{id: "regular_updates", name: "Regular system updates", passed: false, points: 0, max_points: 10, fix_guide: "Could not determine last update time."}
+    _ ->
+      %{
+        id: "regular_updates",
+        name: "Regular system updates",
+        passed: false,
+        points: 0,
+        max_points: 10,
+        fix_guide: "Could not determine last update time."
+      }
   end
 
   defp supply_chain_warnings do

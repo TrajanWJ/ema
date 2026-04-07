@@ -102,9 +102,11 @@ defmodule Ema.Intents.Populator do
   def handle_info({"intents:status_changed", intent_data}, state) do
     # When intent moves to "active" or "implementing", refresh its seed
     status = intent_data[:status] || intent_data["status"]
+
     if status in ["active", "implementing"] do
       maybe_create_proposal_seed(intent_data)
     end
+
     {:noreply, state}
   end
 
@@ -184,7 +186,9 @@ defmodule Ema.Intents.Populator do
                 provenance: "manual"
               )
 
-              Logger.info("[Populator] Created intent '#{title}' from wiki page #{note.file_path}")
+              Logger.info(
+                "[Populator] Created intent '#{title}' from wiki page #{note.file_path}"
+              )
 
             {:error, reason} ->
               Logger.warning("[Populator] Failed to create intent from wiki: #{inspect(reason)}")
@@ -208,6 +212,7 @@ defmodule Ema.Intents.Populator do
   end
 
   defp resolve_project_id(nil), do: nil
+
   defp resolve_project_id(slug) when is_binary(slug) do
     case Ema.Projects.get_project_by_slug(slug) do
       %{id: id} -> id
@@ -245,7 +250,9 @@ defmodule Ema.Intents.Populator do
           Logger.debug("[Populator] Created intent #{intent.id} from brain_dump #{item.id}")
 
         {:error, reason} ->
-          Logger.warning("[Populator] Failed to create intent from brain_dump: #{inspect(reason)}")
+          Logger.warning(
+            "[Populator] Failed to create intent from brain_dump: #{inspect(reason)}"
+          )
       end
     end
   end
@@ -322,7 +329,8 @@ defmodule Ema.Intents.Populator do
     end
   end
 
-  defp find_intent_from_execution_anchor(%{intent_slug: slug}) when is_binary(slug) and slug != "" do
+  defp find_intent_from_execution_anchor(%{intent_slug: slug})
+       when is_binary(slug) and slug != "" do
     Intents.get_intent_by_slug(slug)
   end
 
@@ -333,7 +341,10 @@ defmodule Ema.Intents.Populator do
   defp handle_session_backfeed(session) do
     # Extract intent from session metadata and create wiki page if new
     project_path = Map.get(session, :project_path) || Map.get(session, "project_path")
-    title = Map.get(session, :title) || Map.get(session, "title") || "Session #{Map.get(session, :id, "unknown")}"
+
+    title =
+      Map.get(session, :title) || Map.get(session, "title") ||
+        "Session #{Map.get(session, :id, "unknown")}"
 
     fingerprint = "session:#{Map.get(session, :id) || Map.get(session, "id")}"
 
@@ -355,9 +366,11 @@ defmodule Ema.Intents.Populator do
       case Intents.create_intent(attrs) do
         {:ok, intent} ->
           Logger.debug("[Populator] Created intent from session: #{intent.slug}")
-          # IntentProjector will auto-create wiki page
 
-        {:error, _} -> :ok
+        # IntentProjector will auto-create wiki page
+
+        {:error, _} ->
+          :ok
       end
     end
   rescue
@@ -374,6 +387,7 @@ defmodule Ema.Intents.Populator do
     case Intents.get_intent_by_slug(slug) do
       %{id: intent_id} ->
         proposal_id = Map.get(proposal, :id) || Map.get(proposal, "id")
+
         if proposal_id do
           Intents.link_intent(intent_id, "proposal", to_string(proposal_id),
             role: "evidence",
@@ -381,7 +395,8 @@ defmodule Ema.Intents.Populator do
           )
         end
 
-      nil -> :ok
+      nil ->
+        :ok
     end
   rescue
     _ -> :ok
@@ -437,7 +452,8 @@ defmodule Ema.Intents.Populator do
               _ -> :ok
             end
 
-          {:error, _} -> :ok
+          {:error, _} ->
+            :ok
         end
       end
     end
@@ -467,6 +483,7 @@ defmodule Ema.Intents.Populator do
       existing =
         try do
           import Ecto.Query
+
           Ema.Repo.one(
             from s in Ema.Proposals.Seed,
               where: s.name == ^seed_name,
@@ -512,6 +529,7 @@ defmodule Ema.Intents.Populator do
   end
 
   defp resolve_project_from_path(nil), do: nil
+
   defp resolve_project_from_path(path) when is_binary(path) do
     # Try to match project by linked_path
     import Ecto.Query
@@ -525,12 +543,14 @@ defmodule Ema.Intents.Populator do
       nil ->
         # Fallback: match by path suffix
         slug = path |> String.split("/") |> List.last()
+
         case Ema.Projects.get_project_by_slug(slug || "") do
           %{id: id} -> id
           nil -> nil
         end
 
-      id -> id
+      id ->
+        id
     end
   rescue
     _ -> nil

@@ -31,13 +31,17 @@ defmodule Ema.CLI.Commands.Provider do
               }
             end)
 
-          Output.table(rows, [
-            {"ID", "id"},
-            {"Type", "type"},
-            {"Name", "name"},
-            {"Status", "status"},
-            {"Models", "models"}
-          ], [])
+          Output.table(
+            rows,
+            [
+              {"ID", "id"},
+              {"Type", "type"},
+              {"Name", "name"},
+              {"Status", "status"},
+              {"Models", "models"}
+            ],
+            []
+          )
         end
 
       {:error, reason} ->
@@ -54,7 +58,10 @@ defmodule Ema.CLI.Commands.Provider do
           providers = body["providers"] || []
           exec = body["execution_status"] || %{}
 
-          Output.info("Execution: #{exec["status"] || "unknown"} (provider: #{exec["selected_provider"] || "none"})")
+          Output.info(
+            "Execution: #{exec["status"] || "unknown"} (provider: #{exec["selected_provider"] || "none"})"
+          )
+
           IO.puts("")
 
           Enum.each(providers, fn p ->
@@ -67,7 +74,11 @@ defmodule Ema.CLI.Commands.Provider do
             Output.info("  Accounts:   #{p["accounts"] || 0}")
             Output.info("  Latency:    #{health["latency_ms"] || "-"}ms")
             Output.info("  Error rate: #{health["error_rate"] || 0}")
-            Output.info("  RPM:        #{rate["current_rpm"] || 0}/#{rate["requests_per_min"] || "∞"}")
+
+            Output.info(
+              "  RPM:        #{rate["current_rpm"] || 0}/#{rate["requests_per_min"] || "∞"}"
+            )
+
             IO.puts("")
           end)
         end
@@ -85,8 +96,15 @@ defmodule Ema.CLI.Commands.Provider do
         results =
           Enum.map(providers, fn p ->
             case transport.post("/providers/#{p["id"]}/health", %{}) do
-              {:ok, result} -> Map.put(result, "name", p["name"])
-              {:error, _} -> %{"provider_id" => p["id"], "name" => p["name"], "health" => %{"status" => "unreachable"}}
+              {:ok, result} ->
+                Map.put(result, "name", p["name"])
+
+              {:error, _} ->
+                %{
+                  "provider_id" => p["id"],
+                  "name" => p["name"],
+                  "health" => %{"status" => "unreachable"}
+                }
             end
           end)
 
@@ -131,7 +149,10 @@ defmodule Ema.CLI.Commands.Provider do
           Output.json(body)
         else
           detected = body["detected"] || %{}
-          Output.success("Detection complete: #{detected["providers"] || 0} providers, #{detected["accounts"] || 0} accounts")
+
+          Output.success(
+            "Detection complete: #{detected["providers"] || 0} providers, #{detected["accounts"] || 0} accounts"
+          )
         end
 
       {:error, reason} ->

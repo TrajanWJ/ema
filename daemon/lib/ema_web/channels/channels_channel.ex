@@ -228,6 +228,7 @@ defmodule EmaWeb.ChannelsChannel do
       created_at: msg.inserted_at
     }
   end
+
   defp channel_connection_status(channel) do
     Map.get(channel, :connection_status) || Map.get(channel, :status) || "unknown"
   end

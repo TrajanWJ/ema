@@ -123,9 +123,7 @@ defmodule Ema.IntentionFarmer.Watcher do
         Logger.debug("[IntentionFarmer.Watcher] Skipping empty session: #{path}")
 
       {:error, reason} ->
-        Logger.warning(
-          "[IntentionFarmer.Watcher] Failed to parse #{path}: #{inspect(reason)}"
-        )
+        Logger.warning("[IntentionFarmer.Watcher] Failed to parse #{path}: #{inspect(reason)}")
     end
   rescue
     e ->

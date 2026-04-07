@@ -33,7 +33,9 @@ defmodule Ema.Sessions.Orchestrator do
           model: state.model,
           started_at: state.started_at,
           exit_code: state.exit_code,
-          live: state.status == "running" and is_pid(state.task_pid) and Process.alive?(state.task_pid)
+          live:
+            state.status == "running" and is_pid(state.task_pid) and
+              Process.alive?(state.task_pid)
         }
       end)
 
@@ -119,7 +121,8 @@ defmodule Ema.Sessions.Orchestrator do
     if claude_path == nil do
       {:error, "claude binary not found in PATH or ~/.local/bin/claude"}
     else
-      session_id = "orch_#{System.system_time(:millisecond)}_#{:rand.uniform(0xFFFF) |> Integer.to_string(16)}"
+      session_id =
+        "orch_#{System.system_time(:millisecond)}_#{:rand.uniform(0xFFFF) |> Integer.to_string(16)}"
 
       # Spawn Claude Code as a background port process
       task =
@@ -136,29 +139,34 @@ defmodule Ema.Sessions.Orchestrator do
       )
 
       # Track in ETS for check_session lookups
-      :ets.insert(orchestrator_table(), {session_id, %{
-        task_ref: task.ref,
-        task_pid: task.pid,
-        project_path: project_path,
-        project_slug: project_slug,
-        prompt: String.slice(prompt, 0, 500),
-        model: model,
-        status: "running",
-        started_at: DateTime.utc_now(),
-        linked_task_id: task_id,
-        output: nil,
-        exit_code: nil
-      }})
+      :ets.insert(
+        orchestrator_table(),
+        {session_id,
+         %{
+           task_ref: task.ref,
+           task_pid: task.pid,
+           project_path: project_path,
+           project_slug: project_slug,
+           prompt: String.slice(prompt, 0, 500),
+           model: model,
+           status: "running",
+           started_at: DateTime.utc_now(),
+           linked_task_id: task_id,
+           output: nil,
+           exit_code: nil
+         }}
+      )
 
-      {:ok, %{
-        session_id: session_id,
-        project_path: project_path,
-        project_slug: project_slug,
-        model: model,
-        prompt: String.slice(prompt, 0, 200),
-        status: "running",
-        linked_task_id: task_id
-      }}
+      {:ok,
+       %{
+         session_id: session_id,
+         project_path: project_path,
+         project_slug: project_slug,
+         model: model,
+         prompt: String.slice(prompt, 0, 200),
+         status: "running",
+         linked_task_id: task_id
+       }}
     end
   end
 
@@ -166,11 +174,11 @@ defmodule Ema.Sessions.Orchestrator do
   def resume(session_id, prompt, opts \\ []) do
     case :ets.lookup(orchestrator_table(), session_id) do
       [{^session_id, state}] ->
-        spawn(prompt, [
+        spawn(prompt,
           project_slug: state.project_slug,
           task_id: Keyword.get(opts, :task_id) || state.linked_task_id,
           inject_context: true
-        ])
+        )
 
       [] ->
         {:error, "Session #{session_id} not found"}
@@ -216,18 +224,25 @@ defmodule Ema.Sessions.Orchestrator do
   def context_prompt(opts \\ []) do
     {:ok, context} = build_context(opts)
 
-    sections = [
-      "# EMA Context (auto-injected)",
-      "",
-      if(context.project, do: "## Project: #{context.project.name}\n#{context.project.description || ""}", else: nil),
-      if(context.tasks != [], do: "## Active Tasks\n#{format_task_list(context.tasks)}", else: nil),
-      if(context.goals != [], do: "## Goals\n#{format_goal_list(context.goals)}", else: nil),
-      "",
-      "---",
-      "EMA daemon: localhost:4488 | #{context.active_sessions} active sessions"
-    ]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join("\n")
+    sections =
+      [
+        "# EMA Context (auto-injected)",
+        "",
+        if(context.project,
+          do: "## Project: #{context.project.name}\n#{context.project.description || ""}",
+          else: nil
+        ),
+        if(context.tasks != [],
+          do: "## Active Tasks\n#{format_task_list(context.tasks)}",
+          else: nil
+        ),
+        if(context.goals != [], do: "## Goals\n#{format_goal_list(context.goals)}", else: nil),
+        "",
+        "---",
+        "EMA daemon: localhost:4488 | #{context.active_sessions} active sessions"
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
 
     {:ok, sections}
   end
@@ -310,7 +325,9 @@ defmodule Ema.Sessions.Orchestrator do
         tasks
         |> Enum.filter(fn t -> t.status in [nil, "todo", "in_progress", "active"] end)
         |> Enum.take(10)
-        |> Enum.map(fn t -> %{id: t.id, title: t.title, status: t.status, priority: t.priority} end)
+        |> Enum.map(fn t ->
+          %{id: t.id, title: t.title, status: t.status, priority: t.priority}
+        end)
 
       _ ->
         []
@@ -400,34 +417,6 @@ defmodule Ema.Sessions.Orchestrator do
     }
   end
 
-  # -- Private: Process detection --
-
-  defp get_active_process_dirs do
-    case System.cmd("pgrep", ["-af", "claude\\b.*--"], stderr_to_stdout: true) do
-      {output, 0} ->
-        output
-        |> String.split("\n", trim: true)
-        |> Enum.flat_map(fn line ->
-          case Regex.run(~r/--project\s+(\S+)/, line) do
-            [_, dir] -> [dir]
-            _ -> extract_cwd_from_line(line)
-          end
-        end)
-
-      _ ->
-        []
-    end
-  rescue
-    _ -> []
-  end
-
-  defp extract_cwd_from_line(line) do
-    case Regex.run(~r/--cwd\s+(\S+)/, line) do
-      [_, dir] -> [dir]
-      _ -> []
-    end
-  end
-
   # -- Private: Direct Claude spawn --
 
   defp resolve_claude_binary do
@@ -496,8 +485,12 @@ defmodule Ema.Sessions.Orchestrator do
   @doc false
   def orchestrator_table do
     case :ets.whereis(:ema_orchestrator_sessions) do
-      :undefined -> init_table(); :ema_orchestrator_sessions
-      _ref -> :ema_orchestrator_sessions
+      :undefined ->
+        init_table()
+        :ema_orchestrator_sessions
+
+      _ref ->
+        :ema_orchestrator_sessions
     end
   end
 

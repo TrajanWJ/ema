@@ -21,8 +21,10 @@ defmodule Ema.Repo.Migrations.CreateWikiKnowledgeTables do
 
     create table(:wiki_sections, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :source_id, references(:wiki_sources, type: :string, on_delete: :delete_all),
         null: false
+
       add :heading, :string
       add :section_key, :string, null: false
       add :ordinal, :integer, null: false, default: 0

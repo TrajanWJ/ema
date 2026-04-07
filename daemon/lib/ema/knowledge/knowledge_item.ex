@@ -22,7 +22,16 @@ defmodule Ema.Knowledge.KnowledgeItem do
 
   def changeset(item, attrs) do
     item
-    |> cast(attrs, [:id, :kind, :text, :normalized_key, :confidence, :status, :source_section_id, :project_id])
+    |> cast(attrs, [
+      :id,
+      :kind,
+      :text,
+      :normalized_key,
+      :confidence,
+      :status,
+      :source_section_id,
+      :project_id
+    ])
     |> validate_required([:id, :kind, :text])
     |> validate_inclusion(:kind, @valid_kinds)
     |> validate_inclusion(:status, @valid_statuses)

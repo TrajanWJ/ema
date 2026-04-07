@@ -97,7 +97,10 @@ defmodule Ema.CLI.Output do
   defp format_value(true), do: "yes"
   defp format_value(false), do: "no"
   defp format_value(%DateTime{} = dt), do: format_relative(dt)
-  defp format_value(%NaiveDateTime{} = dt), do: format_relative(DateTime.from_naive!(dt, "Etc/UTC"))
+
+  defp format_value(%NaiveDateTime{} = dt),
+    do: format_relative(DateTime.from_naive!(dt, "Etc/UTC"))
+
   defp format_value(val) when is_binary(val), do: String.slice(val, 0, 80)
   defp format_value(val) when is_list(val), do: Enum.join(val, ", ")
   defp format_value(val) when is_map(val), do: Jason.encode!(val)

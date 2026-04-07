@@ -93,9 +93,14 @@ defmodule Ema.CLI.Commands.Proposal do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/proposals/#{id}") do
-          {:ok, body} -> Output.detail(Helpers.extract_record(body, "proposal"), json: opts[:json])
-          {:error, :not_found} -> Output.error("Proposal #{id} not found")
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.detail(Helpers.extract_record(body, "proposal"), json: opts[:json])
+
+          {:error, :not_found} ->
+            Output.error("Proposal #{id} not found")
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -152,7 +157,9 @@ defmodule Ema.CLI.Commands.Proposal do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Proposals, :redirect_proposal, [id, note]) do
           {:ok, proposal, seeds} ->
-            Output.success("Redirected proposal ##{proposal.id} — #{length(seeds)} new seeds created")
+            Output.success(
+              "Redirected proposal ##{proposal.id} — #{length(seeds)} new seeds created"
+            )
 
             if opts[:json] do
               Output.json(%{proposal: proposal, seeds: seeds})

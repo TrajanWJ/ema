@@ -29,7 +29,8 @@ defmodule EmaWeb.ContainerConfigController do
   def delete(conn, params) do
     {count, _} =
       Ema.Actors.ContainerConfig
-      |> where([c],
+      |> where(
+        [c],
         c.container_type == ^params["container_type"] and
           c.container_id == ^params["container_id"] and
           c.key == ^params["key"]

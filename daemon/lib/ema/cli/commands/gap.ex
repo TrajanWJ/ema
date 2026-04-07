@@ -52,7 +52,9 @@ defmodule Ema.CLI.Commands.Gap do
             task = resp["task"] || resp
             Output.success("Created task from gap #{id}")
             if opts[:json], do: Output.json(task)
-          {:error, reason} -> Output.error(inspect(reason))
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
         end
 
       _ ->

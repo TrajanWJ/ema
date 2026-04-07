@@ -11,8 +11,8 @@ defmodule Ema.Tasks.StructuralDetector do
 
   # Compiled regex patterns with word boundaries — prevents "all" matching "install"
   @structural_patterns Enum.map(@structural_keywords, fn kw ->
-    Regex.compile!("\\b#{kw}\\b", "i")
-  end)
+                         Regex.compile!("\\b#{kw}\\b", "i")
+                       end)
 
   @doc """
   Returns true if the description contains any structural keyword as a whole word.

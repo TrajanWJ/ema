@@ -44,23 +44,23 @@ defmodule EmaWeb.DecisionController do
         {:error, :not_found}
 
       decision ->
-    attrs = %{
-      title: params["title"],
-      context: params["context"],
-      options: params["options"],
-      chosen_option: params["chosen_option"],
-      decided_by: params["decided_by"],
-      reasoning: params["reasoning"],
-      outcome: params["outcome"],
-      outcome_score: params["outcome_score"],
-      tags: params["tags"],
-      space_id: params["space_id"],
-      reviewed_at: parse_datetime(params["reviewed_at"])
-    }
+        attrs = %{
+          title: params["title"],
+          context: params["context"],
+          options: params["options"],
+          chosen_option: params["chosen_option"],
+          decided_by: params["decided_by"],
+          reasoning: params["reasoning"],
+          outcome: params["outcome"],
+          outcome_score: params["outcome_score"],
+          tags: params["tags"],
+          space_id: params["space_id"],
+          reviewed_at: parse_datetime(params["reviewed_at"])
+        }
 
-    with {:ok, updated} <- Decisions.update_decision(decision, attrs) do
-      json(conn, serialize(updated))
-    end
+        with {:ok, updated} <- Decisions.update_decision(decision, attrs) do
+          json(conn, serialize(updated))
+        end
     end
   end
 

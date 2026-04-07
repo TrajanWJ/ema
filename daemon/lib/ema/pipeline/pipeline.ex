@@ -67,7 +67,11 @@ defmodule Ema.Pipeline do
     bottlenecks =
       if queued_stuck && queued_stuck.count > 0 do
         age = DateTime.diff(now, queued_stuck.oldest, :minute)
-        [%{stage: "proposals_queued", count: queued_stuck.count, oldest_age_minutes: age} | bottlenecks]
+
+        [
+          %{stage: "proposals_queued", count: queued_stuck.count, oldest_age_minutes: age}
+          | bottlenecks
+        ]
       else
         bottlenecks
       end

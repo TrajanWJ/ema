@@ -43,7 +43,10 @@ defmodule Ema.Repo.Migrations.CreateHarvestedSessionsAndIntents do
       add :loaded, :boolean, default: false
       add :brain_dump_item_id, :string
       add :metadata, :text, default: "{}"
-      add :harvested_session_id, references(:harvested_sessions, type: :string, on_delete: :nothing)
+
+      add :harvested_session_id,
+          references(:harvested_sessions, type: :string, on_delete: :nothing)
+
       add :project_id, references(:projects, type: :string, on_delete: :nilify_all)
 
       timestamps(type: :utc_datetime)

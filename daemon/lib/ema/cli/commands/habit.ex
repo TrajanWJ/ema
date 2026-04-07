@@ -21,8 +21,11 @@ defmodule Ema.CLI.Commands.Habit do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/habits") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "habits"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "habits"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

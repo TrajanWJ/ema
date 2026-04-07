@@ -9,6 +9,7 @@ defmodule Ema.Application do
   def start(_type, _args) do
     unless System.get_env("DISCORD_BOT_TOKEN") do
       require Logger
+
       unless System.get_env("EMA_MCP_STDIO") in ["1", "true", "TRUE"] do
         Logger.warning("DISCORD_BOT_TOKEN not set — Discord delivery will be unavailable")
       end
@@ -18,8 +19,7 @@ defmodule Ema.Application do
     core_children = [
       EmaWeb.Telemetry,
       Ema.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
+      {Ecto.Migrator, repos: Application.fetch_env!(:ema, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:ema, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ema.PubSub},
       {Registry, keys: :unique, name: Ema.Agents.Registry},
@@ -66,7 +66,7 @@ defmodule Ema.Application do
 
     children =
       core_children ++
-      runtime_children ++
+        runtime_children ++
         maybe_start_babysitter() ++
         maybe_start_session_store() ++
         maybe_start_campaign_manager() ++
@@ -335,13 +335,6 @@ defmodule Ema.Application do
       [Ema.MCP.Server]
     else
       []
-    end
-  end
-
-  defp maybe_run_startup_bootstrap do
-    if Application.get_env(:ema, :start_startup_bootstrap, true) and
-         System.get_env("EMA_MCP_STDIO") not in ["1", "true", "TRUE"] do
-      Ema.IntentionFarmer.StartupBootstrap.run_async()
     end
   end
 end

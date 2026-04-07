@@ -119,8 +119,7 @@ defmodule Ema.Persistence.SessionStore do
           {:session_crystallized, crystallized}
         )
 
-        {:reply, {:ok, crystallized},
-         %{state | dirty: MapSet.put(state.dirty, session_id)}}
+        {:reply, {:ok, crystallized}, %{state | dirty: MapSet.put(state.dirty, session_id)}}
 
       [] ->
         {:reply, {:error, :not_found}, state}

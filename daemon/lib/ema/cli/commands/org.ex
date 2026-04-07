@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.Org do
 
   def handle([:list], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/orgs") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "orgs"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "orgs"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 

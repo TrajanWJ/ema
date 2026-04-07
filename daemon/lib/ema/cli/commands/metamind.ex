@@ -31,11 +31,12 @@ defmodule Ema.CLI.Commands.Metamind do
   end
 
   def handle([:save], parsed, _transport, opts) do
-    body = Helpers.compact_map([
-      {"name", parsed.args.name},
-      {"content", parsed.options[:content]},
-      {"category", parsed.options[:category]}
-    ])
+    body =
+      Helpers.compact_map([
+        {"name", parsed.args.name},
+        {"content", parsed.options[:content]},
+        {"category", parsed.options[:category]}
+      ])
 
     case Ema.CLI.Transport.Http.post("/metamind/library", body) do
       {:ok, resp} ->

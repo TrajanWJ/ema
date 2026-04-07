@@ -215,12 +215,13 @@ defmodule Ema.Tasks do
             Phoenix.PubSub.broadcast(
               Ema.PubSub,
               "task_events",
-              {:task_completed, %{
-                task_id: updated.id,
-                title: updated.title,
-                project_id: updated.project_id,
-                responsibility_id: updated.responsibility_id
-              }}
+              {:task_completed,
+               %{
+                 task_id: updated.id,
+                 title: updated.title,
+                 project_id: updated.project_id,
+                 responsibility_id: updated.responsibility_id
+               }}
             )
           end
 

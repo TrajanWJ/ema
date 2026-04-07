@@ -69,16 +69,17 @@ defmodule Ema.IntentionFarmer.ImportCatalog do
 
   defp ensure_ingest_jobs(imports) do
     Enum.each(imports, fn entry ->
-      _ =
-        Ingestor.ensure_job(%{
-          source_type: Map.get(entry, "dataset_guess") || "external_import",
-          source_uri: entry["source_uri"],
-          extracted_title: entry["file_name"],
-          extracted_summary: entry["preview"],
-          extracted_tags:
-            ["imported", "external", entry["provider_guess"], entry["dataset_guess"]]
-            |> Enum.reject(&is_nil/1)
-        })
+      tags =
+        ["imported", "external", entry["provider_guess"], entry["dataset_guess"]]
+        |> Enum.reject(&is_nil/1)
+
+      Ingestor.create_job(%{
+        source_type: Map.get(entry, "dataset_guess") || "external_import",
+        source_uri: entry["source_uri"],
+        extracted_title: entry["file_name"],
+        extracted_summary: entry["preview"],
+        extracted_tags: Jason.encode!(tags)
+      })
     end)
   end
 

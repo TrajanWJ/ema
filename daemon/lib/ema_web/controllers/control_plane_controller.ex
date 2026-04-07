@@ -77,7 +77,10 @@ defmodule EmaWeb.ControlPlaneController do
         total: length(tasks),
         priority_items:
           tasks
-          |> Enum.sort_by(fn t -> {Map.get(t, :priority) || 999, Map.get(t, :updated_at)} end, :asc)
+          |> Enum.sort_by(
+            fn t -> {Map.get(t, :priority) || 999, Map.get(t, :updated_at)} end,
+            :asc
+          )
           |> Enum.take(5)
           |> Enum.map(&task_brief/1)
       },
@@ -137,7 +140,8 @@ defmodule EmaWeb.ControlPlaneController do
             title: Map.get(project, :name)
           },
           summary: %{
-            one_line: "#{project.name} context package built from host EMA project context and host truth.",
+            one_line:
+              "#{project.name} context package built from host EMA project context and host truth.",
             status: host_truth.status,
             top_actionable_issue: List.first(host_truth.anomalies),
             recommended_next_step: recommended_next_step(host_truth)
@@ -156,7 +160,11 @@ defmodule EmaWeb.ControlPlaneController do
           executions: Map.get(ctx, :executions, %{}),
           vault: Map.get(ctx, :vault, %{}),
           sources: [
-            %{kind: "endpoint", path_or_endpoint: "/api/projects/#{project.id}/context", confidence: "high"},
+            %{
+              kind: "endpoint",
+              path_or_endpoint: "/api/projects/#{project.id}/context",
+              confidence: "high"
+            },
             %{kind: "endpoint", path_or_endpoint: "/api/surfaces/host-truth", confidence: "high"}
           ],
           budget: %{mode: "standard", truncated: false},
@@ -195,9 +203,14 @@ defmodule EmaWeb.ControlPlaneController do
     proposals = safe(fn -> Proposals.list_proposals() end, [])
     executions = safe(fn -> Executions.list_executions(limit: 200) end, [])
 
-    running_execs = Enum.filter(executions, &(&1.status in ["running", "approved", "delegated", "created"]))
+    running_execs =
+      Enum.filter(executions, &(&1.status in ["running", "approved", "delegated", "created"]))
+
     failed_execs = Enum.filter(executions, &(&1.status == "failed"))
-    open_proposals = Enum.filter(proposals, &(&1.status in [nil, "queued", "generated", "refined", "debated"]))
+
+    open_proposals =
+      Enum.filter(proposals, &(&1.status in [nil, "queued", "generated", "refined", "debated"]))
+
     blocked_tasks = Enum.filter(tasks, &(&1.status in ["blocked", "waiting"]))
 
     failure_taxonomy = classify_failures(failed_execs)
@@ -206,11 +219,23 @@ defmodule EmaWeb.ControlPlaneController do
 
     anomalies =
       []
-      |> maybe_add(length(running_execs) >= 25, "High running execution count: #{length(running_execs)}")
-      |> maybe_add(length(open_proposals) >= 50, "High open proposal count: #{length(open_proposals)}")
+      |> maybe_add(
+        length(running_execs) >= 25,
+        "High running execution count: #{length(running_execs)}"
+      )
+      |> maybe_add(
+        length(open_proposals) >= 50,
+        "High open proposal count: #{length(open_proposals)}"
+      )
       |> maybe_add(active_failed >= 3, "Active failed executions present: #{active_failed}")
-      |> maybe_add(map_get(failure_taxonomy.classes, :state_integrity_anomaly) >= 1, "Execution state-integrity anomalies present: #{map_get(failure_taxonomy.classes, :state_integrity_anomaly)}")
-      |> maybe_add(length(blocked_tasks) >= 5, "Blocked/waiting tasks present: #{length(blocked_tasks)}")
+      |> maybe_add(
+        map_get(failure_taxonomy.classes, :state_integrity_anomaly) >= 1,
+        "Execution state-integrity anomalies present: #{map_get(failure_taxonomy.classes, :state_integrity_anomaly)}"
+      )
+      |> maybe_add(
+        length(blocked_tasks) >= 5,
+        "Blocked/waiting tasks present: #{length(blocked_tasks)}"
+      )
 
     status =
       cond do
@@ -233,7 +258,8 @@ defmodule EmaWeb.ControlPlaneController do
         ),
       counts: %{
         active_projects: length(projects),
-        pending_tasks: length(Enum.filter(tasks, &(&1.status not in ["done", "cancelled", "killed"]))),
+        pending_tasks:
+          length(Enum.filter(tasks, &(&1.status not in ["done", "cancelled", "killed"]))),
         open_proposals: length(open_proposals),
         running_agents: length(running_execs),
         failed_executions: length(failed_execs),
@@ -322,17 +348,27 @@ defmodule EmaWeb.ControlPlaneController do
     do:
       "EMA host degraded — #{running} running executions, #{proposals} open proposals, #{active_failed} active failed executions, #{historical_failed} historical failed executions, #{map_get(taxonomy.classes, :state_integrity_anomaly)} state-integrity anomalies"
 
-  defp recommended_next_step(%{failure_taxonomy: %{classes: %{"state_integrity_anomaly" => n}}}) when n >= 1 do
+  defp recommended_next_step(%{failure_taxonomy: %{classes: %{"state_integrity_anomaly" => n}}})
+       when n >= 1 do
     "Inspect execution state-integrity anomalies before increasing loop autonomy."
   end
 
   defp recommended_next_step(%{anomalies: [first | _]}) do
     cond do
-      String.contains?(first, "Active failed") -> "Inspect and classify active failed executions before increasing autonomy."
-      String.contains?(first, "state-integrity") -> "Inspect execution state-integrity anomalies before increasing autonomy."
-      String.contains?(first, "High open proposal count") -> "Triage or collapse open proposals into a smaller actionable set."
-      String.contains?(first, "Blocked") -> "Resolve blocked tasks before queue growth continues."
-      true -> "Inspect host truth and narrow the main source of degradation."
+      String.contains?(first, "Active failed") ->
+        "Inspect and classify active failed executions before increasing autonomy."
+
+      String.contains?(first, "state-integrity") ->
+        "Inspect execution state-integrity anomalies before increasing autonomy."
+
+      String.contains?(first, "High open proposal count") ->
+        "Triage or collapse open proposals into a smaller actionable set."
+
+      String.contains?(first, "Blocked") ->
+        "Resolve blocked tasks before queue growth continues."
+
+      true ->
+        "Inspect host truth and narrow the main source of degradation."
     end
   end
 
@@ -371,7 +407,10 @@ defmodule EmaWeb.ControlPlaneController do
   end
 
   defp age_hours(nil, _now), do: nil
-  defp age_hours(%DateTime{} = inserted_at, %DateTime{} = now), do: DateTime.diff(now, inserted_at, :hour)
+
+  defp age_hours(%DateTime{} = inserted_at, %DateTime{} = now),
+    do: DateTime.diff(now, inserted_at, :hour)
+
   defp age_hours(_other, _now), do: nil
 
   defp stringify_keys(map) when is_map(map) do

@@ -25,10 +25,11 @@ defmodule Ema.CLI.Commands.Ralph do
   end
 
   def handle([:configure], parsed, _transport, _opts) do
-    body = Helpers.compact_map([
-      {"interval", parsed.options[:interval]},
-      {"enabled", parsed.options[:enabled]}
-    ])
+    body =
+      Helpers.compact_map([
+        {"interval", parsed.options[:interval]},
+        {"enabled", parsed.options[:enabled]}
+      ])
 
     case Ema.CLI.Transport.Http.post("/ralph/configure", body) do
       {:ok, _} -> Output.success("Ralph configured")

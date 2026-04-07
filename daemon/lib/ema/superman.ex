@@ -178,9 +178,15 @@ defmodule Ema.Superman do
 
   defp knowledge_summary(project_id) do
     intents = Knowledge.items_for_project(project_id, kind: "intent", status: "active", limit: 10)
-    decisions = Knowledge.items_for_project(project_id, kind: "decision", status: "active", limit: 10)
-    questions = Knowledge.items_for_project(project_id, kind: "question", status: "active", limit: 10)
-    evidence = Knowledge.items_for_project(project_id, kind: "evidence", status: "active", limit: 5)
+
+    decisions =
+      Knowledge.items_for_project(project_id, kind: "decision", status: "active", limit: 10)
+
+    questions =
+      Knowledge.items_for_project(project_id, kind: "question", status: "active", limit: 10)
+
+    evidence =
+      Knowledge.items_for_project(project_id, kind: "evidence", status: "active", limit: 5)
 
     sections =
       [

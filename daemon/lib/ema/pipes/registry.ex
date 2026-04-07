@@ -328,8 +328,11 @@ defmodule Ema.Pipes.Registry do
         description: "Create a new seed prompt from brain dump or other trigger",
         schema: %{prompt: :string, project_id: :string},
         execute: fn payload ->
-          content = payload["content"] || payload[:content] || payload["prompt"] || payload[:prompt] || ""
-          title = payload["title"] || payload[:title] || "Auto-seed: #{String.slice(content, 0..40)}"
+          content =
+            payload["content"] || payload[:content] || payload["prompt"] || payload[:prompt] || ""
+
+          title =
+            payload["title"] || payload[:title] || "Auto-seed: #{String.slice(content, 0..40)}"
 
           safe_apply(Ema.Proposals, :create_seed, [
             %{

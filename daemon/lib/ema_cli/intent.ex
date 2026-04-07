@@ -111,7 +111,10 @@ defmodule EmaCli.Intent do
   end
 
   def run(unknown, _),
-    do: error("Unknown intent subcommand: #{unknown}. Try: search, list, graph, trace, create, context, status, link")
+    do:
+      error(
+        "Unknown intent subcommand: #{unknown}. Try: search, list, graph, trace, create, context, status, link"
+      )
 
   defp print_ascii_tree([], _depth), do: :ok
 

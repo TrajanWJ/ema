@@ -135,12 +135,22 @@ defmodule Ema.IntentionFarmer.Status do
 
     suggested_actions =
       []
-      |> maybe_add(cli_tool_count == 0, "Run onboarding bootstrap to detect CLI agents and import sources.")
-      |> maybe_add(source_count == 0, "Point EMA at real source directories before relying on harvested context.")
-      |> maybe_add(not healthy_provider?, "Configure at least one healthy AI provider for active autonomous use.")
+      |> maybe_add(
+        cli_tool_count == 0,
+        "Run onboarding bootstrap to detect CLI agents and import sources."
+      )
+      |> maybe_add(
+        source_count == 0,
+        "Point EMA at real source directories before relying on harvested context."
+      )
+      |> maybe_add(
+        not healthy_provider?,
+        "Configure at least one healthy AI provider for active autonomous use."
+      )
 
     %{
-      ready_for_bootstrap: connections.mcp_stdio.status == :ready and connections.daemon_api.status == :ok,
+      ready_for_bootstrap:
+        connections.mcp_stdio.status == :ready and connections.daemon_api.status == :ok,
       ready_for_active_use:
         connections.daemon_api.status == :ok and cli_tool_count > 0 and healthy_provider?,
       cli_tools_detected: cli_tool_count,

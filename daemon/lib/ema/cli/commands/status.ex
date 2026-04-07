@@ -38,7 +38,7 @@ defmodule Ema.CLI.Commands.Status do
       end
 
     proposals =
-      case transport.call(Ema.Proposals, :list_proposals, [limit: 5, status: "queued"]) do
+      case transport.call(Ema.Proposals, :list_proposals, limit: 5, status: "queued") do
         {:ok, list} -> length(list)
         _ -> 0
       end

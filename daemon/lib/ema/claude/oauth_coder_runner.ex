@@ -8,7 +8,8 @@ defmodule Ema.Claude.OAuthCoderRunner do
 
   require Logger
 
-  def run(provider, prompt, opts \\ []) when provider in [:claude, :codex] and is_binary(prompt) do
+  def run(provider, prompt, opts \\ [])
+      when provider in [:claude, :codex] and is_binary(prompt) do
     timeout = Keyword.get(opts, :timeout, 300_000)
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
     workdir = Keyword.get(opts, :workdir, File.cwd!())

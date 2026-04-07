@@ -3,7 +3,12 @@ defmodule Ema.CLI.Commands.Config do
 
   alias Ema.CLI.{Helpers, Output}
 
-  @columns [{"Container", :container_type}, {"ID", :container_id}, {"Key", :key}, {"Value", :value}]
+  @columns [
+    {"Container", :container_type},
+    {"ID", :container_id},
+    {"Key", :key},
+    {"Value", :value}
+  ]
 
   def handle([:view], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/settings") do
@@ -26,11 +31,17 @@ defmodule Ema.CLI.Commands.Config do
           end
 
         Ema.CLI.Transport.Http ->
-          params = Helpers.compact_keyword(container_type: container_type, container_id: container_id)
+          params =
+            Helpers.compact_keyword(container_type: container_type, container_id: container_id)
 
           case transport.get("/container-config", params: params) do
-            {:ok, body} -> Output.render(Helpers.extract_list(body, "container_config"), @columns, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+            {:ok, body} ->
+              Output.render(Helpers.extract_list(body, "container_config"), @columns,
+                json: opts[:json]
+              )
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
       end
     else
@@ -42,14 +53,19 @@ defmodule Ema.CLI.Commands.Config do
     with {:ok, {container_type, container_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.ContainerConfig, :get, [container_type, container_id, parsed.args.key]) do
+          case transport.call(Ema.ContainerConfig, :get, [
+                 container_type,
+                 container_id,
+                 parsed.args.key
+               ]) do
             {:ok, nil} -> Output.error("No config for #{parsed.args.entity} #{parsed.args.key}")
             {:ok, row} -> Output.detail(row, json: opts[:json])
             {:error, reason} -> Output.error(inspect(reason))
           end
 
         Ema.CLI.Transport.Http ->
-          params = Helpers.compact_keyword(container_type: container_type, container_id: container_id)
+          params =
+            Helpers.compact_keyword(container_type: container_type, container_id: container_id)
 
           case transport.get("/container-config", params: params) do
             {:ok, body} ->
@@ -58,7 +74,9 @@ defmodule Ema.CLI.Commands.Config do
                 |> Helpers.extract_list("container_config")
                 |> Enum.find(fn item -> Map.get(item, "key", item[:key]) == parsed.args.key end)
 
-              if row, do: Output.detail(row, json: opts[:json]), else: Output.error("No config for #{parsed.args.entity} #{parsed.args.key}")
+              if row,
+                do: Output.detail(row, json: opts[:json]),
+                else: Output.error("No config for #{parsed.args.entity} #{parsed.args.key}")
 
             {:error, reason} ->
               Output.error(inspect(reason))
@@ -75,7 +93,12 @@ defmodule Ema.CLI.Commands.Config do
     with {:ok, {container_type, container_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.ContainerConfig, :set, [container_type, container_id, parsed.args.key, value]) do
+          case transport.call(Ema.ContainerConfig, :set, [
+                 container_type,
+                 container_id,
+                 parsed.args.key,
+                 value
+               ]) do
             {:ok, row} ->
               Output.success("Set #{parsed.args.key} on #{parsed.args.entity}")
               if opts[:json], do: Output.json(row)

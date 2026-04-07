@@ -68,10 +68,15 @@ defmodule Ema.CLI.Commands.Em do
 
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.Actors, :transition_phase, [actor, phase, [reason: reason, week_number: week]]) do
+          case transport.call(Ema.Actors, :transition_phase, [
+                 actor,
+                 phase,
+                 [reason: reason, week_number: week]
+               ]) do
             {:ok, updated} ->
               Output.success("#{actor_name(actor)} → #{phase}")
               if opts[:json], do: Output.json(%{phase: Map.get(updated, :phase)})
+
             {:error, reason} ->
               Output.error(inspect(reason))
           end
@@ -84,6 +89,7 @@ defmodule Ema.CLI.Commands.Em do
             {:ok, body} ->
               Output.success("Advanced to #{phase}")
               if opts[:json], do: Output.json(body)
+
             {:error, reason} ->
               Output.error(inspect(reason))
           end
@@ -175,8 +181,11 @@ defmodule Ema.CLI.Commands.Em do
               {:error, reason} -> {:error, inspect(reason)}
             end
 
-          {:ok, actor} -> {:ok, actor}
-          {:error, reason} -> {:error, inspect(reason)}
+          {:ok, actor} ->
+            {:ok, actor}
+
+          {:error, reason} ->
+            {:error, inspect(reason)}
         end
 
       Ema.CLI.Transport.Http ->
@@ -195,8 +204,11 @@ defmodule Ema.CLI.Commands.Em do
       case transport do
         Ema.CLI.Transport.Direct ->
           case transport.call(Ema.Tasks, :list_tasks, [[actor_id: actor_id]]) do
-            {:ok, tasks} -> Enum.count(tasks, &(Map.get(&1, :status) not in ["done", "archived", "cancelled"]))
-            _ -> 0
+            {:ok, tasks} ->
+              Enum.count(tasks, &(Map.get(&1, :status) not in ["done", "archived", "cancelled"]))
+
+            _ ->
+              0
           end
 
         Ema.CLI.Transport.Http ->
@@ -220,7 +232,9 @@ defmodule Ema.CLI.Commands.Em do
     %{
       id: actor_id,
       name: Map.get(actor, :name) || actor["name"],
-      actor_type: Map.get(actor, :actor_type) || actor["actor_type"] || Map.get(actor, :type) || actor["type"],
+      actor_type:
+        Map.get(actor, :actor_type) || actor["actor_type"] || Map.get(actor, :type) ||
+          actor["type"],
       phase: Map.get(actor, :phase) || actor["phase"],
       status: Map.get(actor, :status) || actor["status"],
       backlog_count: backlog_count,

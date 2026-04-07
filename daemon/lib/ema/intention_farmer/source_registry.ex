@@ -159,7 +159,19 @@ defmodule Ema.IntentionFarmer.SourceRegistry do
     base = Path.basename(path) |> String.downcase()
 
     interesting_ext? =
-      ext in [".zip", ".json", ".jsonl", ".csv", ".txt", ".md", ".html", ".htm", ".gz", ".tgz", ".tar"]
+      ext in [
+        ".zip",
+        ".json",
+        ".jsonl",
+        ".csv",
+        ".txt",
+        ".md",
+        ".html",
+        ".htm",
+        ".gz",
+        ".tgz",
+        ".tar"
+      ]
 
     interesting_name? =
       String.contains?(base, "takeout") or

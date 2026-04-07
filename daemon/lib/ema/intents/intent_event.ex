@@ -32,6 +32,7 @@ defmodule Ema.Intents.IntentEvent do
   end
 
   def decode_payload(%__MODULE__{payload: nil}), do: %{}
+
   def decode_payload(%__MODULE__{payload: p}) when is_binary(p) do
     case Jason.decode(p) do
       {:ok, map} when is_map(map) -> map

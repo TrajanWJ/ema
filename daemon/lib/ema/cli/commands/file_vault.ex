@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.FileVault do
 
   def handle([:list], _parsed, transport, opts) do
     case transport.get("/file-vault") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "files"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "files"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 

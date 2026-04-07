@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.Tunnel do
 
   def handle([:list], _parsed, transport, opts) do
     case transport.get("/tunnels") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "tunnels"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "tunnels"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 

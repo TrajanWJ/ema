@@ -49,11 +49,16 @@ defmodule Ema.IntentionFarmer.BootstrapWatcher do
         Logger.warning("[BootstrapWatcher] Bootstrap failed (attempt #{attempt}): #{reason}")
 
         if attempt < @max_attempts do
-          delay = min(@initial_delay * :math.pow(2, attempt) |> trunc(), @max_retry_delay)
+          delay = min((@initial_delay * :math.pow(2, attempt)) |> trunc(), @max_retry_delay)
           Process.send_after(self(), :run_bootstrap, delay)
-          {:noreply, %{state | status: :retrying, attempt: attempt, last_result: {:error, reason}}}
+
+          {:noreply,
+           %{state | status: :retrying, attempt: attempt, last_result: {:error, reason}}}
         else
-          Logger.error("[BootstrapWatcher] Bootstrap failed after #{@max_attempts} attempts, giving up")
+          Logger.error(
+            "[BootstrapWatcher] Bootstrap failed after #{@max_attempts} attempts, giving up"
+          )
+
           Process.send_after(self(), :rescan, @rescan_interval)
           {:noreply, %{state | status: :failed, attempt: attempt, last_result: {:error, reason}}}
         end

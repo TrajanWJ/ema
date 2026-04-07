@@ -54,7 +54,4 @@ defmodule EmaWeb.FileVaultController do
       updated_at: file.updated_at
     }
   end
-
-  defp maybe_add(opts, _key, nil), do: opts
-  defp maybe_add(opts, key, val), do: Keyword.put(opts, key, val)
 end

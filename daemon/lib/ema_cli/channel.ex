@@ -1,7 +1,8 @@
 defmodule EmaCli.Channel do
   @moduledoc "CLI commands for messaging channels"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("list", opts) do
     case api_get("/channels") do
@@ -43,8 +44,11 @@ defmodule EmaCli.Channel do
 
   def run("send", opts) do
     # Expects: ema channel send <channel_id> --message="text"
-    channel_id = Map.get(opts, :_arg) || error("Usage: ema channel send <channel_id> --message=\"text\"")
-    message = Map.get(opts, :message) || error("Usage: ema channel send <channel_id> --message=\"text\"")
+    channel_id =
+      Map.get(opts, :_arg) || error("Usage: ema channel send <channel_id> --message=\"text\"")
+
+    message =
+      Map.get(opts, :message) || error("Usage: ema channel send <channel_id> --message=\"text\"")
 
     case api_post("/channels/#{channel_id}/messages", %{message: %{content: message}}) do
       {:ok, _} -> success("Message sent to channel #{channel_id}")

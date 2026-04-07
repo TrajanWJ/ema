@@ -50,20 +50,23 @@ defmodule Ema.Claude.AI do
                 end
 
               Keyword.get(opts, :allow_fallback, true) ->
-              Logger.warning("[AI] Codex unavailable, falling back to Claude: #{inspect(reason)}")
+                Logger.warning(
+                  "[AI] Codex unavailable, falling back to Claude: #{inspect(reason)}"
+                )
 
-              with {:ok, result} <- run_claude_backend(prompt, opts) do
-                {:ok,
-                 attach_routing_metadata(result, %{
-                   requested_provider: "codex-local",
-                   actual_provider: "claude-local",
-                   fallback_from: "codex-local",
-                   fallback_reason: inspect(reason),
-                   backend: backend_name(),
-                   task_type: task_type,
-                   model: Keyword.get(opts, :model)
-                 })}
-              end
+                with {:ok, result} <- run_claude_backend(prompt, opts) do
+                  {:ok,
+                   attach_routing_metadata(result, %{
+                     requested_provider: "codex-local",
+                     actual_provider: "claude-local",
+                     fallback_from: "codex-local",
+                     fallback_reason: inspect(reason),
+                     backend: backend_name(),
+                     task_type: task_type,
+                     model: Keyword.get(opts, :model)
+                   })}
+                end
+
               true ->
                 error
             end
@@ -108,7 +111,10 @@ defmodule Ema.Claude.AI do
             {:ok, result}
 
           {:error, reason} ->
-            Logger.warning("[AI] Bridge failed (#{inspect(reason)}), falling back to Runner (claude CLI)")
+            Logger.warning(
+              "[AI] Bridge failed (#{inspect(reason)}), falling back to Runner (claude CLI)"
+            )
+
             Ema.Claude.Runner.run(prompt, opts)
         end
 

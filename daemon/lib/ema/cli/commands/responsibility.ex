@@ -15,11 +15,12 @@ defmodule Ema.CLI.Commands.Responsibility do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:role, parsed.options[:role]},
-          {:active, true}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:role, parsed.options[:role]},
+            {:active, true}
+          ])
 
         case transport.call(Ema.Responsibilities, :list_responsibilities, [filter]) do
           {:ok, resps} -> Output.render(resps, @columns, json: opts[:json])
@@ -27,14 +28,17 @@ defmodule Ema.CLI.Commands.Responsibility do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:role, parsed.options[:role]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:role, parsed.options[:role]}
+          ])
 
         case transport.get("/responsibilities", params: params) do
           {:ok, body} ->
-            Output.render(Helpers.extract_list(body, "responsibilities"), @columns, json: opts[:json])
+            Output.render(Helpers.extract_list(body, "responsibilities"), @columns,
+              json: opts[:json]
+            )
 
           {:error, reason} ->
             Output.error(reason)
@@ -55,9 +59,14 @@ defmodule Ema.CLI.Commands.Responsibility do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/responsibilities/#{id}") do
-          {:ok, body} -> Output.detail(Helpers.extract_record(body, "responsibility"), json: opts[:json])
-          {:error, :not_found} -> Output.error("Responsibility #{id} not found")
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.detail(Helpers.extract_record(body, "responsibility"), json: opts[:json])
+
+          {:error, :not_found} ->
+            Output.error("Responsibility #{id} not found")
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -67,13 +76,14 @@ defmodule Ema.CLI.Commands.Responsibility do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:title, title},
-          {:role, parsed.options[:role]},
-          {:cadence, parsed.options[:cadence]},
-          {:description, parsed.options[:description]},
-          {:project_id, parsed.options[:project]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:title, title},
+            {:role, parsed.options[:role]},
+            {:cadence, parsed.options[:cadence]},
+            {:description, parsed.options[:description]},
+            {:project_id, parsed.options[:project]}
+          ])
 
         case transport.call(Ema.Responsibilities, :create_responsibility, [attrs]) do
           {:ok, resp} ->
@@ -85,13 +95,16 @@ defmodule Ema.CLI.Commands.Responsibility do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"responsibility" => Helpers.compact_map([
-          {"title", title},
-          {"role", parsed.options[:role]},
-          {"cadence", parsed.options[:cadence]},
-          {"description", parsed.options[:description]},
-          {"project_id", parsed.options[:project]}
-        ])}
+        body = %{
+          "responsibility" =>
+            Helpers.compact_map([
+              {"title", title},
+              {"role", parsed.options[:role]},
+              {"cadence", parsed.options[:cadence]},
+              {"description", parsed.options[:description]},
+              {"project_id", parsed.options[:project]}
+            ])
+        }
 
         case transport.post("/responsibilities", body) do
           {:ok, resp} ->
@@ -110,10 +123,11 @@ defmodule Ema.CLI.Commands.Responsibility do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:notes, parsed.options[:notes]},
-          {:status, parsed.options[:status] || "ok"}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:notes, parsed.options[:notes]},
+            {:status, parsed.options[:status] || "ok"}
+          ])
 
         case transport.call(Ema.Responsibilities, :get_responsibility!, [id]) do
           {:ok, resp} ->
@@ -131,10 +145,11 @@ defmodule Ema.CLI.Commands.Responsibility do
         end
 
       Ema.CLI.Transport.Http ->
-        body = Helpers.compact_map([
-          {"notes", parsed.options[:notes]},
-          {"status", parsed.options[:status] || "ok"}
-        ])
+        body =
+          Helpers.compact_map([
+            {"notes", parsed.options[:notes]},
+            {"status", parsed.options[:status] || "ok"}
+          ])
 
         case transport.post("/responsibilities/#{id}/check-in", body) do
           {:ok, _} -> Output.success("Checked in on responsibility #{id}")
@@ -154,7 +169,9 @@ defmodule Ema.CLI.Commands.Responsibility do
       Ema.CLI.Transport.Http ->
         case transport.get("/responsibilities/at-risk") do
           {:ok, body} ->
-            Output.render(Helpers.extract_list(body, "responsibilities"), @columns, json: opts[:json])
+            Output.render(Helpers.extract_list(body, "responsibilities"), @columns,
+              json: opts[:json]
+            )
 
           {:error, reason} ->
             Output.error(reason)

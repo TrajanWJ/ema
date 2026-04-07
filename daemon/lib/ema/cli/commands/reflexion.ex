@@ -7,16 +7,20 @@ defmodule Ema.CLI.Commands.Reflexion do
 
   def handle([:list], _parsed, transport, opts) do
     case transport.get("/reflexion/entries") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "entries"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "entries"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 
   def handle([:create], parsed, transport, opts) do
-    body = Helpers.compact_map([
-      {"content", parsed.args.content},
-      {"type", parsed.options[:type] || "observation"}
-    ])
+    body =
+      Helpers.compact_map([
+        {"content", parsed.args.content},
+        {"type", parsed.options[:type] || "observation"}
+      ])
 
     case transport.post("/reflexion/entries", body) do
       {:ok, resp} ->

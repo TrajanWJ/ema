@@ -167,7 +167,8 @@ defmodule Ema.MCP.Tools do
       },
       %{
         "name" => "bootstrap_status",
-        "description" => "Fetch EMA bootstrap/readiness status, including provider health and detected CLI tools.",
+        "description" =>
+          "Fetch EMA bootstrap/readiness status, including provider health and detected CLI tools.",
         "inputSchema" => %{
           "type" => "object",
           "properties" => %{}
@@ -175,7 +176,8 @@ defmodule Ema.MCP.Tools do
       },
       %{
         "name" => "run_bootstrap",
-        "description" => "Run EMA's onboarding/bootstrap sweep to detect tools, catalog imports, and refresh construction context.",
+        "description" =>
+          "Run EMA's onboarding/bootstrap sweep to detect tools, catalog imports, and refresh construction context.",
         "inputSchema" => %{
           "type" => "object",
           "properties" => %{}
@@ -194,13 +196,15 @@ defmodule Ema.MCP.Tools do
             },
             "level" => %{
               "type" => "integer",
-              "description" => "Filter by intent level (0=vision, 1=goal, 2=project, 3=feature, 4=task, 5=execution)",
+              "description" =>
+                "Filter by intent level (0=vision, 1=goal, 2=project, 3=feature, 4=task, 5=execution)",
               "minimum" => 0,
               "maximum" => 5
             },
             "status" => %{
               "type" => "string",
-              "description" => "Filter by status (planned, active, researched, outlined, implementing, complete, blocked, archived)"
+              "description" =>
+                "Filter by status (planned, active, researched, outlined, implementing, complete, blocked, archived)"
             },
             "kind" => %{
               "type" => "string",
@@ -228,14 +232,16 @@ defmodule Ema.MCP.Tools do
             },
             "level" => %{
               "type" => "integer",
-              "description" => "Intent level (0=vision, 1=goal, 2=project, 3=feature, 4=task, 5=execution). Default: 4",
+              "description" =>
+                "Intent level (0=vision, 1=goal, 2=project, 3=feature, 4=task, 5=execution). Default: 4",
               "default" => 4,
               "minimum" => 0,
               "maximum" => 5
             },
             "kind" => %{
               "type" => "string",
-              "description" => "Intent kind (e.g. 'task', 'goal', 'feature', 'bug'). Default: 'task'",
+              "description" =>
+                "Intent kind (e.g. 'task', 'goal', 'feature', 'bug'). Default: 'task'",
               "default" => "task"
             },
             "project_id" => %{
@@ -259,7 +265,8 @@ defmodule Ema.MCP.Tools do
           "properties" => %{
             "project_id" => %{
               "type" => "string",
-              "description" => "Filter tree to a specific project (optional — omit for all projects)"
+              "description" =>
+                "Filter tree to a specific project (optional — omit for all projects)"
             }
           }
         }
@@ -281,14 +288,23 @@ defmodule Ema.MCP.Tools do
       },
       %{
         "name" => "ema_attach_intent_actor",
-        "description" => "Attach an actor to an intent using the canonical semantic bridge. Use this for ownership, assignment, or operator relationships.",
+        "description" =>
+          "Attach an actor to an intent using the canonical semantic bridge. Use this for ownership, assignment, or operator relationships.",
         "inputSchema" => %{
           "type" => "object",
           "properties" => %{
             "intent_id" => %{"type" => "string", "description" => "Intent ID"},
             "actor_id" => %{"type" => "string", "description" => "Actor ID or slug"},
-            "role" => %{"type" => "string", "description" => "Link role (owner, assignee, operator)", "default" => "assignee"},
-            "provenance" => %{"type" => "string", "description" => "Link provenance", "default" => "manual"}
+            "role" => %{
+              "type" => "string",
+              "description" => "Link role (owner, assignee, operator)",
+              "default" => "assignee"
+            },
+            "provenance" => %{
+              "type" => "string",
+              "description" => "Link provenance",
+              "default" => "manual"
+            }
           },
           "required" => ["intent_id", "actor_id"]
         }
@@ -302,7 +318,11 @@ defmodule Ema.MCP.Tools do
             "intent_id" => %{"type" => "string", "description" => "Intent ID"},
             "execution_id" => %{"type" => "string", "description" => "Execution ID"},
             "role" => %{"type" => "string", "description" => "Link role", "default" => "runtime"},
-            "provenance" => %{"type" => "string", "description" => "Link provenance", "default" => "execution"}
+            "provenance" => %{
+              "type" => "string",
+              "description" => "Link provenance",
+              "default" => "execution"
+            }
           },
           "required" => ["intent_id", "execution_id"]
         }
@@ -315,7 +335,11 @@ defmodule Ema.MCP.Tools do
           "properties" => %{
             "intent_id" => %{"type" => "string", "description" => "Intent ID"},
             "session_id" => %{"type" => "string", "description" => "Session ID"},
-            "session_type" => %{"type" => "string", "description" => "claude_session | ai_session | agent_session", "default" => "claude_session"},
+            "session_type" => %{
+              "type" => "string",
+              "description" => "claude_session | ai_session | agent_session",
+              "default" => "claude_session"
+            },
             "role" => %{"type" => "string", "description" => "Link role", "default" => "runtime"},
             "provenance" => %{"type" => "string", "description" => "Optional provenance override"}
           },
@@ -324,7 +348,8 @@ defmodule Ema.MCP.Tools do
       },
       %{
         "name" => "ema_get_intent_runtime",
-        "description" => "Get the runtime bundle for an intent: actors, executions, sessions, links, and recent lineage.",
+        "description" =>
+          "Get the runtime bundle for an intent: actors, executions, sessions, links, and recent lineage.",
         "inputSchema" => %{
           "type" => "object",
           "properties" => %{
@@ -418,36 +443,55 @@ defmodule Ema.MCP.Tools do
 
   defp call_context_operator(_args, _request_id) do
     case get("/api/context/operator/package") do
-      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "EMA API error #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp call_context_project(args, _request_id) do
     with {:ok, project_ref} <- require_string(args, "project"),
          {:ok, project_id} <- resolve_project_id(project_ref),
-         {:ok, %{status: status, body: body}} when status in 200..299 <- get("/api/context/project/#{project_id}/package") do
+         {:ok, %{status: status, body: body}} when status in 200..299 <-
+           get("/api/context/project/#{project_id}/package") do
       {:ok, body}
     else
-      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status, body: body}} ->
+        {:error, "EMA API error #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp call_bootstrap_status(_args, _request_id) do
     case get("/api/onboarding/status") do
-      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "EMA API error #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp call_run_bootstrap(_args, _request_id) do
     case post("/api/onboarding/run", %{}) do
-      {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
-      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "EMA API error #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -1036,15 +1080,22 @@ defmodule Ema.MCP.Tools do
       end
     end)
   end
+
   defp resolve_project_id(project_ref) do
     with {:ok, %{status: 200, body: body}} <- get("/api/projects"),
          projects <- Map.get(body, "projects", []),
-         project when not is_nil(project) <- Enum.find(projects, fn p -> project_ref in [p["id"], p["slug"], p["name"]] end) do
+         project when not is_nil(project) <-
+           Enum.find(projects, fn p -> project_ref in [p["id"], p["slug"], p["name"]] end) do
       {:ok, project["id"]}
     else
-      nil -> {:error, "Project not found: #{project_ref}"}
-      {:ok, %{status: status, body: body}} -> {:error, "EMA API error #{status}: #{inspect(body)}"}
-      {:error, reason} -> {:error, reason}
+      nil ->
+        {:error, "Project not found: #{project_ref}"}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "EMA API error #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

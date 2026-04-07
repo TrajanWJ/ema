@@ -2,7 +2,7 @@ defmodule EmaCli.Quality do
   @moduledoc "CLI commands for Quality & Improvement Loop"
 
   import EmaCli.CLI,
-    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+    only: [api_get: 1, format_output: 2, error: 1, warn: 1]
 
   def run("report", opts) do
     days = Map.get(opts, :days, "7")

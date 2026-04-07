@@ -14,10 +14,11 @@ defmodule Ema.CLI.Commands.Evolution do
   def handle([:rules], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:source, parsed.options[:source]}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:source, parsed.options[:source]}
+          ])
 
         case transport.call(Ema.Evolution, :list_rules, [filter]) do
           {:ok, rules} -> Output.render(rules, @columns, json: opts[:json])
@@ -25,14 +26,18 @@ defmodule Ema.CLI.Commands.Evolution do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:status, parsed.options[:status]},
-          {:source, parsed.options[:source]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:status, parsed.options[:status]},
+            {:source, parsed.options[:source]}
+          ])
 
         case transport.get("/evolution/rules", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "rules"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "rules"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -103,8 +108,11 @@ defmodule Ema.CLI.Commands.Evolution do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/evolution/signals") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "signals"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "signals"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

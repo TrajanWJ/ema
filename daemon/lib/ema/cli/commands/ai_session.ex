@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.AiSession do
 
   def handle([:list], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/ai-sessions") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "sessions"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 
@@ -20,10 +23,11 @@ defmodule Ema.CLI.Commands.AiSession do
   end
 
   def handle([:create], parsed, _transport, opts) do
-    body = Helpers.compact_map([
-      {"model", parsed.options[:model]},
-      {"project_slug", parsed.options[:project]}
-    ])
+    body =
+      Helpers.compact_map([
+        {"model", parsed.options[:model]},
+        {"project_slug", parsed.options[:project]}
+      ])
 
     case Ema.CLI.Transport.Http.post("/ai-sessions", body) do
       {:ok, resp} ->

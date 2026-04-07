@@ -31,9 +31,16 @@ defmodule Ema.IntentionFarmer.StartupBootstrap do
 
     _ = Settings.set("onboarding.last_bootstrap", Jason.encode!(payload))
 
-    Phoenix.PubSub.broadcast(Ema.PubSub, "intention_farmer:events", {:startup_bootstrap_complete, payload})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "intention_farmer:events",
+      {:startup_bootstrap_complete, payload}
+    )
 
-    Logger.info("[IntentionFarmer.StartupBootstrap] Completed boot-time onboarding: #{inspect(payload)}")
+    Logger.info(
+      "[IntentionFarmer.StartupBootstrap] Completed boot-time onboarding: #{inspect(payload)}"
+    )
+
     {:ok, payload}
   rescue
     e ->

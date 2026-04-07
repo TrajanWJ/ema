@@ -58,11 +58,6 @@ defmodule EmaWeb.ClipboardController do
     }
   end
 
-  defp parse_bool("true"), do: true
-  defp parse_bool("false"), do: false
-  defp parse_bool(val) when is_boolean(val), do: val
-  defp parse_bool(_), do: nil
-
   defp parse_datetime(nil), do: nil
 
   defp parse_datetime(dt_string) when is_binary(dt_string) do
@@ -73,7 +68,4 @@ defmodule EmaWeb.ClipboardController do
   end
 
   defp parse_datetime(_), do: nil
-
-  defp maybe_add(opts, _key, nil), do: opts
-  defp maybe_add(opts, key, val), do: Keyword.put(opts, key, val)
 end

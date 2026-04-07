@@ -21,7 +21,16 @@ defmodule Ema.Goals.KeyResult do
 
   def changeset(kr, attrs) do
     kr
-    |> cast(attrs, [:id, :goal_id, :description, :metric_type, :target_value, :current_value, :unit, :due_date])
+    |> cast(attrs, [
+      :id,
+      :goal_id,
+      :description,
+      :metric_type,
+      :target_value,
+      :current_value,
+      :unit,
+      :due_date
+    ])
     |> validate_required([:id, :goal_id, :description, :metric_type, :target_value])
     |> validate_inclusion(:metric_type, @valid_metric_types)
   end

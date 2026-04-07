@@ -10,8 +10,6 @@ defmodule Ema.Intents.IntentProjector do
   use GenServer
   require Logger
 
-  alias Ema.Intents.Intent
-
   @level_dirs %{
     0 => "Vision",
     1 => "Goals",
@@ -115,23 +113,25 @@ defmodule Ema.Intents.IntentProjector do
     project_id = m_get(intent, :project_id)
     parent_id = m_get(intent, :parent_id)
 
-    project_line = if project_id do
-      case Ema.Projects.get_project(project_id) do
-        %{slug: slug} -> "project: #{slug}"
-        _ -> ""
+    project_line =
+      if project_id do
+        case Ema.Projects.get_project(project_id) do
+          %{slug: slug} -> "project: #{slug}"
+          _ -> ""
+        end
+      else
+        ""
       end
-    else
-      ""
-    end
 
-    parent_line = if parent_id do
-      case Ema.Intents.get_intent(parent_id) do
-        %{slug: slug} -> "parent: \"[[#{slug_to_title(slug)}]]\""
-        _ -> ""
+    parent_line =
+      if parent_id do
+        case Ema.Intents.get_intent(parent_id) do
+          %{slug: slug} -> "parent: \"[[#{slug_to_title(slug)}]]\""
+          _ -> ""
+        end
+      else
+        ""
       end
-    else
-      ""
-    end
 
     lines =
       [

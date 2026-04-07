@@ -34,8 +34,11 @@ defmodule Ema.CLI.Commands.Pipe do
         params = Helpers.compact_keyword([{:project_id, parsed.options[:project]}])
 
         case transport.get("/pipes", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "pipes"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "pipes"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -65,11 +68,12 @@ defmodule Ema.CLI.Commands.Pipe do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:name, name},
-          {:trigger_pattern, parsed.options[:trigger]},
-          {:description, parsed.options[:description]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:name, name},
+            {:trigger_pattern, parsed.options[:trigger]},
+            {:description, parsed.options[:description]}
+          ])
 
         case transport.call(Ema.Pipes, :create_pipe, [attrs]) do
           {:ok, pipe} ->
@@ -81,11 +85,14 @@ defmodule Ema.CLI.Commands.Pipe do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"pipe" => Helpers.compact_map([
-          {"name", name},
-          {"trigger_pattern", parsed.options[:trigger]},
-          {"description", parsed.options[:description]}
-        ])}
+        body = %{
+          "pipe" =>
+            Helpers.compact_map([
+              {"name", name},
+              {"trigger_pattern", parsed.options[:trigger]},
+              {"description", parsed.options[:description]}
+            ])
+        }
 
         case transport.post("/pipes", body) do
           {:ok, resp} ->
@@ -159,8 +166,11 @@ defmodule Ema.CLI.Commands.Pipe do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/pipes/catalog") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "catalog"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "catalog"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -179,8 +189,11 @@ defmodule Ema.CLI.Commands.Pipe do
         params = Helpers.compact_keyword([{:limit, parsed.options[:limit]}])
 
         case transport.get("/pipes/history", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "runs"), @run_columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "runs"), @run_columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

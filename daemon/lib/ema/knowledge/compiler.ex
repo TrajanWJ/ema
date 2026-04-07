@@ -111,7 +111,9 @@ defmodule Ema.Knowledge.Compiler do
 
     Enum.reduce(sentences, [], fn sentence, acc ->
       case classify_sentence(sentence, section.heading) do
-        nil -> acc
+        nil ->
+          acc
+
         {kind, confidence} ->
           case create_knowledge_item(kind, sentence, confidence, section.id, project_id) do
             {:ok, item} -> [item | acc]

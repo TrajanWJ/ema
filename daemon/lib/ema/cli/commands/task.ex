@@ -40,17 +40,21 @@ defmodule Ema.CLI.Commands.Task do
     case transport do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Tasks, :get_with_subtasks, [id]) do
-          {:ok, nil} -> Output.error("Task #{id} not found")
+          {:ok, nil} ->
+            Output.error("Task #{id} not found")
+
           {:ok, task} ->
             details = %{
               task: task,
               tags: Ema.Tags.list_for("task", to_string(id)),
-              actor_data: Ema.EntityData.list_for("task", to_string(id), parsed.options[:actor] || "human")
+              actor_data:
+                Ema.EntityData.list_for("task", to_string(id), parsed.options[:actor] || "human")
             }
 
             Output.detail(details, json: opts[:json])
 
-          {:error, reason} -> Output.error(reason)
+          {:error, reason} ->
+            Output.error(reason)
         end
 
       Ema.CLI.Transport.Http ->

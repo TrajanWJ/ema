@@ -344,7 +344,9 @@ defmodule Ema.Babysitter.StreamChannels do
     pending_tasks =
       safe_int(fn ->
         Ema.Repo.aggregate(
-          from(t in Ema.Tasks.Task, where: t.status in ["proposed", "in_progress", "active", "blocked"]),
+          from(t in Ema.Tasks.Task,
+            where: t.status in ["proposed", "in_progress", "active", "blocked"]
+          ),
           :count
         )
       end)
@@ -411,15 +413,17 @@ defmodule Ema.Babysitter.StreamChannels do
           "🧭 **next:** system is idle; wait for fresh intent or operator input"
       end
 
-    lines = [
-      "🤖 **agent thoughts ##{n}** · #{now}",
-      "**#{active_count} active live** / #{total} total sessions · **#{pending_tasks}** pending tasks · **#{queued_proposals}** queued proposals",
-      stall_line,
-      done_line,
-      session_lines,
-      next_line,
-      "-# Live .jsonl file scan + EMA queue state + babysitter session posture"
-    ] |> Enum.reject(&is_nil/1)
+    lines =
+      [
+        "🤖 **agent thoughts ##{n}** · #{now}",
+        "**#{active_count} active live** / #{total} total sessions · **#{pending_tasks}** pending tasks · **#{queued_proposals}** queued proposals",
+        stall_line,
+        done_line,
+        session_lines,
+        next_line,
+        "-# Live .jsonl file scan + EMA queue state + babysitter session posture"
+      ]
+      |> Enum.reject(&is_nil/1)
 
     Enum.join(lines, "
 ")

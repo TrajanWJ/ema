@@ -15,11 +15,12 @@ defmodule Ema.CLI.Commands.Seed do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:active, parsed.options[:active]},
-          {:seed_type, parsed.options[:type]}
-        ])
+        filter =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:active, parsed.options[:active]},
+            {:seed_type, parsed.options[:type]}
+          ])
 
         case transport.call(Ema.Proposals, :list_seeds, [filter]) do
           {:ok, seeds} -> Output.render(seeds, @columns, json: opts[:json])
@@ -27,15 +28,19 @@ defmodule Ema.CLI.Commands.Seed do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword([
-          {:project_id, parsed.options[:project]},
-          {:active, parsed.options[:active]},
-          {:seed_type, parsed.options[:type]}
-        ])
+        params =
+          Helpers.compact_keyword([
+            {:project_id, parsed.options[:project]},
+            {:active, parsed.options[:active]},
+            {:seed_type, parsed.options[:type]}
+          ])
 
         case transport.get("/seeds", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "seeds"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "seeds"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -65,12 +70,13 @@ defmodule Ema.CLI.Commands.Seed do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:title, title},
-          {:prompt, parsed.options[:prompt]},
-          {:seed_type, parsed.options[:type] || "manual"},
-          {:project_id, parsed.options[:project]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:title, title},
+            {:prompt, parsed.options[:prompt]},
+            {:seed_type, parsed.options[:type] || "manual"},
+            {:project_id, parsed.options[:project]}
+          ])
 
         case transport.call(Ema.Proposals, :create_seed, [attrs]) do
           {:ok, seed} ->
@@ -82,12 +88,15 @@ defmodule Ema.CLI.Commands.Seed do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"seed" => Helpers.compact_map([
-          {"title", title},
-          {"prompt", parsed.options[:prompt]},
-          {"seed_type", parsed.options[:type] || "manual"},
-          {"project_id", parsed.options[:project]}
-        ])}
+        body = %{
+          "seed" =>
+            Helpers.compact_map([
+              {"title", title},
+              {"prompt", parsed.options[:prompt]},
+              {"seed_type", parsed.options[:type] || "manual"},
+              {"project_id", parsed.options[:project]}
+            ])
+        }
 
         case transport.post("/seeds", body) do
           {:ok, resp} ->

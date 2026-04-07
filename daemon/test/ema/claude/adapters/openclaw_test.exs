@@ -30,7 +30,8 @@ defmodule Ema.Claude.Adapters.OpenClawTest do
       raw =
         ~s({"type": "result", "result": "done", "usage": {"input_tokens": 10, "output_tokens": 20}})
 
-      assert {:ok, %{type: :message_stop, content: "done", usage: %{tokens_in: 10, tokens_out: 20}}} =
+      assert {:ok,
+              %{type: :message_stop, content: "done", usage: %{tokens_in: 10, tokens_out: 20}}} =
                OpenClaw.parse_event(raw)
     end
 

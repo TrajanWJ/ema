@@ -45,10 +45,27 @@ defmodule Ema.Intents.Intent do
   def changeset(intent, attrs) do
     intent
     |> cast(attrs, [
-      :id, :title, :slug, :description, :level, :kind, :parent_id, :project_id,
-      :source_fingerprint, :source_type, :status, :phase, :completion_pct,
-      :clarity, :energy, :priority, :confidence, :provenance_class,
-      :confirmed_at, :tags, :metadata
+      :id,
+      :title,
+      :slug,
+      :description,
+      :level,
+      :kind,
+      :parent_id,
+      :project_id,
+      :source_fingerprint,
+      :source_type,
+      :status,
+      :phase,
+      :completion_pct,
+      :clarity,
+      :energy,
+      :priority,
+      :confidence,
+      :provenance_class,
+      :confirmed_at,
+      :tags,
+      :metadata
     ])
     |> validate_required([:title, :level, :kind, :source_type])
     |> validate_inclusion(:level, 0..5)
@@ -68,6 +85,7 @@ defmodule Ema.Intents.Intent do
   def level_name(level), do: Map.get(@levels, level, :unknown)
 
   def decode_tags(%__MODULE__{tags: nil}), do: []
+
   def decode_tags(%__MODULE__{tags: tags}) when is_binary(tags) do
     case Jason.decode(tags) do
       {:ok, list} when is_list(list) -> list
@@ -76,6 +94,7 @@ defmodule Ema.Intents.Intent do
   end
 
   def decode_metadata(%__MODULE__{metadata: nil}), do: %{}
+
   def decode_metadata(%__MODULE__{metadata: meta}) when is_binary(meta) do
     case Jason.decode(meta) do
       {:ok, map} when is_map(map) -> map
@@ -102,7 +121,9 @@ defmodule Ema.Intents.Intent do
           nil -> changeset
           title -> put_change(changeset, :slug, slugify(title))
         end
-      _ -> changeset
+
+      _ ->
+        changeset
     end
   end
 

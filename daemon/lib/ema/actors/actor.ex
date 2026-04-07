@@ -31,7 +31,18 @@ defmodule Ema.Actors.Actor do
 
   def changeset(actor, attrs) do
     actor
-    |> cast(attrs, [:id, :space_id, :actor_type, :name, :slug, :capabilities, :config, :phase, :phase_started_at, :status])
+    |> cast(attrs, [
+      :id,
+      :space_id,
+      :actor_type,
+      :name,
+      :slug,
+      :capabilities,
+      :config,
+      :phase,
+      :phase_started_at,
+      :status
+    ])
     |> validate_required([:actor_type, :name, :slug])
     |> validate_inclusion(:actor_type, @actor_types)
     |> validate_inclusion(:phase, @phases)

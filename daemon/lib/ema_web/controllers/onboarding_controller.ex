@@ -11,7 +11,12 @@ defmodule EmaWeb.OnboardingController do
 
   def readiness(conn, _params) do
     snapshot = Status.snapshot()
-    json(conn, %{checked_at: snapshot.checked_at, readiness: snapshot.readiness, connections: snapshot.connections})
+
+    json(conn, %{
+      checked_at: snapshot.checked_at,
+      readiness: snapshot.readiness,
+      connections: snapshot.connections
+    })
   end
 
   def run(conn, _params) do

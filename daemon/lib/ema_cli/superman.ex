@@ -1,7 +1,8 @@
 defmodule EmaCli.Superman do
   @moduledoc "CLI commands for the Superman intelligence layer"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("ask", opts) do
     question = Map.get(opts, :_arg) || error("Usage: ema superman ask <question>")
@@ -109,5 +110,8 @@ defmodule EmaCli.Superman do
   end
 
   def run(unknown, _),
-    do: error("Unknown superman subcommand: #{unknown}. Try: ask, context, health, index, gaps, flows")
+    do:
+      error(
+        "Unknown superman subcommand: #{unknown}. Try: ask, context, health, index, gaps, flows"
+      )
 end

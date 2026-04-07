@@ -152,7 +152,10 @@ defmodule Ema.Claude.RuntimeBootstrap do
         %{provider: provider, accounts: accounts}
 
       {:error, reason} ->
-        Logger.info("[RuntimeBootstrap] OpenClaw gateway not reachable (#{inspect(reason)}), skipping")
+        Logger.info(
+          "[RuntimeBootstrap] OpenClaw gateway not reachable (#{inspect(reason)}), skipping"
+        )
+
         nil
     end
   end

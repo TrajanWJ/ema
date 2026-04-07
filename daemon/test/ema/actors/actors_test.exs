@@ -4,22 +4,38 @@ defmodule Ema.ActorsTest do
 
   describe "create_actor/1" do
     test "creates a human actor" do
-      {:ok, actor} = Actors.create_actor(%{name: "Test Human", slug: "test-human", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{name: "Test Human", slug: "test-human", actor_type: "human"})
+
       assert actor.actor_type == "human"
       assert actor.status == "active"
       assert actor.phase == "idle"
     end
 
     test "creates an agent actor" do
-      {:ok, actor} = Actors.create_actor(%{name: "Alpha", slug: "alpha-test", actor_type: "agent"})
+      {:ok, actor} =
+        Actors.create_actor(%{name: "Alpha", slug: "alpha-test", actor_type: "agent"})
+
       assert actor.actor_type == "agent"
     end
   end
 
   describe "list_actors/1" do
     test "filters by type" do
-      {:ok, _} = Actors.create_actor(%{name: "H", slug: "list-h-#{System.unique_integer([:positive])}", actor_type: "human"})
-      {:ok, _} = Actors.create_actor(%{name: "A", slug: "list-a-#{System.unique_integer([:positive])}", actor_type: "agent"})
+      {:ok, _} =
+        Actors.create_actor(%{
+          name: "H",
+          slug: "list-h-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
+      {:ok, _} =
+        Actors.create_actor(%{
+          name: "A",
+          slug: "list-a-#{System.unique_integer([:positive])}",
+          actor_type: "agent"
+        })
+
       agents = Actors.list_actors(type: "agent")
       assert Enum.all?(agents, &(&1.actor_type == "agent"))
     end
@@ -27,7 +43,13 @@ defmodule Ema.ActorsTest do
 
   describe "update_actor/2" do
     test "updates config" do
-      {:ok, actor} = Actors.create_actor(%{name: "Cfg", slug: "cfg-#{System.unique_integer([:positive])}", actor_type: "agent"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "Cfg",
+          slug: "cfg-#{System.unique_integer([:positive])}",
+          actor_type: "agent"
+        })
+
       {:ok, updated} = Actors.update_actor(actor, %{config: %{"phases" => ["plan", "execute"]}})
       assert updated.config == %{"phases" => ["plan", "execute"]}
     end
@@ -51,7 +73,13 @@ defmodule Ema.ActorsTest do
 
   describe "tag_entity/5" do
     setup do
-      {:ok, actor} = Actors.create_actor(%{name: "Tagger", slug: "tagger-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "Tagger",
+          slug: "tagger-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       {:ok, actor: actor}
     end
 
@@ -69,7 +97,13 @@ defmodule Ema.ActorsTest do
     end
 
     test "different actors can tag same entity", %{actor: actor} do
-      {:ok, agent} = Actors.create_actor(%{name: "Agent", slug: "tag-agent-#{System.unique_integer([:positive])}", actor_type: "agent"})
+      {:ok, agent} =
+        Actors.create_actor(%{
+          name: "Agent",
+          slug: "tag-agent-#{System.unique_integer([:positive])}",
+          actor_type: "agent"
+        })
+
       {:ok, _} = Actors.tag_entity("task", "task_2", "urgent", actor.id)
       {:ok, _} = Actors.tag_entity("task", "task_2", "phase:execute", agent.id)
       assert length(Actors.tags_for_entity("task", "task_2")) == 2
@@ -78,7 +112,13 @@ defmodule Ema.ActorsTest do
 
   describe "untag_entity/4" do
     test "removes a tag" do
-      {:ok, actor} = Actors.create_actor(%{name: "U", slug: "untag-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "U",
+          slug: "untag-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       {:ok, _} = Actors.tag_entity("task", "task_3", "remove-me", actor.id)
       assert {1, _} = Actors.untag_entity("task", "task_3", "remove-me", actor.id)
       assert Actors.tags_for_entity("task", "task_3") == []
@@ -87,7 +127,13 @@ defmodule Ema.ActorsTest do
 
   describe "list_tags/1" do
     test "filters by entity_type" do
-      {:ok, actor} = Actors.create_actor(%{name: "LT", slug: "lt-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "LT",
+          slug: "lt-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       {:ok, _} = Actors.tag_entity("task", "lt_t1", "a", actor.id)
       {:ok, _} = Actors.tag_entity("project", "lt_p1", "b", actor.id)
       tags = Actors.list_tags(entity_type: "task", actor_id: actor.id)
@@ -100,7 +146,13 @@ defmodule Ema.ActorsTest do
 
   describe "set_data/5" do
     setup do
-      {:ok, actor} = Actors.create_actor(%{name: "ED", slug: "ed-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "ED",
+          slug: "ed-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       {:ok, actor: actor}
     end
 
@@ -119,14 +171,26 @@ defmodule Ema.ActorsTest do
 
   describe "get_data/4" do
     test "returns nil when not found" do
-      {:ok, actor} = Actors.create_actor(%{name: "GD", slug: "gd-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "GD",
+          slug: "gd-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       assert Actors.get_data(actor.id, "task", "t1", "missing") == nil
     end
   end
 
   describe "delete_data/4" do
     test "removes entity data" do
-      {:ok, actor} = Actors.create_actor(%{name: "DD", slug: "dd-#{System.unique_integer([:positive])}", actor_type: "human"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "DD",
+          slug: "dd-#{System.unique_integer([:positive])}",
+          actor_type: "human"
+        })
+
       {:ok, _} = Actors.set_data(actor.id, "project", "p1", "phase", "execute")
       assert {1, _} = Actors.delete_data(actor.id, "project", "p1", "phase")
       assert Actors.get_data(actor.id, "project", "p1", "phase") == nil
@@ -159,12 +223,21 @@ defmodule Ema.ActorsTest do
 
   describe "transition_phase/3" do
     setup do
-      {:ok, actor} = Actors.create_actor(%{name: "PT", slug: "pt-#{System.unique_integer([:positive])}", actor_type: "agent", phase: "idle"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "PT",
+          slug: "pt-#{System.unique_integer([:positive])}",
+          actor_type: "agent",
+          phase: "idle"
+        })
+
       {:ok, actor: actor}
     end
 
     test "transitions phase and records transition", %{actor: actor} do
-      {:ok, updated} = Actors.transition_phase(actor, "plan", reason: "sprint start", week_number: 1)
+      {:ok, updated} =
+        Actors.transition_phase(actor, "plan", reason: "sprint start", week_number: 1)
+
       assert updated.phase == "plan"
       assert updated.phase_started_at != nil
 
@@ -177,10 +250,11 @@ defmodule Ema.ActorsTest do
     end
 
     test "records summary", %{actor: actor} do
-      {:ok, _} = Actors.transition_phase(actor, "execute",
-        reason: "work_complete",
-        summary: "Planned 5 tasks"
-      )
+      {:ok, _} =
+        Actors.transition_phase(actor, "execute",
+          reason: "work_complete",
+          summary: "Planned 5 tasks"
+        )
 
       [transition | _] = Actors.list_phase_transitions(actor.id)
       assert transition.summary == "Planned 5 tasks"
@@ -204,17 +278,50 @@ defmodule Ema.ActorsTest do
 
   describe "register_command/1" do
     test "registers a command" do
-      {:ok, actor} = Actors.create_actor(%{name: "Cmd", slug: "cmd-#{System.unique_integer([:positive])}", actor_type: "agent"})
-      {:ok, cmd} = Actors.register_command(%{actor_id: actor.id, command_name: "sprint status", description: "Show sprint", handler: "/api/sprint"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "Cmd",
+          slug: "cmd-#{System.unique_integer([:positive])}",
+          actor_type: "agent"
+        })
+
+      {:ok, cmd} =
+        Actors.register_command(%{
+          actor_id: actor.id,
+          command_name: "sprint status",
+          description: "Show sprint",
+          handler: "/api/sprint"
+        })
+
       assert cmd.command_name == "sprint status"
     end
   end
 
   describe "list_commands/1" do
     test "returns commands for actor" do
-      {:ok, actor} = Actors.create_actor(%{name: "LC", slug: "lc-#{System.unique_integer([:positive])}", actor_type: "agent"})
-      {:ok, _} = Actors.register_command(%{actor_id: actor.id, command_name: "sprint", description: "Sprint", handler: "/sprint"})
-      {:ok, _} = Actors.register_command(%{actor_id: actor.id, command_name: "retro", description: "Retro", handler: "/retro"})
+      {:ok, actor} =
+        Actors.create_actor(%{
+          name: "LC",
+          slug: "lc-#{System.unique_integer([:positive])}",
+          actor_type: "agent"
+        })
+
+      {:ok, _} =
+        Actors.register_command(%{
+          actor_id: actor.id,
+          command_name: "sprint",
+          description: "Sprint",
+          handler: "/sprint"
+        })
+
+      {:ok, _} =
+        Actors.register_command(%{
+          actor_id: actor.id,
+          command_name: "retro",
+          description: "Retro",
+          handler: "/retro"
+        })
+
       cmds = Actors.list_commands(actor.id)
       assert length(cmds) == 2
     end

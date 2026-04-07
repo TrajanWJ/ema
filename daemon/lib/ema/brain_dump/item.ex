@@ -33,7 +33,16 @@ defmodule Ema.BrainDump.Item do
 
   def create_changeset(item, attrs) do
     item
-    |> cast(attrs, [:id, :content, :source, :project_id, :space_id, :actor_id, :container_type, :container_id])
+    |> cast(attrs, [
+      :id,
+      :content,
+      :source,
+      :project_id,
+      :space_id,
+      :actor_id,
+      :container_type,
+      :container_id
+    ])
     |> validate_required([:id, :content])
     |> validate_inclusion(:source, @valid_sources)
   end

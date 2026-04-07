@@ -6,11 +6,12 @@ defmodule EmaWeb.ActorController do
   action_fallback EmaWeb.FallbackController
 
   def index(conn, params) do
-    actors = Actors.list_actors(
-      space_id: params["space_id"],
-      type: params["type"],
-      status: params["status"]
-    )
+    actors =
+      Actors.list_actors(
+        space_id: params["space_id"],
+        type: params["type"],
+        status: params["status"]
+      )
 
     json(conn, %{actors: Enum.map(actors, &serialize/1)})
   end
@@ -44,7 +45,9 @@ defmodule EmaWeb.ActorController do
 
   def delete(conn, %{"id" => id}) do
     case Actors.get_actor(id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       actor ->
         case Actors.delete_actor(actor) do
           {:ok, _} -> json(conn, %{ok: true})
@@ -69,16 +72,39 @@ defmodule EmaWeb.ActorController do
   def list_tags(conn, %{"id" => id}) do
     tags = Actors.tags_for_entity("actor", id)
 
-    json(conn, %{tags: Enum.map(tags, fn t ->
-      %{id: t.id, tag: t.tag, namespace: t.namespace, actor_id: t.actor_id, entity_type: t.entity_type, entity_id: t.entity_id}
-    end)})
+    json(conn, %{
+      tags:
+        Enum.map(tags, fn t ->
+          %{
+            id: t.id,
+            tag: t.tag,
+            namespace: t.namespace,
+            actor_id: t.actor_id,
+            entity_type: t.entity_type,
+            entity_id: t.entity_id
+          }
+        end)
+    })
   end
 
   def list_phases(conn, %{"id" => id}) do
     transitions = Actors.list_phase_transitions(id)
-    json(conn, %{transitions: Enum.map(transitions, fn t ->
-      %{id: t.id, actor_id: t.actor_id, from_phase: t.from_phase, to_phase: t.to_phase, week_number: t.week_number, reason: t.reason, summary: t.summary, transitioned_at: t.transitioned_at}
-    end)})
+
+    json(conn, %{
+      transitions:
+        Enum.map(transitions, fn t ->
+          %{
+            id: t.id,
+            actor_id: t.actor_id,
+            from_phase: t.from_phase,
+            to_phase: t.to_phase,
+            week_number: t.week_number,
+            reason: t.reason,
+            summary: t.summary,
+            transitioned_at: t.transitioned_at
+          }
+        end)
+    })
   end
 
   def list_commands(conn, %{"id" => id}) do
@@ -90,8 +116,11 @@ defmodule EmaWeb.ActorController do
     attrs = Map.put(params, "actor_id", actor_id)
 
     case Actors.register_command(attrs) do
-      {:ok, command} -> conn |> put_status(:created) |> json(%{command: serialize_command(command)})
-      {:error, changeset} -> {:error, changeset}
+      {:ok, command} ->
+        conn |> put_status(:created) |> json(%{command: serialize_command(command)})
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 

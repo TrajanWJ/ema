@@ -15,7 +15,11 @@ defmodule Ema.Repo.Migrations.CreateConversationsAndMessages do
 
     create table(:messaging_messages, primary_key: false) do
       add :id, :string, primary_key: true
-      add :conversation_id, references(:messaging_conversations, type: :string, on_delete: :delete_all), null: false
+
+      add :conversation_id,
+          references(:messaging_conversations, type: :string, on_delete: :delete_all),
+          null: false
+
       add :sender_id, :string, null: false
       add :body, :text, null: false
       add :attachments, :text, default: "[]"

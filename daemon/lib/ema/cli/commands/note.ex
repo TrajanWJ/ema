@@ -7,8 +7,11 @@ defmodule Ema.CLI.Commands.Note do
 
   def handle([:list], _parsed, _transport, opts) do
     case Ema.CLI.Transport.Http.get("/notes") do
-      {:ok, body} -> Output.render(Helpers.extract_list(body, "notes"), @columns, json: opts[:json])
-      {:error, reason} -> Output.error(inspect(reason))
+      {:ok, body} ->
+        Output.render(Helpers.extract_list(body, "notes"), @columns, json: opts[:json])
+
+      {:error, reason} ->
+        Output.error(inspect(reason))
     end
   end
 
@@ -23,10 +26,13 @@ defmodule Ema.CLI.Commands.Note do
   end
 
   def handle([:create], parsed, _transport, opts) do
-    body = %{"note" => Helpers.compact_map([
-      {"title", parsed.args.title},
-      {"content", parsed.options[:content]}
-    ])}
+    body = %{
+      "note" =>
+        Helpers.compact_map([
+          {"title", parsed.args.title},
+          {"content", parsed.options[:content]}
+        ])
+    }
 
     case Ema.CLI.Transport.Http.post("/notes", body) do
       {:ok, resp} ->

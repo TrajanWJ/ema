@@ -161,15 +161,20 @@ defmodule Ema.CLI.Commands.Routine do
     case transport do
       Ema.CLI.Transport.Direct ->
         case transport.call(Ema.Routines, :toggle_routine, [id]) do
-          {:ok, routine} -> Output.success("Routine #{id} is now #{if routine.active, do: "active", else: "paused"}")
-          {:error, reason} -> Output.error(reason)
+          {:ok, routine} ->
+            Output.success(
+              "Routine #{id} is now #{if routine.active, do: "active", else: "paused"}"
+            )
+
+          {:error, reason} ->
+            Output.error(reason)
         end
 
       Ema.CLI.Transport.Http ->
         case transport.post("/routines/#{id}/toggle", %{}) do
           {:ok, resp} ->
             r = Helpers.extract_record(resp, "routine")
-            Output.success("Routine #{id} is now #{r["active"] && "active" || "paused"}")
+            Output.success("Routine #{id} is now #{(r["active"] && "active") || "paused"}")
 
           {:error, reason} ->
             Output.error(reason)

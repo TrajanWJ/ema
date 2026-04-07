@@ -68,7 +68,10 @@ defmodule Ema.CLI.Commands.Space do
         end
 
       Ema.CLI.Transport.Http ->
-        body = attrs |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end)
+        body =
+          attrs
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+          |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end)
 
         case transport.post("/spaces", body) do
           {:ok, resp} ->

@@ -80,7 +80,10 @@ defmodule Ema.Billing do
 
     paid_this_month =
       Invoice
-      |> where([i], i.status == "paid" and i.paid_at >= ^DateTime.new!(month_start, ~T[00:00:00], "Etc/UTC"))
+      |> where(
+        [i],
+        i.status == "paid" and i.paid_at >= ^DateTime.new!(month_start, ~T[00:00:00], "Etc/UTC")
+      )
       |> select([i], sum(i.total))
       |> Repo.one() || 0.0
 

@@ -91,16 +91,18 @@ case Repo.get_by(Actor, slug: "trajan") do
   nil ->
     id = :crypto.strong_rand_bytes(6) |> Base.encode16(case: :lower)
 
-    case Repo.insert(Actor.changeset(%Actor{}, %{
-      id: id,
-      actor_type: "human",
-      name: "Trajan",
-      slug: "trajan",
-      capabilities: %{},
-      config: %{},
-      phase: "idle",
-      status: "active"
-    })) do
+    case Repo.insert(
+           Actor.changeset(%Actor{}, %{
+             id: id,
+             actor_type: "human",
+             name: "Trajan",
+             slug: "trajan",
+             capabilities: %{},
+             config: %{},
+             phase: "idle",
+             status: "active"
+           })
+         ) do
       {:ok, _} -> Logger.info("Created default actor: trajan")
       {:error, cs} -> Logger.warning("Failed to create actor trajan: #{inspect(cs.errors)}")
     end

@@ -26,7 +26,7 @@ defmodule Ema.Intents do
     |> maybe_filter(:parent_id, opts[:parent_id])
     |> maybe_filter(:source_type, opts[:source_type])
     |> maybe_search(opts[:search])
-    |> order_by([i], [asc: i.level, desc: i.inserted_at])
+    |> order_by([i], asc: i.level, desc: i.inserted_at)
     |> maybe_limit(opts[:limit])
     |> Repo.all()
   end
@@ -49,6 +49,7 @@ defmodule Ema.Intents do
         level: intent.level,
         kind: intent.kind
       })
+
       broadcast("intents:created", intent)
     end)
   end
@@ -66,6 +67,7 @@ defmodule Ema.Intents do
           old: old_status,
           new: updated.status
         })
+
         broadcast("intents:status_changed", updated)
         propagate_status(updated)
       end
@@ -118,11 +120,15 @@ defmodule Ema.Intents do
 
         %{
           intent: serialize(intent),
-          actors: links |> Enum.filter(&(&1.linkable_type == "actor")) |> Enum.map(&hydrate_link/1),
-          executions: links |> Enum.filter(&(&1.linkable_type == "execution")) |> Enum.map(&hydrate_link/1),
+          actors:
+            links |> Enum.filter(&(&1.linkable_type == "actor")) |> Enum.map(&hydrate_link/1),
+          executions:
+            links |> Enum.filter(&(&1.linkable_type == "execution")) |> Enum.map(&hydrate_link/1),
           sessions:
             links
-            |> Enum.filter(&(&1.linkable_type in ~w(session claude_session ai_session agent_session)))
+            |> Enum.filter(
+              &(&1.linkable_type in ~w(session claude_session ai_session agent_session))
+            )
             |> Enum.map(&hydrate_link/1),
           links: Enum.map(links, &serialize_link/1),
           lineage: Enum.map(get_lineage(intent.id, limit: 20), &serialize_event/1)
@@ -162,6 +168,7 @@ defmodule Ema.Intents do
   end
 
   def parent_chain(%Intent{parent_id: nil} = intent), do: [intent]
+
   def parent_chain(%Intent{parent_id: pid} = intent) do
     case get_intent(pid) do
       nil -> [intent]
@@ -172,6 +179,7 @@ defmodule Ema.Intents do
   # ── Status Propagation (Superman pattern) ────────────────────────
 
   def propagate_status(%Intent{parent_id: nil}), do: :ok
+
   def propagate_status(%Intent{parent_id: pid}) do
     parent = get_intent(pid)
     if parent, do: recompute_completion(parent)
@@ -246,7 +254,8 @@ defmodule Ema.Intents do
 
   def attach_actor(intent_id, actor_id, opts \\ []) do
     with %Intent{} <- get_intent(intent_id),
-         actor when not is_nil(actor) <- Actors.get_actor(actor_id) || Actors.get_actor_by_slug(actor_id),
+         actor when not is_nil(actor) <-
+           Actors.get_actor(actor_id) || Actors.get_actor_by_slug(actor_id),
          {:ok, link} <-
            link_intent(intent_id, "actor", actor.id,
              role: opts[:role] || "assignee",
@@ -292,9 +301,10 @@ defmodule Ema.Intents do
 
   def unlink_intent(intent_id, linkable_type, linkable_id) do
     from(l in IntentLink,
-      where: l.intent_id == ^intent_id
-        and l.linkable_type == ^linkable_type
-        and l.linkable_id == ^linkable_id
+      where:
+        l.intent_id == ^intent_id and
+          l.linkable_type == ^linkable_type and
+          l.linkable_id == ^linkable_id
     )
     |> Repo.delete_all()
     |> case do
@@ -303,8 +313,11 @@ defmodule Ema.Intents do
           linkable_type: linkable_type,
           linkable_id: linkable_id
         })
+
         {:ok, n}
-      _ -> {:ok, 0}
+
+      _ ->
+        {:ok, 0}
     end
   end
 
@@ -428,14 +441,26 @@ defmodule Ema.Intents do
 
   defp linked_record_summary(%IntentLink{linkable_type: "actor", linkable_id: id}) do
     case Actors.get_actor(id) do
-      nil -> nil
-      actor -> %{id: actor.id, slug: actor.slug, name: actor.name, type: actor.actor_type, phase: actor.phase, status: actor.status}
+      nil ->
+        nil
+
+      actor ->
+        %{
+          id: actor.id,
+          slug: actor.slug,
+          name: actor.name,
+          type: actor.actor_type,
+          phase: actor.phase,
+          status: actor.status
+        }
     end
   end
 
   defp linked_record_summary(%IntentLink{linkable_type: "execution", linkable_id: id}) do
     case Executions.get_execution(id) do
-      nil -> nil
+      nil ->
+        nil
+
       execution ->
         %{
           id: execution.id,
@@ -452,31 +477,60 @@ defmodule Ema.Intents do
 
   defp linked_record_summary(%IntentLink{linkable_type: "claude_session", linkable_id: id}) do
     case ClaudeSessions.get_session(id) do
-      nil -> nil
-      session -> %{id: session.id, session_id: session.session_id, status: session.status, project_id: session.project_id, last_active: session.last_active}
+      nil ->
+        nil
+
+      session ->
+        %{
+          id: session.id,
+          session_id: session.session_id,
+          status: session.status,
+          project_id: session.project_id,
+          last_active: session.last_active
+        }
     end
   end
 
   defp linked_record_summary(%IntentLink{linkable_type: "ai_session", linkable_id: id}) do
     case Repo.get(AiSession, id) do
-      nil -> nil
-      session -> %{id: session.id, model: session.model, status: session.status, agent_id: session.agent_id, project_path: session.project_path}
+      nil ->
+        nil
+
+      session ->
+        %{
+          id: session.id,
+          model: session.model,
+          status: session.status,
+          agent_id: session.agent_id,
+          project_path: session.project_path
+        }
     end
   end
 
   defp linked_record_summary(%IntentLink{linkable_type: "agent_session", linkable_id: id}) do
     case Repo.get(AgentSession, id) do
-      nil -> nil
-      session -> %{id: session.id, execution_id: session.execution_id, agent_role: session.agent_role, status: session.status, started_at: session.started_at}
+      nil ->
+        nil
+
+      session ->
+        %{
+          id: session.id,
+          execution_id: session.execution_id,
+          agent_role: session.agent_role,
+          status: session.status,
+          started_at: session.started_at
+        }
     end
   end
 
   defp linked_record_summary(_link), do: nil
 
-  defp normalize_session_type(type) when type in ~w(session claude_session ai_session agent_session),
-    do: {:ok, if(type == "session", do: "claude_session", else: type)}
+  defp normalize_session_type(type)
+       when type in ~w(session claude_session ai_session agent_session),
+       do: {:ok, if(type == "session", do: "claude_session", else: type)}
 
-  defp normalize_session_type(_), do: {:error, "session_type must be one of: claude_session, ai_session, agent_session"}
+  defp normalize_session_type(_),
+    do: {:error, "session_type must be one of: claude_session, ai_session, agent_session"}
 
   defp fetch_session_record("claude_session", id) do
     case ClaudeSessions.get_session(id) do
@@ -506,6 +560,7 @@ defmodule Ema.Intents do
   # ── Helpers ──────────────────────────────────────────────────────
 
   defp maybe_filter(query, _field, nil), do: query
+
   defp maybe_filter(query, field, value) do
     where(query, [i], field(i, ^field) == ^value)
   end
@@ -517,6 +572,7 @@ defmodule Ema.Intents do
     fun.(record)
     result
   end
+
   defp tap_ok(error, _fun), do: error
 
   defp broadcast(topic, intent) do

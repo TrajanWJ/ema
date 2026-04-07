@@ -120,10 +120,11 @@ defmodule Ema.CLI.Commands.Watch do
           IO.puts("  #{inspect(e["event"], pretty: false, limit: 8)}")
         end)
 
-        new_cursor = case List.last(new_events) do
-          %{"at" => at} -> at
-          _ -> cursor
-        end
+        new_cursor =
+          case List.last(new_events) do
+            %{"at" => at} -> at
+            _ -> cursor
+          end
 
         Process.sleep(3_000)
         http_poll_loop(format, transport, new_cursor)
@@ -194,7 +195,8 @@ defmodule Ema.CLI.Commands.Watch do
   defp extract_time({_, payload}) when is_map(payload), do: extract_time(payload)
   defp extract_time(_), do: format_time(DateTime.utc_now())
 
-  defp format_time(%DateTime{} = dt), do: dt |> DateTime.to_time() |> Time.to_string() |> String.slice(0, 8)
+  defp format_time(%DateTime{} = dt),
+    do: dt |> DateTime.to_time() |> Time.to_string() |> String.slice(0, 8)
 
   defp format_time(value) when is_binary(value) do
     case DateTime.from_iso8601(value) do

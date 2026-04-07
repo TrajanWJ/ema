@@ -47,6 +47,7 @@ defmodule Ema.Executions do
 
   def create(attrs) do
     id = generate_id()
+
     attrs =
       attrs
       |> normalize_create_attrs()
@@ -365,8 +366,9 @@ defmodule Ema.Executions do
     Map.put(attrs, "actor_id", Ema.Actors.default_human_actor_id())
   end
 
-  defp maybe_put_project_slug(%{"project_slug" => slug} = attrs) when is_binary(slug) and slug != "",
-    do: attrs
+  defp maybe_put_project_slug(%{"project_slug" => slug} = attrs)
+       when is_binary(slug) and slug != "",
+       do: attrs
 
   defp maybe_put_project_slug(%{"project_id" => project_id} = attrs)
        when is_binary(project_id) and project_id != "" do
@@ -424,7 +426,9 @@ defmodule Ema.Executions do
               :ok
 
             {:error, reason} ->
-              Logger.warning("[Executions] IntentFolder create failed for #{slug}: #{inspect(reason)}")
+              Logger.warning(
+                "[Executions] IntentFolder create failed for #{slug}: #{inspect(reason)}"
+              )
           end
         end
     end
@@ -464,8 +468,22 @@ defmodule Ema.Executions do
             provenance: "execution"
           )
 
-        maybe_link_runtime_record(intent.id, "brain_dump", execution.brain_dump_item_id, "origin", "manual")
-        maybe_link_runtime_record(intent.id, "proposal", execution.proposal_id, "derived", "approved")
+        maybe_link_runtime_record(
+          intent.id,
+          "brain_dump",
+          execution.brain_dump_item_id,
+          "origin",
+          "manual"
+        )
+
+        maybe_link_runtime_record(
+          intent.id,
+          "proposal",
+          execution.proposal_id,
+          "derived",
+          "approved"
+        )
+
         maybe_link_runtime_record(intent.id, "task", execution.task_id, "related", "manual")
 
         if is_binary(execution.actor_id) and execution.actor_id != "" do
@@ -521,12 +539,15 @@ defmodule Ema.Executions do
   defp resolve_intent_for_execution(%Execution{} = execution) do
     cond do
       is_binary(execution.intent_slug) and execution.intent_slug != "" ->
-        Intents.get_intent_by_slug(execution.intent_slug) || linked_intent_by_anchor("brain_dump", execution.brain_dump_item_id) ||
-          linked_intent_by_anchor("proposal", execution.proposal_id) || linked_intent_by_anchor("task", execution.task_id)
+        Intents.get_intent_by_slug(execution.intent_slug) ||
+          linked_intent_by_anchor("brain_dump", execution.brain_dump_item_id) ||
+          linked_intent_by_anchor("proposal", execution.proposal_id) ||
+          linked_intent_by_anchor("task", execution.task_id)
 
       true ->
         linked_intent_by_anchor("brain_dump", execution.brain_dump_item_id) ||
-          linked_intent_by_anchor("proposal", execution.proposal_id) || linked_intent_by_anchor("task", execution.task_id)
+          linked_intent_by_anchor("proposal", execution.proposal_id) ||
+          linked_intent_by_anchor("task", execution.task_id)
     end
   end
 

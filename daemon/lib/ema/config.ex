@@ -7,13 +7,6 @@ defmodule Ema.Config do
   """
 
   @doc """
-  Returns the EMA vault path. Reads from application env at runtime,
-  falling back to the standard XDG data location.
-
-  Configure via: config :ema, vault_path: "/custom/path"
-  or at runtime via EMA_VAULT_PATH environment variable (legacy; prefer app config).
-  """
-  @doc """
   Returns the EMA data directory root. All EMA state lives under this path.
 
   Configure via: config :ema, data_dir: "/custom/path"

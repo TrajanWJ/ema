@@ -1,7 +1,8 @@
 defmodule EmaCli.Evolution do
   @moduledoc "CLI commands for self-modifying evolution rules"
 
-  import EmaCli.CLI, only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
+  import EmaCli.CLI,
+    only: [api_get: 1, api_post: 2, format_output: 2, error: 1, warn: 1, success: 1]
 
   def run("rules", opts) do
     status = Map.get(opts, :status)

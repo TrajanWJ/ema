@@ -211,7 +211,11 @@ defmodule EmaWeb.ChannelsController do
   end
 
   # POST /api/channels/send
-  def send_cross_platform(conn, %{"platform" => _platform, "channel" => _channel_ref, "content" => _content}) do
+  def send_cross_platform(conn, %{
+        "platform" => _platform,
+        "channel" => _channel_ref,
+        "content" => _content
+      }) do
     # Cross-platform send is not yet implemented
     conn
     |> put_status(:not_implemented)
@@ -235,6 +239,7 @@ defmodule EmaWeb.ChannelsController do
   end
 
   defp redact_config(nil), do: %{}
+
   defp redact_config(config) when is_map(config) do
     config
     |> Map.drop(["token", "api_key", "secret", "password", "webhook_url"])
@@ -246,6 +251,7 @@ defmodule EmaWeb.ChannelsController do
       end
     end)
   end
+
   defp redact_config(_), do: %{}
 
   defp build_servers(agents) do
@@ -338,6 +344,7 @@ defmodule EmaWeb.ChannelsController do
   end
 
   defp parse_int(val, _default) when is_integer(val), do: val
+
   defp channel_connection_status(channel) do
     Map.get(channel, :connection_status) || Map.get(channel, :status) || "unknown"
   end

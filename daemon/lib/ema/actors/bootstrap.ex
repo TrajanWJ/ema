@@ -46,7 +46,10 @@ defmodule Ema.Actors.Bootstrap do
 
   defp ensure_agent_actors do
     active_agents = Agents.list_active_agents()
-    Logger.info("[Actors.Bootstrap] syncing #{length(active_agents)} active agents to actor records")
+
+    Logger.info(
+      "[Actors.Bootstrap] syncing #{length(active_agents)} active agents to actor records"
+    )
 
     for agent <- active_agents do
       ensure_agent_actor(agent)
@@ -75,11 +78,16 @@ defmodule Ema.Actors.Bootstrap do
                }
              }) do
           {:ok, actor} ->
-            Logger.info("[Actors.Bootstrap] created actor '#{actor.slug}' for agent '#{agent.slug}'")
+            Logger.info(
+              "[Actors.Bootstrap] created actor '#{actor.slug}' for agent '#{agent.slug}'"
+            )
+
             maybe_backfill_agent_fk(agent, actor.id)
 
           {:error, reason} ->
-            Logger.warning("[Actors.Bootstrap] failed to create actor for agent '#{agent.slug}': #{inspect(reason)}")
+            Logger.warning(
+              "[Actors.Bootstrap] failed to create actor for agent '#{agent.slug}': #{inspect(reason)}"
+            )
         end
     end
   end
@@ -95,7 +103,9 @@ defmodule Ema.Actors.Bootstrap do
         Logger.info("[Actors.Bootstrap] backfilled actor_id on agent '#{agent.slug}'")
 
       {:error, reason} ->
-        Logger.warning("[Actors.Bootstrap] failed to backfill actor_id on agent '#{agent.slug}': #{inspect(reason)}")
+        Logger.warning(
+          "[Actors.Bootstrap] failed to backfill actor_id on agent '#{agent.slug}': #{inspect(reason)}"
+        )
     end
   end
 end

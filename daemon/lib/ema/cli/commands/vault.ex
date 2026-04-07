@@ -192,9 +192,14 @@ defmodule Ema.CLI.Commands.Vault do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/vault/graph/neighbors/#{id}") do
-          {:ok, %{"notes" => links}} -> Output.render(links, @search_columns, json: opts[:json])
-          {:ok, links} when is_list(links) -> Output.render(links, @search_columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, %{"notes" => links}} ->
+            Output.render(links, @search_columns, json: opts[:json])
+
+          {:ok, links} when is_list(links) ->
+            Output.render(links, @search_columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

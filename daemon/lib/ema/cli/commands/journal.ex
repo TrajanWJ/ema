@@ -59,12 +59,13 @@ defmodule Ema.CLI.Commands.Journal do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:content, content},
-          {:mood, parsed.options[:mood]},
-          {:energy, parsed.options[:energy]},
-          {:one_thing, parsed.options[:one_thing]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:content, content},
+            {:mood, parsed.options[:mood]},
+            {:energy, parsed.options[:energy]},
+            {:one_thing, parsed.options[:one_thing]}
+          ])
 
         case transport.call(Ema.Journal, :update_entry, [date, attrs]) do
           {:ok, entry} ->
@@ -76,12 +77,15 @@ defmodule Ema.CLI.Commands.Journal do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"entry" => Helpers.compact_map([
-          {"content", content},
-          {"mood", parsed.options[:mood]},
-          {"energy", parsed.options[:energy]},
-          {"one_thing", parsed.options[:one_thing]}
-        ])}
+        body = %{
+          "entry" =>
+            Helpers.compact_map([
+              {"content", content},
+              {"mood", parsed.options[:mood]},
+              {"energy", parsed.options[:energy]},
+              {"one_thing", parsed.options[:one_thing]}
+            ])
+        }
 
         case transport.put("/journal/#{date}", body) do
           {:ok, _} -> Output.success("Journal entry for #{date} saved")

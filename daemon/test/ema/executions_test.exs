@@ -18,7 +18,9 @@ defmodule Ema.ExecutionsTest do
     {:ok, tmp_root: tmp_root}
   end
 
-  test "create/1 auto-anchors executions into the project's .superman folder", %{tmp_root: tmp_root} do
+  test "create/1 auto-anchors executions into the project's .superman folder", %{
+    tmp_root: tmp_root
+  } do
     project = insert!(:project, %{linked_path: tmp_root})
 
     assert {:ok, execution} =
@@ -54,10 +56,14 @@ defmodule Ema.ExecutionsTest do
         requires_approval: true
       })
 
-    assert {:ok, completed} = Executions.on_execution_completed(execution.id, "# Result\n\nLoop closed.")
+    assert {:ok, completed} =
+             Executions.on_execution_completed(execution.id, "# Result\n\nLoop closed.")
 
-    result_file = Path.join([tmp_root, ".superman", "intents", execution.intent_slug, "result.md"])
-    log_file = Path.join([tmp_root, ".superman", "intents", execution.intent_slug, "execution-log.md"])
+    result_file =
+      Path.join([tmp_root, ".superman", "intents", execution.intent_slug, "result.md"])
+
+    log_file =
+      Path.join([tmp_root, ".superman", "intents", execution.intent_slug, "execution-log.md"])
 
     assert completed.status == "completed"
     assert File.read!(result_file) =~ "Loop closed."

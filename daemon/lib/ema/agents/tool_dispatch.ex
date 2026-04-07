@@ -23,7 +23,9 @@ defmodule Ema.Agents.ToolDispatch do
     id = input["id"] || input[:id]
 
     case Ema.Tasks.get_task(id) do
-      nil -> {:error, "Task not found: #{id}"}
+      nil ->
+        {:error, "Task not found: #{id}"}
+
       task ->
         case Ema.Tasks.update_task(task, Map.drop(input, ["id", :id])) do
           {:ok, t} -> {:ok, %{id: t.id, title: t.title, status: t.status}}

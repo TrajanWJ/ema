@@ -180,7 +180,17 @@ defmodule Ema.SecondBrain.SystemBrain do
       try do
         Ema.Intents.status_summary()
       rescue
-        _ -> %{total: 0, planned: 0, active: 0, blocked: 0, complete: 0, researched: 0, outlined: 0, archived: 0}
+        _ ->
+          %{
+            total: 0,
+            planned: 0,
+            active: 0,
+            blocked: 0,
+            complete: 0,
+            researched: 0,
+            outlined: 0,
+            archived: 0
+          }
       end
 
     tree_md =
@@ -230,12 +240,19 @@ defmodule Ema.SecondBrain.SystemBrain do
   end
 
   defp write_executions_state(state_dir) do
-    executions = try do Ema.Executions.list_executions(limit: 20) rescue _ -> [] end
+    executions =
+      try do
+        Ema.Executions.list_executions(limit: 20)
+      rescue
+        _ -> []
+      end
+
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    rows = Enum.map_join(executions, "\n", fn e ->
-      "| `#{e.id}` | #{e.title || "—"} | #{e.status} | #{e.mode || "—"} |"
-    end)
+    rows =
+      Enum.map_join(executions, "\n", fn e ->
+        "| `#{e.id}` | #{e.title || "—"} | #{e.status} | #{e.mode || "—"} |"
+      end)
 
     content = """
     # Recent Executions
@@ -256,12 +273,19 @@ defmodule Ema.SecondBrain.SystemBrain do
   end
 
   defp write_agents_state(state_dir) do
-    agents = try do Ema.Agents.list_agents() rescue _ -> [] end
+    agents =
+      try do
+        Ema.Agents.list_agents()
+      rescue
+        _ -> []
+      end
+
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    rows = Enum.map_join(agents, "\n", fn a ->
-      "| #{a.slug} | #{a.status || "active"} | #{a.model || "—"} |"
-    end)
+    rows =
+      Enum.map_join(agents, "\n", fn a ->
+        "| #{a.slug} | #{a.status || "active"} | #{a.model || "—"} |"
+      end)
 
     content = """
     # Agents
@@ -282,12 +306,19 @@ defmodule Ema.SecondBrain.SystemBrain do
   end
 
   defp write_goals_state(state_dir) do
-    goals = try do Ema.Goals.list_goals() rescue _ -> [] end
+    goals =
+      try do
+        Ema.Goals.list_goals()
+      rescue
+        _ -> []
+      end
+
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    rows = Enum.map_join(goals, "\n", fn g ->
-      "| #{g.title} | #{g.status || "—"} | #{g.timeframe || "—"} |"
-    end)
+    rows =
+      Enum.map_join(goals, "\n", fn g ->
+        "| #{g.title} | #{g.status || "—"} | #{g.timeframe || "—"} |"
+      end)
 
     content = """
     # Goals
@@ -308,12 +339,19 @@ defmodule Ema.SecondBrain.SystemBrain do
   end
 
   defp write_habits_state(state_dir) do
-    habits = try do Ema.Habits.list_active() rescue _ -> [] end
+    habits =
+      try do
+        Ema.Habits.list_active()
+      rescue
+        _ -> []
+      end
+
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    rows = Enum.map_join(habits, "\n", fn h ->
-      "| #{h.name} | #{h.frequency || h.cadence || "daily"} |"
-    end)
+    rows =
+      Enum.map_join(habits, "\n", fn h ->
+        "| #{h.name} | #{h.frequency || h.cadence || "daily"} |"
+      end)
 
     content = """
     # Active Habits
@@ -334,13 +372,22 @@ defmodule Ema.SecondBrain.SystemBrain do
   end
 
   defp write_responsibilities_state(state_dir) do
-    resps = try do Ema.Responsibilities.list_responsibilities() rescue _ -> [] end
+    resps =
+      try do
+        Ema.Responsibilities.list_responsibilities()
+      rescue
+        _ -> []
+      end
+
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    rows = Enum.map_join(resps, "\n", fn r ->
-      health = if r.health_score, do: "#{Float.round(r.health_score * 100, 0) |> trunc()}%", else: "—"
-      "| #{r.title} | #{r.role || "—"} | #{health} |"
-    end)
+    rows =
+      Enum.map_join(resps, "\n", fn r ->
+        health =
+          if r.health_score, do: "#{Float.round(r.health_score * 100, 0) |> trunc()}%", else: "—"
+
+        "| #{r.title} | #{r.role || "—"} | #{health} |"
+      end)
 
     content = """
     # Responsibilities

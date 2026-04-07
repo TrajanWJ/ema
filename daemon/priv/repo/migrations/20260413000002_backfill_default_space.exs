@@ -32,6 +32,7 @@ defmodule Ema.Repo.Migrations.BackfillDefaultSpace do
     UPDATE inbox_items SET container_type = 'project', container_id = project_id
     WHERE project_id IS NOT NULL AND container_type IS NULL
     """)
+
     execute("""
     UPDATE inbox_items SET container_type = 'space', container_id = 'sp_default'
     WHERE container_type IS NULL

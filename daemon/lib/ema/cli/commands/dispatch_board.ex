@@ -7,7 +7,15 @@ defmodule Ema.CLI.Commands.DispatchBoard do
     case Ema.CLI.Transport.Http.get("/dispatch-board") do
       {:ok, body} ->
         items = Helpers.extract_list(body, "items")
-        cols = [{"ID", :id}, {"Title", :title}, {"Status", :status}, {"Agent", :agent}, {"Updated", :updated_at}]
+
+        cols = [
+          {"ID", :id},
+          {"Title", :title},
+          {"Status", :status},
+          {"Agent", :agent},
+          {"Updated", :updated_at}
+        ]
+
         Output.render(items, cols, json: opts[:json])
 
       {:error, reason} ->

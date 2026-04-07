@@ -29,8 +29,11 @@ defmodule Ema.CLI.Commands.Agent do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/agents") do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "agents"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "agents"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -116,7 +119,9 @@ defmodule Ema.CLI.Commands.Agent do
       Ema.CLI.Transport.Http ->
         case transport.get("/agents/#{slug}/conversations") do
           {:ok, body} ->
-            Output.render(Helpers.extract_list(body, "conversations"), @conversation_columns, json: opts[:json])
+            Output.render(Helpers.extract_list(body, "conversations"), @conversation_columns,
+              json: opts[:json]
+            )
 
           {:error, reason} ->
             Output.error(reason)

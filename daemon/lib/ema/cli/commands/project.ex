@@ -15,7 +15,11 @@ defmodule Ema.CLI.Commands.Project do
   def handle([:list], parsed, transport, opts) do
     case transport do
       Ema.CLI.Transport.Direct ->
-        filter = Helpers.compact_keyword(status: parsed.options[:status], space_id: parsed.options[:space])
+        filter =
+          Helpers.compact_keyword(
+            status: parsed.options[:status],
+            space_id: parsed.options[:space]
+          )
 
         case transport.call(Ema.Projects, :list_projects, [filter]) do
           {:ok, projects} -> Output.render(projects, @columns, json: opts[:json])
@@ -23,11 +27,18 @@ defmodule Ema.CLI.Commands.Project do
         end
 
       Ema.CLI.Transport.Http ->
-        params = Helpers.compact_keyword(status: parsed.options[:status], space_id: parsed.options[:space])
+        params =
+          Helpers.compact_keyword(
+            status: parsed.options[:status],
+            space_id: parsed.options[:space]
+          )
 
         case transport.get("/projects", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "projects"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "projects"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -57,14 +68,15 @@ defmodule Ema.CLI.Commands.Project do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        attrs = Helpers.compact_map([
-          {:name, name},
-          {:slug, parsed.options[:slug]},
-          {:linked_path, parsed.options[:path]},
-          {:github_repo_url, parsed.options[:repo]},
-          {:description, parsed.options[:description]},
-          {:space_id, parsed.options[:space]}
-        ])
+        attrs =
+          Helpers.compact_map([
+            {:name, name},
+            {:slug, parsed.options[:slug]},
+            {:linked_path, parsed.options[:path]},
+            {:github_repo_url, parsed.options[:repo]},
+            {:description, parsed.options[:description]},
+            {:space_id, parsed.options[:space]}
+          ])
 
         case transport.call(Ema.Projects, :create_project, [attrs]) do
           {:ok, project} ->
@@ -76,14 +88,17 @@ defmodule Ema.CLI.Commands.Project do
         end
 
       Ema.CLI.Transport.Http ->
-        body = %{"project" => Helpers.compact_map([
-          {"name", name},
-          {"slug", parsed.options[:slug]},
-          {"linked_path", parsed.options[:path]},
-          {"github_repo_url", parsed.options[:repo]},
-          {"description", parsed.options[:description]},
-          {"space_id", parsed.options[:space]}
-        ])}
+        body = %{
+          "project" =>
+            Helpers.compact_map([
+              {"name", name},
+              {"slug", parsed.options[:slug]},
+              {"linked_path", parsed.options[:path]},
+              {"github_repo_url", parsed.options[:repo]},
+              {"description", parsed.options[:description]},
+              {"space_id", parsed.options[:space]}
+            ])
+        }
 
         case transport.post("/projects", body) do
           {:ok, resp} ->
@@ -141,7 +156,13 @@ defmodule Ema.CLI.Commands.Project do
       Ema.CLI.Transport.Http ->
         case transport.get("/projects/#{slug}/tasks") do
           {:ok, body} ->
-            task_cols = [{"ID", :id}, {"Title", :title}, {"Status", :status}, {"Priority", :priority}]
+            task_cols = [
+              {"ID", :id},
+              {"Title", :title},
+              {"Status", :status},
+              {"Priority", :priority}
+            ]
+
             Output.render(Helpers.extract_list(body, "tasks"), task_cols, json: opts[:json])
 
           {:error, reason} ->
@@ -156,7 +177,13 @@ defmodule Ema.CLI.Commands.Project do
           {:ok, project} ->
             case transport.call(Ema.Tasks, :list_by_project, [project.id]) do
               {:ok, tasks} ->
-                task_cols = [{"ID", :id}, {"Title", :title}, {"Status", :status}, {"Priority", :priority}]
+                task_cols = [
+                  {"ID", :id},
+                  {"Title", :title},
+                  {"Status", :status},
+                  {"Priority", :priority}
+                ]
+
                 Output.render(tasks, task_cols, json: opts[:json])
 
               {:error, reason} ->

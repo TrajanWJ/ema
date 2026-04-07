@@ -41,8 +41,11 @@ defmodule Ema.CLI.Commands.BrainDump do
           ])
 
         case transport.get("/brain-dump/items", params: params) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "items"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "items"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end
@@ -57,8 +60,11 @@ defmodule Ema.CLI.Commands.BrainDump do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/brain-dump/items", params: [unprocessed: true]) do
-          {:ok, body} -> Output.render(Helpers.extract_list(body, "items"), @columns, json: opts[:json])
-          {:error, reason} -> Output.error(reason)
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "items"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
         end
     end
   end

@@ -8,11 +8,21 @@ defmodule Ema.Intelligence.SupermanClient do
 
   def health_check do
     {:ok, %{"status" => "local", "mode" => "embedded"}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def get_status do
-    nodes = try do KnowledgeGraph.context_for("ema") rescue _ -> [] end
+    nodes =
+      try do
+        KnowledgeGraph.context_for("ema")
+      rescue
+        _ -> []
+      end
+
     {:ok, %{"nodes" => length(nodes), "mode" => "local"}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def index_repo(repo_path) do
@@ -31,39 +41,78 @@ defmodule Ema.Intelligence.SupermanClient do
   end
 
   def ask_codebase(query, _repo_path) do
-    vault_results = try do Ema.SecondBrain.search_brain(query) rescue _ -> [] end
-    graph_nodes = try do KnowledgeGraph.context_for("ema") rescue _ -> [] end
+    vault_results =
+      try do
+        Ema.SecondBrain.search_brain(query)
+      rescue
+        _ -> []
+      end
 
-    {:ok, %{
-      "answer" => "Local search results for: #{query}",
-      "vault_matches" => length(vault_results),
-      "graph_nodes" => length(graph_nodes),
-      "sources" => Enum.take(vault_results, 5)
-    }}
+    graph_nodes =
+      try do
+        KnowledgeGraph.context_for("ema")
+      rescue
+        _ -> []
+      end
+
+    {:ok,
+     %{
+       "answer" => "Local search results for: #{query}",
+       "vault_matches" => length(vault_results),
+       "graph_nodes" => length(graph_nodes),
+       "sources" => Enum.take(vault_results, 5)
+     }}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def get_gaps do
-    gaps = try do Ema.Intelligence.GapInbox.list_gaps() rescue _ -> [] end
+    gaps =
+      try do
+        Ema.Intelligence.GapInbox.list_gaps()
+      rescue
+        _ -> []
+      end
+
     {:ok, %{"gaps" => gaps, "count" => length(gaps)}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def get_flows do
-    md = try do Ema.Intents.export_markdown() rescue _ -> "_No intents._" end
+    md =
+      try do
+        Ema.Intents.export_markdown()
+      rescue
+        _ -> "_No intents._"
+      end
+
     {:ok, %{"flows" => md}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def get_intent_graph do
-    intents = try do Ema.Intents.list_intents() rescue _ -> [] end
+    intents =
+      try do
+        Ema.Intents.list_intents()
+      rescue
+        _ -> []
+      end
 
-    nodes = Enum.map(intents, fn i ->
-      %{"id" => i.id, "title" => i.title, "level" => i.level, "status" => i.status}
-    end)
+    nodes =
+      Enum.map(intents, fn i ->
+        %{"id" => i.id, "title" => i.title, "level" => i.level, "status" => i.status}
+      end)
 
-    edges = intents
-    |> Enum.filter(& &1.parent_id)
-    |> Enum.map(fn i -> %{"from" => i.parent_id, "to" => i.id, "type" => "parent"} end)
+    edges =
+      intents
+      |> Enum.filter(& &1.parent_id)
+      |> Enum.map(fn i -> %{"from" => i.parent_id, "to" => i.id, "type" => "parent"} end)
 
     {:ok, %{"nodes" => nodes, "edges" => edges}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def apply_task(instruction) do
@@ -74,14 +123,27 @@ defmodule Ema.Intelligence.SupermanClient do
   end
 
   def get_panels do
-    context = try do Ema.Superman.context_bundle_for("ema") rescue _ -> %{} end
+    context =
+      try do
+        Ema.Superman.context_bundle_for("ema")
+      rescue
+        _ -> %{}
+      end
+
     {:ok, %{"panels" => context}}
+  rescue
+    e -> {:error, Exception.message(e)}
   end
 
   def build_task(task) do
     apply_task(task)
   end
 
-  def simulate_flow(_entry_point), do: {:error, :not_implemented}
+  def simulate_flow(_entry_point) do
+    {:ok, %{"status" => "not_implemented", "message" => "Flow simulation not yet available"}}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
   def autonomous_run, do: {:error, :not_implemented}
 end

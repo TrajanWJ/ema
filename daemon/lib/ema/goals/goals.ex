@@ -141,6 +141,7 @@ defmodule Ema.Goals do
     fun.(record)
     result
   end
+
   defp tap_ok(error, _fun), do: error
 
   defp generate_id(prefix) do

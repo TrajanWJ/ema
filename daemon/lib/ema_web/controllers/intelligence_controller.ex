@@ -26,7 +26,9 @@ defmodule EmaWeb.IntelligenceController do
       logged_at: DateTime.utc_now() |> DateTime.to_iso8601()
     }
 
-    Logger.info("[Intelligence] Outcome logged: #{params["outcome"]} for task #{params["task_id"]}")
+    Logger.info(
+      "[Intelligence] Outcome logged: #{params["outcome"]} for task #{params["task_id"]}"
+    )
 
     # Broadcast for any listeners (pipes, dashboard, etc.)
     Phoenix.PubSub.broadcast(Ema.PubSub, "intelligence:outcomes", {:outcome_logged, outcome})
@@ -54,10 +56,16 @@ defmodule EmaWeb.IntelligenceController do
       logged_at: params["logged_at"] || DateTime.utc_now() |> DateTime.to_iso8601()
     }
 
-    Logger.debug("[Intelligence] MCP call: #{params["tool"]} => #{params["result"]} (#{params["duration_ms"]}ms)")
+    Logger.debug(
+      "[Intelligence] MCP call: #{params["tool"]} => #{params["result"]} (#{params["duration_ms"]}ms)"
+    )
 
     # Broadcast for observability
-    Phoenix.PubSub.broadcast(Ema.PubSub, "intelligence:mcp_calls", {:mcp_call_logged, call_record})
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "intelligence:mcp_calls",
+      {:mcp_call_logged, call_record}
+    )
 
     json(conn, %{status: "ok", call: call_record})
   end

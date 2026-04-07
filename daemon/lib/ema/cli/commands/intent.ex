@@ -25,7 +25,9 @@ defmodule Ema.CLI.Commands.Intent do
 
         case transport.call(Ema.Intents, :list_intents, [filter_opts]) do
           {:ok, intents} ->
-            Output.render(Enum.map(intents, &Ema.Intents.serialize/1), @columns, json: opts[:json])
+            Output.render(Enum.map(intents, &Ema.Intents.serialize/1), @columns,
+              json: opts[:json]
+            )
 
           {:error, reason} ->
             Output.error(reason)
@@ -230,7 +232,12 @@ defmodule Ema.CLI.Commands.Intent do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Intents, :attach_actor, [id, actor_id, role: body.role, provenance: body.provenance]) do
+        case transport.call(Ema.Intents, :attach_actor, [
+               id,
+               actor_id,
+               role: body.role,
+               provenance: body.provenance
+             ]) do
           {:ok, link} -> Output.detail(Ema.Intents.serialize_link(link), json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
@@ -257,7 +264,12 @@ defmodule Ema.CLI.Commands.Intent do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Intents, :attach_execution, [id, execution_id, role: body.role, provenance: body.provenance]) do
+        case transport.call(Ema.Intents, :attach_execution, [
+               id,
+               execution_id,
+               role: body.role,
+               provenance: body.provenance
+             ]) do
           {:ok, link} -> Output.detail(Ema.Intents.serialize_link(link), json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
@@ -285,7 +297,13 @@ defmodule Ema.CLI.Commands.Intent do
 
     case transport do
       Ema.CLI.Transport.Direct ->
-        case transport.call(Ema.Intents, :attach_session, [id, body.session_type, session_id, role: body.role, provenance: body.provenance]) do
+        case transport.call(Ema.Intents, :attach_session, [
+               id,
+               body.session_type,
+               session_id,
+               role: body.role,
+               provenance: body.provenance
+             ]) do
           {:ok, link} -> Output.detail(Ema.Intents.serialize_link(link), json: opts[:json])
           {:error, reason} -> Output.error(reason)
         end
@@ -326,7 +344,9 @@ defmodule Ema.CLI.Commands.Intent do
   defp print_context_result({:ok, detail}, _id, opts), do: print_context(detail, opts)
   defp print_context_result({:error, reason}, _id, _opts), do: Output.error(reason)
   defp print_context_result(nil, id, _opts), do: Output.error("Intent #{id} not found")
-  defp print_context_result(detail, _id, opts) when is_map(detail), do: print_context(detail, opts)
+
+  defp print_context_result(detail, _id, opts) when is_map(detail),
+    do: print_context(detail, opts)
 
   defp print_context(detail, opts) do
     if opts[:json] do

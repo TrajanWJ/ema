@@ -41,13 +41,16 @@ defmodule Ema.Executions.Dispatcher do
     Task.Supervisor.start_child(Ema.TaskSupervisor, fn ->
       dispatch_execution(execution)
     end)
+
     {:noreply, %{state | dispatched: state.dispatched + 1}}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
 
   defp dispatch_execution(execution) do
-    Logger.info("[Dispatcher] Dispatching #{execution.id}: #{execution.title} (mode: #{execution.mode})")
+    Logger.info(
+      "[Dispatcher] Dispatching #{execution.id}: #{execution.title} (mode: #{execution.mode})"
+    )
 
     packet = build_packet(execution)
     base_prompt = format_prompt(packet)
@@ -76,13 +79,18 @@ defmodule Ema.Executions.Dispatcher do
           prepend_project_intelligence(enriched, execution.project_slug)
 
         if enriched != base_prompt do
-          Logger.debug("[Dispatcher] Context injected for #{execution.id} (mode: #{execution.mode})")
+          Logger.debug(
+            "[Dispatcher] Context injected for #{execution.id} (mode: #{execution.mode})"
+          )
         end
 
         enriched
       rescue
         e ->
-          Logger.warning("[Dispatcher] ContextBuilder failed for #{execution.id}: #{inspect(e)} — using base prompt")
+          Logger.warning(
+            "[Dispatcher] ContextBuilder failed for #{execution.id}: #{inspect(e)} — using base prompt"
+          )
+
           base_prompt
       end
 
@@ -94,7 +102,10 @@ defmodule Ema.Executions.Dispatcher do
         if is_binary(project_id) and project_id != "" do
           case Ema.Projects.ProjectWorker.get_context(project_id) do
             {:ok, context_doc} when is_binary(context_doc) and context_doc != "" ->
-              Logger.debug("[Dispatcher] Project context doc injected for #{execution.id} (project: #{project_id})")
+              Logger.debug(
+                "[Dispatcher] Project context doc injected for #{execution.id} (project: #{project_id})"
+              )
+
               context_doc <> "\n\n---\n\n" <> prompt
 
             _ ->
@@ -105,32 +116,38 @@ defmodule Ema.Executions.Dispatcher do
         end
       rescue
         e ->
-          Logger.warning("[Dispatcher] ProjectWorker context injection failed for #{execution.id}: #{inspect(e)}")
+          Logger.warning(
+            "[Dispatcher] ProjectWorker context injection failed for #{execution.id}: #{inspect(e)}"
+          )
+
           prompt
       end
 
     # Inject reflexion lessons from past executions
     prompt =
       try do
-        prefix = ReflexionInjector.build_prefix(
-          packet.agent_role || "default",
-          execution.mode || "code",
-          execution.project_slug || ""
-        )
+        prefix =
+          ReflexionInjector.build_prefix(
+            packet.agent_role || "default",
+            execution.mode || "code",
+            execution.project_slug || ""
+          )
+
         if prefix != "", do: prefix <> prompt, else: prompt
       rescue
         _ -> prompt
       end
 
     case Ema.Executions.create_agent_session(execution.id, %{
-      agent_role: packet.agent_role,
-      status: "running",
-      prompt_sent: prompt,
-      started_at: DateTime.utc_now() |> DateTime.truncate(:second),
-      metadata: %{packet: packet}
-    }) do
+           agent_role: packet.agent_role,
+           status: "running",
+           prompt_sent: prompt,
+           started_at: DateTime.utc_now() |> DateTime.truncate(:second),
+           metadata: %{packet: packet}
+         }) do
       {:ok, agent_session} ->
         attempt_dispatch(execution, agent_session, prompt)
+
       {:error, reason} ->
         Logger.warning("[Dispatcher] Failed to create agent_session: #{inspect(reason)}")
         Ema.Executions.transition(execution, "failed")
@@ -143,6 +160,7 @@ defmodule Ema.Executions.Dispatcher do
     case Ema.Executions.transition(execution, "running") do
       {:ok, running_execution} ->
         attempt_local_claude(running_execution, agent_session, prompt)
+
       {:error, reason} ->
         Logger.warning("[Dispatcher] Could not transition to running: #{inspect(reason)}")
         attempt_local_claude(execution, agent_session, prompt)
@@ -161,7 +179,10 @@ defmodule Ema.Executions.Dispatcher do
         maybe_link_intent_to_execution(execution)
 
       {:error, reason} ->
-        Logger.error("[Dispatcher] All dispatch paths failed for #{execution.id}: #{inspect(reason)}")
+        Logger.error(
+          "[Dispatcher] All dispatch paths failed for #{execution.id}: #{inspect(reason)}"
+        )
+
         Ema.Executions.complete_agent_session(agent_session.id, "FAILED: #{inspect(reason)}")
         Ema.Executions.record_event(execution.id, "failed", %{reason: inspect(reason)})
         Ema.Executions.transition(execution, "failed")
@@ -220,7 +241,12 @@ defmodule Ema.Executions.Dispatcher do
             Phoenix.PubSub.broadcast(
               Ema.PubSub,
               "executions:#{execution_id}:stream",
-              {:stream_chunk, %{execution_id: execution_id, chunk: text, timestamp: System.system_time(:millisecond)}}
+              {:stream_chunk,
+               %{
+                 execution_id: execution_id,
+                 chunk: text,
+                 timestamp: System.system_time(:millisecond)
+               }}
             )
 
           {:result, data} ->
@@ -248,6 +274,7 @@ defmodule Ema.Executions.Dispatcher do
         {^result_ref, {:exit_ok, _}} ->
           # Exit 0 without a result event — fallback to runner for the final parsed result
           Ema.Claude.Bridge.stop(bridge)
+
           case Ema.Claude.AI.run(prompt, timeout: 300_000) do
             {:ok, result} -> {:ok, extract_result_text(result)}
             {:error, _} = err -> err
@@ -263,6 +290,7 @@ defmodule Ema.Executions.Dispatcher do
       end
     else
       Logger.info("[Dispatcher] Bridge not available for #{execution_id}, using Runner")
+
       case Ema.Claude.AI.run(prompt, timeout: 300_000) do
         {:ok, result} -> {:ok, extract_result_text(result)}
         {:error, _} = err -> err
@@ -273,10 +301,13 @@ defmodule Ema.Executions.Dispatcher do
   # Extract the clean result text from Claude's JSON output.
   # Claude returns {"result": "...", "type": "result", ...} — we want just the result field.
   defp extract_result_text(%{"result" => text}) when is_binary(text), do: text
+
   defp extract_result_text(%{"raw" => raw}) when is_binary(raw) do
     # The "raw" field may contain a warning prefix + JSON. Try to parse the JSON part.
     case Regex.run(~r/\{.*"result"\s*:\s*"/, raw) do
-      nil -> raw
+      nil ->
+        raw
+
       _ ->
         # Find the JSON object in the raw output
         case Regex.run(~r/(\{[^\n]*"type"\s*:\s*"result"[^\n]*\})/, raw) do
@@ -285,10 +316,13 @@ defmodule Ema.Executions.Dispatcher do
               {:ok, %{"result" => text}} -> text
               _ -> raw
             end
-          _ -> raw
+
+          _ ->
+            raw
         end
     end
   end
+
   defp extract_result_text(result) when is_map(result), do: Jason.encode!(result)
   defp extract_result_text(result), do: to_string(result)
 
@@ -297,10 +331,15 @@ defmodule Ema.Executions.Dispatcher do
     wiki_page = resolve_wiki_intent_page(execution.intent_slug)
 
     read_files =
-      ([wiki_page, "#{intent_path}/intent.md", "#{intent_path}/signals.md",
-        ".superman/project.md", ".superman/context.md"]
-       |> Enum.reject(&is_nil/1))
-      ++ Router.mode_read_files(execution.mode, intent_path)
+      ([
+         wiki_page,
+         "#{intent_path}/intent.md",
+         "#{intent_path}/signals.md",
+         ".superman/project.md",
+         ".superman/context.md"
+       ]
+       |> Enum.reject(&is_nil/1)) ++
+        Router.mode_read_files(execution.mode, intent_path)
 
     %{
       execution_id: execution.id,
@@ -322,6 +361,7 @@ defmodule Ema.Executions.Dispatcher do
   end
 
   defp resolve_wiki_intent_page(nil), do: nil
+
   defp resolve_wiki_intent_page(slug) do
     vault_root = Ema.SecondBrain.vault_root()
     wiki_intents = Path.join([vault_root, "wiki", "Intents"])
@@ -367,37 +407,57 @@ defmodule Ema.Executions.Dispatcher do
     Begin. Read the specified files, complete the objective, write outputs to specified paths.
     """
   end
+
   defp capture_and_store_diff(execution) do
-    diff = case capture_git_diff(execution) do
-      {:ok, nil} ->
-        nil
-      {:ok, diff} ->
-        execution
-        |> Ema.Executions.Execution.changeset(%{git_diff: diff})
-        |> Ema.Repo.update()
-        |> case do
-          {:ok, _} ->
-            Logger.info("[Dispatcher] Stored git diff for #{execution.id} (#{byte_size(diff)} bytes)")
-          {:error, reason} ->
-            Logger.warning("[Dispatcher] Failed to store git diff for #{execution.id}: #{inspect(reason)}")
-        end
-      _ ->
-        nil
-    end
+    diff =
+      case capture_git_diff(execution) do
+        {:ok, nil} ->
+          nil
+
+        {:ok, diff} ->
+          execution
+          |> Ema.Executions.Execution.changeset(%{git_diff: diff})
+          |> Ema.Repo.update()
+          |> case do
+            {:ok, _} ->
+              Logger.info(
+                "[Dispatcher] Stored git diff for #{execution.id} (#{byte_size(diff)} bytes)"
+              )
+
+            {:error, reason} ->
+              Logger.warning(
+                "[Dispatcher] Failed to store git diff for #{execution.id}: #{inspect(reason)}"
+              )
+          end
+
+        _ ->
+          nil
+      end
+
     VaultBridge.on_execution_completed(execution, diff)
     :ok
   end
 
   defp capture_git_diff(execution) do
     project_path = get_project_path(execution.project_slug)
+
     case project_path do
-      nil -> {:ok, nil}
+      nil ->
+        {:ok, nil}
+
       path ->
         case System.cmd("git", ["diff", "HEAD~1", "HEAD", "--stat", "--patch"],
-                        cd: path, stderr_to_stdout: true) do
-          {output, 0} when byte_size(output) > 0 -> {:ok, output}
+               cd: path,
+               stderr_to_stdout: true
+             ) do
+          {output, 0} when byte_size(output) > 0 ->
+            {:ok, output}
+
           _ ->
-            case System.cmd("git", ["diff", "--stat", "--patch"], cd: path, stderr_to_stdout: true) do
+            case System.cmd("git", ["diff", "--stat", "--patch"],
+                   cd: path,
+                   stderr_to_stdout: true
+                 ) do
               {output2, _} when byte_size(output2) > 0 -> {:ok, output2}
               _ -> {:ok, nil}
             end
@@ -440,5 +500,4 @@ defmodule Ema.Executions.Dispatcher do
         |> String.trim()
     end
   end
-
 end

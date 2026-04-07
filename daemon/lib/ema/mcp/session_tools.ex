@@ -135,11 +135,12 @@ defmodule Ema.MCP.SessionTools do
 
     {:ok, sessions} = result
 
-    {:ok, %{
-      sessions: Enum.map(sessions, &serialize_session/1),
-      count: length(sessions),
-      message: "#{length(sessions)} session(s) found"
-    }}
+    {:ok,
+     %{
+       sessions: Enum.map(sessions, &serialize_session/1),
+       count: length(sessions),
+       message: "#{length(sessions)} session(s) found"
+     }}
   end
 
   def call("ema_spawn_session", args, _request_id) do
@@ -153,9 +154,10 @@ defmodule Ema.MCP.SessionTools do
 
       case Orchestrator.spawn(prompt, opts) do
         {:ok, result} ->
-          {:ok, Map.merge(result, %{
-            message: "Session spawned. Use ema_check_session to monitor progress."
-          })}
+          {:ok,
+           Map.merge(result, %{
+             message: "Session spawned. Use ema_check_session to monitor progress."
+           })}
 
         {:error, reason} ->
           {:error, inspect(reason)}
@@ -184,9 +186,10 @@ defmodule Ema.MCP.SessionTools do
          {:ok, prompt} <- require_string(args, "prompt") do
       case Orchestrator.resume(session_id, prompt) do
         {:ok, result} ->
-          {:ok, Map.merge(result, %{
-            message: "Follow-up session spawned from #{session_id}"
-          })}
+          {:ok,
+           Map.merge(result, %{
+             message: "Follow-up session spawned from #{session_id}"
+           })}
 
         {:error, reason} ->
           {:error, inspect(reason)}

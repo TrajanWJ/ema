@@ -17,10 +17,20 @@ defmodule Ema.CLI.Commands.Data do
     with {:ok, {entity_type, entity_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.EntityData, :get, [entity_type, entity_id, actor_id, parsed.args.key]) do
-            {:ok, nil} -> Output.error("No data for #{entity_type}:#{entity_id} #{parsed.args.key}")
-            {:ok, row} -> Output.detail(row, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+          case transport.call(Ema.EntityData, :get, [
+                 entity_type,
+                 entity_id,
+                 actor_id,
+                 parsed.args.key
+               ]) do
+            {:ok, nil} ->
+              Output.error("No data for #{entity_type}:#{entity_id} #{parsed.args.key}")
+
+            {:ok, row} ->
+              Output.detail(row, json: opts[:json])
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
 
         Ema.CLI.Transport.Http ->
@@ -34,9 +44,13 @@ defmodule Ema.CLI.Commands.Data do
           case transport.get("/entity-data", params: params) do
             {:ok, body} ->
               rows = Helpers.extract_list(body, "entity_data")
-              row = Enum.find(rows, fn item -> Map.get(item, "key", item[:key]) == parsed.args.key end)
 
-              if row, do: Output.detail(row, json: opts[:json]), else: Output.error("No data for #{entity_type}:#{entity_id} #{parsed.args.key}")
+              row =
+                Enum.find(rows, fn item -> Map.get(item, "key", item[:key]) == parsed.args.key end)
+
+              if row,
+                do: Output.detail(row, json: opts[:json]),
+                else: Output.error("No data for #{entity_type}:#{entity_id} #{parsed.args.key}")
 
             {:error, reason} ->
               Output.error(inspect(reason))
@@ -67,8 +81,13 @@ defmodule Ema.CLI.Commands.Data do
             )
 
           case transport.get("/entity-data", params: params) do
-            {:ok, body} -> Output.render(Helpers.extract_list(body, "entity_data"), @columns, json: opts[:json])
-            {:error, reason} -> Output.error(inspect(reason))
+            {:ok, body} ->
+              Output.render(Helpers.extract_list(body, "entity_data"), @columns,
+                json: opts[:json]
+              )
+
+            {:error, reason} ->
+              Output.error(inspect(reason))
           end
       end
     else
@@ -83,7 +102,13 @@ defmodule Ema.CLI.Commands.Data do
     with {:ok, {entity_type, entity_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.EntityData, :set, [entity_type, entity_id, actor_id, parsed.args.key, value]) do
+          case transport.call(Ema.EntityData, :set, [
+                 entity_type,
+                 entity_id,
+                 actor_id,
+                 parsed.args.key,
+                 value
+               ]) do
             {:ok, row} ->
               Output.success("Set #{parsed.args.key} on #{entity_type}:#{entity_id}")
               if opts[:json], do: Output.json(row)
@@ -121,7 +146,12 @@ defmodule Ema.CLI.Commands.Data do
     with {:ok, {entity_type, entity_id}} <- Helpers.parse_entity_ref(parsed.args.entity) do
       case transport do
         Ema.CLI.Transport.Direct ->
-          case transport.call(Ema.EntityData, :delete, [entity_type, entity_id, actor_id, parsed.args.key]) do
+          case transport.call(Ema.EntityData, :delete, [
+                 entity_type,
+                 entity_id,
+                 actor_id,
+                 parsed.args.key
+               ]) do
             {:ok, result} ->
               Output.success("Deleted #{parsed.args.key} from #{entity_type}:#{entity_id}")
               if opts[:json], do: Output.json(result)

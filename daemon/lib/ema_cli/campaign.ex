@@ -72,5 +72,8 @@ defmodule EmaCli.Campaign do
   end
 
   def run(unknown, _),
-    do: error("Unknown campaign subcommand: #{unknown}. Try: list, show, create, run, advance, runs")
+    do:
+      error(
+        "Unknown campaign subcommand: #{unknown}. Try: list, show, create, run, advance, runs"
+      )
 end
