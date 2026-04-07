@@ -15,7 +15,9 @@ defmodule Ema.ClaudeSessions.Supervisor do
     children = [
       Ema.ClaudeSessions.SessionWatcher,
       Ema.ClaudeSessions.SessionMonitor,
-      Ema.ClaudeSessions.SessionManager
+      Ema.ClaudeSessions.SessionManager,
+      Ema.Sessions.Checkpointer,
+      Ema.Sessions.DeathHandler
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

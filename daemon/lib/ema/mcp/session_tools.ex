@@ -119,6 +119,21 @@ defmodule Ema.MCP.SessionTools do
           },
           "required" => ["session_id"]
         }
+      },
+      %{
+        "name" => "ema_session_checkpoints",
+        "description" =>
+          "List checkpoints for a session. Checkpoints are periodic snapshots of session state (files modified, git diff, last tool call) used for crash recovery and session resumption.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{
+            "session_id" => %{
+              "type" => "string",
+              "description" => "Session ID to list checkpoints for"
+            }
+          },
+          "required" => ["session_id"]
+        }
       }
     ]
   end

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, memo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTasksStore } from "@/stores/tasks-store";
 import type { Task } from "@/types/tasks";
 
@@ -32,6 +33,7 @@ export function TaskList({ onSelectTask }: TaskListProps) {
   const tasks = useTasksStore((s) => s.tasks);
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortAsc, setSortAsc] = useState(true);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -58,10 +60,20 @@ export function TaskList({ onSelectTask }: TaskListProps) {
     }
   });
 
+  const virtualizer = useVirtualizer({
+    count: sorted.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 36,
+    overscan: 10,
+  });
+
   if (tasks.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <span className="text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
+        <span
+          className="text-[0.75rem]"
+          style={{ color: "var(--pn-text-muted)" }}
+        >
           No tasks
         </span>
       </div>
@@ -69,63 +81,134 @@ export function TaskList({ onSelectTask }: TaskListProps) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 mb-1"
+        className="flex items-center gap-2 px-3 py-1.5 mb-1 shrink-0"
         style={{ borderBottom: "1px solid var(--pn-border-subtle)" }}
       >
-        <SortHeader label="P" width="30px" sortKey="priority" current={sortKey} asc={sortAsc} onClick={handleSort} />
-        <SortHeader label="Title" width="flex" sortKey="title" current={sortKey} asc={sortAsc} onClick={handleSort} />
-        <SortHeader label="Status" width="80px" sortKey="status" current={sortKey} asc={sortAsc} onClick={handleSort} />
-        <SortHeader label="Date" width="70px" sortKey="created_at" current={sortKey} asc={sortAsc} onClick={handleSort} />
+        <SortHeader
+          label="P"
+          width="30px"
+          sortKey="priority"
+          current={sortKey}
+          asc={sortAsc}
+          onClick={handleSort}
+        />
+        <SortHeader
+          label="Title"
+          width="flex"
+          sortKey="title"
+          current={sortKey}
+          asc={sortAsc}
+          onClick={handleSort}
+        />
+        <SortHeader
+          label="Status"
+          width="80px"
+          sortKey="status"
+          current={sortKey}
+          asc={sortAsc}
+          onClick={handleSort}
+        />
+        <SortHeader
+          label="Date"
+          width="70px"
+          sortKey="created_at"
+          current={sortKey}
+          asc={sortAsc}
+          onClick={handleSort}
+        />
       </div>
 
-      {/* Rows */}
-      {sorted.map((task) => (
-        <button
-          key={task.id}
-          onClick={() => onSelectTask(task)}
-          className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-white/[0.02] rounded"
+      {/* Virtualized rows */}
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto"
+        style={{ minHeight: 0 }}
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
         >
-          <span style={{ width: "30px" }}>
-            <span
-              className="inline-block rounded-full"
-              style={{
-                width: "6px",
-                height: "6px",
-                background: PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS[3],
-              }}
-            />
-          </span>
-          <span
-            className="text-[0.7rem] flex-1 truncate"
-            style={{ color: "var(--pn-text-primary)" }}
-          >
-            {task.title}
-          </span>
-          <span style={{ width: "80px" }}>
-            <span
-              className="text-[0.55rem] px-1.5 py-0.5 rounded"
-              style={{
-                background: `${STATUS_COLORS[task.status]}12`,
-                color: STATUS_COLORS[task.status],
-              }}
-            >
-              {task.status.replace("_", " ")}
-            </span>
-          </span>
-          <span
-            className="text-[0.55rem]"
-            style={{ width: "70px", color: "var(--pn-text-muted)" }}
-          >
-            {new Date(task.created_at).toLocaleDateString()}
-          </span>
-        </button>
-      ))}
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const task = sorted[virtualRow.index];
+            return (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onSelectTask={onSelectTask}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
+
+const TaskRow = memo(function TaskRow({
+  task,
+  onSelectTask,
+  style,
+}: {
+  readonly task: Task;
+  readonly onSelectTask: (task: Task) => void;
+  readonly style: React.CSSProperties;
+}) {
+  return (
+    <button
+      onClick={() => onSelectTask(task)}
+      className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-white/[0.02] rounded"
+      style={style}
+    >
+      <span style={{ width: "30px" }}>
+        <span
+          className="inline-block rounded-full"
+          style={{
+            width: "6px",
+            height: "6px",
+            background: PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS[3],
+          }}
+        />
+      </span>
+      <span
+        className="text-[0.7rem] flex-1 truncate"
+        style={{ color: "var(--pn-text-primary)" }}
+      >
+        {task.title}
+      </span>
+      <span style={{ width: "80px" }}>
+        <span
+          className="text-[0.55rem] px-1.5 py-0.5 rounded"
+          style={{
+            background: `${STATUS_COLORS[task.status]}12`,
+            color: STATUS_COLORS[task.status],
+          }}
+        >
+          {task.status.replace("_", " ")}
+        </span>
+      </span>
+      <span
+        className="text-[0.55rem]"
+        style={{ width: "70px", color: "var(--pn-text-muted)" }}
+      >
+        {new Date(task.created_at).toLocaleDateString()}
+      </span>
+    </button>
+  );
+});
 
 function SortHeader({
   label,

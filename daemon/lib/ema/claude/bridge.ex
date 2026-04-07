@@ -12,6 +12,7 @@ defmodule Ema.Claude.Bridge do
   require Logger
 
   alias Ema.Claude.StreamParser
+  alias Ema.Intelligence.CostGovernor
 
   @pubsub_topic "ema:claude:events"
   @default_model "sonnet"
@@ -59,15 +60,28 @@ defmodule Ema.Claude.Bridge do
     proposal_id = Keyword.get(opts, :proposal_id)
     agent_id = Keyword.get(opts, :agent_id, "system")
     task_type = Keyword.get(opts, :task_type, "general")
+    domain = infer_domain(task_type, agent_id)
     started_at = System.monotonic_time(:millisecond)
 
-    with :ok <- maybe_broadcast_stage(proposal_id, "generating"),
-         {:ok, result} <- do_run(prompt, model, timeout),
+    with :ok <- check_governor(domain),
+         effective_model <- CostGovernor.recommended_model(model),
+         :ok <- maybe_broadcast_stage(proposal_id, "generating"),
+         {:ok, result} <- do_run(prompt, effective_model, timeout),
          :ok <- maybe_broadcast_stage(proposal_id, "complete") do
       elapsed_ms = System.monotonic_time(:millisecond) - started_at
-      log_usage_async(agent_id, task_type, model, elapsed_ms)
+      log_usage_async(agent_id, task_type, effective_model, elapsed_ms)
+
+      # Record cost with governor
+      tokens = extract_token_count(result)
+      cost = estimate_cost(effective_model, tokens)
+      CostGovernor.record_cost(domain, "claude_cli", effective_model, cost, tokens)
+
       {:ok, result}
     else
+      {:error, :budget_exceeded, tier, message} ->
+        Logger.warning("[Bridge] Blocked by CostGovernor: #{message}")
+        {:error, %{code: :budget_exceeded, message: message, tier: tier}}
+
       {:error, reason} ->
         maybe_broadcast_stage(proposal_id, "error")
         {:error, reason}
@@ -462,5 +476,49 @@ defmodule Ema.Claude.Bridge do
     ts = System.system_time(:millisecond) |> Integer.to_string()
     rand = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
     "ctask_#{ts}_#{rand}"
+  end
+
+  defp check_governor(domain) do
+    try do
+      CostGovernor.allowed?(domain)
+    rescue
+      _ -> :ok
+    end
+  end
+
+  defp infer_domain(task_type, agent_id) do
+    cond do
+      task_type in ["proposal", "generator", "refiner", "debater", "tagger"] ->
+        :proposal_engine
+
+      task_type == "domain_dispatch" ->
+        :agent_dispatch
+
+      agent_id != "system" ->
+        :agent_chat
+
+      true ->
+        :system
+    end
+  end
+
+  defp extract_token_count(result) when is_map(result) do
+    input = result["usage"]["input_tokens"] || result[:input_tokens] || 0
+    output = result["usage"]["output_tokens"] || result[:output_tokens] || 0
+    input + output
+  end
+
+  defp extract_token_count(_), do: 0
+
+  defp estimate_cost(model, tokens) do
+    rate =
+      case model do
+        m when m in ["opus", "claude-opus-4-6"] -> 0.000045
+        m when m in ["sonnet", "claude-sonnet-4-6"] -> 0.000009
+        m when m in ["haiku", "claude-haiku-4-5"] -> 0.00000075
+        _ -> 0.000009
+      end
+
+    tokens * rate
   end
 end
