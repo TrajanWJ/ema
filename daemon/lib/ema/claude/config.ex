@@ -59,7 +59,7 @@ defmodule Ema.Claude.Config do
   require Logger
 
   @valid_strategies [:balanced, :cheapest, :fastest, :best, :round_robin, :failover]
-  @valid_provider_types [:claude_cli, :codex_cli, :openrouter, :ollama, :custom]
+  @valid_provider_types [:claude_cli, :codex_cli, :openrouter, :ollama, :openclaw, :custom]
   @valid_cluster_strategies [:tailscale, :dns, :kubernetes, :epmd, :gossip]
 
   # ── Public API ─────────────────────────────────────────────────────────────

@@ -494,6 +494,17 @@ defmodule Ema.Claude.ProviderRegistry do
             models: Map.get(config, :models, [])
           }
 
+        :openclaw ->
+          %{
+            streaming: false,
+            code_execution: false,
+            tool_use: true,
+            file_access: false,
+            web_search: false,
+            agent_routing: true,
+            models: Map.get(config, :models, [])
+          }
+
         _ ->
           %{
             streaming: false,
@@ -545,7 +556,8 @@ defmodule Ema.Claude.ProviderRegistry do
       claude_cli: Ema.Claude.Adapters.ClaudeCli,
       codex_cli: Ema.Claude.Adapters.CodexCli,
       openrouter: Ema.Claude.Adapters.OpenRouter,
-      ollama: Ema.Claude.Adapters.Ollama
+      ollama: Ema.Claude.Adapters.Ollama,
+      openclaw: Ema.Claude.Adapters.OpenClaw
     }
   end
 
