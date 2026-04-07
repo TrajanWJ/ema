@@ -234,7 +234,7 @@ export function Shell({ children, hideDock }: ShellProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col rounded-xl overflow-hidden" style={{ background: "rgba(8, 9, 14, 0.85)" }}>
+    <div className="h-screen flex flex-col rounded-xl overflow-hidden">
       <AmbientStrip />
       <div className="flex flex-1 min-h-0">
         {!hideDock && <Dock />}

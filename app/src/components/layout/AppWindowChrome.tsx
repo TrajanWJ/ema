@@ -3,6 +3,13 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** Are we inside the launchpad (Shell) or a standalone window? */
+function isInsideLaunchpad(): boolean {
+  if (typeof window === "undefined") return true;
+  // Standalone windows get ?standalone in the URL
+  return !window.location.search.includes("standalone");
+}
+
 interface AppWindowChromeProps {
   readonly appId: string;
   readonly title: string;
@@ -71,6 +78,42 @@ export function AppWindowChrome({
     } catch { /* browser */ }
   }
 
+  const embedded = isInsideLaunchpad();
+
+  // When embedded in launchpad: minimal chrome, no traffic lights, transparent bg
+  if (embedded) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Thin app header — no traffic lights */}
+        <div
+          className="flex items-center gap-2 px-3 shrink-0"
+          style={{
+            height: "32px",
+            background: "var(--pn-window-header)",
+            backdropFilter: "blur(12px) saturate(130%)",
+            WebkitBackdropFilter: "blur(12px) saturate(130%)",
+            borderBottom: "1px solid var(--pn-border-subtle)",
+          }}
+        >
+          <span style={{ color: accent, fontSize: "13px" }}>{icon}</span>
+          <span
+            className="text-[0.65rem] font-semibold tracking-wide"
+            style={{ color: accent, letterSpacing: "0.06em" }}
+          >
+            {title}
+          </span>
+          {breadcrumb && (
+            <span className="text-[0.55rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
+              · {breadcrumb}
+            </span>
+          )}
+        </div>
+        <main className="flex-1 overflow-auto p-3">{children}</main>
+      </div>
+    );
+  }
+
+  // Standalone window: full chrome with traffic lights and glass background
   return (
     <div
       className="h-screen flex flex-col rounded-xl overflow-hidden"
@@ -78,18 +121,21 @@ export function AppWindowChrome({
         background: [
           "radial-gradient(circle at top, rgba(45, 212, 168, 0.08), transparent 24%)",
           "radial-gradient(circle at 85% 0%, rgba(107, 149, 240, 0.07), transparent 22%)",
-          "linear-gradient(180deg, rgba(8, 9, 14, 0.78), rgba(6, 6, 16, 0.84))",
-          "rgba(7, 9, 15, 0.58)",
+          "linear-gradient(180deg, var(--pn-window-core), var(--pn-window-deep))",
+          "var(--pn-window-wash)",
         ].join(", "),
         backdropFilter: "blur(20px) saturate(128%)",
         WebkitBackdropFilter: "blur(20px) saturate(128%)",
       }}
     >
-      {/* Custom title bar */}
+      {/* Custom title bar with traffic lights */}
       <div
-        className="glass-surface flex items-center justify-between px-3.5 shrink-0"
+        className="flex items-center justify-between px-3.5 shrink-0"
         style={{
           height: "36px",
+          background: "var(--pn-window-header)",
+          backdropFilter: "blur(20px) saturate(150%)",
+          WebkitBackdropFilter: "blur(20px) saturate(150%)",
           borderBottom: "1px solid var(--pn-border-subtle)",
         }}
         data-tauri-drag-region=""
@@ -103,10 +149,7 @@ export function AppWindowChrome({
             {title}
           </span>
           {breadcrumb && (
-            <span
-              className="text-[0.6rem] font-mono"
-              style={{ color: "var(--pn-text-muted)" }}
-            >
+            <span className="text-[0.6rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
               · {breadcrumb}
             </span>
           )}
@@ -115,31 +158,23 @@ export function AppWindowChrome({
           <button
             onClick={handleMinimize}
             className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-            style={{ background: "#EAB308" }}
+            style={{ background: "var(--color-pn-warning, #EAB308)" }}
           />
           <button
             onClick={handleMaximize}
             className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-            style={{ background: "#22C55E" }}
+            style={{ background: "var(--color-pn-success, #22C55E)" }}
           />
           <button
             onClick={handleClose}
             className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-            style={{ background: "#E24B4A" }}
+            style={{ background: "var(--color-pn-error, #E24B4A)" }}
           />
         </div>
       </div>
 
       {/* App content */}
-      <main
-        className="flex-1 overflow-auto p-4"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0)), rgba(14, 16, 23, 0.46)",
-        }}
-      >
-        {children}
-      </main>
+      <main className="flex-1 overflow-auto p-4">{children}</main>
     </div>
   );
 }
