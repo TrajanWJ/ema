@@ -222,6 +222,81 @@ class PhasePanel(Widget):
                 table.add_row(name, frm, to, week, when)
 
 
+class IntentTreePanel(Widget):
+    """Intent hierarchy panel."""
+
+    DEFAULT_CSS = """
+    IntentTreePanel { height: 1fr; border: solid $accent; }
+    IntentTreePanel VerticalScroll { height: 1fr; }
+    """
+
+    _intents_flat: list = []
+
+    def compose(self) -> ComposeResult:
+        yield Static("Intent Schematic  (i=create)", classes="panel-title")
+        yield VerticalScroll(id="intent-scroll")
+
+    def refresh_data(self):
+        scroll = self.query_one("#intent-scroll", VerticalScroll)
+        scroll.remove_children()
+        data = api_get("/api/intents/tree")
+        tree = data.get("tree", []) if isinstance(data, dict) else []
+        self._intents_flat = []
+        self._render_tree(scroll, tree, 0)
+
+    def _render_tree(self, scroll, nodes, depth):
+        level_icons = {0: "◉", 1: "◎", 2: "◆", 3: "▸", 4: "·", 5: "›"}
+        status_colors = {
+            "active": "green", "implementing": "yellow", "planned": "white",
+            "complete": "green", "blocked": "red", "archived": "dim",
+        }
+        for n in nodes:
+            self._intents_flat.append(n)
+            prefix = "  " * depth
+            icon = level_icons.get(n.get("level", 4), "·")
+            status = n.get("status", "?")
+            color = status_colors.get(status, "white")
+            title = (n.get("title") or "?")[:50]
+            level_name = {0: "vision", 1: "goal", 2: "project", 3: "feature", 4: "task", 5: "exec"}.get(n.get("level", 4), "?")
+            line = f"{prefix}{icon} [{color}]{title}[/] ({level_name}, {status})"
+            scroll.mount(Static(line))
+            self._render_tree(scroll, n.get("children", []), depth + 1)
+
+
+class SeedPanel(Widget):
+    """Proposal seeds panel showing intent-sourced seeds."""
+
+    DEFAULT_CSS = """
+    SeedPanel { height: 1fr; border: solid $warning; }
+    SeedPanel DataTable { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Proposal Seeds (intent-sourced)", classes="panel-title")
+        yield DataTable(id="seed-table")
+
+    def on_mount(self):
+        table = self.query_one("#seed-table", DataTable)
+        table.add_columns("Name", "Type", "Active", "Runs")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self):
+        table = self.query_one("#seed-table", DataTable)
+        table.clear()
+        data = api_get("/api/seeds")
+        seeds = data.get("seeds", []) if isinstance(data, dict) else []
+        # Show intent seeds first, then others
+        intent_seeds = [s for s in seeds if s.get("seed_type") == "intent"]
+        other_seeds = [s for s in seeds if s.get("seed_type") != "intent"]
+        for s in intent_seeds + other_seeds[:10]:
+            name = (s.get("name") or "?")[:35]
+            stype = s.get("seed_type", "?")
+            active = "✓" if s.get("active") else "✗"
+            runs = str(s.get("run_count", 0))
+            table.add_row(name, stype, active, runs)
+
+
 class ProjectPanel(Widget):
     """Projects overview panel."""
 
@@ -604,7 +679,8 @@ class EmaDashboard(App):
         Binding("1", "show_tab('dashboard')", "Dashboard"),
         Binding("2", "show_tab('executive')", "Executive"),
         Binding("3", "show_tab('project-tab')", "Projects"),
-        Binding("4", "show_tab('providers-tab')", "Providers"),
+        Binding("4", "show_tab('intents-tab')", "Intents"),
+        Binding("5", "show_tab('providers-tab')", "Providers"),
         Binding("a", "advance_phase", "Advance Phase"),
         Binding("h", "health_check", "Health Check"),
         Binding("s", "detect_providers", "Scan Providers"),
@@ -654,6 +730,17 @@ class EmaDashboard(App):
                     ),
                     Vertical(
                         TagPanel(id="project-tags"),
+                        classes="half-col",
+                    ),
+                )
+            with TabPane("Intents", id="intents-tab"):
+                yield Horizontal(
+                    Vertical(
+                        IntentTreePanel(id="intent-tree"),
+                        classes="half-col",
+                    ),
+                    Vertical(
+                        SeedPanel(id="seeds"),
                         classes="half-col",
                     ),
                 )
@@ -707,6 +794,10 @@ class EmaDashboard(App):
         self.query_one("#projects", ProjectPanel).refresh_data(projects)
         self.query_one("#actors", ActorPanel).refresh_data(actors)
         self.query_one("#providers", ProviderPanel).refresh_data(providers)
+
+        # Intents tab
+        self.query_one("#intent-tree", IntentTreePanel).refresh_data()
+        self.query_one("#seeds", SeedPanel).refresh_data()
 
     def action_refresh(self):
         self.refresh_all()
