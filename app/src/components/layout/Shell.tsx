@@ -28,7 +28,7 @@ import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import { subscribeExecutionNotifications } from "@/lib/execution-notifications";
 import { invoke } from "@tauri-apps/api/core";
 
-const DAEMON_URL = "http://localhost:4488/api/health";
+const DAEMON_URL = "http://127.0.0.1:4488/api/health";
 const PING_INTERVAL = 1500;
 const INITIAL_RETRY_DELAY = 200;
 const MAX_RETRY_DELAY = 2000;

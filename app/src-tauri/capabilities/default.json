@@ -29,7 +29,9 @@
       "identifier": "http:default",
       "allow": [
         { "url": "http://localhost:4488/**" },
-        { "url": "ws://localhost:4488/**" }
+        { "url": "http://127.0.0.1:4488/**" },
+        { "url": "ws://localhost:4488/**" },
+        { "url": "ws://127.0.0.1:4488/**" }
       ]
     }
   ]

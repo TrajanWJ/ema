@@ -1,4 +1,4 @@
-const BASE = "http://localhost:4488/api";
+const BASE = "http://127.0.0.1:4488/api";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 

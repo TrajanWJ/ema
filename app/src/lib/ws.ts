@@ -1,7 +1,7 @@
 import { Socket } from "phoenix";
 import type { Channel } from "phoenix";
 
-const DAEMON_URL = "ws://localhost:4488/socket";
+const DAEMON_URL = "ws://127.0.0.1:4488/socket";
 let socket: Socket | null = null;
 
 export type { Channel };

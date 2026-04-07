@@ -2,7 +2,12 @@ defmodule EmaWeb.CORSPlug do
   @moduledoc false
   import Plug.Conn
 
-  @allowed_origins ["http://localhost:1420", "http://tauri.localhost", "tauri://localhost"]
+  @allowed_origins [
+    "http://localhost:1420",
+    "http://127.0.0.1:1420",
+    "http://tauri.localhost",
+    "tauri://localhost"
+  ]
 
   def init(opts), do: opts
 

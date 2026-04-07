@@ -6,7 +6,7 @@ import { APP_CONFIGS } from "@/types/workspace";
 import { doFetch } from "@/lib/api";
 
 const config = APP_CONFIGS["prompt-workshop"];
-const BASE = "http://localhost:4488/api";
+const BASE = "http://127.0.0.1:4488/api";
 
 const CATEGORIES = ["system", "agent", "task", "custom"] as const;
 type Category = (typeof CATEGORIES)[number];
