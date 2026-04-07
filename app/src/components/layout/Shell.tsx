@@ -29,14 +29,15 @@ import { subscribeExecutionNotifications } from "@/lib/execution-notifications";
 import { invoke } from "@tauri-apps/api/core";
 
 const DAEMON_URL = "http://localhost:4488/api/health";
-const PING_INTERVAL = 3000;
-const INITIAL_RETRY_DELAY = 500;
-const MAX_RETRY_DELAY = 5000;
+const PING_INTERVAL = 1500;
+const INITIAL_RETRY_DELAY = 200;
+const MAX_RETRY_DELAY = 2000;
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 interface ShellProps {
   readonly children: ReactNode;
+  readonly hideDock?: boolean;
 }
 
 async function pingDaemon(): Promise<boolean> {
@@ -57,7 +58,7 @@ async function requestDaemonStart(): Promise<void> {
   }
 }
 
-export function Shell({ children }: ShellProps) {
+export function Shell({ children, hideDock }: ShellProps) {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"connecting" | "waiting" | "error">("connecting");
   const [attempt, setAttempt] = useState(0);
@@ -116,6 +117,9 @@ export function Shell({ children }: ShellProps) {
     if (connectingRef.current || cancelledRef.current) return;
     connectingRef.current = true;
 
+    // Immediately ask Tauri to ensure daemon is running
+    await requestDaemonStart();
+
     let delay = INITIAL_RETRY_DELAY;
     let tries = 0;
 
@@ -127,7 +131,6 @@ export function Shell({ children }: ShellProps) {
       const alive = await pingDaemon();
       if (!alive) {
         setStatus("waiting");
-        if (tries === 1) await requestDaemonStart();
         delay = Math.min(delay * 1.5, MAX_RETRY_DELAY);
         await new Promise((r) => setTimeout(r, delay));
         continue;
@@ -233,7 +236,7 @@ export function Shell({ children }: ShellProps) {
     <div className="h-screen flex flex-col rounded-xl overflow-hidden" style={{ background: "rgba(8, 9, 14, 0.85)" }}>
       <AmbientStrip />
       <div className="flex flex-1 min-h-0">
-        <Dock />
+        {!hideDock && <Dock />}
         <main className="flex-1 overflow-auto p-4">{children}</main>
       </div>
       <CommandBar />

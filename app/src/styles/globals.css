@@ -48,9 +48,9 @@
   --pn-dropdown-bg-solid: #0f1320;
   --pn-dropdown-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), 0 6px 18px rgba(0, 0, 0, 0.26);
   --pn-focus-ring: 0 0 0 2px rgba(45, 212, 168, 0.10);
-  --pn-window-wash: rgba(7, 9, 15, 0.58);
-  --pn-window-core: rgba(8, 9, 14, 0.78);
-  --pn-window-deep: rgba(6, 6, 16, 0.84);
+  --pn-window-wash: rgba(7, 9, 15, 0.48);
+  --pn-window-core: rgba(8, 9, 14, 0.68);
+  --pn-window-deep: rgba(6, 6, 16, 0.74);
   --pn-window-panel: rgba(14, 16, 23, 0.52);
   --pn-window-header: rgba(14, 16, 23, 0.5);
 }

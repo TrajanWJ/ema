@@ -53,7 +53,7 @@ function getRoute(): string {
 function AppContent() {
   const route = getRoute();
 
-  // All routes wrapped in Shell for consistent chrome (AmbientStrip, Dock, CommandBar)
+  const isLaunchpad = route === "launchpad" || route === "";
   const content = (() => {
     switch (route) {
       // Core Workflow
@@ -103,8 +103,12 @@ function AppContent() {
     }
   })();
 
-  return (
+  return isLaunchpad ? (
     <Shell>
+      {content}
+    </Shell>
+  ) : (
+    <Shell hideDock>
       {content}
     </Shell>
   );

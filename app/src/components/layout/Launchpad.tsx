@@ -254,7 +254,7 @@ function RecentActivityFeed() {
     const results = await Promise.allSettled([
       api.get<{ executions: readonly RawExecution[] }>("/executions"),
       api.get<{ items: readonly RawBrainDump[] }>("/brain-dump/items"),
-      api.get<{ nodes: readonly RawIntent[] }>("/intents"),
+      api.get<{ nodes?: readonly RawIntent[]; intents?: readonly RawIntent[] }>("/intents"),
     ]);
 
     const feed: FeedItem[] = [];
