@@ -290,4 +290,46 @@ defmodule Ema.SecondBrain.VaultWatcher do
       _ -> nil
     end
   end
+
+  @doc """
+  Parses YAML-ish frontmatter from markdown content into a map.
+  Handles quoted/unquoted strings, integers, arrays (JSON syntax).
+  """
+  def parse_frontmatter(content) when is_binary(content) do
+    case Regex.run(~r/\A---\n(.*?)---/s, content) do
+      [_, fm] ->
+        fm
+        |> String.split("\n", trim: true)
+        |> Enum.reduce(%{}, fn line, acc ->
+          case Regex.run(~r/^([\w][\w_-]*):\s*(.+)$/, String.trim(line)) do
+            [_, key, value] -> Map.put(acc, key, parse_fm_value(String.trim(value)))
+            _ -> acc
+          end
+        end)
+
+      _ ->
+        %{}
+    end
+  end
+
+  def parse_frontmatter(_), do: %{}
+
+  defp parse_fm_value("\"" <> _ = v), do: String.trim(v, "\"")
+
+  defp parse_fm_value("[" <> _ = v) do
+    case Jason.decode(v) do
+      {:ok, list} -> list
+      _ -> v
+    end
+  end
+
+  defp parse_fm_value(v) do
+    cond do
+      v =~ ~r/^\d+$/ -> String.to_integer(v)
+      v =~ ~r/^\d+\.\d+$/ -> String.to_float(v)
+      v == "true" -> true
+      v == "false" -> false
+      true -> v
+    end
+  end
 end

@@ -1,8 +1,9 @@
 defmodule Ema.Intents.Populator do
   @moduledoc """
-  Subscribes to PubSub events and auto-creates intents from domain events.
+  Subscribes to PubSub events and auto-creates/updates intents from domain events.
 
   Listens to:
+  - vault:changes (note_created/note_updated) → syncs wiki intent pages to DB
   - brain_dump:item_created → level 4-5 task intent
   - executions:completed → updates linked intent phase/status
   """
@@ -11,6 +12,9 @@ defmodule Ema.Intents.Populator do
   require Logger
 
   alias Ema.Intents
+  alias Ema.SecondBrain.VaultWatcher
+
+  @intent_wiki_prefix "wiki/Intents/"
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -20,12 +24,24 @@ defmodule Ema.Intents.Populator do
   def init(_opts) do
     Phoenix.PubSub.subscribe(Ema.PubSub, "brain_dump")
     Phoenix.PubSub.subscribe(Ema.PubSub, "executions")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "vault:changes")
     {:ok, %{}}
+  end
+
+  # ── Wiki Intent Page → DB Intent ────────────────────────────────
+
+  @impl true
+  def handle_info({event, %{file_path: path} = note}, state)
+      when event in [:note_created, :note_updated] and is_binary(path) do
+    if intent_wiki_page?(path) do
+      handle_wiki_intent(note, event)
+    end
+
+    {:noreply, state}
   end
 
   # ── Brain Dump → Intent ──────────────────────────────────────────
 
-  @impl true
   def handle_info({:brain_dump, :item_created, item}, state) do
     handle_brain_dump(item)
     {:noreply, state}
@@ -47,6 +63,100 @@ defmodule Ema.Intents.Populator do
   def handle_info(_msg, state), do: {:noreply, state}
 
   # ── Handlers ─────────────────────────────────────────────────────
+
+  defp intent_wiki_page?(path) do
+    String.starts_with?(path, @intent_wiki_prefix) and
+      String.ends_with?(path, ".md") and
+      not String.ends_with?(path, "_index.md")
+  end
+
+  defp handle_wiki_intent(note, event) do
+    vault_root = Ema.SecondBrain.vault_root()
+    full_path = Path.join(vault_root, note.file_path)
+
+    case File.read(full_path) do
+      {:ok, content} ->
+        fm = VaultWatcher.parse_frontmatter(content)
+        sync_wiki_intent_to_db(note, fm, content, event)
+
+      {:error, reason} ->
+        Logger.warning("[Populator] Could not read wiki intent #{note.file_path}: #{reason}")
+    end
+  end
+
+  defp sync_wiki_intent_to_db(note, fm, content, event) do
+    level = fm["intent_level"]
+
+    unless is_integer(level) do
+      # Not an intent page (no intent_level frontmatter) — skip
+      :ok
+    else
+      fingerprint = "wiki:#{note.file_path}"
+      title = fm["title"] || note.title || Path.basename(note.file_path, ".md")
+
+      # Extract description from first non-frontmatter paragraph
+      description =
+        content
+        |> String.replace(~r/\A---.*?---\n*/s, "")
+        |> String.replace(~r/^#[^\n]*\n*/m, "")
+        |> String.split("\n\n", parts: 2)
+        |> List.first()
+        |> Kernel.||("")
+        |> String.trim()
+        |> String.slice(0, 500)
+
+      attrs = %{
+        title: title,
+        description: description,
+        level: level,
+        kind: to_string(fm["intent_kind"] || "task"),
+        source_type: "wiki",
+        source_fingerprint: fingerprint,
+        status: to_string(fm["intent_status"] || "planned"),
+        priority: fm["intent_priority"] || 3,
+        project_id: resolve_project_id(fm["project"]),
+        provenance_class: "high"
+      }
+
+      case Intents.get_intent_by_fingerprint(fingerprint) do
+        nil ->
+          case Intents.create_intent(attrs) do
+            {:ok, intent} ->
+              Intents.link_intent(intent.id, "vault_note", note.id,
+                role: "origin",
+                provenance: "manual"
+              )
+
+              Logger.info("[Populator] Created intent '#{title}' from wiki page #{note.file_path}")
+
+            {:error, reason} ->
+              Logger.warning("[Populator] Failed to create intent from wiki: #{inspect(reason)}")
+          end
+
+        existing when event == :note_updated ->
+          update_attrs = Map.drop(attrs, [:source_type, :source_fingerprint])
+
+          case Intents.update_intent(existing, update_attrs) do
+            {:ok, _} ->
+              Logger.debug("[Populator] Updated intent '#{title}' from wiki page")
+
+            {:error, reason} ->
+              Logger.warning("[Populator] Failed to update intent from wiki: #{inspect(reason)}")
+          end
+
+        _existing ->
+          :ok
+      end
+    end
+  end
+
+  defp resolve_project_id(nil), do: nil
+  defp resolve_project_id(slug) when is_binary(slug) do
+    case Ema.Projects.get_project_by_slug(slug) do
+      %{id: id} -> id
+      nil -> nil
+    end
+  end
 
   defp handle_brain_dump(item) do
     fingerprint = "brain_dump:#{item.id}"

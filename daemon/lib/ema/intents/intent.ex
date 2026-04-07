@@ -5,9 +5,9 @@ defmodule Ema.Intents.Intent do
   @primary_key {:id, :string, autogenerate: false}
 
   @levels %{0 => :vision, 1 => :goal, 2 => :project, 3 => :feature, 4 => :task, 5 => :execution}
-  @kinds ~w(goal question task exploration fix audit system)
+  @kinds ~w(goal question task feature exploration fix audit system)
   @statuses ~w(planned active researched outlined implementing complete blocked archived)
-  @source_types ~w(brain_dump proposal execution harvest goal structural crystallized manual mcp)
+  @source_types ~w(brain_dump proposal execution harvest goal structural crystallized manual mcp wiki)
   @provenance_classes ~w(high medium low)
 
   schema "intents" do
