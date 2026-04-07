@@ -67,14 +67,14 @@ export function Shell({ children, hideDock }: ShellProps) {
 
   const loadAllStores = useCallback(async () => {
     await Promise.all([
-      useDashboardStore.getState().loadViaRest(),
-      useBrainDumpStore.getState().loadViaRest(),
-      useHabitsStore.getState().loadViaRest(),
+      useDashboardStore.getState().loadViaRest().catch(() => {}),
+      useBrainDumpStore.getState().loadViaRest().catch(() => {}),
+      useHabitsStore.getState().loadViaRest().catch(() => {}),
       useProposalsStore.getState().loadViaRest().catch(() => {}),
       useProjectsStore.getState().loadViaRest().catch(() => {}),
       useTasksStore.getState().loadViaRest().catch(() => {}),
-      useSettingsStore.getState().load(),
-      useWorkspaceStore.getState().load(),
+      useSettingsStore.getState().load().catch(() => {}),
+      useWorkspaceStore.getState().load().catch(() => {}),
       useResponsibilitiesStore.getState().loadViaRest().catch(() => {}),
       useAgentsStore.getState().loadViaRest().catch(() => {}),
       useVaultStore.getState().loadViaRest().catch(() => {}),
@@ -91,14 +91,14 @@ export function Shell({ children, hideDock }: ShellProps) {
 
   const connectAllChannels = useCallback(async () => {
     await Promise.all([
-      useDashboardStore.getState().connect(),
-      useBrainDumpStore.getState().connect(),
-      useHabitsStore.getState().connect(),
+      useDashboardStore.getState().connect().catch(() => {}),
+      useBrainDumpStore.getState().connect().catch(() => {}),
+      useHabitsStore.getState().connect().catch(() => {}),
       useProposalsStore.getState().connect().catch(() => {}),
       useProjectsStore.getState().connect().catch(() => {}),
       useTasksStore.getState().connect().catch(() => {}),
-      useSettingsStore.getState().connect(),
-      useWorkspaceStore.getState().connect(),
+      useSettingsStore.getState().connect().catch(() => {}),
+      useWorkspaceStore.getState().connect().catch(() => {}),
       useResponsibilitiesStore.getState().connect().catch(() => {}),
       useAgentsStore.getState().connect().catch(() => {}),
       useVaultStore.getState().connect().catch(() => {}),
