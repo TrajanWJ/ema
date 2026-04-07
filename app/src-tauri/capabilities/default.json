@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window and spawned app windows",
-  "windows": ["launchpad", "brain-dump", "habits", "journal", "settings", "proposals", "projects", "tasks", "responsibilities", "agents", "vault", "canvas", "pipes", "channels", "metamind", "evolution", "claude-bridge", "voice", "goals", "focus", "git-sync", "openclaw", "cli-manager", "jarvis-orb", "jarvis", "pipeline", "agent-fleet", "prompt-workshop", "ingestor", "decision-log", "file-vault", "message-hub", "shared-clipboard", "service-dashboard", "tunnel-manager", "life-dashboard", "routine-builder", "finance-tracker", "contacts-crm", "goal-planner", "team-pulse", "meeting-room", "project-portfolio", "invoice-billing", "audit-trail", "memory", "gaps", "intent-map", "code-health"],
+  "description": "Capability for EMA — all permissions on launchpad window",
+  "windows": ["launchpad"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -27,7 +27,10 @@
     "core:webview:allow-set-webview-focus",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "http://localhost:4488/*" }]
+      "allow": [
+        { "url": "http://localhost:4488/**" },
+        { "url": "ws://localhost:4488/**" }
+      ]
     }
   ]
 }
