@@ -2,17 +2,28 @@ const BASE = "http://localhost:4488/api";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-// Resolve fetch: Tauri HTTP plugin in desktop, native fetch in browser.
-// Dynamic import avoids crash when @tauri-apps/plugin-http isn't available.
 let resolvedFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis);
+let pluginReady = false;
 
-if (isTauri) {
-  import("@tauri-apps/plugin-http")
-    .then((mod) => { resolvedFetch = mod.fetch as typeof globalThis.fetch; })
-    .catch(() => { /* browser fallback */ });
+// Load Tauri HTTP plugin eagerly
+const pluginPromise: Promise<void> = isTauri
+  ? import("@tauri-apps/plugin-http")
+      .then((mod) => {
+        resolvedFetch = mod.fetch as typeof globalThis.fetch;
+        pluginReady = true;
+      })
+      .catch(() => { pluginReady = true; /* browser fallback */ })
+  : Promise.resolve().then(() => { pluginReady = true; });
+
+/** Wait for the HTTP plugin to be ready before first request */
+export async function ensureReady(): Promise<void> {
+  await pluginPromise;
 }
 
-export const doFetch: typeof globalThis.fetch = (...args) => resolvedFetch(...args);
+export const doFetch: typeof globalThis.fetch = async (...args) => {
+  if (!pluginReady) await pluginPromise;
+  return resolvedFetch(...args);
+};
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await doFetch(`${BASE}${path}`, {

@@ -23,7 +23,7 @@ import { useExecutionStore } from "@/stores/execution-store";
 import { useDecisionLogStore } from "@/stores/decision-log-store";
 import { useActorsStore } from "@/stores/actors-store";
 import { restoreWorkspace } from "@/lib/window-manager";
-import { doFetch } from "@/lib/api";
+import { doFetch, ensureReady } from "@/lib/api";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import { subscribeExecutionNotifications } from "@/lib/execution-notifications";
 import { invoke } from "@tauri-apps/api/core";
@@ -117,7 +117,8 @@ export function Shell({ children, hideDock }: ShellProps) {
     if (connectingRef.current || cancelledRef.current) return;
     connectingRef.current = true;
 
-    // Immediately ask Tauri to ensure daemon is running
+    // Wait for Tauri HTTP plugin to load, then ensure daemon
+    await ensureReady();
     await requestDaemonStart();
 
     let delay = INITIAL_RETRY_DELAY;
