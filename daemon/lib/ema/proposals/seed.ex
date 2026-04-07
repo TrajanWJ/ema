@@ -22,7 +22,7 @@ defmodule Ema.Proposals.Seed do
     timestamps(type: :utc_datetime)
   end
 
-  @valid_seed_types ~w(cron git session vault usage brain_dump cross dependency)
+  @valid_seed_types ~w(cron git session vault usage brain_dump cross dependency intent)
 
   def changeset(seed, attrs) do
     seed

@@ -12,6 +12,7 @@ defmodule Ema.Intents.Populator do
   require Logger
 
   alias Ema.Intents
+  alias Ema.Proposals
   alias Ema.SecondBrain.VaultWatcher
 
   @intent_wiki_prefix "wiki/Intents/"
@@ -28,6 +29,7 @@ defmodule Ema.Intents.Populator do
     Phoenix.PubSub.subscribe(Ema.PubSub, "ai:sessions")
     Phoenix.PubSub.subscribe(Ema.PubSub, "proposals:pipeline")
     Phoenix.PubSub.subscribe(Ema.PubSub, "intention_farmer:events")
+    Phoenix.PubSub.subscribe(Ema.PubSub, "intents")
 
     # Periodic backfeed: harvest unprocessed intents into wiki pages
     schedule_backfeed()
@@ -87,6 +89,22 @@ defmodule Ema.Intents.Populator do
 
   def handle_info({:startup_bootstrap_complete, _payload}, state) do
     Task.start(fn -> backfeed_harvested_intents() end)
+    {:noreply, state}
+  end
+
+  # ── Intent Created → Generate Proposal Seed ──────────────────────
+
+  def handle_info({"intents:created", intent_data}, state) do
+    maybe_create_proposal_seed(intent_data)
+    {:noreply, state}
+  end
+
+  def handle_info({"intents:status_changed", intent_data}, state) do
+    # When intent moves to "active" or "implementing", refresh its seed
+    status = intent_data[:status] || intent_data["status"]
+    if status in ["active", "implementing"] do
+      maybe_create_proposal_seed(intent_data)
+    end
     {:noreply, state}
   end
 
@@ -429,6 +447,68 @@ defmodule Ema.Intents.Populator do
     end
   rescue
     e -> Logger.debug("[Populator] Backfeed skipped: #{Exception.message(e)}")
+  end
+
+  # ── Intent → Proposal Seed ────────────────────────────────────────
+
+  defp maybe_create_proposal_seed(intent_data) do
+    title = intent_data[:title] || intent_data["title"] || ""
+    slug = intent_data[:slug] || intent_data["slug"] || ""
+    level = intent_data[:level] || intent_data["level"] || 4
+    description = intent_data[:description] || intent_data["description"] || ""
+    project_id = intent_data[:project_id] || intent_data["project_id"]
+    kind = intent_data[:kind] || intent_data["kind"] || "task"
+
+    # Only create seeds for actionable intents (level 3-5: feature/task/execution)
+    if level >= 3 and String.length(title) > 5 do
+      seed_name = "intent:#{slug}"
+
+      # Check if seed already exists
+      existing =
+        try do
+          import Ecto.Query
+          Ema.Repo.one(
+            from s in Ema.Proposals.Seed,
+              where: s.name == ^seed_name,
+              limit: 1
+          )
+        rescue
+          _ -> nil
+        end
+
+      unless existing do
+        prompt = """
+        You are analyzing an intent from EMA's intent schematic.
+
+        Intent: #{title}
+        Level: #{level} (#{Ema.Intents.Intent.level_name(level)})
+        Kind: #{kind}
+        Description: #{description}
+
+        Generate a concrete, actionable proposal to advance this intent.
+        Consider: what is the smallest next step that would make measurable progress?
+        Be specific about files to change, tests to write, or research to conduct.
+        """
+
+        case Proposals.create_seed(%{
+               name: seed_name,
+               prompt_template: String.trim(prompt),
+               seed_type: "intent",
+               schedule: "manual",
+               active: true,
+               project_id: project_id,
+               metadata: %{"intent_slug" => slug, "intent_level" => level}
+             }) do
+          {:ok, seed} ->
+            Logger.info("[Populator] Created proposal seed '#{seed.name}' from intent '#{slug}'")
+
+          {:error, reason} ->
+            Logger.debug("[Populator] Failed to create seed from intent: #{inspect(reason)}")
+        end
+      end
+    end
+  rescue
+    _ -> :ok
   end
 
   defp resolve_project_from_path(nil), do: nil
