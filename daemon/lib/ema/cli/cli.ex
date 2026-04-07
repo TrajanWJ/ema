@@ -9,7 +9,7 @@ defmodule Ema.CLI do
     pipe campaign evolution channel project babysitter session watch superman metamind
     ralph vectors quality dispatch-board tokens config em tag data canvas note voice
     org actor space intent gap integration reflexion ai-session routing git-sync tunnel
-    file-vault messages team-pulse metrics feedback dashboard dump status
+    file-vault messages team-pulse metrics feedback dashboard dump status vault
     contact finance invoice routine meeting temporal intelligence pipeline obsidian
     security vm onboarding prompt decision clipboard orchestrator ingest provider memory
     briefing now
@@ -46,6 +46,9 @@ defmodule Ema.CLI do
 
           {:ok, [:wiki | sub], parsed} ->
             dispatch(:wiki, sub, parsed)
+
+          {:ok, [:vault | sub], parsed} ->
+            dispatch(:vault, sub, parsed)
 
           {:ok, [:focus | sub], parsed} ->
             dispatch(:focus, sub, parsed)
@@ -299,6 +302,7 @@ defmodule Ema.CLI do
       :task -> Ema.CLI.Commands.Task.handle(sub, parsed, transport, opts)
       :proposal -> Ema.CLI.Commands.Proposal.handle(sub, parsed, transport, opts)
       :wiki -> Ema.CLI.Commands.Vault.handle(sub, parsed, transport, opts)
+      :vault -> Ema.CLI.Commands.Vault.handle(sub, parsed, transport, opts)
       :focus -> Ema.CLI.Commands.Focus.handle(sub, parsed, transport, opts)
       :agent -> Ema.CLI.Commands.Agent.handle(sub, parsed, transport, opts)
       :exec -> Ema.CLI.Commands.Exec.handle(sub, parsed, transport, opts)
@@ -452,6 +456,7 @@ defmodule Ema.CLI do
         routing: routing_spec(),
         "git-sync": git_sync_spec(),
         tunnel: tunnel_spec(),
+        vault: vault_spec(),
         "file-vault": file_vault_spec(),
         messages: messages_spec(),
         "team-pulse": team_pulse_spec(),
@@ -709,6 +714,21 @@ defmodule Ema.CLI do
         budget: [
           name: "budget",
           about: "Show proposal generation budget"
+        ],
+        delete: [
+          name: "delete",
+          about: "Delete a proposal",
+          args: [id: [required: true, help: "Proposal ID"]]
+        ],
+        purge: [
+          name: "purge",
+          about: "Bulk delete proposals by type (killed or untitled)",
+          args: [
+            target: [
+              required: false,
+              help: "What to purge: killed (default) or untitled"
+            ]
+          ]
         ]
       ]
     ]
@@ -2214,6 +2234,78 @@ defmodule Ema.CLI do
           name: "delete",
           about: "Delete tunnel",
           args: [pid: [required: true, help: "Tunnel PID"]]
+        ]
+      ]
+    ]
+
+  defp vault_spec,
+    do: [
+      name: "vault",
+      about:
+        "Knowledge vault — search, read, write, and navigate the Second Brain.\n\n" <>
+          "  Examples:\n" <>
+          "    ema vault search \"intent engine\"       Full-text search\n" <>
+          "    ema vault tree                          Directory tree\n" <>
+          "    ema vault read wiki/Architecture/EMA-Overview.md\n" <>
+          "    ema vault write wiki/Notes/my-note.md --body \"content\"\n" <>
+          "    ema vault graph wiki/Architecture/Intent-System.md\n" <>
+          "    ema vault backlinks wiki/Architecture/EMA-Overview.md\n" <>
+          "    ema vault orphans                       Notes with no links\n" <>
+          "    ema vault stale                         Notes not updated recently",
+      subcommands: [
+        search: [
+          name: "search",
+          about: "Full-text search across vault",
+          args: [query: [required: true, help: "Search query"]],
+          options: [
+            limit: [short: "-n", long: "--limit", help: "Max results (default 10)", parser: :integer]
+          ]
+        ],
+        tree: [name: "tree", about: "Show vault directory tree"],
+        read: [
+          name: "read",
+          about: "Read a vault note by path",
+          args: [path: [required: true, help: "Note file path"]]
+        ],
+        write: [
+          name: "write",
+          about: "Write or update a vault note",
+          args: [path: [required: true, help: "Note file path"]],
+          options: [
+            body: [short: "-b", long: "--body", help: "Note content", parser: :string],
+            title: [long: "--title", help: "Note title", parser: :string]
+          ]
+        ],
+        graph: [
+          name: "graph",
+          about: "Show link graph for a note",
+          args: [path: [required: true, help: "Note file path"]]
+        ],
+        backlinks: [
+          name: "backlinks",
+          about: "Show notes that link to this one",
+          args: [path: [required: true, help: "Note file path"]]
+        ],
+        orphans: [name: "orphans", about: "List notes with no incoming links"],
+        stale: [
+          name: "stale",
+          about: "List notes not updated recently",
+          options: [
+            days: [short: "-d", long: "--days", help: "Days threshold (default 30)", parser: :integer]
+          ]
+        ],
+        delete: [
+          name: "delete",
+          about: "Delete a vault note",
+          args: [path: [required: true, help: "Note file path"]]
+        ],
+        move: [
+          name: "move",
+          about: "Move/rename a vault note",
+          args: [
+            from: [required: true, help: "Current path"],
+            to: [required: true, help: "New path"]
+          ]
         ]
       ]
     ]

@@ -125,6 +125,31 @@ defmodule Ema.Proposals do
     end
   end
 
+  def delete_proposal(id) do
+    case get_proposal(id) do
+      nil -> {:error, :not_found}
+      proposal -> Repo.delete(proposal)
+    end
+  end
+
+  def purge_killed do
+    {count, _} =
+      Proposal
+      |> where([p], p.status == "killed")
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
+  def purge_untitled do
+    {count, _} =
+      Proposal
+      |> where([p], like(p.title, "Untitled Proposal%"))
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
   def get_lineage(id) do
     case get_proposal(id) do
       nil ->

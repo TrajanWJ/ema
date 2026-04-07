@@ -15,6 +15,8 @@ defmodule EmaWeb.Router do
     get("/surfaces/gateway", ControlPlaneController, :gateway)
     get("/surfaces/peers", ControlPlaneController, :peers)
     get("/dashboard/today", DashboardController, :today)
+    get("/briefing", BriefingController, :show)
+    get("/advisor/now", AdvisorController, :now)
 
     # Organizations
     get("/orgs", OrgController, :index)
@@ -130,7 +132,10 @@ defmodule EmaWeb.Router do
     post("/proposals/:id/redirect", ProposalController, :redirect)
     post("/proposals/:id/kill", ProposalController, :kill)
     post("/proposals/:id/cancel", ProposalController, :cancel)
+    delete("/proposals/:id", ProposalController, :delete)
     get("/proposals/:id/lineage", ProposalController, :lineage)
+    post("/proposals/purge-killed", ProposalController, :purge_killed)
+    post("/proposals/purge-untitled", ProposalController, :purge_untitled)
 
     # Seeds
     resources("/seeds", SeedController, except: [:new, :edit])
@@ -287,6 +292,8 @@ defmodule EmaWeb.Router do
     get("/executions/:id/events", ExecutionController, :events)
     get("/executions/:id/agent-sessions", ExecutionController, :agent_sessions)
     get("/executions/:id/diff", ExecutionController, :diff)
+    get("/executions/:id/preflight", ExecutionController, :preflight)
+    get("/executions/preflight/project/:project_slug", ExecutionController, :preflight_project)
     post("/executions/:id/complete", ExecutionController, :complete)
     get("/intents/:project_slug/:intent_slug/status", ExecutionController, :intent_status)
 

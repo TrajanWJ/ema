@@ -1,5 +1,5 @@
 defmodule Ema.CLI.Commands.Vault do
-  @moduledoc "CLI commands for the knowledge vault (Second Brain)."
+  @moduledoc "CLI commands for the knowledge wiki (Second Brain)."
 
   alias Ema.CLI.{Helpers, Output}
 
@@ -54,7 +54,9 @@ defmodule Ema.CLI.Commands.Vault do
 
       Ema.CLI.Transport.Http ->
         case transport.get("/vault/tree") do
-          {:ok, tree} ->
+          {:ok, body} ->
+            tree = body["tree"] || body
+
             if opts[:json] do
               Output.json(tree)
             else
@@ -156,7 +158,7 @@ defmodule Ema.CLI.Commands.Vault do
             if opts[:json] do
               Output.json(%{nodes: length(nodes), edges: length(edges)})
             else
-              Output.info("Vault Graph: #{length(nodes)} nodes, #{length(edges)} edges")
+              Output.info("Wiki Graph: #{length(nodes)} nodes, #{length(edges)} edges")
             end
 
           {:error, reason} ->
@@ -171,7 +173,7 @@ defmodule Ema.CLI.Commands.Vault do
             else
               nodes = graph["nodes"] || []
               edges = graph["edges"] || graph["links"] || []
-              Output.info("Vault Graph: #{length(nodes)} nodes, #{length(edges)} edges")
+              Output.info("Wiki Graph: #{length(nodes)} nodes, #{length(edges)} edges")
             end
 
           {:error, reason} ->
@@ -232,19 +234,136 @@ defmodule Ema.CLI.Commands.Vault do
     end
   end
 
+  def handle([:delete], parsed, transport, _opts) do
+    path = parsed.args.path
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.SecondBrain, :delete_note_by_path, [path]) do
+          {:ok, _} -> Output.success("Deleted #{path}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.delete("/vault/note?path=#{URI.encode(path)}") do
+          {:ok, _} -> Output.success("Deleted #{path}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:move], parsed, transport, _opts) do
+    from = parsed.args.from
+    to = parsed.args.to
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.SecondBrain, :move_note, [from, to]) do
+          {:ok, _} -> Output.success("Moved #{from} → #{to}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.post("/vault/note/move", %{"from" => from, "to" => to}) do
+          {:ok, _} -> Output.success("Moved #{from} → #{to}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:orphans], _parsed, transport, opts) do
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.SecondBrain, :get_orphan_notes, []) do
+          {:ok, notes} -> Output.render(notes, @search_columns, json: opts[:json])
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/vault/graph/orphans") do
+          {:ok, %{"notes" => notes}} ->
+            Output.render(notes, @search_columns, json: opts[:json])
+
+          {:ok, notes} when is_list(notes) ->
+            Output.render(notes, @search_columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:lint], parsed, _transport, opts) do
+    alias Ema.SecondBrain.VaultLint
+
+    lint_opts =
+      []
+      |> maybe_put(:min_words, parsed.options[:min_words])
+      |> maybe_put(:max_age_days, parsed.options[:max_age])
+      |> maybe_put(:min_shared_tags, parsed.options[:min_shared])
+      |> maybe_put_checks(parsed.options[:check])
+
+    reports = VaultLint.run_all(lint_opts)
+
+    if opts[:json] do
+      Output.json(reports)
+    else
+      render_lint_report(reports)
+    end
+  end
+
+  def handle([:neighbors], parsed, transport, opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.SecondBrain, :get_neighbors, [id]) do
+          {:ok, notes} -> Output.render(notes, @search_columns, json: opts[:json])
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/vault/graph/neighbors/#{id}") do
+          {:ok, %{"notes" => notes}} ->
+            Output.render(notes, @search_columns, json: opts[:json])
+
+          {:ok, notes} when is_list(notes) ->
+            Output.render(notes, @search_columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
-    Output.error("Unknown vault subcommand: #{inspect(sub)}")
+    Output.error("Unknown wiki subcommand: #{inspect(sub)}")
   end
 
   defp print_tree(tree, indent) when is_map(tree) do
     name = tree["name"] || Map.get(tree, :name, "")
+    type = tree["type"] || Map.get(tree, :type, "file")
     children = tree["children"] || Map.get(tree, :children, [])
 
     if name != "" do
-      IO.puts("#{indent}#{name}/")
+      if type == "directory" do
+        IO.puts("#{indent}#{IO.ANSI.cyan()}#{name}/#{IO.ANSI.reset()}")
+      else
+        IO.puts("#{indent}#{name}")
+      end
     end
 
-    Enum.each(children, &print_tree(&1, indent <> "  "))
+    dirs = Enum.filter(children, fn c -> (c["type"] || Map.get(c, :type)) == "directory" end)
+    files = Enum.filter(children, fn c -> (c["type"] || Map.get(c, :type)) != "directory" end)
+
+    Enum.each(dirs, &print_tree(&1, indent <> "  "))
+
+    if length(files) > 5 do
+      Enum.each(Enum.take(files, 3), &print_tree(&1, indent <> "  "))
+      IO.puts("#{indent}  ... +#{length(files) - 3} more files")
+    else
+      Enum.each(files, &print_tree(&1, indent <> "  "))
+    end
   end
 
   defp print_tree(tree, indent) when is_list(tree) do
@@ -302,4 +421,55 @@ defmodule Ema.CLI.Commands.Vault do
   defp format_age(hours) when hours < 1, do: "<1h"
   defp format_age(hours) when hours < 24, do: "#{hours}h"
   defp format_age(hours), do: "#{div(hours, 24)}d"
+
+  # -- Lint helpers --
+
+  defp render_lint_report(reports) do
+    severity_icon = %{error: "ERR", warning: "WRN", info: "INF"}
+
+    summary_rows =
+      Enum.map(reports, fn r ->
+        %{
+          "check" => Atom.to_string(r.check),
+          "severity" => Map.get(severity_icon, r.severity, "?"),
+          "issues" => to_string(r.count)
+        }
+      end)
+
+    summary_columns = [{"Check", "check"}, {"Sev", "severity"}, {"Issues", "issues"}]
+    Output.render(summary_rows, summary_columns, json: false)
+
+    # Print details for checks with issues
+    reports
+    |> Enum.filter(fn r -> r.count > 0 end)
+    |> Enum.each(fn r ->
+      IO.puts("\n--- #{r.check} (#{r.count}) ---")
+
+      r.issues
+      |> Enum.take(25)
+      |> Enum.each(fn issue ->
+        IO.puts("  #{issue.note_path}: #{issue.detail}")
+      end)
+
+      if r.count > 25, do: IO.puts("  ... and #{r.count - 25} more")
+    end)
+
+    total = Enum.sum(Enum.map(reports, & &1.count))
+    errors = reports |> Enum.filter(&(&1.severity == :error)) |> Enum.reduce(0, &(&1.count + &2))
+    warnings = reports |> Enum.filter(&(&1.severity == :warning)) |> Enum.reduce(0, &(&1.count + &2))
+
+    IO.puts("\nTotal: #{total} issues (#{errors} errors, #{warnings} warnings)")
+  end
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, key, val), do: Keyword.put(opts, key, val)
+
+  defp maybe_put_checks(opts, nil), do: opts
+
+  defp maybe_put_checks(opts, check_str) do
+    check = String.to_existing_atom(check_str)
+    Keyword.put(opts, :checks, [check])
+  rescue
+    ArgumentError -> opts
+  end
 end

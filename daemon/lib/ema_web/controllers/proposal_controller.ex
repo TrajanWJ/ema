@@ -198,6 +198,22 @@ defmodule EmaWeb.ProposalController do
     conn |> put_status(:bad_request) |> json(%{error: "ids parameter required"})
   end
 
+  def delete(conn, %{"id" => id}) do
+    with {:ok, _} <- Proposals.delete_proposal(id) do
+      json(conn, %{ok: true})
+    end
+  end
+
+  def purge_killed(conn, _params) do
+    {:ok, count} = Proposals.purge_killed()
+    json(conn, %{purged: count, type: "killed"})
+  end
+
+  def purge_untitled(conn, _params) do
+    {:ok, count} = Proposals.purge_untitled()
+    json(conn, %{purged: count, type: "untitled"})
+  end
+
   # ── Private helpers ────────────────────────────────────────────────────────
 
   defp fetch_seed(nil), do: {:error, :bad_request}

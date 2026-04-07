@@ -199,6 +199,138 @@ defmodule Ema.CLI.Commands.Proposal do
     end
   end
 
+  def handle([:cancel], parsed, transport, opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Proposals, :cancel_proposal, [id]) do
+          {:ok, proposal} ->
+            Output.success("Cancelled proposal ##{proposal.id}")
+            if opts[:json], do: Output.json(proposal)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.post("/proposals/#{id}/cancel") do
+          {:ok, _} -> Output.success("Cancelled proposal ##{id}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:generate], parsed, transport, opts) do
+    body =
+      %{}
+      |> maybe_put(:seed_id, parsed.options[:seed])
+
+    http_body =
+      %{}
+      |> maybe_put("seed_id", parsed.options[:seed])
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.ProposalEngine, :generate, [body]) do
+          {:ok, proposal} ->
+            Output.success("Generated proposal ##{proposal.id}: #{proposal.title}")
+            if opts[:json], do: Output.json(proposal)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.post("/proposals/generate", http_body) do
+          {:ok, resp} ->
+            proposal = Helpers.extract_record(resp, "proposal")
+            Output.success("Generated proposal ##{proposal["id"]}: #{proposal["title"]}")
+            if opts[:json], do: Output.json(proposal)
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:surfaced], _parsed, transport, opts) do
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Proposals, :list_surfaced, []) do
+          {:ok, proposals} -> Output.render(proposals, @columns, json: opts[:json])
+          {:error, reason} -> Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/proposals/surfaced") do
+          {:ok, body} ->
+            Output.render(Helpers.extract_list(body, "proposals"), @columns, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(reason)
+        end
+    end
+  end
+
+  def handle([:budget], _parsed, transport, opts) do
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.ProposalEngine, :get_budget, []) do
+          {:ok, budget} -> Output.detail(budget, json: opts[:json])
+          {:error, reason} -> Output.error(reason)
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/proposals/budget") do
+          {:ok, body} -> Output.detail(body, json: opts[:json])
+          {:error, reason} -> Output.error(reason)
+        end
+    end
+  end
+
+  def handle([:delete], parsed, transport, _opts) do
+    id = parsed.args.id
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Proposals, :delete_proposal, [id]) do
+          {:ok, _} -> Output.success("Deleted proposal #{id}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.delete("/proposals/#{id}") do
+          {:ok, _} -> Output.success("Deleted proposal #{id}")
+          {:error, reason} -> Output.error(inspect(reason))
+        end
+    end
+  end
+
+  def handle([:purge], parsed, _transport, _opts) do
+    target = parsed.args[:target] || "killed"
+
+    endpoint =
+      case target do
+        "killed" -> "/proposals/purge-killed"
+        "untitled" -> "/proposals/purge-untitled"
+        other -> nil
+      end
+
+    if endpoint do
+      case Ema.CLI.Transport.Http.post(endpoint) do
+        {:ok, resp} ->
+          count = resp["purged"] || 0
+          Output.success("Purged #{count} #{target} proposals")
+
+        {:error, reason} ->
+          Output.error(inspect(reason))
+      end
+    else
+      Output.error("Unknown purge target: #{target}. Use 'killed' or 'untitled'.")
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown proposal subcommand: #{inspect(sub)}")
   end
