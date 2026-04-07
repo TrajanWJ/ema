@@ -6,7 +6,7 @@ defmodule Ema.Claude.ContextInjector do
   domain module and assembles it into a structured map for use by the
   Intelligence Router and Pipes claude_action.
 
-  Keys: [:project, :goals, :vault, :tasks, :energy, :proposals]
+  Keys: [:project, :goals, :vault, :tasks, :energy, :proposals, :intents, :wiki]
 
   Returns:
     {:ok, context_map}   — always, even if some keys fail (graceful degradation)
@@ -17,7 +17,7 @@ defmodule Ema.Claude.ContextInjector do
 
   require Logger
 
-  alias Ema.{Goals, Tasks, Proposals, Projects, Journal}
+  alias Ema.{Goals, Tasks, Proposals, Projects, Journal, Intents}
 
   # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -167,9 +167,84 @@ defmodule Ema.Claude.ContextInjector do
     e -> {:error, {:fetch_failed, :proposals, Exception.message(e)}}
   end
 
+  defp fetch_context_key(:intents, event) do
+    project_id = extract_project_id(event)
+
+    intents =
+      if project_id do
+        Intents.list_intents(project_id: project_id, limit: 20)
+      else
+        Intents.list_intents(status: "active", limit: 20)
+      end
+
+    tree_md = Intents.export_markdown(project_id: project_id)
+
+    {:ok, %{
+      tree: tree_md,
+      active_count: length(Enum.filter(intents, &(&1.status == "active"))),
+      implementing_count: length(Enum.filter(intents, &(&1.status == "implementing")))
+    }}
+  rescue
+    e -> {:error, {:fetch_failed, :intents, Exception.message(e)}}
+  end
+
+  defp fetch_context_key(:wiki, event) do
+    project_id = extract_project_id(event)
+    vault_root = Ema.SecondBrain.vault_root()
+    wiki_dir = Path.join([vault_root, "wiki", "Intents"])
+
+    pages =
+      if File.dir?(wiki_dir) do
+        Path.wildcard(Path.join(wiki_dir, "**/*.md"))
+        |> Enum.reject(&String.ends_with?(&1, "_index.md"))
+        |> Enum.map(fn path ->
+          content = File.read!(path)
+          fm = Ema.SecondBrain.VaultWatcher.parse_frontmatter(content)
+
+          if fm["intent_level"] do
+            # Strip frontmatter for the content preview
+            body =
+              content
+              |> String.replace(~r/\A---.*?---\n*/s, "")
+              |> String.slice(0, 800)
+
+            %{
+              title: fm["title"],
+              level: fm["intent_level"],
+              kind: fm["intent_kind"],
+              status: fm["intent_status"],
+              project: fm["project"],
+              body: body,
+              path: Path.relative_to(path, vault_root)
+            }
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> maybe_filter_wiki_by_project(project_id)
+      else
+        []
+      end
+
+    {:ok, %{intent_pages: pages, count: length(pages)}}
+  rescue
+    e -> {:error, {:fetch_failed, :wiki, Exception.message(e)}}
+  end
+
   defp fetch_context_key(unknown_key, _event) do
     Logger.debug("[ContextInjector] Unknown context key: #{inspect(unknown_key)}")
     {:error, {:unknown_key, unknown_key}}
+  end
+
+  defp maybe_filter_wiki_by_project(pages, nil), do: pages
+  defp maybe_filter_wiki_by_project(pages, project_id) do
+    project = Projects.get_project(project_id)
+    slug = if project, do: project.slug
+
+    if slug do
+      Enum.filter(pages, fn p -> p.project == slug or is_nil(p.project) end)
+    else
+      pages
+    end
   end
 
   # ── Private: Formatters ──────────────────────────────────────────────────────

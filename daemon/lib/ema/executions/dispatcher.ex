@@ -294,6 +294,13 @@ defmodule Ema.Executions.Dispatcher do
 
   defp build_packet(execution) do
     intent_path = execution.intent_path || ".superman/intents/#{execution.intent_slug}"
+    wiki_page = resolve_wiki_intent_page(execution.intent_slug)
+
+    read_files =
+      ([wiki_page, "#{intent_path}/intent.md", "#{intent_path}/signals.md",
+        ".superman/project.md", ".superman/context.md"]
+       |> Enum.reject(&is_nil/1))
+      ++ Router.mode_read_files(execution.mode, intent_path)
 
     %{
       execution_id: execution.id,
@@ -304,12 +311,7 @@ defmodule Ema.Executions.Dispatcher do
       mode: execution.mode,
       requires_patchback: not is_nil(execution.intent_path),
       success_criteria: Router.mode_success_criteria(execution.mode),
-      read_files: [
-        "#{intent_path}/intent.md",
-        "#{intent_path}/signals.md",
-        ".superman/project.md",
-        ".superman/context.md"
-      ] ++ Router.mode_read_files(execution.mode, intent_path),
+      read_files: read_files,
       write_files: Router.mode_write_files(execution.mode, intent_path),
       constraints: [
         "Do not modify files outside the write_files list",
@@ -317,6 +319,20 @@ defmodule Ema.Executions.Dispatcher do
         "Write complete file contents, not diffs"
       ]
     }
+  end
+
+  defp resolve_wiki_intent_page(nil), do: nil
+  defp resolve_wiki_intent_page(slug) do
+    vault_root = Ema.SecondBrain.vault_root()
+    wiki_intents = Path.join([vault_root, "wiki", "Intents"])
+
+    if File.dir?(wiki_intents) do
+      Path.wildcard(Path.join(wiki_intents, "**/*.md"))
+      |> Enum.find(fn path ->
+        basename = Path.basename(path, ".md")
+        Ema.Executions.IntentFolder.slugify(basename) == slug
+      end)
+    end
   end
 
   defp format_prompt(packet) do

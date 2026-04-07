@@ -210,22 +210,32 @@ defmodule Ema.Agents.AgentWorker do
   defp tool_to_context_key("task_context"), do: :tasks
   defp tool_to_context_key("vault_read"), do: :vault
   defp tool_to_context_key("context_summary"), do: :proposals
+  defp tool_to_context_key("intent_context"), do: :intents
+  defp tool_to_context_key("wiki_context"), do: :wiki
   defp tool_to_context_key(_tool), do: nil
 
+  # Always include intents + wiki for shared context across all agents
+  @default_context_keys [:intents, :wiki]
+
   defp requested_context_keys(context) when is_map(context) do
-    context
-    |> Map.keys()
-    |> Enum.map(fn
-      key when is_atom(key) -> key
-      "project" -> :project
-      "goals" -> :goals
-      "tasks" -> :tasks
-      "vault" -> :vault
-      "energy" -> :energy
-      "proposals" -> :proposals
-      _ -> nil
-    end)
-    |> Enum.reject(&is_nil/1)
+    explicit =
+      context
+      |> Map.keys()
+      |> Enum.map(fn
+        key when is_atom(key) -> key
+        "project" -> :project
+        "goals" -> :goals
+        "tasks" -> :tasks
+        "vault" -> :vault
+        "energy" -> :energy
+        "proposals" -> :proposals
+        "intents" -> :intents
+        "wiki" -> :wiki
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    Enum.uniq(explicit ++ @default_context_keys)
   end
 
   defp build_domain_prompt(system_prompt, user_message, context) do
