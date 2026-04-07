@@ -344,6 +344,102 @@ class ActorPanel(Widget):
         return None
 
 
+class ProviderPanel(Widget):
+    """AI provider status panel."""
+
+    DEFAULT_CSS = """
+    ProviderPanel { height: 1fr; border: solid $primary; }
+    ProviderPanel DataTable { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("AI Providers  (h=health check, s=re-scan)", classes="panel-title")
+        yield DataTable(id="provider-table")
+
+    def on_mount(self):
+        table = self.query_one("#provider-table", DataTable)
+        table.add_columns("ID", "Type", "Status", "Health", "Models", "Latency")
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+
+    def refresh_data(self, providers):
+        table = self.query_one("#provider-table", DataTable)
+        table.clear()
+        for p in providers:
+            pid = (p.get("id") or "?")[:20]
+            ptype = p.get("type") or "?"
+            status = p.get("status") or "?"
+            status_icon = {
+                "available": "🟢",
+                "degraded": "🟡",
+                "offline": "🔴",
+                "rate_limited": "🟠",
+            }.get(status, "⚪")
+            health = p.get("health", {})
+            latency = health.get("latency_ms")
+            latency_str = f"{latency}ms" if latency else "—"
+            failures = health.get("consecutive_failures", 0)
+            health_str = "✓" if failures == 0 else f"✗ ({failures} fails)"
+            caps = p.get("capabilities", {})
+            models = caps.get("models", [])
+            models_str = ", ".join(str(m) for m in models[:3]) if models else "—"
+            table.add_row(
+                pid, ptype, f"{status_icon} {status}", health_str, models_str, latency_str
+            )
+
+
+class ProviderDetailPanel(Widget):
+    """Detailed provider info panel."""
+
+    DEFAULT_CSS = """
+    ProviderDetailPanel { height: 1fr; border: solid $secondary; }
+    ProviderDetailPanel VerticalScroll { height: 1fr; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Provider Detail", classes="panel-title")
+        yield VerticalScroll(id="provider-detail-scroll")
+
+    def refresh_data(self, provider):
+        scroll = self.query_one("#provider-detail-scroll", VerticalScroll)
+        scroll.remove_children()
+        if not provider:
+            scroll.mount(Static("  Select a provider"))
+            return
+
+        lines = [
+            f"  ID:         {provider.get('id', '?')}",
+            f"  Type:       {provider.get('type', '?')}",
+            f"  Name:       {provider.get('name', '?')}",
+            f"  Status:     {provider.get('status', '?')}",
+            f"  Registered: {fmt_ago(provider.get('registered_at'))} ago",
+            f"  Updated:    {fmt_ago(provider.get('updated_at'))} ago",
+            "",
+            "  Capabilities:",
+        ]
+        caps = provider.get("capabilities", {})
+        for k, v in caps.items():
+            lines.append(f"    {k}: {v}")
+
+        health = provider.get("health", {})
+        if health:
+            lines.append("")
+            lines.append("  Health:")
+            for k, v in health.items():
+                lines.append(f"    {k}: {v}")
+
+        rate = provider.get("rate_limits", {})
+        if rate and any(v for v in rate.values() if v):
+            lines.append("")
+            lines.append("  Rate Limits:")
+            for k, v in rate.items():
+                if v:
+                    lines.append(f"    {k}: {v}")
+
+        for line in lines:
+            scroll.mount(Static(line))
+
+
 class DetailScreen(ModalScreen):
     """Full detail view for a task or execution."""
 
@@ -508,7 +604,10 @@ class EmaDashboard(App):
         Binding("1", "show_tab('dashboard')", "Dashboard"),
         Binding("2", "show_tab('executive')", "Executive"),
         Binding("3", "show_tab('project-tab')", "Projects"),
+        Binding("4", "show_tab('providers-tab')", "Providers"),
         Binding("a", "advance_phase", "Advance Phase"),
+        Binding("h", "health_check", "Health Check"),
+        Binding("s", "detect_providers", "Scan Providers"),
         Binding("enter", "detail_view", "Detail", show=False),
     ]
 
@@ -516,6 +615,7 @@ class EmaDashboard(App):
     _tasks: list = []
     _execs: list = []
     _actors: list = []
+    _providers: list = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -557,6 +657,17 @@ class EmaDashboard(App):
                         classes="half-col",
                     ),
                 )
+            with TabPane("Providers", id="providers-tab"):
+                yield Horizontal(
+                    Vertical(
+                        ProviderPanel(id="providers"),
+                        classes="half-col",
+                    ),
+                    Vertical(
+                        ProviderDetailPanel(id="provider-detail"),
+                        classes="half-col",
+                    ),
+                )
         yield Footer()
 
     def on_mount(self):
@@ -583,6 +694,10 @@ class EmaDashboard(App):
         proj_data = api_get("/api/projects")
         projects = proj_data.get("projects", proj_data.get("data", [])) if isinstance(proj_data, dict) else []
 
+        provider_data = api_get("/api/providers")
+        providers = provider_data.get("providers", []) if isinstance(provider_data, dict) else []
+        self._providers = providers
+
         # Update panels
         self.query_one("#status-bar", StatusBar).actors = actors
         self.query_one("#tasks", TaskPanel).refresh_data(tasks)
@@ -591,6 +706,7 @@ class EmaDashboard(App):
         self.query_one("#phases", PhasePanel).refresh_data(actors)
         self.query_one("#projects", ProjectPanel).refresh_data(projects)
         self.query_one("#actors", ActorPanel).refresh_data(actors)
+        self.query_one("#providers", ProviderPanel).refresh_data(providers)
 
     def action_refresh(self):
         self.refresh_all()
@@ -631,6 +747,25 @@ class EmaDashboard(App):
         else:
             self.notify("Failed to advance phase", severity="error")
 
+    def action_health_check(self):
+        """Trigger health check on all providers."""
+        for p in self._providers:
+            pid = p.get("id")
+            if pid:
+                api_post(f"/api/providers/{pid}/health", {})
+        self.notify("Health checks triggered")
+        self.refresh_all()
+
+    def action_detect_providers(self):
+        """Trigger provider re-detection."""
+        result = api_post("/api/providers/detect", {})
+        if result:
+            count = len(result.get("providers", []))
+            self.notify(f"Detected {count} provider(s)")
+        else:
+            self.notify("Detection failed", severity="error")
+        self.refresh_all()
+
     def action_detail_view(self):
         """Show detail view for the focused table's selected row."""
         focused = self.focused
@@ -669,6 +804,14 @@ class EmaDashboard(App):
                 try:
                     self.query_one("#tags", TagPanel).load_tags("execution", eid)
                     self.query_one("#entity-data", EntityDataPanel).load_data("execution", eid)
+                except Exception:
+                    pass
+        elif table_id == "provider-table":
+            row = event.cursor_row
+            if 0 <= row < len(self._providers):
+                provider = self._providers[row]
+                try:
+                    self.query_one("#provider-detail", ProviderDetailPanel).refresh_data(provider)
                 except Exception:
                     pass
 
