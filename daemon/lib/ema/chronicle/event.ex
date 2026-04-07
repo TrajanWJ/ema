@@ -23,6 +23,6 @@ defmodule Ema.Chronicle.Event do
     event
     |> cast(attrs, @required ++ @optional)
     |> validate_required(@required)
-    |> validate_inclusion(:action, ~w(create update delete transition approve kill redirect))
+    |> validate_inclusion(:action, ~w(create update delete transition approve kill redirect undo))
   end
 end
