@@ -323,6 +323,7 @@ defmodule Ema.Claude.Bridge do
   defp do_run(prompt, model, timeout) do
     case GenServer.whereis(__MODULE__) do
       nil ->
+        Logger.warning("[Bridge] GenServer not running — falling back to Runner.run/2 (no routing/cost tracking/governance)")
         Ema.Claude.Runner.run(prompt, model: model, timeout: timeout)
 
       pid ->
