@@ -83,6 +83,7 @@ defmodule EmaWeb.Router do
     get("/sessions", SessionController, :index)
     get("/sessions/active", SessionController, :active)
     post("/sessions/:id/link", SessionController, :link)
+    get("/sessions/:id/checkpoints", SessionController, :checkpoints)
 
     # Session Orchestrator — spawn/monitor/manage Claude Code sessions
     get("/orchestrator/sessions", SessionOrchestratorController, :index)

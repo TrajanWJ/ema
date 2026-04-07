@@ -57,11 +57,14 @@ defmodule Ema.Intents do
   def update_intent(%Intent{} = intent, attrs) do
     old_status = intent.status
     old_phase = intent.phase
+    prev = intent
 
     intent
     |> Intent.changeset(attrs)
     |> Repo.update()
     |> tap_ok(fn updated ->
+      Ema.Chronicle.EventLog.record("intent", intent.id, "update", prev, updated)
+
       if updated.status != old_status do
         emit_event(updated.id, "status_changed", %{
           old: old_status,
@@ -82,7 +85,16 @@ defmodule Ema.Intents do
   end
 
   def delete_intent(%Intent{} = intent) do
-    Repo.delete(intent)
+    result = Repo.delete(intent)
+
+    case result do
+      {:ok, deleted} ->
+        Ema.Chronicle.EventLog.record("intent", deleted.id, "delete", intent, nil)
+        {:ok, deleted}
+
+      error ->
+        error
+    end
   end
 
   # ── Tree Operations ──────────────────────────────────────────────

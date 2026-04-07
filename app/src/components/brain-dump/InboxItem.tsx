@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import type { InboxItem as InboxItemType } from "@/types/brain-dump";
 import type { ExecutionStatus, ExecutionMode } from "@/types/executions";
@@ -23,7 +23,10 @@ const MODE_COLORS: Record<ExecutionMode, string> = {
   refactor: "#ec4899",
 };
 
-const STATUS_STYLES: Record<ExecutionStatus, { color: string; label: string; pulse?: boolean }> = {
+const STATUS_STYLES: Record<
+  ExecutionStatus,
+  { color: string; label: string; pulse?: boolean }
+> = {
   created: { color: "rgba(255,255,255,0.4)", label: "pending" },
   proposed: { color: "rgba(255,255,255,0.4)", label: "proposed" },
   awaiting_approval: { color: "#f59e0b", label: "awaiting" },
@@ -40,8 +43,9 @@ interface InboxItemProps {
   readonly item: InboxItemType;
 }
 
-export function InboxItem({ item }: InboxItemProps) {
-  const { process, remove, approveExecution, queueExecution } = useBrainDumpStore();
+export const InboxItem = memo(function InboxItem({ item }: InboxItemProps) {
+  const { process, remove, approveExecution, queueExecution } =
+    useBrainDumpStore();
   const execution = useBrainDumpStore((s) => s.itemExecutions[item.id]);
   const [hovered, setHovered] = useState(false);
 
@@ -84,7 +88,9 @@ export function InboxItem({ item }: InboxItemProps) {
                 style={{
                   background: `${statusStyle.color}18`,
                   color: statusStyle.color,
-                  animation: statusStyle.pulse ? "pulse 2s infinite" : undefined,
+                  animation: statusStyle.pulse
+                    ? "pulse 2s infinite"
+                    : undefined,
                 }}
               >
                 {statusStyle.label}
@@ -92,27 +98,37 @@ export function InboxItem({ item }: InboxItemProps) {
               {execution.status === "completed" && execution.result_path && (
                 <span
                   className="text-[0.55rem] px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80"
-                  style={{ color: "#2dd4a8", border: "1px solid rgba(45,212,168,0.3)" }}
+                  style={{
+                    color: "#2dd4a8",
+                    border: "1px solid rgba(45,212,168,0.3)",
+                  }}
                 >
                   {"-> Result"}
                 </span>
               )}
-              {execution.status === "created" && execution.requires_approval && (
-                <button
-                  onClick={() => approveExecution(execution.id)}
-                  className="text-[0.55rem] px-1.5 py-0.5 rounded font-medium hover:opacity-80"
-                  style={{ color: "#2dd4a8", border: "1px solid rgba(45,212,168,0.3)" }}
-                >
-                  Approve
-                </button>
-              )}
+              {execution.status === "created" &&
+                execution.requires_approval && (
+                  <button
+                    onClick={() => approveExecution(execution.id)}
+                    className="text-[0.55rem] px-1.5 py-0.5 rounded font-medium hover:opacity-80"
+                    style={{
+                      color: "#2dd4a8",
+                      border: "1px solid rgba(45,212,168,0.3)",
+                    }}
+                  >
+                    Approve
+                  </button>
+                )}
             </>
           )}
           {!execution && hovered && (
             <button
               onClick={() => queueExecution(item.id, item.content)}
               className="text-[0.55rem] px-1.5 py-0.5 rounded font-mono hover:opacity-80"
-              style={{ color: "var(--pn-text-tertiary)", border: "1px solid var(--pn-border-subtle)" }}
+              style={{
+                color: "var(--pn-text-tertiary)",
+                border: "1px solid var(--pn-border-subtle)",
+              }}
             >
               Queue
             </button>
@@ -146,7 +162,7 @@ export function InboxItem({ item }: InboxItemProps) {
       )}
     </div>
   );
-}
+});
 
 function ActionBtn({
   label,

@@ -5,6 +5,7 @@ defmodule Ema.Claude.Runner do
   """
 
   alias Ema.Claude.{Failure, Preflight}
+  alias Ema.Intelligence.CostGovernor
 
   require Logger
 
@@ -17,6 +18,7 @@ defmodule Ema.Claude.Runner do
     - :cmd_fn - function to use for running commands (default: &System.cmd/3, for testing)
     - :stage - pipeline stage atom for failure classification
     - :skip_preflight - skip preflight checks (default: false)
+    - :domain - cost governor domain (default: :system)
   """
   def run(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, "sonnet")
@@ -24,13 +26,17 @@ defmodule Ema.Claude.Runner do
     cmd_fn = Keyword.get(opts, :cmd_fn, &System.cmd/3)
     stage = Keyword.get(opts, :stage)
     skip_preflight = Keyword.get(opts, :skip_preflight, false)
+    domain = Keyword.get(opts, :domain, :system)
 
-    with :ok <- maybe_preflight(prompt, stage, skip_preflight) do
+    with :ok <- governor_check(domain),
+         :ok <- maybe_preflight(prompt, stage, skip_preflight) do
+      effective_model = CostGovernor.recommended_model(model)
+
       task =
         Task.async(fn ->
           try do
             claude_bin = resolve_claude_path()
-            run_via_stdin(claude_bin, prompt, model, cmd_fn)
+            run_via_stdin(claude_bin, prompt, effective_model, cmd_fn)
           rescue
             e in ErlangError ->
               Logger.warning("Claude CLI not available: #{inspect(e)}")
@@ -142,6 +148,20 @@ defmodule Ema.Claude.Runner do
         )
 
         %{"raw" => output}
+    end
+  end
+
+  defp governor_check(domain) do
+    try do
+      case CostGovernor.allowed?(domain) do
+        :ok ->
+          :ok
+
+        {:error, :budget_exceeded, _tier, msg} ->
+          {:error, %{code: :budget_exceeded, message: msg}}
+      end
+    rescue
+      _ -> :ok
     end
   end
 end

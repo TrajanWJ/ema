@@ -113,7 +113,7 @@ defmodule Ema.Sessions.DeathHandler do
     end
   end
 
-  defp assess_outcome(execution, session, watcher_status) do
+  defp assess_outcome(execution, _session, watcher_status) do
     cond do
       # Already marked complete by the execution system
       execution.status == "completed" ->

@@ -115,13 +115,13 @@ defmodule Ema.Sessions.Checkpointer do
   end
 
   @impl true
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  @impl true
   def handle_cast({:checkpoint, sid}, state) do
     do_checkpoint(sid)
     {:noreply, state}
   end
-
-  @impl true
-  def handle_info(_msg, state), do: {:noreply, state}
 
   # --- Internal ---
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { APP_CONFIGS } from "@/types/workspace";
 import { api } from "@/lib/api";
@@ -18,7 +19,8 @@ function RoleBadge({
   readonly role: "user" | "assistant" | "system" | "tool";
   readonly agentSlug: string;
 }) {
-  const label = role === "user" ? "You" : role === "system" ? "System" : agentSlug;
+  const label =
+    role === "user" ? "You" : role === "system" ? "System" : agentSlug;
   const color =
     role === "user"
       ? "#a78bfa"
@@ -35,7 +37,7 @@ function RoleBadge({
   );
 }
 
-function MessageBubble({
+const MessageBubble = memo(function MessageBubble({
   message,
   agentSlug,
 }: {
@@ -73,7 +75,7 @@ function MessageBubble({
       </div>
     </div>
   );
-}
+});
 
 interface PhaseInfo {
   readonly phase: string | null;
@@ -97,7 +99,7 @@ function AgentPhaseBar({ agent }: { readonly agent: Agent }) {
         if (data.actor?.phase_changed_at) {
           const mins = Math.round(
             (Date.now() - new Date(data.actor.phase_changed_at).getTime()) /
-              60000
+              60000,
           );
           duration = mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}h`;
         }
@@ -122,7 +124,8 @@ function AgentPhaseBar({ agent }: { readonly agent: Agent }) {
       Phase: {phaseInfo.phase}
       {phaseInfo.duration && (
         <span style={{ color: "var(--pn-text-muted)" }}>
-          {" "}({phaseInfo.duration})
+          {" "}
+          ({phaseInfo.duration})
         </span>
       )}
     </div>
@@ -163,7 +166,7 @@ export function AgentChatApp() {
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load agents"
+          err instanceof Error ? err.message : "Failed to load agents",
         );
       }
       setReady(true);
@@ -191,7 +194,7 @@ export function AgentChatApp() {
           setMessages(msgData.messages);
         }
       } catch {
-        // No conversations yet — that's fine
+        // No conversations yet
       }
     }
     loadHistory();
@@ -347,38 +350,14 @@ export function AgentChatApp() {
           </div>
         )}
 
-        {/* Messages area */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto flex flex-col gap-3 px-1 py-3"
-          style={{ minHeight: 0 }}
-        >
-          {messages.length === 0 && selectedAgent && (
-            <div
-              className="text-center text-[0.72rem] py-8"
-              style={{ color: "var(--pn-text-muted)" }}
-            >
-              Start a conversation with {selectedAgent.slug}
-            </div>
-          )}
-          {messages.map((msg, i) => (
-            <MessageBubble
-              key={msg.id ?? `${msg.created_at}-${i}`}
-              message={msg}
-              agentSlug={selectedSlug ?? "agent"}
-            />
-          ))}
-          {sending && (
-            <div className="self-start">
-              <span
-                className="text-[0.7rem] font-mono animate-pulse"
-                style={{ color: "var(--pn-text-muted)" }}
-              >
-                {selectedSlug} is thinking...
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Messages area - virtualized */}
+        <VirtualizedMessages
+          messages={messages}
+          selectedAgent={selectedAgent}
+          selectedSlug={selectedSlug}
+          sending={sending}
+          scrollRef={scrollRef}
+        />
 
         {/* Input area */}
         <div
@@ -427,5 +406,120 @@ export function AgentChatApp() {
         </div>
       </div>
     </AppWindowChrome>
+  );
+}
+
+function VirtualizedMessages({
+  messages,
+  selectedAgent,
+  selectedSlug,
+  sending,
+  scrollRef,
+}: {
+  readonly messages: readonly AgentMessage[];
+  readonly selectedAgent: Agent | null;
+  readonly selectedSlug: string | null;
+  readonly sending: boolean;
+  readonly scrollRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const itemCount = messages.length + (sending ? 1 : 0);
+
+  const virtualizer = useVirtualizer({
+    count: itemCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 72,
+    overscan: 8,
+  });
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (itemCount > 0) {
+      virtualizer.scrollToIndex(itemCount - 1, { align: "end" });
+    }
+  }, [itemCount, virtualizer]);
+
+  if (messages.length === 0 && !sending && selectedAgent) {
+    return (
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto flex items-center justify-center"
+        style={{ minHeight: 0 }}
+      >
+        <div
+          className="text-center text-[0.72rem] py-8"
+          style={{ color: "var(--pn-text-muted)" }}
+        >
+          Start a conversation with {selectedAgent.slug}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto px-1 py-3"
+      style={{ minHeight: 0 }}
+    >
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const isThinking = virtualRow.index >= messages.length;
+          if (isThinking) {
+            return (
+              <div
+                key="thinking"
+                ref={virtualizer.measureElement}
+                data-index={virtualRow.index}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="self-start pb-3">
+                  <span
+                    className="text-[0.7rem] font-mono animate-pulse"
+                    style={{ color: "var(--pn-text-muted)" }}
+                  >
+                    {selectedSlug} is thinking...
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          const msg = messages[virtualRow.index];
+          return (
+            <div
+              key={msg.id ?? `${msg.created_at}-${virtualRow.index}`}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div className="pb-3">
+                <MessageBubble
+                  message={msg}
+                  agentSlug={selectedSlug ?? "agent"}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

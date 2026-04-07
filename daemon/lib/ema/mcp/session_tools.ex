@@ -221,6 +221,28 @@ defmodule Ema.MCP.SessionTools do
     end
   end
 
+  def call("ema_session_checkpoints", args, _request_id) do
+    with {:ok, session_id} <- require_string(args, "session_id") do
+      checkpoints =
+        Ema.Sessions.Checkpointer.list_checkpoints(session_id)
+        |> Enum.map(fn cp ->
+          %{
+            id: cp.id,
+            session_id: cp.session_id,
+            execution_id: cp.execution_id,
+            intent_id: cp.intent_id,
+            phase: cp.phase,
+            files_modified: cp.files_modified,
+            git_diff_summary: cp.git_diff_summary,
+            last_tool_call: cp.last_tool_call,
+            checkpoint_at: cp.checkpoint_at && DateTime.to_iso8601(cp.checkpoint_at)
+          }
+        end)
+
+      {:ok, %{checkpoints: checkpoints, count: length(checkpoints)}}
+    end
+  end
+
   def call(name, _args, _request_id) do
     {:error, "Unknown session tool: #{name}"}
   end

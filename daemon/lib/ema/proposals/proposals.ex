@@ -78,9 +78,16 @@ defmodule Ema.Proposals do
         {:error, :not_found}
 
       proposal ->
+        prev = proposal
+
         proposal
         |> Proposal.changeset(%{status: "approved"})
         |> Repo.update()
+        |> tap_ok(fn updated ->
+          Ema.Chronicle.EventLog.record("proposal", id, "approve", prev, updated,
+            actor_id: updated.actor_id
+          )
+        end)
         |> tap_ok(&broadcast_proposal_event("proposal_approved", &1))
         |> tap_ok(fn proposal -> Ema.Executions.on_proposal_approved(proposal.id) end)
     end
@@ -92,11 +99,18 @@ defmodule Ema.Proposals do
         {:error, :not_found}
 
       proposal ->
+        prev = proposal
+
         Repo.transaction(fn ->
           case proposal
                |> Proposal.changeset(%{status: "redirected"})
                |> Repo.update() do
             {:ok, updated} ->
+              Ema.Chronicle.EventLog.record("proposal", id, "redirect", prev, updated,
+                actor_id: updated.actor_id,
+                metadata: %{"redirect_note" => redirect_note}
+              )
+
               seeds_created = create_redirect_seeds(updated, redirect_note)
               broadcast_proposal_event("proposal_redirected", updated)
               {updated, seeds_created}
@@ -118,9 +132,16 @@ defmodule Ema.Proposals do
         {:error, :not_found}
 
       proposal ->
+        prev = proposal
+
         proposal
         |> Proposal.changeset(%{status: "killed"})
         |> Repo.update()
+        |> tap_ok(fn updated ->
+          Ema.Chronicle.EventLog.record("proposal", id, "kill", prev, updated,
+            actor_id: updated.actor_id
+          )
+        end)
         |> tap_ok(&broadcast_proposal_event("proposal_killed", &1))
     end
   end

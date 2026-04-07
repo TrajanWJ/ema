@@ -262,7 +262,73 @@ defmodule Ema.CLI.Commands.Session do
     end
   end
 
+  def handle([:checkpoints], parsed, transport, opts) do
+    id = parsed.args.id
+
+    checkpoint_cols = [
+      {"ID", "id"},
+      {"Phase", "phase"},
+      {"Files", "files_count"},
+      {"Last Tool", "last_tool_call"},
+      {"At", "checkpoint_at"}
+    ]
+
+    case transport do
+      Ema.CLI.Transport.Direct ->
+        case transport.call(Ema.Sessions.Checkpointer, :list_checkpoints, [id]) do
+          {:ok, checkpoints} ->
+            rows =
+              Enum.map(checkpoints, fn cp ->
+                %{
+                  "id" => cp.id,
+                  "phase" => cp.phase,
+                  "files_count" => length(cp.files_modified || []),
+                  "last_tool_call" => truncate_str(cp.last_tool_call, 60),
+                  "checkpoint_at" => format_dt(cp.checkpoint_at)
+                }
+              end)
+
+            Output.render(rows, checkpoint_cols, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+
+      Ema.CLI.Transport.Http ->
+        case transport.get("/sessions/#{id}/checkpoints") do
+          {:ok, body} ->
+            checkpoints = Helpers.extract_list(body, "checkpoints")
+
+            rows =
+              Enum.map(checkpoints, fn cp ->
+                files = cp["files_modified"] || []
+
+                %{
+                  "id" => cp["id"],
+                  "phase" => cp["phase"],
+                  "files_count" => length(files),
+                  "last_tool_call" => truncate_str(cp["last_tool_call"], 60),
+                  "checkpoint_at" => cp["checkpoint_at"]
+                }
+              end)
+
+            Output.render(rows, checkpoint_cols, json: opts[:json])
+
+          {:error, reason} ->
+            Output.error(inspect(reason))
+        end
+    end
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown session subcommand: #{inspect(sub)}")
   end
+
+  defp truncate_str(nil, _max), do: ""
+  defp truncate_str(str, max) when byte_size(str) <= max, do: str
+  defp truncate_str(str, max), do: String.slice(str, 0, max) <> "..."
+
+  defp format_dt(nil), do: ""
+  defp format_dt(%DateTime{} = dt), do: Calendar.strftime(dt, "%m-%d %H:%M")
+  defp format_dt(str) when is_binary(str), do: str
 end

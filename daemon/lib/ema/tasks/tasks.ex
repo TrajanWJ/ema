@@ -183,9 +183,16 @@ defmodule Ema.Tasks do
       attrs
       |> put_scope_advice(task)
 
+    prev = task
+
     task
     |> Task.update_changeset(attrs)
     |> Repo.update()
+    |> chronicle_tap(fn updated ->
+      Ema.Chronicle.EventLog.record("task", task.id, "update", prev, updated,
+        actor_id: updated.actor_id
+      )
+    end)
   end
 
   def transition_status(%Task{} = task, new_status) do
@@ -236,7 +243,19 @@ defmodule Ema.Tasks do
   end
 
   def delete_task(%Task{} = task) do
-    Repo.delete(task)
+    result = Repo.delete(task)
+
+    case result do
+      {:ok, deleted} ->
+        Ema.Chronicle.EventLog.record("task", deleted.id, "delete", task, nil,
+          actor_id: task.actor_id
+        )
+
+        {:ok, deleted}
+
+      error ->
+        error
+    end
   end
 
   def add_comment(task_id, attrs) do
@@ -339,6 +358,13 @@ defmodule Ema.Tasks do
       Map.get(metadata, "domain") ||
       Map.get(metadata, :domain)
   end
+
+  defp chronicle_tap({:ok, record} = result, fun) do
+    fun.(record)
+    result
+  end
+
+  defp chronicle_tap(error, _fun), do: error
 
   defp task_agent(nil), do: nil
   defp task_agent(task), do: task.agent

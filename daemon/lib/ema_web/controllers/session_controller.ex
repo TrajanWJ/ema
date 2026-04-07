@@ -27,6 +27,14 @@ defmodule EmaWeb.SessionController do
     json(conn, %{sessions: sessions})
   end
 
+  def checkpoints(conn, %{"id" => session_id}) do
+    checkpoints =
+      Ema.Sessions.Checkpointer.list_checkpoints(session_id)
+      |> Enum.map(&serialize_checkpoint/1)
+
+    json(conn, %{checkpoints: checkpoints})
+  end
+
   def link(conn, %{"id" => id} = params) do
     project_id = params["project_id"]
 
@@ -59,6 +67,21 @@ defmodule EmaWeb.SessionController do
       {n, _} -> n
       :error -> nil
     end
+  end
+
+  defp serialize_checkpoint(cp) do
+    %{
+      id: cp.id,
+      session_id: cp.session_id,
+      execution_id: cp.execution_id,
+      intent_id: cp.intent_id,
+      phase: cp.phase,
+      files_modified: cp.files_modified,
+      conversation_summary: cp.conversation_summary,
+      git_diff_summary: cp.git_diff_summary,
+      last_tool_call: cp.last_tool_call,
+      checkpoint_at: cp.checkpoint_at
+    }
   end
 
   defp serialize_session(session) do

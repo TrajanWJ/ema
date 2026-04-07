@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import type { Proposal } from "@/types/proposals";
 import { useProposalsStore } from "@/stores/proposals-store";
 import { useExecutionStore } from "@/stores/execution-store";
@@ -19,7 +19,9 @@ function confidenceLevel(confidence: number): string {
   return "low";
 }
 
-export function ProposalCard({ proposal }: ProposalCardProps) {
+export const ProposalCard = memo(function ProposalCard({
+  proposal,
+}: ProposalCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [redirectNote, setRedirectNote] = useState("");
   const [showRedirectInput, setShowRedirectInput] = useState(false);
@@ -74,9 +76,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   }
 
   return (
-    <div
-      className="glass-surface rounded-lg p-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
-    >
+    <div className="glass-surface rounded-lg p-3 cursor-pointer transition-colors hover:bg-white/[0.02]">
       {isStreaming && (
         <div
           className="mb-2 px-2 py-1.5 rounded flex items-center gap-2"
@@ -89,7 +89,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
             className="animate-spin inline-block text-xs"
             style={{ color: "#6b95f0" }}
           >
-            ⟳
+            {"\u27F3"}
           </span>
           <span className="text-[0.65rem]" style={{ color: "#6b95f0" }}>
             {STAGE_LABELS[activeStage] ?? activeStage}
@@ -172,12 +172,22 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
               <span
                 className="text-[0.55rem] px-1.5 py-0.5 rounded-full"
                 style={{
-                  background: linkedExec.status === "completed" ? "rgba(34,197,94,0.1)" :
-                    linkedExec.status === "running" ? "rgba(107,149,240,0.1)" :
-                    linkedExec.status === "failed" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
-                  color: linkedExec.status === "completed" ? "#22c55e" :
-                    linkedExec.status === "running" ? "#6b95f0" :
-                    linkedExec.status === "failed" ? "#ef4444" : "#f59e0b",
+                  background:
+                    linkedExec.status === "completed"
+                      ? "rgba(34,197,94,0.1)"
+                      : linkedExec.status === "running"
+                        ? "rgba(107,149,240,0.1)"
+                        : linkedExec.status === "failed"
+                          ? "rgba(239,68,68,0.1)"
+                          : "rgba(245,158,11,0.1)",
+                  color:
+                    linkedExec.status === "completed"
+                      ? "#22c55e"
+                      : linkedExec.status === "running"
+                        ? "#6b95f0"
+                        : linkedExec.status === "failed"
+                          ? "#ef4444"
+                          : "#f59e0b",
                 }}
               >
                 exec: {linkedExec.status}
@@ -286,7 +296,10 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
           {error && (
             <div
               className="mb-2 text-[0.65rem] px-2 py-1 rounded"
-              style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }}
+              style={{
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#ef4444",
+              }}
             >
               {error}
             </div>
@@ -314,7 +327,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
       )}
     </div>
   );
-}
+});
 
 function Section({ label, content }: { label: string; content: string }) {
   return (
@@ -395,7 +408,11 @@ function ScoreDetail({ proposal }: { proposal: Proposal }) {
 
   const dimensions = [
     { label: "Coverage", value: bd.codebase_coverage, color: "#6b95f0" },
-    { label: "Coherence", value: bd.architectural_coherence, color: "#a78bfa" },
+    {
+      label: "Coherence",
+      value: bd.architectural_coherence,
+      color: "#a78bfa",
+    },
     { label: "Impact", value: bd.impact, color: "#22c55e" },
     { label: "Specificity", value: bd.prompt_specificity, color: "#f59e0b" },
   ] as const;
@@ -434,7 +451,7 @@ function ScoreDetail({ proposal }: { proposal: Proposal }) {
               className="text-[0.6rem] w-6 text-right font-medium"
               style={{ color }}
             >
-              {typeof value === "number" ? value.toFixed(1) : "—"}
+              {typeof value === "number" ? value.toFixed(1) : "\u2014"}
             </span>
           </div>
         ))}
