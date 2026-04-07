@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
 import { useHabitsStore } from "@/stores/habits-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -12,6 +13,7 @@ import { openApp } from "@/lib/window-manager";
 import { APP_CONFIGS } from "@/types/workspace";
 import { AppTile } from "./AppTile";
 import { OneThingCard } from "@/components/dashboard/OneThingCard";
+import { api } from "@/lib/api";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -157,6 +159,9 @@ export function Launchpad() {
         <QuickStat label="Proposals" value={queuedProposals} color="#f472b6" />
       </div>
 
+      {/* Recent Activity Feed */}
+      <RecentActivityFeed />
+
       {/* Categorized App Grid */}
       {grouped.map((group) => (
         <div key={group.key}>
@@ -187,6 +192,184 @@ export function Launchpad() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// --- Recent Activity Feed ---
+
+interface FeedItem {
+  readonly id: string;
+  readonly icon: string;
+  readonly text: string;
+  readonly timestamp: string;
+  readonly kind: "execution" | "brain_dump" | "intent";
+}
+
+interface RawExecution {
+  readonly id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly mode: string | null;
+  readonly updated_at: string;
+}
+
+interface RawBrainDump {
+  readonly id: string;
+  readonly content: string;
+  readonly created_at: string;
+}
+
+interface RawIntent {
+  readonly id: string;
+  readonly title: string;
+  readonly level: number;
+  readonly status: string;
+  readonly updated_at: string;
+}
+
+const FEED_LIMIT = 8;
+const REFRESH_MS = 30_000;
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max).trimEnd() + "\u2026";
+}
+
+function levelLabel(level: number): string {
+  if (level === 0) return "L0";
+  if (level === 1) return "L1";
+  if (level === 2) return "L2";
+  return `L${level}`;
+}
+
+function RecentActivityFeed() {
+  const [items, setItems] = useState<readonly FeedItem[]>([]);
+
+  const fetchFeed = useCallback(async () => {
+    const results = await Promise.allSettled([
+      api.get<{ executions: readonly RawExecution[] }>("/executions"),
+      api.get<{ items: readonly RawBrainDump[] }>("/brain-dump/items"),
+      api.get<{ nodes: readonly RawIntent[] }>("/intents"),
+    ]);
+
+    const feed: FeedItem[] = [];
+
+    // Executions — take 5 most recent
+    if (results[0].status === "fulfilled") {
+      const execs = results[0].value.executions
+        .slice()
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 5);
+      for (const e of execs) {
+        feed.push({
+          id: `exec-${e.id}`,
+          icon: "\u26A1",
+          text: `[${e.status}] ${e.mode ?? "exec"}: ${truncate(e.title, 50)}`,
+          timestamp: e.updated_at,
+          kind: "execution",
+        });
+      }
+    }
+
+    // Brain dumps — take 3 most recent
+    if (results[1].status === "fulfilled") {
+      const dumps = results[1].value.items
+        .slice()
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+      for (const d of dumps) {
+        feed.push({
+          id: `dump-${d.id}`,
+          icon: "\u25CE",
+          text: truncate(d.content, 60),
+          timestamp: d.created_at,
+          kind: "brain_dump",
+        });
+      }
+    }
+
+    // Intents — active only, take 5 most recent
+    if (results[2].status === "fulfilled") {
+      const active = results[2].value.nodes
+        .filter((i) => i.status === "active" || i.status === "implementing")
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 5);
+      for (const i of active) {
+        feed.push({
+          id: `intent-${i.id}`,
+          icon: "\uD83D\uDDFA\uFE0F",
+          text: `[${levelLabel(i.level)}] ${truncate(i.title, 45)} \u2014 ${i.status}`,
+          timestamp: i.updated_at,
+          kind: "intent",
+        });
+      }
+    }
+
+    // Sort all by timestamp descending, take top FEED_LIMIT
+    feed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    setItems(feed.slice(0, FEED_LIMIT));
+  }, []);
+
+  useEffect(() => {
+    fetchFeed();
+    const id = setInterval(fetchFeed, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [fetchFeed]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        borderRadius: 8,
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: "var(--pn-text-muted)",
+          marginBottom: 8,
+        }}
+      >
+        Recent Activity
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 6,
+              fontSize: 11,
+              lineHeight: 1.4,
+              color: "var(--pn-text-secondary)",
+            }}
+          >
+            <span style={{ flexShrink: 0, width: 16, textAlign: "center" }}>{item.icon}</span>
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {item.text}
+            </span>
+            <span
+              style={{
+                flexShrink: 0,
+                fontSize: 10,
+                color: "var(--pn-text-muted)",
+                fontFamily: "var(--font-mono, monospace)",
+              }}
+            >
+              {timeAgo(item.timestamp)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
