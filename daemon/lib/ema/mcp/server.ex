@@ -52,9 +52,14 @@ defmodule Ema.MCP.Server do
   def run_stdio do
     quiet_stdio_logging()
     trace("run_stdio:start")
-    {:ok, _} = start_link([])
-    # Block forever; the GenServer owns stdio
-    Process.sleep(:infinity)
+    {:ok, pid} = start_link([])
+    ref = Process.monitor(pid)
+
+    receive do
+      {:DOWN, ^ref, :process, ^pid, reason} ->
+        trace("run_stdio:server_down reason=#{inspect(reason)}")
+        System.halt(0)
+    end
   end
 
   defp quiet_stdio_logging do
@@ -91,12 +96,18 @@ defmodule Ema.MCP.Server do
       Logger.info("[MCP] Server started, listening on stdio")
     end
 
+    # Watchdog: detect orphaned process when parent dies without clean EOF
+    parent_pid = get_parent_pid()
+    timer_ref = :timer.send_interval(5_000, :check_parent_alive)
+
     state = %{
       port: port,
       initialized: false,
       buffer: "",
       # Track in-flight request counts per client ID
-      active_calls: %{}
+      active_calls: %{},
+      parent_pid: parent_pid,
+      watchdog_timer: timer_ref
     }
 
     {:ok, state}
@@ -117,7 +128,18 @@ defmodule Ema.MCP.Server do
 
   def handle_info({port, :eof}, %{port: port} = state) do
     Logger.info("[MCP] Client closed connection (EOF). Shutting down.")
+    cancel_watchdog(state)
     {:stop, :normal, state}
+  end
+
+  def handle_info(:check_parent_alive, state) do
+    if parent_alive?(state.parent_pid) do
+      {:noreply, state}
+    else
+      trace("watchdog:parent_dead pid=#{inspect(state.parent_pid)}")
+      Logger.info("[MCP] Parent process gone. Shutting down.")
+      {:stop, :normal, state}
+    end
   end
 
   def handle_info(msg, state) do
@@ -343,5 +365,38 @@ defmodule Ema.MCP.Server do
       path ->
         File.write(path, "#{DateTime.utc_now() |> DateTime.to_iso8601()} #{message}\n", [:append])
     end
+  end
+
+  # ── Private: Cleanup ──────────────────────────────────────────────────────
+
+  defp cancel_watchdog(%{watchdog_timer: {:ok, ref}}), do: :timer.cancel(ref)
+  defp cancel_watchdog(_state), do: :ok
+
+  # ── Private: Parent Process Watchdog ──────────────────────────────────────
+
+  defp get_parent_pid do
+    case System.cmd("ps", ["-o", "ppid=", "-p", "#{System.pid()}"]) do
+      {ppid_str, 0} ->
+        case Integer.parse(String.trim(ppid_str)) do
+          {ppid, _} -> ppid
+          :error -> nil
+        end
+
+      _ ->
+        nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp parent_alive?(nil), do: true
+
+  defp parent_alive?(ppid) do
+    case System.cmd("kill", ["-0", "#{ppid}"], stderr_to_stdout: true) do
+      {_, 0} -> true
+      _ -> false
+    end
+  rescue
+    _ -> true
   end
 end
