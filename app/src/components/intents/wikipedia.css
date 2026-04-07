@@ -19,8 +19,8 @@
   --color-visited: #8b7ec8;
   /* TRANSPARENT backgrounds — use glass rgba, not opaque hex */
   --background-color-base: transparent;
-  --background-color-neutral: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
-  --background-color-neutral-subtle: rgba(14, 16, 23, 0.30);
+  --background-color-neutral: var(--pn-window-panel, rgba(14, 16, 23, 0.32));
+  --background-color-neutral-subtle: rgba(14, 16, 23, 0.18);
   --background-color-interactive: var(--pn-field-bg, rgba(255, 255, 255, 0.04));
   --background-color-interactive-subtle: rgba(255, 255, 255, 0.02);
   --border-color-base: var(--pn-border-default, rgba(255, 255, 255, 0.08));
@@ -68,7 +68,7 @@
 }
 
 .wiki-ema .wiki-header {
-  background: var(--pn-window-header, rgba(14, 16, 23, 0.5));
+  background: var(--pn-window-header, rgba(14, 16, 23, 0.30));
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
@@ -147,7 +147,7 @@
 }
 
 .wiki-ema .wiki-sidebar {
-  background: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
+  background: var(--pn-window-panel, rgba(14, 16, 23, 0.32));
   backdrop-filter: blur(12px) saturate(130%);
   -webkit-backdrop-filter: blur(12px) saturate(130%);
 }
@@ -389,7 +389,7 @@
 }
 
 .wiki-ema .infobox {
-  background: rgba(14, 16, 23, 0.40);
+  background: rgba(14, 16, 23, 0.20);
   backdrop-filter: blur(8px) saturate(120%);
   -webkit-backdrop-filter: blur(8px) saturate(120%);
 }
@@ -572,7 +572,7 @@
 }
 
 .wiki-ema .wiki-right-sidebar {
-  background: var(--pn-window-panel, rgba(14, 16, 23, 0.52));
+  background: var(--pn-window-panel, rgba(14, 16, 23, 0.32));
   backdrop-filter: blur(12px) saturate(130%);
   -webkit-backdrop-filter: blur(12px) saturate(130%);
 }
