@@ -295,7 +295,9 @@ function RecentActivityFeed() {
 
     // Intents — active only, take 5 most recent
     if (results[2].status === "fulfilled") {
-      const active = results[2].value.nodes
+      const raw = results[2].value;
+      const intentsArr: readonly RawIntent[] = raw.nodes ?? raw.intents ?? [];
+      const active = intentsArr
         .filter((i) => i.status === "active" || i.status === "implementing")
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
         .slice(0, 5);
