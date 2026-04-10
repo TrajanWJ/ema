@@ -159,7 +159,96 @@ defmodule Ema.CLI.Commands.Intelligence do
     end
   end
 
+  def handle([:"context-inspect"], parsed, _transport, opts) do
+    case Ema.Intelligence.ContextTrace.fetch(parsed.args.id) do
+      {:ok, trace} ->
+        if opts[:json] do
+          Output.detail(trace, json: true)
+        else
+          render_trace(trace)
+        end
+
+      {:error, reason} ->
+        Output.error("trace not found: #{inspect(reason)}")
+    end
+  end
+
+  def handle([:"context-list"], parsed, _transport, opts) do
+    limit = parsed.options[:limit] || 20
+    traces = Ema.Intelligence.ContextTrace.list_recent(limit)
+
+    rows =
+      Enum.map(traces, fn t ->
+        %{
+          id: t.id,
+          source: t.source,
+          budget: t.budget,
+          tokens_used: t.tokens_used,
+          recorded_at: t.recorded_at
+        }
+      end)
+
+    Output.render(
+      rows,
+      [
+        {"ID", :id},
+        {"Source", :source},
+        {"Budget", :budget},
+        {"Used", :tokens_used},
+        {"Recorded", :recorded_at}
+      ],
+      json: opts[:json]
+    )
+  end
+
   def handle(sub, _parsed, _transport, _opts) do
     Output.error("Unknown intelligence subcommand: #{inspect(sub)}")
   end
+
+  defp render_trace(trace) do
+    IO.puts("Trace: #{trace.id}")
+    IO.puts("Source: #{trace.source}")
+    IO.puts("Budget: #{trace.budget} tokens (used #{trace.tokens_used})")
+    IO.puts("Recorded: #{trace.recorded_at}")
+
+    focus = trace.focus || %{}
+    IO.puts("\nFocus terms: #{inspect(Map.get(focus, :terms, []))}")
+
+    IO.puts("\nAllocations:")
+
+    Enum.each(trace.allocations || %{}, fn {section, tokens} ->
+      IO.puts("  #{section}: #{tokens} tokens")
+    end)
+
+    IO.puts("\nSelected items:")
+
+    Enum.each(trace.sections || %{}, fn {section, items} ->
+      IO.puts("\n  ## #{section} (#{length(items)} items)")
+
+      Enum.each(items, fn item ->
+        rel = format_float(item[:relevance] || item["relevance"])
+        title = item[:title] || item["title"] || item[:id] || item["id"] || "<unknown>"
+        tokens = item[:tokens] || item["tokens"] || 0
+        pinned = if item[:pinned] || item["pinned"], do: " [pinned]", else: ""
+        truncated = if item[:truncated] || item["truncated"], do: " [truncated]", else: ""
+
+        IO.puts("    - (#{rel}) #{title} — #{tokens}t#{pinned}#{truncated}")
+
+        components = item[:components] || item["components"] || %{}
+
+        if components != %{} do
+          summary =
+            components
+            |> Enum.map(fn {k, v} -> "#{k}=#{format_float(v)}" end)
+            |> Enum.join(" ")
+
+          IO.puts("        #{summary}")
+        end
+      end)
+    end)
+  end
+
+  defp format_float(nil), do: "—"
+  defp format_float(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 2)
+  defp format_float(n), do: to_string(n)
 end

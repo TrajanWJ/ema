@@ -40,6 +40,9 @@ defmodule Ema.SecondBrain.SystemBrain do
     # Execution events
     Phoenix.PubSub.subscribe(Ema.PubSub, "executions")
 
+    # Tool atlas reliability updates
+    Phoenix.PubSub.subscribe(Ema.PubSub, "tool_atlas")
+
     # Do initial sync
     send(self(), :sync_all)
 
@@ -104,8 +107,20 @@ defmodule Ema.SecondBrain.SystemBrain do
     write_goals_state(state_dir)
     write_habits_state(state_dir)
     write_responsibilities_state(state_dir)
+    write_tool_reliability_state(state_dir)
 
-    Logger.debug("SystemBrain: state files synced (9 files)")
+    Logger.debug("SystemBrain: state files synced (10 files)")
+  end
+
+  defp write_tool_reliability_state(state_dir) do
+    content =
+      try do
+        Ema.Intelligence.ToolAtlas.report()
+      rescue
+        _ -> "# Tool Reliability Atlas\n\n_ToolAtlas unavailable._\n"
+      end
+
+    File.write!(Path.join(state_dir, "tool-reliability.md"), content)
   end
 
   defp write_projects_state(state_dir) do
@@ -350,7 +365,7 @@ defmodule Ema.SecondBrain.SystemBrain do
 
     rows =
       Enum.map_join(habits, "\n", fn h ->
-        "| #{h.name} | #{h.frequency || h.cadence || "daily"} |"
+        "| #{h.name} | #{h.frequency || "daily"} |"
       end)
 
     content = """
@@ -384,9 +399,9 @@ defmodule Ema.SecondBrain.SystemBrain do
     rows =
       Enum.map_join(resps, "\n", fn r ->
         health =
-          if r.health_score, do: "#{Float.round(r.health_score * 100, 0) |> trunc()}%", else: "—"
+          if r.health, do: "#{Float.round(r.health * 100, 0) |> trunc()}%", else: "—"
 
-        "| #{r.title} | #{r.role || "—"} | #{health} |"
+        "| #{r.title} | #{r.role || "—"} | #{r.cadence || "—"} | #{health} |"
       end)
 
     content = """
@@ -396,8 +411,8 @@ defmodule Ema.SecondBrain.SystemBrain do
 
     **Count:** #{length(resps)}
 
-    | Title | Role | Health |
-    |-------|------|--------|
+    | Title | Role | Cadence | Health |
+    |-------|------|---------|--------|
     #{rows}
 
     ---

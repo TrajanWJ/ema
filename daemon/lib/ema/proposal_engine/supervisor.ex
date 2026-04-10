@@ -17,15 +17,23 @@ defmodule Ema.ProposalEngine.Supervisor do
 
   @impl true
   def init(_opts) do
+    debater_module =
+      case Application.get_env(:ema, :debater_strategy, :classic) do
+        :parliament -> Ema.ProposalEngine.ParliamentDebater
+        _ -> Ema.ProposalEngine.Debater
+      end
+
     children = [
       {Task.Supervisor, name: Ema.ProposalEngine.TaskSupervisor},
       Ema.ProposalEngine.KillMemory,
       Ema.ProposalEngine.Scorer,
       Ema.ProposalEngine.Tagger,
-      Ema.ProposalEngine.Debater,
+      debater_module,
       Ema.ProposalEngine.Refiner,
       Ema.ProposalEngine.Generator,
       Ema.ProposalEngine.Combiner,
+      Ema.ProposalEngine.SeedQualityScorer,
+      Ema.Governance.EpistemicAudit,
       Ema.ProposalEngine.Scheduler,
       # Batch 3: Orchestrator pipeline + cost tracking
       Ema.Proposals.Orchestrator,

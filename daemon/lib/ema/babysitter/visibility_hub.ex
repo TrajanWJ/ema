@@ -26,7 +26,10 @@ defmodule Ema.Babysitter.VisibilityHub do
     "proposals:events",
     "pipes:runs",
     "projects",
-    "intents"
+    "intents",
+    "system:alerts",
+    "loops:lobby",
+    "intelligence:outcomes"
   ]
 
   @default_buffer_size 100
@@ -158,6 +161,12 @@ defmodule Ema.Babysitter.VisibilityHub do
   defp topic_from_message({:session_detected, _}), do: "claude_sessions"
   defp topic_from_message({:session_imported, _}), do: "claude_sessions"
   defp topic_from_message({:intents, _, _}), do: "intents"
+  defp topic_from_message({:cost_tier_changed, _}), do: "system:alerts"
+  defp topic_from_message({:loop_opened, _}), do: "loops:lobby"
+  defp topic_from_message({:loop_touched, _}), do: "loops:lobby"
+  defp topic_from_message({:loop_closed, _}), do: "loops:lobby"
+  defp topic_from_message({:loop_escalated, _}), do: "loops:lobby"
+  defp topic_from_message({:outcome_logged, _}), do: "intelligence:outcomes"
   defp topic_from_message(_), do: nil
 
   defp categorize("brain_dump"), do: :build
@@ -170,5 +179,8 @@ defmodule Ema.Babysitter.VisibilityHub do
   defp categorize("pipes:runs"), do: :system
   defp categorize("claude_sessions"), do: :sessions
   defp categorize("intents"), do: :pipeline
+  defp categorize("system:alerts"), do: :system
+  defp categorize("loops:lobby"), do: :pipeline
+  defp categorize("intelligence:outcomes"), do: :intelligence
   defp categorize(_), do: :unknown
 end

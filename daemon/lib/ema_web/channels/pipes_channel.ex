@@ -39,6 +39,15 @@ defmodule EmaWeb.PipesChannel do
     {:noreply, socket}
   end
 
+  @impl true
+  def terminate(_reason, socket) do
+    # Only the "pipes:monitor" join subscribes; safe to call unconditionally
+    # since unsubscribe is a no-op when not subscribed.
+    Phoenix.PubSub.unsubscribe(Ema.PubSub, "pipes:monitor")
+    _ = socket
+    :ok
+  end
+
   defp serialize_pipe(pipe) do
     %{
       id: pipe.id,

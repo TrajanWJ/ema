@@ -75,6 +75,20 @@ defmodule EmaWeb.ExecutionChannel do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
+  def terminate(_reason, socket) do
+    # Explicit unsubscribe — Phoenix normally tears these down with the socket
+    # exit, but doing it here is cheap insurance against subscription leaks.
+    Phoenix.PubSub.unsubscribe(Ema.PubSub, "executions")
+
+    case socket.assigns[:stream_execution_id] do
+      nil -> :ok
+      id -> Phoenix.PubSub.unsubscribe(Ema.PubSub, "executions:#{id}:stream")
+    end
+
+    :ok
+  end
+
+  @impl true
   def handle_in("approve", %{"id" => id}, socket) do
     case Executions.approve_execution(id) do
       {:ok, execution} ->

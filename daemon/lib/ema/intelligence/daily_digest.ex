@@ -113,12 +113,17 @@ defmodule Ema.Intelligence.DailyDigest do
   end
 
   defp post_to_babysitter(content) do
+    # Use apply/3 so the compiler doesn't statically reference an optional
+    # module (Ema.Discord.Webhook may not be present in every build).
+    webhook_mod = Module.concat(Ema.Discord, Webhook)
+
     try do
-      if Code.ensure_loaded?(Ema.Discord.Webhook) do
-        Ema.Discord.Webhook.send_message(
+      if Code.ensure_loaded?(webhook_mod) and
+           function_exported?(webhook_mod, :send_message, 2) do
+        apply(webhook_mod, :send_message, [
           "daily-digest",
           "**Daily Digest — #{Date.utc_today() |> Date.to_iso8601()}**\n```\n#{content}\n```"
-        )
+        ])
       end
     rescue
       _ -> :ok

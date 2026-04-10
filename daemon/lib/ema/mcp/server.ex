@@ -249,6 +249,8 @@ defmodule Ema.MCP.Server do
       {:ok, state} ->
         state = increment_active(state, request_id)
 
+        started_at = System.monotonic_time(:millisecond)
+
         result =
           RecursionGuard.with_depth_check(request_id, fn ->
             cond do
@@ -277,6 +279,15 @@ defmodule Ema.MCP.Server do
                 Tools.call(tool_name, arguments, request_id)
             end
           end)
+
+        duration_ms = System.monotonic_time(:millisecond) - started_at
+
+        # ToolAtlas: record every MCP tool call (success or failure).
+        Ema.Intelligence.ToolAtlas.record_call(
+          "mcp.#{tool_name}",
+          atlas_outcome(result),
+          duration_ms
+        )
 
         state = decrement_active(state, request_id)
 
@@ -348,6 +359,14 @@ defmodule Ema.MCP.Server do
 
     %{state | active_calls: active}
   end
+
+  # ── Private: ToolAtlas helpers ────────────────────────────────────────────
+
+  defp atlas_outcome({:ok, _}), do: :ok
+  defp atlas_outcome(:ok), do: :ok
+  defp atlas_outcome({:error, :recursion_limit}), do: {:error, :recursion_limit}
+  defp atlas_outcome({:error, reason}), do: {:error, reason}
+  defp atlas_outcome(_), do: :ok
 
   # ── Private: Wire ─────────────────────────────────────────────────────────
 

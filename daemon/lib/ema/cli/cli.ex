@@ -12,7 +12,7 @@ defmodule Ema.CLI do
     file-vault messages team-pulse metrics feedback dashboard dump status
     contact finance invoice routine meeting temporal intelligence pipeline obsidian
     security rules vm onboarding prompt decision clipboard orchestrator ingest provider memory
-    briefing now recap chronicle health
+    briefing now recap chronicle health skills
   )
   @actor_dispatch_switches [
     json: :boolean,
@@ -23,6 +23,19 @@ defmodule Ema.CLI do
     task: :string
   ]
   @actor_dispatch_aliases [j: :json, H: :host, a: :actor, s: :space, p: :project, t: :task]
+
+  @doc """
+  Return the CLI command tree as a `%{root => [subcommand]}` map.
+
+  Used by `Ema.CLI.Commands.Completion` to generate shell completion scripts.
+  Subcommand lists are intentionally empty here — completion still completes
+  the high-value root names without needing the full Optimus introspection.
+  """
+  def command_tree do
+    @builtin_roots
+    |> Enum.map(&{&1, []})
+    |> Map.new()
+  end
 
   def main(["mcp-serve" | _]) do
     {:ok, _} = Application.ensure_all_started(:req)
@@ -272,6 +285,9 @@ defmodule Ema.CLI do
           {:ok, [:memory | sub], parsed} ->
             dispatch(:memory, sub, parsed)
 
+          {:ok, [:skills | sub], parsed} ->
+            dispatch(:skills, sub, parsed)
+
           :help ->
             Optimus.Help.help(optimus, [], columns()) |> put_lines()
 
@@ -383,6 +399,7 @@ defmodule Ema.CLI do
       :provider -> Ema.CLI.Commands.Provider.handle(sub, parsed, transport, opts)
       :memory -> Ema.CLI.Commands.Memory.handle(sub, parsed, transport, opts)
       :chronicle -> Ema.CLI.Commands.Chronicle.handle(sub, parsed, transport, opts)
+      :skills -> Ema.CLI.Commands.Skills.handle(sub, parsed, transport, opts)
     end
   end
 
@@ -500,10 +517,50 @@ defmodule Ema.CLI do
         ingest: ingest_spec(),
         provider: provider_spec(),
         memory: memory_spec(),
-        chronicle: chronicle_spec()
+        chronicle: chronicle_spec(),
+        skills: skills_spec()
       ]
     )
   end
+
+  defp skills_spec,
+    do: [
+      name: "skills",
+      about:
+        "Agent skills ecosystem — discover and validate SKILL.md files.\n\n" <>
+          "  Skills live at ~/.local/share/ema/vault/wiki/Skills/<slug>/SKILL.md\n" <>
+          "  and follow the promethos contract: frontmatter (name, description,\n" <>
+          "  triggers) plus required headings (Goal, Inputs, Workflow, Output\n" <>
+          "  Contract, Common Failure Modes).\n\n" <>
+          "  Auto-loading: ContextManager calls Ema.Skills.auto_load_for_prompt/1\n" <>
+          "  when building agent prompts and injects matching skills as a\n" <>
+          "  '## Loaded Skills' section.\n\n" <>
+          "  Examples:\n" <>
+          "    ema skills list                       List every parsed skill\n" <>
+          "    ema skills show context-fundamentals  Print one skill\n" <>
+          "    ema skills validate                   Check all against contract\n" <>
+          "    ema skills load \"agent memory\"        Preview auto-load",
+      subcommands: [
+        list: [
+          name: "list",
+          about: "List all parsed skills"
+        ],
+        show: [
+          name: "show",
+          about: "Show skill content",
+          args: [name: [required: true, help: "Skill name or slug"]]
+        ],
+        validate: [
+          name: "validate",
+          about: "Check all skills against the SKILL.md contract"
+        ],
+        load: [
+          name: "load",
+          about: "Preview which skills would auto-load for a query",
+          args: [query: [required: true, help: "Query string"]]
+        ]
+      ]
+    ]
 
   defp task_spec do
     [
@@ -2635,6 +2692,101 @@ defmodule Ema.CLI do
             ],
             provenance: [long: "--provenance", help: "Link provenance", parser: :string]
           ]
+        ],
+        target: [
+          name: "target",
+          about:
+            "Sticky scope target. No args = show current. Action 'list' = list paths. Anything else = set as scope path.",
+          args: [
+            action: [
+              required: false,
+              help: "Scope path to set, or 'list' to enumerate, or omit to show current"
+            ]
+          ]
+        ],
+        apply: [
+          name: "apply",
+          about:
+            "Apply a natural-language schematic update to a scope. " <>
+              "Usage: ema intent apply <scope-path> \"freetext\" or use --target-current.",
+          args: [
+            scope_or_text: [required: false, help: "Scope path (or freetext if --target-current)"],
+            text: [required: false, help: "Freetext (when scope path given)"]
+          ],
+          flags: [
+            target_current: [
+              long: "--target-current",
+              help: "Use sticky target instead of providing a scope arg"
+            ]
+          ]
+        ],
+        modification: [
+          name: "modification",
+          about: "NL modification toggle. Action: status | disable | enable. Scope is optional.",
+          args: [
+            action: [required: true, help: "status | disable | enable"],
+            scope: [required: false, help: "Scope path (default: global)"]
+          ],
+          options: [
+            reason: [long: "--reason", help: "Reason for disable", parser: :string],
+            until: [long: "--until", help: "Auto-reenable at ISO8601 timestamp", parser: :string]
+          ]
+        ],
+        contradictions: [
+          name: "contradictions",
+          about:
+            "Schematic contradictions. Action: list | show <id> | resolve <id> | dismiss <id>.",
+          args: [
+            action: [required: true, help: "list | show | resolve | dismiss"],
+            id: [required: false, help: "Contradiction ID (for show/resolve/dismiss)"]
+          ],
+          options: [
+            scope: [long: "--scope", help: "Filter by scope path", parser: :string],
+            severity: [long: "--severity", help: "Filter by severity", parser: :string],
+            note: [long: "--note", help: "Resolution note", parser: :string]
+          ]
+        ],
+        aspirations: [
+          name: "aspirations",
+          about: "Aspirations stack. Action: list | push <title> | promote <id> | retire <id>.",
+          args: [
+            action: [required: true, help: "list | push | promote | retire"],
+            value: [required: false, help: "Title (push) or ID (promote/retire)"]
+          ],
+          options: [
+            scope: [long: "--scope", help: "Scope path", parser: :string],
+            horizon: [long: "--horizon", help: "short | medium | long | lifetime", parser: :string]
+          ]
+        ],
+        clarifications: [
+          name: "clarifications",
+          about:
+            "Clarification feed. Action: list | show <id> | request | answer <id> | chat <id> | delete <id>.",
+          args: [
+            action: [required: true, help: "list | show | request | answer | chat | delete"],
+            id: [required: false, help: "Feed item ID"]
+          ],
+          options: [
+            scope: [long: "--scope", help: "Scope path", parser: :string],
+            status: [long: "--status", help: "Filter by status", parser: :string],
+            select: [long: "--select", help: "Comma-separated option keys", parser: :string],
+            text: [long: "--text", help: "Freetext answer", parser: :string]
+          ]
+        ],
+        "hard-answers": [
+          name: "hard-answers",
+          about:
+            "Hard-answer feed. Action: list | show <id> | request | answer <id> | chat <id> | delete <id>.",
+          args: [
+            action: [required: true, help: "list | show | request | answer | chat | delete"],
+            id: [required: false, help: "Feed item ID"]
+          ],
+          options: [
+            scope: [long: "--scope", help: "Scope path", parser: :string],
+            status: [long: "--status", help: "Filter by status", parser: :string],
+            select: [long: "--select", help: "Comma-separated option keys", parser: :string],
+            text: [long: "--text", help: "Freetext answer", parser: :string]
+          ]
         ]
       ]
     ]
@@ -3002,7 +3154,19 @@ defmodule Ema.CLI do
           ]
         ],
         "sync-status": [name: "sync-status", about: "Git sync status"],
-        scan: [name: "scan", about: "Trigger git scan"]
+        scan: [name: "scan", about: "Trigger git scan"],
+        "context-inspect": [
+          name: "context-inspect",
+          about: "Inspect a context selection trace by id",
+          args: [id: [required: true, help: "Trace id (typically execution id)"]]
+        ],
+        "context-list": [
+          name: "context-list",
+          about: "List recent context traces",
+          options: [
+            limit: [short: "-l", long: "--limit", help: "Max traces", parser: :integer]
+          ]
+        ]
       ]
     ]
   end

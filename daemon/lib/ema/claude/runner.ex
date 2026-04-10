@@ -32,6 +32,8 @@ defmodule Ema.Claude.Runner do
     with :ok <- governor_check(domain),
          :ok <- maybe_preflight(prompt, stage, skip_preflight) do
       effective_model = CostGovernor.recommended_model(model)
+      tool_name = "claude.runner.#{effective_model}"
+      started = System.monotonic_time(:millisecond)
 
       task =
         Task.async(fn ->
@@ -45,21 +47,31 @@ defmodule Ema.Claude.Runner do
           end
         end)
 
-      case Task.yield(task, timeout) || Task.shutdown(task) do
-        {:ok, {:error, reason} = error} ->
-          record_failure(reason, stage)
-          error
+      result =
+        case Task.yield(task, timeout) || Task.shutdown(task) do
+          {:ok, {:error, reason} = error} ->
+            record_failure(reason, stage)
+            error
 
-        {:ok, result} ->
-          result
+          {:ok, ok_result} ->
+            ok_result
 
-        nil ->
-          error = %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}
-          record_failure(error, stage)
-          {:error, error}
-      end
+          nil ->
+            error = %{code: :timeout, message: "Claude CLI timed out after #{timeout}ms"}
+            record_failure(error, stage)
+            {:error, error}
+        end
+
+      duration = System.monotonic_time(:millisecond) - started
+      Ema.Intelligence.ToolAtlas.record_call(tool_name, atlas_outcome(result), duration)
+      result
     end
   end
+
+  # Reduce a Runner result to the shape ToolAtlas expects.
+  defp atlas_outcome({:ok, _}), do: :ok
+  defp atlas_outcome({:error, reason}), do: {:error, reason}
+  defp atlas_outcome(_), do: :ok
 
   defp maybe_preflight(_prompt, _stage, true), do: :ok
 

@@ -114,8 +114,9 @@ defmodule Ema.Intelligence.ContextBudgetTest do
       }
 
       score = ContextBudget.score_item(item, %{terms: ["budget"]})
-      # Recent + good term match -> high score
-      assert score > 0.7
+      # Recent + good term match -> high relevance even with neutral
+      # graph distance and zero frequency.
+      assert score >= 0.6
     end
   end
 

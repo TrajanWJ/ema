@@ -30,35 +30,97 @@ defmodule Ema.Claude.ContextManager do
     project = Keyword.get(opts, :project)
     stage = Keyword.get(opts, :stage, :generator)
     relevant_code_context = Keyword.get(opts, :relevant_code_context)
+    actor_id = Keyword.get(opts, :actor_id)
     budget = Keyword.get(opts, :context_budget, 6_000)
+    trace_id = Keyword.get(opts, :trace_id)
 
     # Allocate budget across the context sections
     allocations =
       ContextBudget.allocate(
         budget: budget,
-        sections: [:project, :proposals, :tasks],
+        sections: [:project, :proposals, :tasks, :memory],
         overrides: %{project: round(budget * 0.35)}
       )
 
     # Build focus terms from the seed for relevance scoring
     focus = %{terms: extract_seed_terms(seed)}
 
+    selected_proposals =
+      build_recent_proposals(project, stage,
+        budget: Map.get(allocations, :proposals, 800),
+        focus: focus
+      )
+
+    selected_tasks =
+      build_active_tasks(project,
+        budget: Map.get(allocations, :tasks, 800),
+        focus: focus
+      )
+
     context = %{
       project_context: project && build_project_context(project),
-      recent_proposals:
-        build_recent_proposals(project, stage,
-          budget: Map.get(allocations, :proposals, 800),
-          focus: focus
-        ),
-      active_tasks:
-        build_active_tasks(project,
-          budget: Map.get(allocations, :tasks, 800),
-          focus: focus
-        ),
-      relevant_code_context: relevant_code_context
+      recent_proposals: selected_proposals,
+      active_tasks: selected_tasks,
+      relevant_code_context: relevant_code_context,
+      memory: build_memory_block(actor_id, project),
+      loaded_skills: build_loaded_skills(seed)
     }
 
+    record_trace(trace_id, %{
+      source: "Ema.Claude.ContextManager",
+      focus: focus,
+      budget: budget,
+      allocations: allocations,
+      sections: %{
+        proposals: selected_proposals,
+        tasks: selected_tasks
+      }
+    })
+
     assemble(seed.prompt_template, context, stage)
+  end
+
+  defp record_trace(nil, _attrs), do: :ok
+
+  defp record_trace(trace_id, attrs) do
+    Ema.Intelligence.ContextTrace.record(Map.put(attrs, :id, trace_id))
+  rescue
+    _ -> :ok
+  end
+
+  # Auto-load relevant skills from the wiki Skills directory based on the
+  # seed's prompt and name. Returns nil when no skill matches so the section
+  # is dropped from the prompt entirely.
+  defp build_loaded_skills(seed) do
+    query = "#{Map.get(seed, :name, "")} #{Map.get(seed, :prompt_template, "")}"
+
+    case Ema.Skills.auto_load_for_prompt(query, limit: 3, max_chars: 6_000) do
+      "" -> nil
+      block -> block
+    end
+  rescue
+    e ->
+      require Logger
+      Logger.debug("[ContextManager] loaded_skills failed: #{Exception.message(e)}")
+      nil
+  end
+
+  # Pull the typed-memory context bundle for this actor/project and render
+  # it as a markdown block. Returns nil when nothing is stored so the
+  # section is dropped from the prompt entirely.
+  defp build_memory_block(actor_id, project) do
+    project_id = project && Map.get(project, :id)
+    context = Ema.Memory.get_context(actor_id, project_id: project_id)
+
+    case Ema.Memory.format_context_for_prompt(context, 1_500) do
+      "" -> nil
+      block -> block
+    end
+  rescue
+    e ->
+      require Logger
+      Logger.debug("[ContextManager] memory block failed: #{Exception.message(e)}")
+      nil
   end
 
   defp extract_seed_terms(seed) do
@@ -224,6 +286,13 @@ defmodule Ema.Claude.ContextManager do
   defp format_section(:relevant_code_context, value) do
     "Relevant code context:\n#{format_value(value)}"
   end
+
+  # Memory block is already a fully-formatted markdown section (it
+  # contains its own `## Memory` heading), so emit it as-is.
+  defp format_section(:memory, value) when is_binary(value), do: value
+
+  # Loaded skills block carries its own `## Loaded Skills` heading.
+  defp format_section(:loaded_skills, value) when is_binary(value), do: value
 
   defp format_section(key, value) do
     "## #{format_key(key)}\n#{format_value(value)}"

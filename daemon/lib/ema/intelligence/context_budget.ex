@@ -29,7 +29,16 @@ defmodule Ema.Intelligence.ContextBudget do
     tasks: 0.15,
     wiki: 0.15,
     proposals: 0.10,
-    conversation: 0.05
+    conversation: 0.05,
+    memory: 0.10
+  }
+
+  # Relevance score component weights. Must sum to ~1.0.
+  @relevance_weights %{
+    recency: 0.35,
+    frequency: 0.20,
+    graph_distance: 0.20,
+    semantic: 0.25
   }
 
   # ── Budget Allocation ──────────────────────────────────────────────────────
@@ -93,14 +102,97 @@ defmodule Ema.Intelligence.ContextBudget do
   Returns a float 0.0..1.0.
   """
   def score_item(item, focus \\ %{}) do
-    recency = recency_score(item)
-    term_match = term_match_score(item, Map.get(focus, :terms, []))
-
-    # Weights: recency matters most for "what's active now", term match
-    # for topical relevance. Graph distance is a placeholder for when
-    # we wire in SecondBrain link graph traversal.
-    recency * 0.5 + term_match * 0.5
+    components = score_components(item, focus)
+    weighted_sum(components, Map.get(focus, :weights, @relevance_weights))
   end
+
+  @doc """
+  Returns the individual relevance components for an item as a map.
+  Useful for tracing/debugging why a particular item was selected.
+  """
+  def score_components(item, focus \\ %{}) do
+    %{
+      recency: recency_score(item),
+      frequency: frequency_score(item),
+      graph_distance: graph_distance_score(item, focus),
+      semantic: term_match_score(item, Map.get(focus, :terms, []))
+    }
+  end
+
+  @doc """
+  Returns the relevance component weights, optionally overridden via focus.
+  """
+  def relevance_weights, do: @relevance_weights
+
+  defp weighted_sum(components, weights) do
+    Enum.reduce(components, 0.0, fn {key, value}, acc ->
+      acc + value * Map.get(weights, key, 0.0)
+    end)
+  end
+
+  @doc """
+  Frequency score derived from how often an item has been accessed.
+
+  Looks for `:access_count` (Memory.Entry style) or `:access_frequency`.
+  Uses a log curve so that hot items rise quickly but plateau.
+  Returns 0.0 when no counter is present.
+  """
+  def frequency_score(item) do
+    count =
+      Map.get(item, :access_count) ||
+        Map.get(item, :access_frequency) ||
+        0
+
+    case count do
+      n when is_integer(n) and n > 0 ->
+        # log10(1+n) / log10(101) ≈ 1.0 at 100 hits
+        :math.log10(1 + n) / :math.log10(101)
+
+      _ ->
+        0.0
+    end
+    |> min(1.0)
+  end
+
+  @doc """
+  Graph-distance score: items closer to the focus entity in the
+  SecondBrain link graph score higher.
+
+  `focus` may carry `:graph` — a map of `%{item_id => distance}` or
+  `:focus_id` for a single anchor. When neither is present this returns
+  a neutral 0.5 so the component does not bias selection.
+
+  Distance 0 → 1.0, 1 → 0.7, 2 → 0.5, 3 → 0.3, 4+ → 0.1.
+  """
+  def graph_distance_score(item, focus) do
+    graph = Map.get(focus, :graph, %{})
+    focus_id = Map.get(focus, :focus_id)
+    item_id = Map.get(item, :id)
+
+    cond do
+      is_nil(item_id) ->
+        0.5
+
+      not is_nil(focus_id) and item_id == focus_id ->
+        1.0
+
+      Map.has_key?(graph, item_id) ->
+        distance_to_score(Map.get(graph, item_id))
+
+      graph == %{} and is_nil(focus_id) ->
+        0.5
+
+      true ->
+        0.1
+    end
+  end
+
+  defp distance_to_score(0), do: 1.0
+  defp distance_to_score(1), do: 0.7
+  defp distance_to_score(2), do: 0.5
+  defp distance_to_score(3), do: 0.3
+  defp distance_to_score(d) when is_integer(d) and d >= 4, do: 0.1
+  defp distance_to_score(_), do: 0.5
 
   @doc """
   Score recency with a 30-day half-life decay curve.
@@ -196,21 +288,51 @@ defmodule Ema.Intelligence.ContextBudget do
 
   Returns the selected items in relevance-descending order.
   """
-  def select(scored_items, budget_tokens) when is_list(scored_items) do
+  def select(scored_items, budget_tokens, opts \\ []) when is_list(scored_items) do
+    pinned = Keyword.get(opts, :pinned, [])
+    pinned_ids = MapSet.new(pinned, & &1.id)
+
+    # Pinned items are always emitted, even if they push past budget — they
+    # represent the highest-priority context (current intent, active task).
+    pinned_tokens = pinned |> Enum.map(&estimate_item_tokens/1) |> Enum.sum()
+    remaining_after_pinned = max(budget_tokens - pinned_tokens, 0)
+
     {selected, _remaining} =
       scored_items
+      |> Enum.reject(fn i -> MapSet.member?(pinned_ids, Map.get(i, :id)) end)
       |> Enum.sort_by(&Map.get(&1, :relevance, 0), :desc)
-      |> Enum.reduce_while({[], budget_tokens}, fn item, {acc, remaining} ->
+      |> Enum.reduce_while({[], remaining_after_pinned}, fn item, {acc, remaining} ->
         tokens = estimate_item_tokens(item)
 
-        if tokens <= remaining do
-          {:cont, {[item | acc], remaining - tokens}}
-        else
-          {:halt, {acc, remaining}}
+        cond do
+          tokens <= remaining ->
+            {:cont, {[item | acc], remaining - tokens}}
+
+          # Allow soft truncation of single oversized items so we don't
+          # leak context when a pool has only one large doc.
+          remaining > 256 ->
+            truncated = truncate_item(item, remaining)
+            {:halt, {[truncated | acc], 0}}
+
+          true ->
+            {:halt, {acc, remaining}}
         end
       end)
 
-    Enum.reverse(selected)
+    pinned ++ Enum.reverse(selected)
+  end
+
+  defp truncate_item(item, token_budget) do
+    Enum.reduce([:content, :body, :summary, :description], item, fn key, acc ->
+      case Map.get(acc, key) do
+        text when is_binary(text) and byte_size(text) > token_budget * 4 ->
+          Map.put(acc, key, truncate_text(text, token_budget) <> "\n…[truncated]")
+
+        _ ->
+          acc
+      end
+    end)
+    |> Map.put(:truncated, true)
   end
 
   @doc """
@@ -228,14 +350,20 @@ defmodule Ema.Intelligence.ContextBudget do
   def score_and_select(items, opts \\ []) do
     focus = Keyword.get(opts, :focus, %{})
     budget = Keyword.get(opts, :budget, 2_000)
+    pinned = Keyword.get(opts, :pinned, [])
 
     scored =
       items
       |> Enum.map(fn item ->
-        Map.put(item, :relevance, score_item(item, focus))
+        components = score_components(item, focus)
+        relevance = weighted_sum(components, Map.get(focus, :weights, @relevance_weights))
+
+        item
+        |> Map.put(:relevance, relevance)
+        |> Map.put(:relevance_components, components)
       end)
 
-    selected = select(scored, budget)
+    selected = select(scored, budget, pinned: pinned)
 
     tokens_used =
       selected

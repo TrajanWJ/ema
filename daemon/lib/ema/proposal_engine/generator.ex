@@ -68,6 +68,18 @@ defmodule Ema.ProposalEngine.Generator do
         Ema.Projects.get_project(seed.project_id)
       end
 
+    # Composer (InkOS pattern): compile + write inspectable artifacts to disk
+    # BEFORE we spend tokens. Failure here is non-fatal — Generator continues
+    # using its existing prompt path.
+    composer_artifacts =
+      try do
+        Ema.ProposalEngine.Composer.compose(seed)
+      rescue
+        e ->
+          Logger.warning("Generator: Composer.compose/1 failed: #{inspect(e)}")
+          nil
+      end
+
     gap_context = build_gap_context(seed)
     relevant_code_context = build_relevant_code_context(project, seed)
 
@@ -81,7 +93,7 @@ defmodule Ema.ProposalEngine.Generator do
 
     case Ema.Claude.AI.run(prompt, stage: :generator) do
       {:ok, result} ->
-        create_proposal_from_result(seed, result, preflight_diagnostics)
+        create_proposal_from_result(seed, result, preflight_diagnostics, composer_artifacts)
 
       {:error, reason} ->
         Logger.warning(
@@ -193,7 +205,7 @@ defmodule Ema.ProposalEngine.Generator do
 
   defp normalize_estimated_scope(_), do: nil
 
-  defp create_proposal_from_result(seed, result, preflight_diagnostics) do
+  defp create_proposal_from_result(seed, result, preflight_diagnostics, composer_artifacts) do
     preflight_score =
       preflight_diagnostics[:enriched_score] || preflight_diagnostics[:initial_score]
 
@@ -211,10 +223,12 @@ defmodule Ema.ProposalEngine.Generator do
         stringify_keys(
           preflight_diagnostics[:score_breakdown] || preflight_diagnostics[:enriched_breakdown]
         ),
-      generation_log: %{
-        "generator" => result,
-        "preflight" => sanitize_diagnostics(preflight_diagnostics)
-      }
+      generation_log:
+        %{
+          "generator" => result,
+          "preflight" => sanitize_diagnostics(preflight_diagnostics)
+        }
+        |> maybe_put_composer(composer_artifacts)
     }
 
     case Ema.Proposals.create_proposal(attrs) do
@@ -241,6 +255,18 @@ defmodule Ema.ProposalEngine.Generator do
         {:error, reason}
     end
   end
+
+  defp maybe_put_composer(log, nil), do: log
+
+  defp maybe_put_composer(log, %{trace: trace} = artifacts) do
+    Map.put(log, "composer", %{
+      "trace" => sanitize_value(trace),
+      "rule_stack" => sanitize_value(Map.get(artifacts, :rule_stack)),
+      "artifact_dir" => Ema.ProposalEngine.Composer.artifact_dir(trace.seed_id)
+    })
+  end
+
+  defp maybe_put_composer(log, _), do: log
 
   # Convert diagnostics map to JSON-safe format for generation_log storage
   defp sanitize_diagnostics(diag) when is_map(diag) do

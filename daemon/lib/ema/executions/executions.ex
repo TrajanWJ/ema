@@ -120,7 +120,8 @@ defmodule Ema.Executions do
                  proposal_id: proposal_id,
                  project_slug: proposal.project_id,
                  requires_approval: false,
-                 actor_id: proposal.actor_id
+                 actor_id: proposal.actor_id,
+                 origin: classify_proposal_origin(proposal)
                }) do
             {:ok, ex} -> ex
             _ -> nil
@@ -136,6 +137,26 @@ defmodule Ema.Executions do
       {:ok, updated}
     else
       {:error, :no_execution}
+    end
+  end
+
+  # Classify whether a proposal-derived execution came from the AI generator
+  # pipeline or from a user-authored proposal. Used to populate execution.origin
+  # so the sycophancy metric can compute approval rates over claude-recommended
+  # vs user-directed work.
+  defp classify_proposal_origin(proposal) do
+    cond do
+      # Generator-produced proposals always carry a seed_id (Generator pulls
+      # from active seeds) or a non-empty generation_log.
+      not is_nil(Map.get(proposal, :seed_id)) ->
+        "claude_recommended_approved"
+
+      is_map(Map.get(proposal, :generation_log)) and
+          map_size(Map.get(proposal, :generation_log)) > 0 ->
+        "claude_recommended_approved"
+
+      true ->
+        "user_directed"
     end
   end
 
@@ -222,6 +243,7 @@ defmodule Ema.Executions do
           Phoenix.PubSub.broadcast(Ema.PubSub, "executions", {:executions, :completed, updated})
           patch_intent_file(updated, result_summary)
           Ema.Intelligence.ReflectionLoop.reflect_async(updated.id, result_summary)
+          Ema.ProposalEngine.OutcomeLinker.feed_back(updated)
         end)
     end
   end

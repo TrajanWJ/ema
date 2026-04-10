@@ -14,6 +14,14 @@ defmodule EmaWeb.DashboardChannel do
   end
 
   @impl true
+  def terminate(_reason, _socket) do
+    # Phoenix usually cleans these up on socket exit, but explicit unsubscribes
+    # avoid leaking subscriptions if the channel process dies abnormally.
+    Enum.each(@live_topics, &Phoenix.PubSub.unsubscribe(Ema.PubSub, &1))
+    :ok
+  end
+
+  @impl true
   def handle_info(:send_snapshot, socket) do
     push(socket, "snapshot", build_snapshot())
     {:noreply, socket}

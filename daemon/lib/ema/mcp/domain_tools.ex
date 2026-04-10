@@ -31,6 +31,8 @@ defmodule Ema.MCP.DomainTools do
     ema_list_spaces ema_create_space
     ema_em_status
     ema_safety_rules ema_check_safety
+    ema_memory_store ema_memory_search ema_memory_recall
+    ema_memory_context ema_memory_list_recent
   )
 
   def tool_names, do: @tool_names
@@ -623,6 +625,76 @@ defmodule Ema.MCP.DomainTools do
           "command" => %{"type" => "string", "description" => "Command string to check"}
         },
         ["command"]
+      ),
+
+      # ── Memory (typed cross-session context) ──
+      tool(
+        "ema_memory_store",
+        "Store a typed memory entry that survives across Claude/agent sessions. " <>
+          "Use this to remember decisions, preferences, file context, error patterns, " <>
+          "research, outcomes, or guidelines so future calls can recall them.",
+        %{
+          "type" => %{
+            "type" => "string",
+            "description" =>
+              "decision | preference | file_context | error_pattern | research | outcome | guideline"
+          },
+          "content" => %{"type" => "string", "description" => "What to remember (be specific)"},
+          "scope" => %{
+            "type" => "string",
+            "description" => "project | global | actor | space (default: project)"
+          },
+          "importance" => %{
+            "type" => "number",
+            "description" => "0.0–1.0 weight, default 1.0"
+          },
+          "actor_id" => %{"type" => "string"},
+          "project_id" => %{"type" => "string"},
+          "space_id" => %{"type" => "string"},
+          "metadata" => %{"type" => "object"}
+        },
+        ["type", "content"]
+      ),
+      tool(
+        "ema_memory_search",
+        "FTS5 keyword search over typed memory entries. Returns matching entries " <>
+          "with relevance scores. Use this to find prior decisions, fixes, or context.",
+        %{
+          "query" => %{"type" => "string"},
+          "types" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Optional filter to specific memory types"
+          },
+          "limit" => %{"type" => "number", "description" => "Default 10"}
+        },
+        ["query"]
+      ),
+      tool(
+        "ema_memory_recall",
+        "Same as memory_search but returns formatted markdown ready for prompt injection.",
+        %{
+          "query" => %{"type" => "string"},
+          "limit" => %{"type" => "number"}
+        },
+        ["query"]
+      ),
+      tool(
+        "ema_memory_context",
+        "Get the standard memory context bundle (preferences, recent decisions, " <>
+          "file context, error patterns, guidelines) for an actor/project.",
+        %{
+          "actor_id" => %{"type" => "string"},
+          "project_id" => %{"type" => "string"}
+        }
+      ),
+      tool(
+        "ema_memory_list_recent",
+        "List recent memory entries, newest and most-important first.",
+        %{
+          "limit" => %{"type" => "number"},
+          "type" => %{"type" => "string", "description" => "Optional memory type filter"}
+        }
       )
     ]
   end
@@ -874,6 +946,87 @@ defmodule Ema.MCP.DomainTools do
     end
   end
 
+  # ── Memory (direct, not via HTTP) ─────────────────────────────────────────
+
+  def call("ema_memory_store", %{"type" => type, "content" => content} = args, _) do
+    attrs =
+      %{
+        memory_type: type,
+        content: content,
+        scope: Map.get(args, "scope", "project"),
+        importance: Map.get(args, "importance", 1.0),
+        actor_id: args["actor_id"],
+        project_id: args["project_id"],
+        space_id: args["space_id"],
+        source_id: args["source_id"],
+        metadata: args["metadata"] || %{}
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    case Ema.Memory.store_entry(attrs) do
+      {:ok, entry} -> {:ok, serialize_memory_entry(entry)}
+      {:error, changeset} -> {:error, format_changeset_errors(changeset)}
+    end
+  end
+
+  def call("ema_memory_search", %{"query" => query} = args, _) do
+    opts =
+      []
+      |> maybe_put(:limit, args["limit"])
+      |> maybe_put(:project_id, args["project_id"])
+      |> maybe_put(:actor_id, args["actor_id"])
+
+    results = Ema.Memory.search_entries(query, opts)
+
+    {:ok,
+     %{
+       query: query,
+       results:
+         Enum.map(results, fn {entry, score} ->
+           entry |> serialize_memory_entry() |> Map.put("score", Float.round(score, 4))
+         end)
+     }}
+  end
+
+  def call("ema_memory_recall", %{"query" => query} = args, _) do
+    opts =
+      []
+      |> maybe_put(:limit, args["limit"])
+      |> maybe_put(:project_id, args["project_id"])
+      |> maybe_put(:actor_id, args["actor_id"])
+
+    case Ema.Memory.recall(query, opts) do
+      "" -> {:ok, %{query: query, markdown: "No memories found about: #{query}"}}
+      md -> {:ok, %{query: query, markdown: md}}
+    end
+  end
+
+  def call("ema_memory_context", args, _) do
+    actor_id = args["actor_id"]
+    project_id = args["project_id"]
+    context = Ema.Memory.get_context(actor_id, project_id: project_id)
+
+    {:ok,
+     %{
+       preferences: Enum.map(context.preferences, &serialize_memory_entry/1),
+       recent_decisions: Enum.map(context.recent_decisions, &serialize_memory_entry/1),
+       file_context: Enum.map(context.file_context, &serialize_memory_entry/1),
+       error_patterns: Enum.map(context.error_patterns, &serialize_memory_entry/1),
+       guidelines: Enum.map(context.guidelines, &serialize_memory_entry/1)
+     }}
+  end
+
+  def call("ema_memory_list_recent", args, _) do
+    opts =
+      []
+      |> maybe_put(:limit, args["limit"])
+      |> maybe_put(:memory_type, args["type"])
+
+    entries = Ema.Memory.list_recent_entries(opts)
+    {:ok, %{entries: Enum.map(entries, &serialize_memory_entry/1)}}
+  end
+
   # Catch-alls
   def call(name, _, _) when name in @tool_names,
     do: {:error, "Missing required parameters for #{name}"}
@@ -931,4 +1084,42 @@ defmodule Ema.MCP.DomainTools do
     do: args |> Map.take(keys) |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
 
   defp today, do: Date.utc_today() |> Date.to_iso8601()
+
+  # ── Memory helpers ─────────────────────────────────────────────────────────
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, _key, ""), do: opts
+
+  defp maybe_put(opts, key, value) when key in [:limit] and is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} -> Keyword.put(opts, key, n)
+      :error -> opts
+    end
+  end
+
+  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp serialize_memory_entry(%Ema.Memory.Entry{} = e) do
+    %{
+      "id" => e.id,
+      "memory_type" => e.memory_type,
+      "scope" => e.scope,
+      "content" => e.content,
+      "summary" => e.summary,
+      "importance" => e.importance,
+      "actor_id" => e.actor_id,
+      "project_id" => e.project_id,
+      "space_id" => e.space_id,
+      "metadata" => e.metadata,
+      "access_count" => e.access_count,
+      "inserted_at" => e.inserted_at,
+      "last_accessed_at" => e.last_accessed_at
+    }
+  end
+
+  defp format_changeset_errors(changeset) do
+    Enum.map_join(changeset.errors, "; ", fn {field, {msg, _}} ->
+      "#{field}: #{msg}"
+    end)
+  end
 end

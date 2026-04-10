@@ -547,12 +547,17 @@ defmodule Ema.MCP.Tools do
          {:ok, project_id} <- require_string(args, "project_id"),
          payload = %{
            title: title,
+           # Backend Task schema uses :description (string) — pass through.
            description: description,
            project_id: project_id,
            goal_id: Map.get(args, "goal_id"),
-           priority: Map.get(args, "priority", "medium"),
+           # Backend Task schema stores :priority as integer 1..5
+           # (1 = critical, 5 = low). MCP exposes string enums for ergonomics
+           # so we coerce here. Anything unknown falls back to medium (3).
+           priority: priority_to_int(Map.get(args, "priority", "medium")),
            estimated_time: Map.get(args, "estimated_time"),
            source: "mcp",
+           source_type: "manual",
            mcp_request_id: request_id
          },
          {:ok, %{status: status, body: body}} when status in 200..299 <-
@@ -986,6 +991,15 @@ defmodule Ema.MCP.Tools do
   end
 
   # ── Private: Validation ───────────────────────────────────────────────────
+
+  # Coerce a priority specification (either a string label or an int)
+  # into the integer 1..5 the Task schema expects.
+  defp priority_to_int(value) when is_integer(value) and value in 1..5, do: value
+  defp priority_to_int("critical"), do: 1
+  defp priority_to_int("high"), do: 2
+  defp priority_to_int("medium"), do: 3
+  defp priority_to_int("low"), do: 4
+  defp priority_to_int(_), do: 3
 
   defp require_string(args, key) do
     case Map.get(args, key) do

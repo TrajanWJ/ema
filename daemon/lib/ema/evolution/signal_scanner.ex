@@ -117,7 +117,48 @@ defmodule Ema.Evolution.SignalScanner do
     {:noreply, state}
   end
 
+  # AutoDecomposer broadcasts {"proposal_decomposed", payload} on
+  # "proposals:events" after a proposal is broken into tasks. Track the
+  # decomposition strategy used and emit a signal so the FeedbackProcessor
+  # (and any future strategy-effectiveness learner) can score it.
+  def handle_info({"proposal_decomposed", %{} = payload}, state) do
+    task_count = Map.get(payload, :task_count) || Map.get(payload, "task_count") || 0
+    proposal_id = Map.get(payload, :proposal_id) || Map.get(payload, "proposal_id")
+
+    strategy =
+      Map.get(payload, :strategy) || Map.get(payload, "strategy") || infer_strategy(task_count)
+
+    emit_signal(:decomposition, %{
+      pattern: "proposal_decomposed",
+      proposal_id: proposal_id,
+      task_count: task_count,
+      strategy: strategy,
+      suggestion: "Track downstream completion rate to score #{strategy} effectiveness"
+    })
+
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "intelligence:outcomes",
+      {:outcome_logged,
+       %{
+         kind: "proposal_decomposed",
+         importance: 0.6,
+         proposal_id: proposal_id,
+         task_count: task_count,
+         strategy: strategy,
+         logged_at: DateTime.utc_now() |> DateTime.to_iso8601()
+       }}
+    )
+
+    {:noreply, %{state | signals_detected: state.signals_detected + 1}}
+  end
+
   def handle_info(_msg, state), do: {:noreply, state}
+
+  defp infer_strategy(n) when is_integer(n) and n <= 2, do: "minimal"
+  defp infer_strategy(n) when is_integer(n) and n <= 4, do: "balanced"
+  defp infer_strategy(n) when is_integer(n) and n >= 5, do: "granular"
+  defp infer_strategy(_), do: "unknown"
 
   # --- Private ---
 

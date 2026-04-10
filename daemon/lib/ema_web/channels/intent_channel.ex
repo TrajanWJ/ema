@@ -54,4 +54,10 @@ defmodule EmaWeb.IntentChannel do
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
+
+  @impl true
+  def terminate(_reason, _socket) do
+    Phoenix.PubSub.unsubscribe(Ema.PubSub, "intents")
+    :ok
+  end
 end

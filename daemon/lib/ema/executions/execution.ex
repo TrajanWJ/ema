@@ -21,6 +21,7 @@ defmodule Ema.Executions.Execution do
     field :git_diff, :string
     field :space_id, :string
     field :actor_id, :string
+    field :origin, :string
 
     belongs_to :proposal, Ema.Proposals.Proposal, type: :string
     belongs_to :task, Ema.Tasks.Task, type: :string
@@ -56,7 +57,8 @@ defmodule Ema.Executions.Execution do
       :completed_at,
       :git_diff,
       :space_id,
-      :actor_id
+      :actor_id,
+      :origin
     ])
     |> validate_required([:id, :title, :mode, :status])
     |> validate_inclusion(:mode, @valid_modes)

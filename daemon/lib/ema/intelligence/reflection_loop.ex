@@ -46,6 +46,8 @@ defmodule Ema.Intelligence.ReflectionLoop do
         "#{execution.mode}: #{Enum.join(lesson.top_words, ", ")}",
         Atom.to_string(outcome)
       )
+
+      store_lesson_as_guideline(execution, effective_agent, lesson, outcome, result_text)
     end
 
     Ema.Intelligence.SignalProcessor.record(%{
@@ -109,4 +111,57 @@ defmodule Ema.Intelligence.ReflectionLoop do
 
   defp normalize_reflection_outcome(:failure), do: :failure
   defp normalize_reflection_outcome(_outcome), do: :success
+
+  # Persist the lesson as a Memory `guideline` entry so future dispatches and
+  # prompt builders can recall it. Tagged with the agent that produced it via
+  # the `metadata` map (no actor FK because reflection runs identify by
+  # agent_id string, not actor_id).
+  defp store_lesson_as_guideline(execution, agent_id, lesson, outcome, result_text) do
+    keywords = lesson.top_words |> Enum.take(8) |> Enum.join(", ")
+
+    excerpt =
+      result_text
+      |> to_string()
+      |> String.replace(~r/\s+/, " ")
+      |> String.slice(0, 480)
+
+    content =
+      """
+      [LESSON] #{execution.mode || "task"} — outcome: #{outcome}
+      agent: #{agent_id}
+      project: #{execution.project_slug || "unscoped"}
+      keywords: #{keywords}
+
+      #{excerpt}
+      """
+      |> String.trim()
+
+    importance = if outcome == :success, do: 0.55, else: 0.45
+
+    attrs = %{
+      memory_type: "guideline",
+      scope: "project",
+      project_id: execution.project_id,
+      source_id: execution.id,
+      content: content,
+      importance: importance,
+      metadata: %{
+        "agent_id" => agent_id,
+        "mode" => execution.mode,
+        "outcome" => Atom.to_string(outcome),
+        "keywords" => lesson.top_words
+      }
+    }
+
+    case Ema.Memory.store_entry(attrs) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.debug("[ReflectionLoop] Memory.store_entry failed: #{inspect(reason)}")
+    end
+  rescue
+    e ->
+      Logger.debug("[ReflectionLoop] store_lesson_as_guideline crashed: #{Exception.message(e)}")
+  end
 end

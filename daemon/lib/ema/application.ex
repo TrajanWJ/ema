@@ -5,6 +5,9 @@ defmodule Ema.Application do
 
   use Application
 
+  @schematic_audit_enabled Application.compile_env(:ema, [:schematic, :audit_enabled], true)
+  @schematic_projector_enabled Application.compile_env(:ema, [:schematic, :projector_enabled], true)
+
   @impl true
   def start(_type, _args) do
     unless System.get_env("DISCORD_BOT_TOKEN") do
@@ -46,6 +49,8 @@ defmodule Ema.Application do
           Ema.Focus.Timer,
           Ema.Pipes.Supervisor,
           Ema.Ingestor.Processor,
+          Ema.Intelligence.ContextCache,
+          Ema.Intelligence.ContextTrace,
           Ema.Intelligence.TokenTracker,
           Ema.Executions.Dispatcher,
           Ema.Intents.Populator,
@@ -61,8 +66,17 @@ defmodule Ema.Application do
           Ema.Intelligence.UCBRouter,
           {Ema.Intelligence.PromptVariantStore, []},
           Ema.Intelligence.VaultLearner,
-          Ema.Intelligence.DailyDigest
-        ]
+          Ema.Intelligence.DailyDigest,
+          Ema.Intelligence.HealthDigest,
+          Ema.Executions.Janitor,
+          Ema.Intelligence.CalendarDriver,
+          Ema.Loops.Escalator,
+          Ema.Loops.LoopEventHandler,
+          Ema.Governance.SycophancySubscriber,
+          Ema.Intelligence.CostAlertHandler,
+          Ema.Intelligence.OutcomeSubscriber,
+          Ema.Standards.Enforcer
+        ] ++ maybe_schematic_audit_server() ++ maybe_schematic_projector()
       end
 
     children =
@@ -324,6 +338,22 @@ defmodule Ema.Application do
   defp maybe_start_cluster do
     if Application.get_env(:ema, :start_cluster, false) do
       [Ema.Claude.NodeCoordinator]
+    else
+      []
+    end
+  end
+
+  defp maybe_schematic_audit_server do
+    if @schematic_audit_enabled do
+      [Ema.Intents.Schematic.AuditServer]
+    else
+      []
+    end
+  end
+
+  defp maybe_schematic_projector do
+    if @schematic_projector_enabled do
+      [Ema.Intents.Schematic.Projector]
     else
       []
     end

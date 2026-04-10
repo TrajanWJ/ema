@@ -203,9 +203,30 @@ defmodule Ema.ProposalEngine.AutoDecomposer do
       "[AutoDecomposer] Created #{length(tasks)} tasks from proposal #{proposal.id}"
     )
 
+    open_execution_loop(proposal, tasks)
     broadcast_decomposition(proposal, tasks)
 
     {:ok, tasks}
+  end
+
+  # Open a loop so the proposal's task list is trackable + escalatable.
+  # Without this, decomposed proposals vanish into the task pool with no
+  # back-pointer for follow-up.
+  defp open_execution_loop(_proposal, []), do: :ok
+
+  defp open_execution_loop(proposal, tasks) do
+    Ema.Loops.open_loop(%{
+      loop_type: "execution_pending",
+      target: proposal.title,
+      context: "Tracking #{length(tasks)} decomposed tasks from proposal #{proposal.id}",
+      channel: "internal",
+      project_id: proposal.project_id
+    })
+  rescue
+    e ->
+      Logger.warning(
+        "[AutoDecomposer] open_execution_loop failed for #{proposal.id}: #{Exception.message(e)}"
+      )
   end
 
   defp clamp_priority(p) when is_integer(p) and p >= 1 and p <= 5, do: p

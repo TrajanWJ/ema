@@ -236,37 +236,39 @@ defmodule Ema.Claude.ContextInjector do
     wiki_dir = Path.join([vault_root, "wiki", "Intents"])
 
     pages =
-      if File.dir?(wiki_dir) do
-        Path.wildcard(Path.join(wiki_dir, "**/*.md"))
-        |> Enum.reject(&String.ends_with?(&1, "_index.md"))
-        |> Enum.map(fn path ->
-          content = File.read!(path)
-          fm = Ema.SecondBrain.VaultWatcher.parse_frontmatter(content)
+      Ema.Intelligence.ContextCache.fetch(:wiki_intent_pages, project_id || :all, 1, fn ->
+        if File.dir?(wiki_dir) do
+          Path.wildcard(Path.join(wiki_dir, "**/*.md"))
+          |> Enum.reject(&String.ends_with?(&1, "_index.md"))
+          |> Enum.map(fn path ->
+            content = File.read!(path)
+            fm = Ema.SecondBrain.VaultWatcher.parse_frontmatter(content)
 
-          if fm["intent_level"] do
-            body =
-              content
-              |> String.replace(~r/\A---.*?---\n*/s, "")
-              |> String.slice(0, 800)
+            if fm["intent_level"] do
+              body =
+                content
+                |> String.replace(~r/\A---.*?---\n*/s, "")
+                |> String.slice(0, 800)
 
-            %{
-              title: fm["title"],
-              level: fm["intent_level"],
-              kind: fm["intent_kind"],
-              status: fm["intent_status"],
-              project: fm["project"],
-              body: body,
-              content: body,
-              path: Path.relative_to(path, vault_root),
-              updated_at: file_mtime(path)
-            }
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
-        |> maybe_filter_wiki_by_project(project_id)
-      else
-        []
-      end
+              %{
+                title: fm["title"],
+                level: fm["intent_level"],
+                kind: fm["intent_kind"],
+                status: fm["intent_status"],
+                project: fm["project"],
+                body: body,
+                content: body,
+                path: Path.relative_to(path, vault_root),
+                updated_at: file_mtime(path)
+              }
+            end
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> maybe_filter_wiki_by_project(project_id)
+        else
+          []
+        end
+      end)
 
     # Score and select wiki pages within budget
     {selected, _} = ContextBudget.score_and_select(pages, focus: focus, budget: budget)

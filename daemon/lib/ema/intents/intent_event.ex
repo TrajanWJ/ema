@@ -10,6 +10,7 @@ defmodule Ema.Intents.IntentEvent do
     execution_started execution_completed
     confirmed promoted demoted crystallized
     outcome_recorded imported
+    contradiction_resolved contradiction_dismissed
   )
 
   schema "intent_events" do

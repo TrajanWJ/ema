@@ -188,6 +188,156 @@ defmodule Ema.Intents do
     end
   end
 
+  @doc """
+  Walk up the parent chain from a given intent ID.
+  Returns a list ordered root → self (excluding self).
+  """
+  def ancestors(intent_id) when is_binary(intent_id) do
+    case get_intent(intent_id) do
+      nil -> []
+      intent -> do_ancestors(intent, [])
+    end
+  end
+
+  defp do_ancestors(%Intent{parent_id: nil}, acc), do: acc
+
+  defp do_ancestors(%Intent{parent_id: pid}, acc) do
+    case get_intent(pid) do
+      nil -> acc
+      parent -> do_ancestors(parent, [parent | acc])
+    end
+  end
+
+  @doc """
+  Walk down the children tree from a given intent ID.
+  Returns a flat list of descendants up to `max_depth`.
+  """
+  def descendants(intent_id, max_depth \\ 10) when is_binary(intent_id) do
+    case get_intent(intent_id) do
+      nil -> []
+      intent -> do_descendants([intent], 0, max_depth, [])
+    end
+  end
+
+  defp do_descendants([], _depth, _max, acc), do: Enum.reverse(acc)
+
+  defp do_descendants(_nodes, depth, max, acc) when depth >= max, do: Enum.reverse(acc)
+
+  defp do_descendants(nodes, depth, max, acc) do
+    parent_ids = Enum.map(nodes, & &1.id)
+
+    children =
+      Intent
+      |> where([i], i.parent_id in ^parent_ids)
+      |> order_by([i], asc: i.level, asc: i.inserted_at)
+      |> Repo.all()
+
+    do_descendants(children, depth + 1, max, Enum.reverse(children, acc))
+  end
+
+  @doc """
+  Full lineage path: ancestors ++ self ++ descendants (flat list).
+  """
+  def lineage_path(intent_id) when is_binary(intent_id) do
+    case get_intent(intent_id) do
+      nil ->
+        []
+
+      intent ->
+        ancestors(intent_id) ++ [intent] ++ descendants(intent_id)
+    end
+  end
+
+  @doc """
+  Build a subtree starting at `root_id`, limited to `max_depth` levels.
+  If `root_id` is nil, returns the full forest from all roots.
+  """
+  def tree_from(nil, max_depth), do: tree_from_roots(max_depth)
+
+  def tree_from(root_id, max_depth) when is_binary(root_id) do
+    case get_intent(root_id) do
+      nil -> nil
+      intent -> build_subtree_limited(intent, 0, max_depth)
+    end
+  end
+
+  defp tree_from_roots(max_depth) do
+    Intent
+    |> where([i], is_nil(i.parent_id))
+    |> order_by([i], asc: i.level)
+    |> Repo.all()
+    |> Enum.map(&build_subtree_limited(&1, 0, max_depth))
+  end
+
+  defp build_subtree_limited(node, depth, max) when depth >= max do
+    Map.put(node, :children, [])
+  end
+
+  defp build_subtree_limited(node, depth, max) do
+    children =
+      Intent
+      |> where([i], i.parent_id == ^node.id)
+      |> order_by([i], asc: i.level, asc: i.inserted_at)
+      |> Repo.all()
+      |> Enum.map(&build_subtree_limited(&1, depth + 1, max))
+
+    Map.put(node, :children, children)
+  end
+
+  @doc """
+  Intents with no parent AND no children — true orphans.
+  """
+  def orphans do
+    parent_ids =
+      Intent
+      |> where([i], not is_nil(i.parent_id))
+      |> select([i], i.parent_id)
+      |> distinct(true)
+      |> Repo.all()
+
+    Intent
+    |> where([i], is_nil(i.parent_id))
+    |> where([i], i.id not in ^parent_ids)
+    |> order_by([i], asc: i.level, desc: i.inserted_at)
+    |> Repo.all()
+  end
+
+  @doc "Set the parent of an intent (hierarchy linkage)."
+  def set_parent(intent_id, parent_id) when is_binary(intent_id) and is_binary(parent_id) do
+    cond do
+      intent_id == parent_id ->
+        {:error, :self_reference}
+
+      true ->
+        case get_intent(intent_id) do
+          nil ->
+            {:error, :not_found}
+
+          intent ->
+            if creates_cycle?(intent_id, parent_id) do
+              {:error, :would_create_cycle}
+            else
+              update_intent(intent, %{parent_id: parent_id})
+            end
+        end
+    end
+  end
+
+  @doc "Remove parent linkage from an intent."
+  def clear_parent(intent_id) when is_binary(intent_id) do
+    case get_intent(intent_id) do
+      nil -> {:error, :not_found}
+      intent -> update_intent(intent, %{parent_id: nil})
+    end
+  end
+
+  defp creates_cycle?(intent_id, candidate_parent_id) do
+    # If intent_id appears in the ancestor chain of candidate_parent_id, it would cycle.
+    candidate_parent_id
+    |> ancestors()
+    |> Enum.any?(&(&1.id == intent_id)) or candidate_parent_id == intent_id
+  end
+
   # ── Status Propagation (Superman pattern) ────────────────────────
 
   def propagate_status(%Intent{parent_id: nil}), do: :ok

@@ -125,6 +125,66 @@ defmodule Ema.ProposalEngine.OutcomeLinker do
   defp effectiveness_score("pending"), do: 0.5
   defp effectiveness_score(_), do: 0.3
 
+  @doc """
+  Run the full outcome feedback loop for a completed execution.
+
+  Resolves the originating proposal, computes effectiveness, updates seed
+  quality scores, and feeds low-scoring proposals back to KillMemory so the
+  pattern is suppressed in future runs even when the user never explicitly
+  killed the proposal.
+
+  Always returns `:ok` — failures are logged but never propagated.
+  """
+  def feed_back(execution) do
+    require Logger
+
+    proposal_id = Map.get(execution, :proposal_id)
+
+    if is_binary(proposal_id) and proposal_id != "" do
+      case Ema.Proposals.get_proposal(proposal_id) do
+        nil ->
+          :ok
+
+        proposal ->
+          summary = summarize(proposal, execution)
+          effectiveness = summary.effectiveness
+          score = effectiveness_score(effectiveness)
+
+          feed_seed_quality(proposal, effectiveness)
+          maybe_feed_kill_memory(proposal, score, effectiveness)
+      end
+    end
+
+    :ok
+  rescue
+    e ->
+      require Logger
+      Logger.debug("[OutcomeLinker] feed_back crashed: #{Exception.message(e)}")
+      :ok
+  end
+
+  # When an execution's outcome scores poorly (<0.3), broadcast a synthetic
+  # `proposal_killed` event so KillMemory records the title/tag pattern.
+  # KillMemory subscribes to "proposals:events" and indexes anything it sees
+  # via that topic — this gives us implicit kills from observed failures.
+  defp maybe_feed_kill_memory(_proposal, score, _effectiveness) when score >= 0.3, do: :ok
+
+  defp maybe_feed_kill_memory(proposal, _score, effectiveness) do
+    require Logger
+
+    Logger.info(
+      "[OutcomeLinker] Feeding KillMemory: proposal=#{proposal.id} effectiveness=#{effectiveness}"
+    )
+
+    Phoenix.PubSub.broadcast(
+      Ema.PubSub,
+      "proposals:events",
+      {"proposal_killed", proposal}
+    )
+
+    :ok
+  end
+
   defp excerpt(nil), do: nil
   defp excerpt(""), do: nil
 

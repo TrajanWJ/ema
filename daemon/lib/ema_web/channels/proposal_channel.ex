@@ -139,6 +139,16 @@ defmodule EmaWeb.ProposalChannel do
   @impl true
   def handle_info(_msg, socket), do: {:noreply, socket}
 
+  @impl true
+  def terminate(_reason, socket) do
+    case socket.assigns[:proposal_id] do
+      nil -> :ok
+      id -> Phoenix.PubSub.unsubscribe(Ema.PubSub, "proposal:#{id}")
+    end
+
+    :ok
+  end
+
   # ── Serializers ────────────────────────────────────────────────────────────
 
   defp serialize_proposal(proposal) do

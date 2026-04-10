@@ -48,7 +48,29 @@ defmodule Ema.CLI.Commands.Briefing do
         open_tasks: tasks,
         queued_proposals: queued,
         active_habits: habits
-      }
+      },
+      upcoming: upcoming_section()
     }
+  end
+
+  defp upcoming_section do
+    next =
+      try do
+        case Ema.Intelligence.CalendarDriver.next_action() do
+          {:ok, action, reason} -> %{action: action, reason: reason}
+          {:idle, msg} -> %{action: nil, reason: msg}
+        end
+      catch
+        :exit, _ -> %{action: nil, reason: "calendar driver unavailable"}
+      end
+
+    progress =
+      try do
+        Ema.Intelligence.CalendarDriver.progress_summary()
+      catch
+        :exit, _ -> %{}
+      end
+
+    %{next_action: next, progress: progress}
   end
 end

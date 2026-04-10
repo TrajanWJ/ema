@@ -1,5 +1,7 @@
 # EMA CLI Reference
 
+> AUDIT NOTE (2026-04-07): This document overstates command readiness. See `docs/EMA-CLI-COMPATIBILITY-MATRIX.md` for the live host audit. Confirmed first-pass findings: `ema status` works, `ema --help` is partial due to telemetry warnings, and `ema brief` / `ema brief --help` are currently broken.
+
 ## Installation
 
 ```bash

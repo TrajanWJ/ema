@@ -26,7 +26,10 @@ defmodule Ema.ProposalEngine.Debater do
   @impl true
   def handle_info({:proposals, :refined, proposal}, state) do
     Task.Supervisor.start_child(Ema.ProposalEngine.TaskSupervisor, fn ->
-      do_debate(proposal)
+      case Application.get_env(:ema, :debater_strategy, :classic) do
+        :parliament -> do_parliament(proposal)
+        _ -> do_debate(proposal)
+      end
     end)
 
     {:noreply, state}
@@ -34,6 +37,69 @@ defmodule Ema.ProposalEngine.Debater do
 
   @impl true
   def handle_info(_msg, state), do: {:noreply, state}
+
+  # ── Parliament strategy (OpenKoi pattern) ─────────────────────────────────
+  # Five perspectives in one LLM call. Sets confidence + writes the synthesis
+  # into the proposal's `synthesis` field, plus a `parliament` blob into
+  # `generation_log` so the full deliberation is inspectable.
+  defp do_parliament(proposal) do
+    case Ema.ProposalEngine.Parliament.deliberate(proposal) do
+      {:ok, deliberation} ->
+        gen_log = proposal.generation_log || %{}
+        updated_log = Map.put(gen_log, "parliament", parliament_to_log(deliberation))
+
+        attrs = %{
+          synthesis: deliberation.synthesis,
+          confidence: deliberation.confidence,
+          generation_log: updated_log
+        }
+
+        case Ema.Proposals.update_proposal(proposal, attrs) do
+          {:ok, updated} ->
+            Logger.info(
+              "Debater(parliament): proposal #{updated.id} confidence=#{updated.confidence} any_reject=#{deliberation.any_reject}"
+            )
+
+            Phoenix.PubSub.broadcast(
+              Ema.PubSub,
+              "proposals:pipeline",
+              {:proposals, :debated, updated}
+            )
+
+          {:error, reason} ->
+            Logger.error("Debater(parliament): failed to update proposal: #{inspect(reason)}")
+        end
+
+      {:error, reason} ->
+        Logger.warning(
+          "Debater(parliament): failed for proposal #{proposal.id}: #{inspect(reason)}"
+        )
+
+        Phoenix.PubSub.broadcast(
+          Ema.PubSub,
+          "proposals:pipeline",
+          {:proposals, :debated, proposal}
+        )
+    end
+  end
+
+  defp parliament_to_log(d) do
+    %{
+      "guardian" => agency_to_map(d.guardian),
+      "economist" => agency_to_map(d.economist),
+      "empath" => agency_to_map(d.empath),
+      "scholar" => agency_to_map(d.scholar),
+      "strategist" => agency_to_map(d.strategist),
+      "synthesis" => d.synthesis,
+      "confidence" => d.confidence,
+      "any_reject" => d.any_reject
+    }
+  end
+
+  defp agency_to_map(%{verdict: v, reasoning: r}),
+    do: %{"verdict" => Atom.to_string(v), "reasoning" => r}
+
+  defp agency_to_map(_), do: %{"verdict" => "unknown", "reasoning" => ""}
 
   defp do_debate(proposal) do
     prompt = """

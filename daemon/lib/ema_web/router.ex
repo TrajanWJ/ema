@@ -16,6 +16,7 @@ defmodule EmaWeb.Router do
     get("/surfaces/peers", ControlPlaneController, :peers)
     get("/dashboard/today", DashboardController, :today)
     get("/briefing", BriefingController, :show)
+    get("/brief", BriefController, :show)
     get("/recap", RecapController, :show)
     get("/advisor/now", AdvisorController, :now)
 
@@ -174,6 +175,20 @@ defmodule EmaWeb.Router do
     post("/pipes/:id/toggle", PipeController, :toggle)
     post("/pipes/:id/fork", PipeController, :fork)
     resources("/pipes", PipeController, except: [:new, :edit])
+
+    # Loops — outbound actions awaiting response with escalation
+    get("/loops", LoopController, :index)
+    get("/loops/at-risk", LoopController, :at_risk)
+    get("/loops/stats", LoopController, :stats)
+    get("/loops/:id", LoopController, :show)
+    post("/loops", LoopController, :create)
+    post("/loops/:id/touch", LoopController, :touch)
+    post("/loops/:id/close", LoopController, :close)
+    delete("/loops/:id", LoopController, :delete)
+
+    # Governance — sycophancy harness + audit metrics
+    get("/governance/sycophancy", GovernanceController, :sycophancy)
+    post("/governance/sycophancy/audit", GovernanceController, :sycophancy_audit)
 
     # Responsibilities — specific routes before resources
     get("/responsibilities/at-risk", ResponsibilityController, :at_risk)
@@ -439,10 +454,16 @@ defmodule EmaWeb.Router do
 
     # Intents (Intent Engine) — specific routes before resources
     get("/intents/status", IntentsController, :status)
+    get("/intents/orphans", IntentsController, :orphans)
     get("/intents/tree", IntentsController, :tree)
     get("/intents/:id/tree", IntentsController, :tree)
+    get("/intents/:id/ancestors", IntentsController, :ancestors)
+    get("/intents/:id/descendants", IntentsController, :descendants)
+    get("/intents/:id/path", IntentsController, :path)
     get("/intents/:id/lineage", IntentsController, :lineage)
     get("/intents/:id/runtime", IntentsController, :runtime)
+    put("/intents/:id/parent", IntentsController, :set_parent)
+    delete("/intents/:id/parent", IntentsController, :clear_parent)
     post("/intents/:id/actors", IntentsController, :attach_actor)
     post("/intents/:id/executions", IntentsController, :attach_execution)
     post("/intents/:id/sessions", IntentsController, :attach_session)
@@ -466,6 +487,12 @@ defmodule EmaWeb.Router do
     get("/memory/context", MemoryController, :context)
     get("/memory/search", MemoryController, :search)
     post("/memory/extract/:session_id", MemoryController, :extract)
+
+    # Typed memory entries (Sugar-style cross-session knowledge)
+    post("/memory/entries", MemoryController, :create_entry)
+    get("/memory/entries/search", MemoryController, :search_entries)
+    get("/memory/entries/context", MemoryController, :entry_context)
+    get("/memory/entries/recent", MemoryController, :recent_entries)
 
     # Contacts CRM
     resources("/contacts", ContactController, except: [:new, :edit])

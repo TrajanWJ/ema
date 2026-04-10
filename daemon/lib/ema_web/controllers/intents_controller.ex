@@ -99,12 +99,85 @@ defmodule EmaWeb.IntentsController do
   end
 
   def tree(conn, params) do
-    opts =
-      []
-      |> maybe_add(:project_id, params["project_id"] || params["id"])
+    root_id = params["root_id"] || params["id"]
+    max_depth = parse_int(params["max_depth"]) || 10
 
-    tree = Intents.tree(opts) |> Enum.map(&Intents.serialize_tree/1)
-    json(conn, %{tree: tree})
+    cond do
+      root_id && root_id != "" ->
+        case Intents.tree_from(root_id, max_depth) do
+          nil ->
+            {:error, :not_found}
+
+          subtree ->
+            json(conn, %{tree: [Intents.serialize_tree(subtree)]})
+        end
+
+      true ->
+        opts = maybe_add([], :project_id, params["project_id"])
+
+        tree =
+          opts
+          |> Intents.tree()
+          |> Enum.map(&Intents.serialize_tree/1)
+
+        json(conn, %{tree: tree})
+    end
+  end
+
+  def ancestors(conn, %{"id" => id}) do
+    case Intents.get_intent(id) do
+      nil ->
+        {:error, :not_found}
+
+      _intent ->
+        ancestors = Intents.ancestors(id) |> Enum.map(&Intents.serialize/1)
+        json(conn, %{ancestors: ancestors})
+    end
+  end
+
+  def descendants(conn, %{"id" => id} = params) do
+    max_depth = parse_int(params["max_depth"]) || 10
+
+    case Intents.get_intent(id) do
+      nil ->
+        {:error, :not_found}
+
+      _intent ->
+        descendants = Intents.descendants(id, max_depth) |> Enum.map(&Intents.serialize/1)
+        json(conn, %{descendants: descendants})
+    end
+  end
+
+  def path(conn, %{"id" => id}) do
+    case Intents.get_intent(id) do
+      nil ->
+        {:error, :not_found}
+
+      _intent ->
+        path = Intents.lineage_path(id) |> Enum.map(&Intents.serialize/1)
+        json(conn, %{path: path})
+    end
+  end
+
+  def orphans(conn, _params) do
+    orphans = Intents.orphans() |> Enum.map(&Intents.serialize/1)
+    json(conn, %{orphans: orphans})
+  end
+
+  def set_parent(conn, %{"id" => id, "parent_id" => parent_id}) do
+    case Intents.set_parent(id, parent_id) do
+      {:ok, intent} -> json(conn, Intents.serialize(intent))
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, reason} -> conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(reason)})
+    end
+  end
+
+  def clear_parent(conn, %{"id" => id}) do
+    case Intents.clear_parent(id) do
+      {:ok, intent} -> json(conn, Intents.serialize(intent))
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, reason} -> conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(reason)})
+    end
   end
 
   def status(conn, params) do

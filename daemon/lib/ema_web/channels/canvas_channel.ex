@@ -144,6 +144,28 @@ defmodule EmaWeb.CanvasChannel do
   # Catch-all for unhandled PubSub messages
   def handle_info(_msg, socket), do: {:noreply, socket}
 
+  @impl true
+  def terminate(_reason, socket) do
+    canvas_id = socket.assigns[:canvas_id]
+    Phoenix.PubSub.unsubscribe(Ema.PubSub, "task_events")
+
+    if canvas_id do
+      case Canvases.get_canvas_with_elements(canvas_id) do
+        {:ok, canvas} ->
+          for el <- canvas.elements do
+            if el.data_source && el.data_source != "" do
+              Phoenix.PubSub.unsubscribe(Ema.PubSub, "canvas:data:#{el.id}")
+            end
+          end
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
   defp push_domain_event(socket, domain) do
     # Refresh all data-bound elements matching this domain
     canvas_id = socket.assigns.canvas_id

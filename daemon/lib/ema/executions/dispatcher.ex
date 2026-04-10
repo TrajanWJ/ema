@@ -138,6 +138,9 @@ defmodule Ema.Executions.Dispatcher do
         _ -> prompt
       end
 
+    # Inject top-N relevant Memory lessons (error_patterns + guidelines)
+    prompt = prepend_recent_lessons(prompt, execution)
+
     case Ema.Executions.create_agent_session(execution.id, %{
            agent_role: packet.agent_role,
            status: "running",
@@ -177,6 +180,7 @@ defmodule Ema.Executions.Dispatcher do
         OutcomeTracker.record(execution)
         capture_and_store_diff(execution)
         maybe_link_intent_to_execution(execution)
+        store_outcome_memory(execution, :success, result_text)
 
       {:error, reason} ->
         Logger.error(
@@ -188,7 +192,70 @@ defmodule Ema.Executions.Dispatcher do
         Ema.Executions.transition(execution, "failed")
         failed_execution = %{execution | status: "failed"}
         OutcomeTracker.record(failed_execution)
+        store_outcome_memory(failed_execution, :failure, inspect(reason))
     end
+  end
+
+  # Persist execution outcomes into Ema.Memory so future dispatches can recall
+  # what happened on prior runs of similar work. Failures are stored as
+  # "error_pattern" so the retriever can warn callers off repeating mistakes.
+  defp store_outcome_memory(execution, outcome, body) do
+    memory_type = outcome_to_memory_type(outcome)
+    importance = importance_for_outcome(outcome)
+    content = format_execution_outcome(execution, outcome, body)
+
+    attrs = %{
+      memory_type: memory_type,
+      scope: "project",
+      project_id: execution.project_id,
+      source_id: execution.id,
+      content: content,
+      importance: importance
+    }
+
+    case Ema.Memory.store_entry(attrs) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Dispatcher] Memory.store_entry failed for #{execution.id}: #{inspect(reason)}"
+        )
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "[Dispatcher] store_outcome_memory crashed for #{execution.id}: #{Exception.message(e)}"
+      )
+  end
+
+  defp outcome_to_memory_type(:success), do: "outcome"
+  defp outcome_to_memory_type(:failure), do: "error_pattern"
+
+  defp importance_for_outcome(:success), do: 0.6
+  defp importance_for_outcome(:failure), do: 0.85
+
+  defp format_execution_outcome(execution, outcome, body) do
+    label =
+      case outcome do
+        :success -> "SUCCESS"
+        :failure -> "FAILURE"
+      end
+
+    title = execution.title || execution.objective || "(untitled)"
+    mode = execution.mode || "unknown"
+    project = execution.project_slug || execution.project_id || "unscoped"
+    body_text = body |> to_string() |> String.slice(0, 4_000)
+
+    """
+    [#{label}] #{title}
+    project: #{project}
+    mode: #{mode}
+    execution_id: #{execution.id}
+
+    #{body_text}
+    """
+    |> String.trim()
   end
 
   defp maybe_link_intent_to_execution(execution) do
@@ -275,7 +342,7 @@ defmodule Ema.Executions.Dispatcher do
           # Exit 0 without a result event — fallback to runner for the final parsed result
           Ema.Claude.Bridge.stop(bridge)
 
-          case Ema.Claude.AI.run(prompt, timeout: 300_000) do
+          case Ema.Claude.AI.run(prompt, timeout: dispatch_timeout()) do
             {:ok, result} -> {:ok, extract_result_text(result)}
             {:error, _} = err -> err
           end
@@ -284,18 +351,24 @@ defmodule Ema.Executions.Dispatcher do
           Ema.Claude.Bridge.stop(bridge)
           {:error, reason}
       after
-        300_000 ->
+        dispatch_timeout() ->
           Ema.Claude.Bridge.stop(bridge)
           {:error, :timeout}
       end
     else
       Logger.info("[Dispatcher] Bridge not available for #{execution_id}, using Runner")
 
-      case Ema.Claude.AI.run(prompt, timeout: 300_000) do
+      case Ema.Claude.AI.run(prompt, timeout: dispatch_timeout()) do
         {:ok, result} -> {:ok, extract_result_text(result)}
         {:error, _} = err -> err
       end
     end
+  end
+
+  # Read execution dispatch timeout from runtime config so operators can tune
+  # it without recompiling. Defaults to 5 minutes if config is missing.
+  defp dispatch_timeout do
+    Application.get_env(:ema, :timeouts, []) |> Keyword.get(:execution_dispatch, 300_000)
   end
 
   # Extract the clean result text from Claude's JSON output.
@@ -475,6 +548,76 @@ defmodule Ema.Executions.Dispatcher do
       project ->
         project.linked_path
     end
+  end
+
+  # Pull the top 5 most relevant Memory entries (error_patterns + guidelines)
+  # for this execution and prepend them to the prompt as "Lessons from Recent
+  # Work". Search query is built from the execution title + objective so the
+  # lessons are query-relevant, not just recent.
+  defp prepend_recent_lessons(prompt, execution) do
+    query =
+      [execution.title, execution.objective]
+      |> Enum.reject(&(is_nil(&1) or &1 == ""))
+      |> Enum.join(" ")
+
+    project_id = execution.project_id
+
+    error_patterns =
+      Ema.Memory.list_recent_entries(
+        memory_type: "error_pattern",
+        project_id: project_id,
+        since_days: 60,
+        limit: 5
+      )
+
+    guidelines =
+      Ema.Memory.list_recent_entries(
+        memory_type: "guideline",
+        project_id: project_id,
+        since_days: 30,
+        limit: 5
+      )
+
+    keyword_hits =
+      if query != "" do
+        Ema.Memory.search_entries(query, limit: 5)
+        |> Enum.map(fn {entry, _score} -> entry end)
+        |> Enum.filter(fn e -> e.memory_type in ["error_pattern", "guideline"] end)
+      else
+        []
+      end
+
+    entries =
+      (keyword_hits ++ error_patterns ++ guidelines)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.sort_by(& &1.importance, :desc)
+      |> Enum.take(5)
+
+    case entries do
+      [] ->
+        prompt
+
+      list ->
+        block =
+          list
+          |> Enum.map_join("\n\n", fn e ->
+            label = e.memory_type |> String.replace("_", " ") |> String.capitalize()
+            body = e.summary || e.content
+            "- [#{label}] #{body}"
+          end)
+
+        """
+        ## Lessons from Recent Work
+        #{block}
+
+        #{prompt}
+        """
+        |> String.trim()
+    end
+  rescue
+    e ->
+      Logger.debug("[Dispatcher] prepend_recent_lessons failed: #{Exception.message(e)}")
+      prompt
   end
 
   defp prepend_project_intelligence(prompt, project_slug) do
