@@ -82,3 +82,28 @@ export function genesisPath(...segments: string[]): string {
 export function researchRoot(): string {
   return genesisPath('research');
 }
+
+/** Directory containing intent folders (each intent has its own subdir with README.md). */
+export function intentsRoot(): string {
+  return genesisPath('intents');
+}
+
+/** Directory containing canon specs. */
+export function canonSpecsRoot(): string {
+  return genesisPath('canon', 'specs');
+}
+
+/** Directory containing canon decisions (DEC-NNN files). */
+export function canonDecisionsRoot(): string {
+  return genesisPath('canon', 'decisions');
+}
+
+/** Directory containing execution records (each has its own subdir with README.md). */
+export function executionsRoot(): string {
+  return genesisPath('executions');
+}
+
+/** Directory containing meta / graph convention files. */
+export function metaRoot(): string {
+  return genesisPath('_meta');
+}

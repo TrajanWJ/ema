@@ -40,8 +40,20 @@ export class ServiceConnection {
     return this.request<T>('POST', path, body);
   }
 
+  async put<T = unknown>(path: string, body: unknown): Promise<T | null> {
+    const probe = await this.probe();
+    if (!probe.available) return null;
+    return this.request<T>('PUT', path, body);
+  }
+
+  async delete<T = unknown>(path: string): Promise<T | null> {
+    const probe = await this.probe();
+    if (!probe.available) return null;
+    return this.request<T>('DELETE', path);
+  }
+
   async request<T = unknown>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<T> {

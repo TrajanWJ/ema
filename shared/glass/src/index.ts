@@ -55,6 +55,24 @@ export {
   type DotKind,
   type DotSize,
 } from "./components/StatusDot/index.ts";
+export { SectionHeader } from "./components/SectionHeader/index.ts";
+export {
+  SegmentedControl,
+  type SegmentedControlOption,
+} from "./components/SegmentedControl/index.ts";
+export { MetricCard } from "./components/MetricCard/index.ts";
+export { TopNavBar, type TopNavBarItem } from "./components/TopNavBar/index.ts";
+export { SidebarNav, type SidebarNavItem } from "./components/SidebarNav/index.ts";
+export { BentoGrid } from "./components/BentoGrid/index.ts";
+export { TagPill } from "./components/TagPill/index.ts";
+export { HeroBanner } from "./components/HeroBanner/index.ts";
+export { StatStrip, type StatStripItem } from "./components/StatStrip/index.ts";
+export {
+  ActivityTimeline,
+  type ActivityTimelineItem,
+} from "./components/ActivityTimeline/index.ts";
+export { Toolbar } from "./components/Toolbar/index.ts";
+export { InspectorSection } from "./components/InspectorSection/index.ts";
 
 // Templates
 export { StandardAppWindow } from "./templates/StandardAppWindow.tsx";
@@ -63,6 +81,16 @@ export { ChatAppShell } from "./templates/ChatAppShell.tsx";
 export { DashboardShell } from "./templates/DashboardShell.tsx";
 export { EditorShell } from "./templates/EditorShell.tsx";
 export { ListDetailShell } from "./templates/ListDetailShell.tsx";
+export { WorkspaceShell } from "./templates/WorkspaceShell.tsx";
+export { StudioShell } from "./templates/StudioShell.tsx";
+export { CommandCenterShell } from "./templates/CommandCenterShell.tsx";
+export { FeedShell } from "./templates/FeedShell.tsx";
+export { InspectorWorkspaceShell } from "./templates/InspectorWorkspaceShell.tsx";
+export { CatalogShell } from "./templates/CatalogShell.tsx";
+export { MonitorShell } from "./templates/MonitorShell.tsx";
+
+// Assets
+export { SignalOrb, GridPattern } from "./assets/index.ts";
 
 // Boilerplates (reference implementations)
 export { WorkAppBoilerplate } from "./boilerplates/work-app.boilerplate.tsx";
@@ -76,3 +104,21 @@ export { SystemAppBoilerplate } from "./boilerplates/system-app.boilerplate.tsx"
 export { useGlassTier, type GlassTierStyle } from "./hooks/useGlassTier.ts";
 export { useCommandPalette } from "./hooks/useCommandPalette.ts";
 export { useWindowChrome } from "./hooks/useWindowChrome.ts";
+
+export {
+  componentRecipes,
+  type ComponentRecipes,
+} from "./pattern-language.ts";
+export {
+  getVAppRegistryEntry,
+  vAppRecipes,
+  vAppRegistry,
+  type VAppArchetypeSpec,
+  type VAppAtmosphereSpec,
+  type VAppCopySpec,
+  type VAppNavSpec,
+  type VAppRecipe,
+  type VAppRegistryEntry,
+  type VAppSectionSpec,
+  type VAppShellSpec,
+} from "./app-specs.ts";

@@ -41,13 +41,13 @@ const ROUTER_PATH = join(
 const OUTPUT_PATH = join(process.cwd(), "tools", "contracts", "routes.json");
 
 async function extractRoutes(): Promise<RouteContract[]> {
-  let source: string;
+  let source = "";
   try {
     source = await readFile(ROUTER_PATH, "utf-8");
   } catch {
     console.error(`Cannot read router at ${ROUTER_PATH}`);
     console.error("Make sure you run this from the repo root.");
-    process.exit(1);
+    throw new Error(`router_not_found:${ROUTER_PATH}`);
   }
 
   const routes: RouteContract[] = [];

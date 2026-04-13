@@ -7,7 +7,7 @@
     "build:main": "tsc -p tsconfig.json",
     "build": "pnpm run build:main",
     "dist": "pnpm run build:main && electron-builder",
-    "start": "electron dist/main.js"
+    "start": "electron --no-sandbox --disable-gpu-sandbox dist/main.js"
   },
   "dependencies": {
     "electron": "^35.0.0"

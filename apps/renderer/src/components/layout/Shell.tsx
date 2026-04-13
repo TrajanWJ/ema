@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { AmbientStrip } from "./AmbientStrip";
 import { Dock } from "./Dock";
 import { CommandBar } from "./CommandBar";
+import { QuickCapture } from "./QuickCapture";
 // EMA UI 2.0 — only stores for the 22 active apps
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
@@ -40,6 +41,17 @@ const isStandaloneWindow = () => {
   return params.has("standalone");
 };
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    Boolean(target.closest("[contenteditable='true']"))
+  );
+}
+
 interface ShellProps {
   readonly children: ReactNode;
   readonly hideDock?: boolean;
@@ -68,6 +80,7 @@ export function Shell({ children, hideDock }: ShellProps) {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"connecting" | "waiting" | "error">("connecting");
   const [attempt, setAttempt] = useState(0);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const cancelledRef = useRef(false);
   const connectingRef = useRef(false);
 
@@ -186,6 +199,20 @@ export function Shell({ children, hideDock }: ShellProps) {
     return () => clearInterval(interval);
   }, [ready, tryConnect]);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.code !== "Space") {
+        return;
+      }
+      if (!quickCaptureOpen && isEditableTarget(event.target)) return;
+      event.preventDefault();
+      setQuickCaptureOpen((current) => !current);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [quickCaptureOpen]);
+
   if (!ready) {
     const isStandalone = standaloneWindow;
     const isWaiting = status === "waiting";
@@ -242,12 +269,15 @@ export function Shell({ children, hideDock }: ShellProps) {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden ${standaloneWindow ? "rounded-none" : "rounded-xl"}`}>
-      {!standaloneWindow && <AmbientStrip />}
+      {!standaloneWindow && <AmbientStrip onOpenQuickCapture={() => setQuickCaptureOpen(true)} />}
       <div className="flex flex-1 min-h-0">
         {!hideDock && <Dock />}
         <main className={`flex-1 overflow-auto ${standaloneWindow ? "p-0" : "p-4"}`}>{children}</main>
       </div>
       {!standaloneWindow && <CommandBar />}
+      {!standaloneWindow && (
+        <QuickCapture isOpen={quickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} />
+      )}
       <ToastOverlay />
     </div>
   );

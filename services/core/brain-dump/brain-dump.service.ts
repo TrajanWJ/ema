@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import { getDb } from '../../persistence/db.js';
+import { createTask, findTaskBySource, type TaskRecord } from '../tasks/tasks.service.js';
 
 export interface InboxItemRecord {
   id: string;
@@ -16,6 +17,13 @@ export interface CreateInboxItemInput {
   content: string;
   source?: string | null;
   project_id?: string | null;
+}
+
+export interface PromoteInboxItemToTaskInput {
+  title?: string | null;
+  description?: string | null;
+  priority?: string | number | null;
+  status?: string | null;
 }
 
 function mapItem(row: Record<string, unknown> | undefined): InboxItemRecord | null {
@@ -84,4 +92,53 @@ export function deleteInboxItem(id: string): boolean {
   const db = getDb();
   const result = db.prepare('DELETE FROM inbox_items WHERE id = ?').run(id);
   return result.changes > 0;
+}
+
+function defaultTaskTitle(content: string): string {
+  const firstLine = content
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  if (!firstLine) return 'Untitled task';
+  return firstLine.length <= 120 ? firstLine : `${firstLine.slice(0, 117)}...`;
+}
+
+export function promoteInboxItemToTask(
+  id: string,
+  input: PromoteInboxItemToTaskInput = {},
+): { item: InboxItemRecord; task: TaskRecord } | null {
+  const item = getInboxItem(id);
+  if (!item) return null;
+
+  const existingTask = findTaskBySource('brain_dump', item.id);
+  if (existingTask) {
+    const processed = item.processed ? item : processInboxItem(item.id, 'task');
+    if (!processed) return null;
+    return {
+      item: processed,
+      task: existingTask,
+    };
+  }
+
+  const task = createTask({
+    title: (input.title ?? '').trim() || defaultTaskTitle(item.content),
+    description:
+      typeof input.description === 'string' && input.description.trim().length > 0
+        ? input.description
+        : item.content,
+    priority: input.priority ?? undefined,
+    status: input.status ?? 'todo',
+    source_type: 'brain_dump',
+    source_id: item.id,
+    project_id: item.project_id,
+  });
+
+  const processed = processInboxItem(item.id, 'task');
+  if (!processed) return null;
+
+  return {
+    item: processed,
+    task,
+  };
 }

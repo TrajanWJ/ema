@@ -5,6 +5,8 @@
  * Under Tauri, shortcuts are handled in Rust instead.
  */
 
+import { createRequire } from "node:module";
+
 export interface ShortcutHandlers {
   onBrainDump: () => void;
   onCommandPalette: () => void;
@@ -14,6 +16,8 @@ interface GlobalShortcutAPI {
   register(accelerator: string, callback: () => void): boolean;
   unregisterAll(): void;
 }
+
+const require = createRequire(import.meta.url);
 
 function getGlobalShortcut(): GlobalShortcutAPI | null {
   try {

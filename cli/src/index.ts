@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { Command, InvalidArgumentError } from 'commander';
@@ -35,6 +35,7 @@ import {
   type TimelineEntry,
   GenesisStore,
 } from './lib/genesis-store.js';
+import { BackendFlowClient } from './lib/backend-flow.js';
 import { ServiceConnection } from './lib/service-connection.js';
 
 export { findGenesisRoot } from './lib/genesis-root.js';
@@ -97,8 +98,12 @@ function buildProgram(): Command {
     .option('--genesis-root <path>', 'Override ema-genesis root');
 
   registerIntentCommands(program);
+  registerBackendCommands(program);
+  registerGoalCommands(program);
+  registerCalendarCommands(program);
   registerProposalCommands(program);
   registerExecutionCommands(program);
+  registerReviewCommands(program);
   registerCanonCommands(program);
   registerGraphCommands(program);
   registerQueueCommands(program);
@@ -107,6 +112,7 @@ function buildProgram(): Command {
   registerVaultCommands(program);
   registerPipeCommands(program);
   registerAgentCommands(program);
+  registerChronicleCommands(program);
   registerIngestCommands(program);
   registerServiceCommands(program);
 
@@ -237,6 +243,689 @@ function registerIntentCommands(program: Command): void {
       const [ref, options] = values as [string, { target: string; relation: string }];
       const node = ctx.store.linkIntent(ref, options.relation, options.target);
       emitNode(ctx, node);
+    }));
+}
+
+function registerBackendCommands(program: Command): void {
+  const backend = program.command('backend').description('Normalized backend inspection and active runtime flow');
+
+  backend.command('manifest')
+    .description('Show the normalized backend manifest from the live services runtime')
+    .action(runWithContext(async (ctx) => {
+      emit(ctx, await ctx.services.request('GET', '/api/backend/manifest'));
+    }));
+
+  const flow = backend.command('flow').description('Active intent -> execution -> result loop');
+
+  flow.command('intents')
+    .option('--status <status>')
+    .option('--level <level>')
+    .option('--kind <kind>')
+    .option('--phase <phase>')
+    .description('List runtime intents from the active backend')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [options] = values as [Record<string, string | undefined>];
+      const intents = await client.listIntents({
+        ...(options.status ? { status: options.status } : {}),
+        ...(options.level ? { level: options.level } : {}),
+        ...(options.kind ? { kind: options.kind } : {}),
+        ...(options.phase ? { phase: options.phase } : {}),
+      });
+      emit(
+        ctx,
+        intents.map((intent) => ({
+          id: intent.id,
+          status: intent.status,
+          level: intent.level,
+          kind: intent.kind ?? null,
+          title: intent.title,
+        })),
+        ['id', 'status', 'level', 'kind', 'title'],
+      );
+    }));
+
+  flow.command('create-intent')
+    .requiredOption('--title <title>')
+    .requiredOption('--level <level>')
+    .option('--slug <slug>')
+    .option('--description <description>')
+    .option('--status <status>')
+    .option('--kind <kind>')
+    .option('--phase <phase>')
+    .option('--parent-id <parentId>')
+    .option('--project-id <projectId>')
+    .option('--actor-id <actorId>')
+    .option('--exit-condition <exitCondition>')
+    .option('--scope <scope...>')
+    .option('--space-id <spaceId>')
+    .option('--tag <tag...>')
+    .description('Create an active runtime intent on the backend')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await client.createIntent({
+          title: String(options.title),
+          level: String(options.level),
+          ...(typeof options.slug === 'string' ? { slug: options.slug } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.status === 'string' ? { status: options.status } : {}),
+          ...(typeof options.kind === 'string' ? { kind: options.kind } : {}),
+          ...(typeof options.phase === 'string' ? { phase: options.phase } : {}),
+          ...(typeof options.parentId === 'string' ? { parent_id: options.parentId } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.actorId === 'string' ? { actor_id: options.actorId } : {}),
+          ...(typeof options.exitCondition === 'string'
+            ? { exit_condition: options.exitCondition }
+            : {}),
+          ...(Array.isArray(options.scope) ? { scope: options.scope.filter(isString) } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(Array.isArray(options.tag) ? { tags: options.tag.filter(isString) } : {}),
+        }),
+      );
+    }));
+
+  flow.command('intent <slug>')
+    .description('Show one runtime intent bundle')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [slug] = values as [string];
+      emit(ctx, await client.getIntentRuntime(slug));
+    }));
+
+  flow.command('start <slug>')
+    .option('--title <title>')
+    .option('--objective <objective>')
+    .option('--mode <mode>')
+    .option('--requires-approval')
+    .option('--project-slug <projectSlug>')
+    .option('--space-id <spaceId>')
+    .description('Create an execution from a runtime intent')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [slug, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.startExecutionFromIntent(slug, {
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.objective === 'string' ? { objective: options.objective } : {}),
+          ...(typeof options.mode === 'string' ? { mode: options.mode } : {}),
+          ...(options.requiresApproval === true ? { requires_approval: true } : {}),
+          ...(typeof options.projectSlug === 'string' ? { project_slug: options.projectSlug } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+        }),
+      );
+    }));
+
+  flow.command('execution <id>')
+    .description('Show one execution with transitions')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.getExecution(id));
+    }));
+
+  flow.command('phase <id>')
+    .requiredOption('--to <phase>')
+    .requiredOption('--reason <reason>')
+    .option('--summary <summary>')
+    .description('Append an execution phase transition')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.transitionExecutionPhase(id, {
+          to: String(options.to),
+          reason: String(options.reason),
+          ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
+        }),
+      );
+    }));
+
+  flow.command('step <id>')
+    .requiredOption('--label <label>')
+    .option('--note <note>')
+    .description('Append a progress step to an execution')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.appendExecutionStep(id, {
+          label: String(options.label),
+          ...(typeof options.note === 'string' ? { note: options.note } : {}),
+        }),
+      );
+    }));
+
+  flow.command('result <id>')
+    .requiredOption('--path <path>')
+    .option('--summary <summary>')
+    .option('--intent-status <status>')
+    .option('--intent-phase <phase>')
+    .option('--intent-event <event>')
+    .description('Attach result evidence to an execution')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.recordExecutionResult(id, {
+          result_path: String(options.path),
+          ...(typeof options.summary === 'string' ? { result_summary: options.summary } : {}),
+          ...(typeof options.intentStatus === 'string' ? { intent_status: options.intentStatus } : {}),
+          ...(typeof options.intentPhase === 'string' ? { intent_phase: options.intentPhase } : {}),
+          ...(typeof options.intentEvent === 'string' ? { intent_event: options.intentEvent } : {}),
+        }),
+      );
+    }));
+
+  flow.command('complete <id>')
+    .option('--summary <summary>')
+    .option('--path <path>')
+    .option('--intent-status <status>')
+    .option('--intent-phase <phase>')
+    .option('--intent-event <event>')
+    .description('Complete an execution and optionally sync linked intent state')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.completeExecution(id, {
+          ...(typeof options.summary === 'string' ? { result_summary: options.summary } : {}),
+          ...(typeof options.path === 'string' ? { result_path: options.path } : {}),
+          ...(typeof options.intentStatus === 'string' ? { intent_status: options.intentStatus } : {}),
+          ...(typeof options.intentPhase === 'string' ? { intent_phase: options.intentPhase } : {}),
+          ...(typeof options.intentEvent === 'string' ? { intent_event: options.intentEvent } : {}),
+        }),
+      );
+    }));
+
+  const proposals = backend.command('proposal').description(
+    'Active durable proposal lifecycle used by the current backend',
+  );
+
+  proposals.command('list')
+    .option('--status <status>')
+    .option('--intent <intentId>')
+    .description('List durable backend proposals')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [options] = values as [Record<string, string | undefined>];
+      const rows = await client.listProposals({
+        ...(options.status ? { status: options.status } : {}),
+        ...(options.intent ? { intent_id: options.intent } : {}),
+      });
+      emit(
+        ctx,
+        rows.map((proposal) => ({
+          id: proposal.id,
+          intent_id: proposal.intent_id,
+          status: proposal.status,
+          revision: proposal.revision,
+          title: proposal.title,
+        })),
+        ['id', 'intent_id', 'status', 'revision', 'title'],
+      );
+    }));
+
+  proposals.command('view <id>')
+    .description('Show one durable backend proposal')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.getProposal(id));
+    }));
+
+  proposals.command('approve <id>')
+    .option('--actor-id <actorId>')
+    .description('Approve a durable backend proposal so execution can start')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.approveProposal(id, {
+          ...(typeof options.actorId === 'string' ? { actor_id: options.actorId } : {}),
+        }),
+      );
+    }));
+
+  proposals.command('reject <id>')
+    .requiredOption('--reason <reason>')
+    .option('--actor-id <actorId>')
+    .description('Reject a durable backend proposal')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.rejectProposal(id, {
+          actor_id:
+            typeof options.actorId === 'string' ? options.actorId : 'actor_human_owner',
+          reason: String(options.reason),
+        }),
+      );
+    }));
+
+  proposals.command('start <id>')
+    .option('--title <title>')
+    .option('--objective <objective>')
+    .option('--mode <mode>')
+    .option('--requires-approval')
+    .option('--project-slug <projectSlug>')
+    .option('--space-id <spaceId>')
+    .description('Start an execution from an approved durable backend proposal')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await client.startExecutionFromProposal(id, {
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.objective === 'string' ? { objective: options.objective } : {}),
+          ...(typeof options.mode === 'string' ? { mode: options.mode } : {}),
+          ...(options.requiresApproval === true ? { requires_approval: true } : {}),
+          ...(typeof options.projectSlug === 'string' ? { project_slug: options.projectSlug } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+        }),
+      );
+    }));
+}
+
+function registerGoalCommands(program: Command): void {
+  const goal = program.command('goal').description('Operational human and agent goals');
+
+  goal.command('list')
+    .option('--status <status>')
+    .option('--timeframe <timeframe>')
+    .option('--owner-kind <ownerKind>')
+    .option('--owner-id <ownerId>')
+    .option('--project-id <projectId>')
+    .option('--intent <intentSlug>')
+    .description('List active goals from the current backend runtime')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, string | undefined>];
+      const params = new URLSearchParams();
+      if (options.status) params.set('status', options.status);
+      if (options.timeframe) params.set('timeframe', options.timeframe);
+      if (options.ownerKind) params.set('owner_kind', options.ownerKind);
+      if (options.ownerId) params.set('owner_id', options.ownerId);
+      if (options.projectId) params.set('project_id', options.projectId);
+      if (options.intent) params.set('intent_slug', options.intent);
+      const suffix = params.size > 0 ? `?${params.toString()}` : '';
+      const payload = await ctx.services.request<{ goals: Array<Record<string, unknown>> }>(
+        'GET',
+        `/api/goals${suffix}`,
+      );
+      emit(ctx, payload.goals, [
+        'id',
+        'title',
+        'status',
+        'timeframe',
+        'owner_kind',
+        'owner_id',
+        'intent_slug',
+      ]);
+    }));
+
+  goal.command('view <id>')
+    .description('Show one goal plus child goals')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('GET', `/api/goals/${id}/context`));
+    }));
+
+  goal.command('context <id>')
+    .description('Show full goal context: children, proposals, executions, calendar, buildouts')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('GET', `/api/goals/${id}/context`));
+    }));
+
+  goal.command('create')
+    .requiredOption('--title <title>')
+    .requiredOption('--timeframe <timeframe>')
+    .option('--description <description>')
+    .option('--owner-kind <ownerKind>', 'human|agent', 'human')
+    .option('--owner-id <ownerId>', 'Opaque owner handle', 'owner')
+    .option('--status <status>')
+    .option('--parent-id <parentId>')
+    .option('--project-id <projectId>')
+    .option('--space-id <spaceId>')
+    .option('--intent <intentSlug>')
+    .option('--target-date <targetDate>')
+    .option('--success-criteria <successCriteria>')
+    .description('Create a new operational goal')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/goals', {
+          title: String(options.title),
+          timeframe: String(options.timeframe),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.ownerKind === 'string' ? { owner_kind: options.ownerKind } : {}),
+          ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+          ...(typeof options.status === 'string' ? { status: options.status } : {}),
+          ...(typeof options.parentId === 'string' ? { parent_id: options.parentId } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+          ...(typeof options.targetDate === 'string' ? { target_date: options.targetDate } : {}),
+          ...(typeof options.successCriteria === 'string'
+            ? { success_criteria: options.successCriteria }
+            : {}),
+        }),
+      );
+    }));
+
+  goal.command('update <id>')
+    .option('--title <title>')
+    .option('--description <description>')
+    .option('--timeframe <timeframe>')
+    .option('--status <status>')
+    .option('--owner-kind <ownerKind>')
+    .option('--owner-id <ownerId>')
+    .option('--parent-id <parentId>')
+    .option('--project-id <projectId>')
+    .option('--space-id <spaceId>')
+    .option('--intent <intentSlug>')
+    .option('--target-date <targetDate>')
+    .option('--success-criteria <successCriteria>')
+    .description('Update a goal in place')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('PUT', `/api/goals/${id}`, {
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.timeframe === 'string' ? { timeframe: options.timeframe } : {}),
+          ...(typeof options.status === 'string' ? { status: options.status } : {}),
+          ...(typeof options.ownerKind === 'string' ? { owner_kind: options.ownerKind } : {}),
+          ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+          ...(typeof options.parentId === 'string' ? { parent_id: options.parentId } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+          ...(typeof options.targetDate === 'string' ? { target_date: options.targetDate } : {}),
+          ...(typeof options.successCriteria === 'string'
+            ? { success_criteria: options.successCriteria }
+            : {}),
+        }),
+      );
+    }));
+
+  goal.command('propose <id>')
+    .option('--actor-id <actorId>')
+    .option('--title <title>')
+    .option('--summary <summary>')
+    .option('--rationale <rationale>')
+    .option('--plan-step <step...>')
+    .description('Generate a durable proposal from the goal-linked intent')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/goals/${id}/proposals`, {
+          ...(typeof options.actorId === 'string' ? { actor_id: options.actorId } : {}),
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
+          ...(typeof options.rationale === 'string' ? { rationale: options.rationale } : {}),
+          ...(Array.isArray(options.planStep)
+            ? { plan_steps: options.planStep.filter(isString) }
+            : {}),
+        }),
+      );
+    }));
+
+  goal.command('buildout <id>')
+    .requiredOption('--start-at <startAt>')
+    .option('--owner-id <ownerId>')
+    .option('--title <title>')
+    .option('--description <description>')
+    .option('--plan-min <minutes>', 'Planning phase duration in minutes', parseInteger)
+    .option('--execute-min <minutes>', 'Execution phase duration in minutes', parseInteger)
+    .option('--review-min <minutes>', 'Review phase duration in minutes', parseInteger)
+    .option('--retro-min <minutes>', 'Retro phase duration in minutes', parseInteger)
+    .description('Create a phased agent buildout from a goal')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/goals/${id}/buildouts`, {
+          start_at: String(options.startAt),
+          ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.planMin === 'number' ? { plan_minutes: options.planMin } : {}),
+          ...(typeof options.executeMin === 'number' ? { execute_minutes: options.executeMin } : {}),
+          ...(typeof options.reviewMin === 'number' ? { review_minutes: options.reviewMin } : {}),
+          ...(typeof options.retroMin === 'number' ? { retro_minutes: options.retroMin } : {}),
+        }),
+      );
+    }));
+
+  goal.command('execute <id>')
+    .option('--proposal-id <proposalId>')
+    .option('--buildout-id <buildoutId>')
+    .option('--title <title>')
+    .option('--objective <objective>')
+    .option('--mode <mode>')
+    .option('--requires-approval')
+    .option('--project-slug <projectSlug>')
+    .option('--space-id <spaceId>')
+    .description('Start execution for a goal, preferring an approved proposal when available')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/goals/${id}/executions`, {
+          ...(typeof options.proposalId === 'string' ? { proposal_id: options.proposalId } : {}),
+          ...(typeof options.buildoutId === 'string' ? { buildout_id: options.buildoutId } : {}),
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.objective === 'string' ? { objective: options.objective } : {}),
+          ...(typeof options.mode === 'string' ? { mode: options.mode } : {}),
+          ...(options.requiresApproval === true ? { requires_approval: true } : {}),
+          ...(typeof options.projectSlug === 'string' ? { project_slug: options.projectSlug } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+        }),
+      );
+    }));
+
+  goal.command('complete <id>')
+    .description('Mark a goal completed')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('POST', `/api/goals/${id}/complete`));
+    }));
+
+  goal.command('delete <id>')
+    .description('Delete a goal')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('DELETE', `/api/goals/${id}`));
+    }));
+}
+
+function registerCalendarCommands(program: Command): void {
+  const calendar = program.command('calendar').description('Human schedule and agent virtual planning calendar');
+
+  calendar.command('list')
+    .option('--owner-kind <ownerKind>')
+    .option('--owner-id <ownerId>')
+    .option('--status <status>')
+    .option('--kind <entryKind>')
+    .option('--goal-id <goalId>')
+    .option('--intent <intentSlug>')
+    .option('--from <from>')
+    .option('--to <to>')
+    .option('--buildout-id <buildoutId>')
+    .description('List calendar entries from the current backend runtime')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, string | undefined>];
+      const params = new URLSearchParams();
+      if (options.ownerKind) params.set('owner_kind', options.ownerKind);
+      if (options.ownerId) params.set('owner_id', options.ownerId);
+      if (options.status) params.set('status', options.status);
+      if (options.kind) params.set('entry_kind', options.kind);
+      if (options.goalId) params.set('goal_id', options.goalId);
+      if (options.intent) params.set('intent_slug', options.intent);
+      if (options.from) params.set('from', options.from);
+      if (options.to) params.set('to', options.to);
+      if (options.buildoutId) params.set('buildout_id', options.buildoutId);
+      const suffix = params.size > 0 ? `?${params.toString()}` : '';
+      const payload = await ctx.services.request<{ entries: Array<Record<string, unknown>> }>(
+        'GET',
+        `/api/calendar${suffix}`,
+      );
+      emit(ctx, payload.entries, [
+        'id',
+        'title',
+        'entry_kind',
+        'status',
+        'owner_kind',
+        'owner_id',
+        'phase',
+        'starts_at',
+        'ends_at',
+      ]);
+    }));
+
+  calendar.command('view <id>')
+    .description('Show one calendar entry')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('GET', `/api/calendar/${id}`));
+    }));
+
+  calendar.command('create')
+    .requiredOption('--title <title>')
+    .requiredOption('--kind <entryKind>')
+    .requiredOption('--start-at <startAt>')
+    .option('--end-at <endAt>')
+    .option('--description <description>')
+    .option('--owner-kind <ownerKind>', 'human|agent', 'human')
+    .option('--owner-id <ownerId>', 'Opaque owner handle', 'owner')
+    .option('--status <status>')
+    .option('--phase <phase>')
+    .option('--goal-id <goalId>')
+    .option('--project-id <projectId>')
+    .option('--space-id <spaceId>')
+    .option('--intent <intentSlug>')
+    .option('--execution-id <executionId>')
+    .option('--location <location>')
+    .description('Create a human schedule item or agent virtual block')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/calendar', {
+          title: String(options.title),
+          entry_kind: String(options.kind),
+          starts_at: String(options.startAt),
+          ...(typeof options.endAt === 'string' ? { ends_at: options.endAt } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.ownerKind === 'string' ? { owner_kind: options.ownerKind } : {}),
+          ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+          ...(typeof options.status === 'string' ? { status: options.status } : {}),
+          ...(typeof options.phase === 'string' ? { phase: options.phase } : {}),
+          ...(typeof options.goalId === 'string' ? { goal_id: options.goalId } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+          ...(typeof options.executionId === 'string' ? { execution_id: options.executionId } : {}),
+          ...(typeof options.location === 'string' ? { location: options.location } : {}),
+        }),
+      );
+    }));
+
+  calendar.command('update <id>')
+    .option('--title <title>')
+    .option('--kind <entryKind>')
+    .option('--start-at <startAt>')
+    .option('--end-at <endAt>')
+    .option('--description <description>')
+    .option('--owner-kind <ownerKind>')
+    .option('--owner-id <ownerId>')
+    .option('--status <status>')
+    .option('--phase <phase>')
+    .option('--goal-id <goalId>')
+    .option('--project-id <projectId>')
+    .option('--space-id <spaceId>')
+    .option('--intent <intentSlug>')
+    .option('--execution-id <executionId>')
+    .option('--location <location>')
+    .description('Update an existing calendar entry')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('PUT', `/api/calendar/${id}`, {
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.kind === 'string' ? { entry_kind: options.kind } : {}),
+          ...(typeof options.startAt === 'string' ? { starts_at: options.startAt } : {}),
+          ...(typeof options.endAt === 'string' ? { ends_at: options.endAt } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.ownerKind === 'string' ? { owner_kind: options.ownerKind } : {}),
+          ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+          ...(typeof options.status === 'string' ? { status: options.status } : {}),
+          ...(typeof options.phase === 'string' ? { phase: options.phase } : {}),
+          ...(typeof options.goalId === 'string' ? { goal_id: options.goalId } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+          ...(typeof options.executionId === 'string' ? { execution_id: options.executionId } : {}),
+          ...(typeof options.location === 'string' ? { location: options.location } : {}),
+        }),
+      );
+    }));
+
+  calendar.command('delete <id>')
+    .description('Delete a calendar entry')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('DELETE', `/api/calendar/${id}`));
+    }));
+
+  calendar.command('buildout')
+    .requiredOption('--owner-id <ownerId>')
+    .requiredOption('--start-at <startAt>')
+    .option('--goal-id <goalId>')
+    .option('--title <title>')
+    .option('--description <description>')
+    .option('--plan-min <minutes>', 'Planning phase duration in minutes', parseInteger)
+    .option('--execute-min <minutes>', 'Execution phase duration in minutes', parseInteger)
+    .option('--review-min <minutes>', 'Review phase duration in minutes', parseInteger)
+    .option('--retro-min <minutes>', 'Retro phase duration in minutes', parseInteger)
+    .option('--project-id <projectId>')
+    .option('--space-id <spaceId>')
+    .option('--intent <intentSlug>')
+    .description('Create a phased agent virtual buildout linked to a goal or intent')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/calendar/buildouts', {
+          owner_id: String(options.ownerId),
+          start_at: String(options.startAt),
+          ...(typeof options.goalId === 'string' ? { goal_id: options.goalId } : {}),
+          ...(typeof options.title === 'string' ? { title: options.title } : {}),
+          ...(typeof options.description === 'string' ? { description: options.description } : {}),
+          ...(typeof options.planMin === 'number' ? { plan_minutes: options.planMin } : {}),
+          ...(typeof options.executeMin === 'number' ? { execute_minutes: options.executeMin } : {}),
+          ...(typeof options.reviewMin === 'number' ? { review_minutes: options.reviewMin } : {}),
+          ...(typeof options.retroMin === 'number' ? { retro_minutes: options.retroMin } : {}),
+          ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+          ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+          ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+        }),
+      );
     }));
 }
 
@@ -686,6 +1375,180 @@ function registerAgentCommands(program: Command): void {
     }));
 }
 
+function registerChronicleCommands(program: Command): void {
+  const chronicle = program.command('chronicle').description('Chronicle landing zone access');
+
+  chronicle.command('list')
+    .option('--source-kind <kind>')
+    .option('--source-id <id>')
+    .option('--limit <n>', 'maximum sessions', parseInteger, 25)
+    .description('List Chronicle sessions from the services layer')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      const query = new URLSearchParams();
+      if (typeof options.sourceKind === 'string') query.set('source_kind', options.sourceKind);
+      if (typeof options.sourceId === 'string') query.set('source_id', options.sourceId);
+      if (typeof options.limit === 'number') query.set('limit', String(options.limit));
+      const suffix = query.size > 0 ? `?${query.toString()}` : '';
+      const payload = await ctx.services.get<{ sessions: unknown[] }>(`/api/chronicle/sessions${suffix}`);
+      if (!payload) {
+        emit(ctx, {
+          status: 'offline',
+          detail: 'Chronicle requires the services layer. Start services and retry.',
+        });
+        return;
+      }
+      emit(ctx, payload.sessions, [
+        'id',
+        'source_kind',
+        'source_label',
+        'status',
+        'project_hint',
+        'entry_count',
+        'artifact_count',
+        'title',
+      ]);
+    }));
+
+  chronicle.command('view <id>')
+    .description('Inspect one Chronicle session with entries and artifacts')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('GET', `/api/chronicle/sessions/${encodeURIComponent(id)}`));
+    }));
+
+  chronicle.command('import-file <path>')
+    .option('--agent <agent>')
+    .option('--source-kind <kind>')
+    .option('--label <label>')
+    .description('Import a local transcript/log file into Chronicle')
+    .action(runWithContext(async (ctx, values) => {
+      const [path, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', '/api/chronicle/import-file', {
+        path,
+        ...(typeof options.agent === 'string' ? { agent: options.agent } : {}),
+        ...(typeof options.sourceKind === 'string' ? { source_kind: options.sourceKind } : {}),
+        ...(typeof options.label === 'string' ? { source_label: options.label } : {}),
+      }));
+    }));
+
+  chronicle.command('import-bundle <path>')
+    .description('Import a Chronicle JSON bundle into the services layer')
+    .action(runWithContext(async (ctx, values) => {
+      const [path] = values as [string];
+      const raw = readFileSync(path, 'utf8');
+      const payload = JSON.parse(raw) as unknown;
+      emit(ctx, await ctx.services.request('POST', '/api/chronicle/import', payload));
+    }));
+
+}
+
+function registerReviewCommands(program: Command): void {
+  const review = program.command('review').description('Chronicle-backed review queue and promotion receipts');
+
+  review.command('list')
+    .option('--status <status>')
+    .option('--session-id <id>')
+    .option('--entry-id <id>')
+    .option('--decision <decision>')
+    .option('--limit <n>', 'maximum items', parseInteger, 25)
+    .description('List review items from the services layer')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      const query = new URLSearchParams();
+      if (typeof options.status === 'string') query.set('status', options.status);
+      if (typeof options.sessionId === 'string') query.set('chronicle_session_id', options.sessionId);
+      if (typeof options.entryId === 'string') query.set('chronicle_entry_id', options.entryId);
+      if (typeof options.decision === 'string') query.set('decision', options.decision);
+      if (typeof options.limit === 'number') query.set('limit', String(options.limit));
+      emit(ctx, await ctx.services.request('GET', `/api/review/items${query.size > 0 ? `?${query.toString()}` : ''}`));
+    }));
+
+  review.command('view <id>')
+    .description('Inspect one review item with Chronicle linkage, decisions, and receipts')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('GET', `/api/review/items/${encodeURIComponent(id)}`));
+    }));
+
+  review.command('create')
+    .requiredOption('--session-id <id>')
+    .option('--entry-id <id>')
+    .option('--title <title>')
+    .option('--summary <summary>')
+    .option('--source-excerpt <text>')
+    .option('--suggested-target-kind <kind>')
+    .option('--actor <actor>', 'creator actor id', 'actor_human_owner')
+    .description('Create or reuse a review item from Chronicle session or entry provenance')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', '/api/review/items', {
+        chronicle_session_id: String(options.sessionId),
+        ...(typeof options.entryId === 'string' ? { chronicle_entry_id: options.entryId } : {}),
+        ...(typeof options.title === 'string' ? { title: options.title } : {}),
+        ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
+        ...(typeof options.sourceExcerpt === 'string' ? { source_excerpt: options.sourceExcerpt } : {}),
+        ...(typeof options.suggestedTargetKind === 'string'
+          ? { suggested_target_kind: options.suggestedTargetKind }
+          : {}),
+        created_by_actor_id: String(options.actor),
+      }));
+    }));
+
+  review.command('approve <id>')
+    .requiredOption('--actor <actor>')
+    .option('--rationale <text>')
+    .description('Approve a review item')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/approve`, {
+        actor_id: String(options.actor),
+        ...(typeof options.rationale === 'string' ? { rationale: options.rationale } : {}),
+      }));
+    }));
+
+  review.command('reject <id>')
+    .requiredOption('--actor <actor>')
+    .option('--rationale <text>')
+    .description('Reject a review item')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/reject`, {
+        actor_id: String(options.actor),
+        ...(typeof options.rationale === 'string' ? { rationale: options.rationale } : {}),
+      }));
+    }));
+
+  review.command('defer <id>')
+    .requiredOption('--actor <actor>')
+    .option('--rationale <text>')
+    .description('Defer a review item')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/defer`, {
+        actor_id: String(options.actor),
+        ...(typeof options.rationale === 'string' ? { rationale: options.rationale } : {}),
+      }));
+    }));
+
+  review.command('receipt <id>')
+    .requiredOption('--target-kind <kind>')
+    .option('--decision-id <id>')
+    .option('--target-id <id>')
+    .option('--status <status>', 'recorded|linked', 'recorded')
+    .option('--summary <summary>')
+    .description('Record a promotion receipt for an approved review item')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/receipts`, {
+        target_kind: String(options.targetKind),
+        ...(typeof options.decisionId === 'string' ? { review_decision_id: options.decisionId } : {}),
+        ...(typeof options.targetId === 'string' ? { target_id: options.targetId } : {}),
+        ...(typeof options.status === 'string' ? { status: options.status } : {}),
+        ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
+      }));
+    }));
+}
 function registerIngestCommands(program: Command): void {
   const ingest = program.command('ingest').description('Agent session ingestion and archaeology');
 

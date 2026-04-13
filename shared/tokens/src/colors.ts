@@ -10,6 +10,10 @@
  * NEW RAMPS:
  *  - rose   → anchored on #f43f5e (Focus app accent, observed in old build)
  *  - purple → anchored on #a78bfa (Proposals / Agents accent)
+ *  - cyan   → anchored on #06b6d4 (threads / data / streaming surfaces)
+ *  - lime   → anchored on #84cc16 (growth / compost / harvested signal)
+ *  - indigo → anchored on #6366f1 (system / intelligence / orchestration)
+ *  - slate  → anchored on #64748b (neutral structural accent)
  *
  * EXPANSION METHODOLOGY:
  *  The old build only defined 900 / 500 / 400 / 50. We expand every ramp to a
@@ -258,13 +262,43 @@ const purpleAnchors = {
   400: "#a78bfa",
 } as const satisfies AnchorMap;
 
+const cyanAnchors = {
+  500: "#06b6d4",
+} as const satisfies AnchorMap;
+
+const limeAnchors = {
+  500: "#84cc16",
+} as const satisfies AnchorMap;
+
+const indigoAnchors = {
+  500: "#6366f1",
+} as const satisfies AnchorMap;
+
+const slateAnchors = {
+  500: "#64748b",
+} as const satisfies AnchorMap;
+
 export const teal = expandRamp(tealAnchors);
 export const blue = expandRamp(blueAnchors);
 export const amber = expandRamp(amberAnchors);
 export const rose = expandRamp(roseAnchors);
 export const purple = expandRamp(purpleAnchors);
+export const cyan = expandRamp(cyanAnchors);
+export const lime = expandRamp(limeAnchors);
+export const indigo = expandRamp(indigoAnchors);
+export const slate = expandRamp(slateAnchors);
 
-export const ramps = { teal, blue, amber, rose, purple } as const;
+export const ramps = {
+  teal,
+  blue,
+  amber,
+  rose,
+  purple,
+  cyan,
+  lime,
+  indigo,
+  slate,
+} as const;
 
 export type RampName = keyof typeof ramps;
 

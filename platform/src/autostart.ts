@@ -6,6 +6,8 @@
  * Tauri: would use platform-specific autostart plugin
  */
 
+import { createRequire } from "node:module";
+
 interface LoginItemSettings {
   openAtLogin: boolean;
   openAsHidden?: boolean;
@@ -16,6 +18,8 @@ interface ElectronApp {
   getLoginItemSettings(): LoginItemSettings;
   getName(): string;
 }
+
+const require = createRequire(import.meta.url);
 
 function getApp(): ElectronApp | null {
   try {

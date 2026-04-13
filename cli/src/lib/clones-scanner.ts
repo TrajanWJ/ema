@@ -27,23 +27,23 @@ export interface CloneEntry {
 /** List every clone directory (non-recursive). */
 export function scanClones(): readonly CloneEntry[] {
   const clonesDir = genesisPath('research', '_clones');
-  let entries: ReturnType<typeof readdirSync>;
+  const results: CloneEntry[] = [];
+
   try {
-    entries = readdirSync(clonesDir, { withFileTypes: true });
+    const entries = readdirSync(clonesDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const name = String(entry.name);
+      if (name.startsWith('.')) continue; // skip .hidden dirs
+      const abs = join(clonesDir, name);
+      results.push({
+        name,
+        path: abs,
+        size: duHuman(abs),
+      });
+    }
   } catch {
     return [];
-  }
-
-  const results: CloneEntry[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith('.')) continue; // skip .hidden dirs
-    const abs = join(clonesDir, entry.name);
-    results.push({
-      name: entry.name,
-      path: abs,
-      size: duHuman(abs),
-    });
   }
 
   results.sort((a, b) => a.name.localeCompare(b.name));

@@ -13,7 +13,7 @@ import { findResearchNodeBySlug } from '../../lib/node-loader.js';
 import { printJson } from '../../lib/table-printer.js';
 
 export default class ResearchGet extends Command {
-  public static override readonly description =
+  public static override readonly description: string =
     'Print a single research node by slug or id.';
 
   public static override readonly examples = [

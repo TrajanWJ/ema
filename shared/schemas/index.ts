@@ -82,6 +82,160 @@ export {
 export type { Space, SpaceMember } from "./spaces.js";
 
 export {
+  goalSchema,
+  goalStatusSchema,
+  goalTimeframeSchema,
+  goalOwnerKindSchema,
+} from "./goals.js";
+export type {
+  Goal,
+  GoalStatus,
+  GoalTimeframe,
+  GoalOwnerKind,
+} from "./goals.js";
+
+export {
+  humanOpsDateSchema,
+  humanOpsDaySchema,
+  humanOpsDayUpdateSchema,
+} from "./human-ops.js";
+export type {
+  HumanOpsDate,
+  HumanOpsDay,
+  HumanOpsDayUpdate,
+} from "./human-ops.js";
+
+export {
+  calendarEntrySchema,
+  calendarEntryKindSchema,
+  calendarEntryStatusSchema,
+} from "./calendar.js";
+export type {
+  CalendarEntry,
+  CalendarEntryKind,
+  CalendarEntryStatus,
+} from "./calendar.js";
+
+export {
+  feedSourceKindSchema,
+  feedSurfaceSchema,
+  feedScopeKindSchema,
+  feedItemKindSchema,
+  feedItemStatusSchema,
+  feedActionTypeSchema,
+  feedConversationStatusSchema,
+  feedSuggestedModeSchema,
+  feedScoreSchema,
+  feedSourceSchema,
+  feedViewSchema,
+  feedItemSchema,
+  feedActionSchema,
+  feedConversationSchema,
+  feedWorkspaceStatsSchema,
+  feedWorkspaceSchema,
+} from "./feeds.js";
+export type {
+  FeedSourceKind,
+  FeedSurface,
+  FeedScopeKind,
+  FeedItemKind,
+  FeedItemStatus,
+  FeedActionType,
+  FeedConversationStatus,
+  FeedSuggestedMode,
+  FeedScore,
+  FeedSource,
+  FeedView,
+  FeedItem,
+  FeedAction,
+  FeedConversation,
+  FeedWorkspaceStats,
+  FeedWorkspace,
+} from "./feeds.js";
+
+export {
+  chronicleSourceKindSchema,
+  chronicleSessionStatusSchema,
+  chronicleEntryRoleSchema,
+  chronicleEntryKindSchema,
+  chronicleArtifactKindSchema,
+  chronicleSourceSchema,
+  chronicleSessionSchema,
+  chronicleEntrySchema,
+  chronicleArtifactSchema,
+  chronicleSessionSummarySchema,
+  chronicleSessionDetailSchema,
+  chronicleImportSourceInputSchema,
+  chronicleImportEntryInputSchema,
+  chronicleImportArtifactInputSchema,
+  chronicleImportSessionInputSchema,
+  createChronicleImportInputSchema,
+} from "./chronicle.js";
+export type {
+  ChronicleSourceKind,
+  ChronicleSessionStatus,
+  ChronicleEntryRole,
+  ChronicleEntryKind,
+  ChronicleArtifactKind,
+  ChronicleSource,
+  ChronicleSession,
+  ChronicleEntry,
+  ChronicleArtifact,
+  ChronicleSessionSummary,
+  ChronicleSessionDetail,
+  ChronicleImportSourceInput,
+  ChronicleImportEntryInput,
+  ChronicleImportArtifactInput,
+  ChronicleImportSessionInput,
+  CreateChronicleImportInput,
+} from "./chronicle.js";
+
+export {
+  reviewSourceKindSchema,
+  chronicleExtractionKindSchema,
+  chronicleExtractionStatusSchema,
+  reviewItemStatusSchema,
+  reviewTargetKindSchema,
+  promotionTargetKindSchema,
+  promotionModeSchema,
+  chronicleExtractionSchema,
+  reviewItemSchema,
+  promotionReceiptSchema,
+  reviewItemSummarySchema,
+  reviewChronicleSessionSchema,
+  reviewChronicleEntrySchema,
+  reviewChronicleArtifactSchema,
+  reviewSourceLinkSchema,
+  reviewItemDetailSchema,
+  listReviewItemsFilterSchema,
+  reviewDecisionInputSchema,
+  promoteReviewItemInputSchema,
+  chronicleExtractionRunSchema,
+} from "./review.js";
+export type {
+  ReviewSourceKind,
+  ChronicleExtractionKind,
+  ChronicleExtractionStatus,
+  ReviewItemStatus,
+  ReviewTargetKind,
+  PromotionTargetKind,
+  PromotionMode,
+  ChronicleExtraction,
+  ReviewItem,
+  PromotionReceipt,
+  ReviewItemSummary,
+  ReviewChronicleSession,
+  ReviewChronicleEntry,
+  ReviewChronicleArtifact,
+  ReviewSourceLink,
+  ReviewItemDetail,
+  ListReviewItemsFilter,
+  ReviewDecisionInput,
+  PromoteReviewItemInput,
+  ChronicleExtractionRun,
+} from "./review.js";
+
+export {
   userStateSchema,
   userStateModeSchema,
   userStateUpdatedBySchema,
@@ -128,3 +282,96 @@ export {
   crossPollinationEntrySchema,
 } from "./cross-pollination.js";
 export type { CrossPollinationEntry } from "./cross-pollination.js";
+
+export {
+  coreIntentPrioritySchema,
+  coreIntentSourceSchema,
+  coreIntentStatusSchema,
+  coreIntentSchema,
+  createCoreIntentInputSchema,
+  createCoreIntent,
+  coreIntentExamples,
+} from "./intent.js";
+export type {
+  CoreIntentPriority,
+  CoreIntentSource,
+  CoreIntentStatus,
+  CoreIntent,
+  CreateCoreIntentInput,
+} from "./intent.js";
+
+export {
+  coreProposalStatusSchema,
+  coreProposalSchema,
+  durableProposalStatusSchema,
+  proposalRecordSchema,
+  createProposalInputSchema,
+  listProposalFilterSchema,
+  approveProposalInputSchema,
+  rejectProposalInputSchema,
+  reviseCoreProposalInputSchema,
+  startProposalExecutionInputSchema,
+  createCoreProposalFixture,
+  coreProposalExamples,
+} from "./proposal.js";
+export type {
+  CoreProposalStatus,
+  CoreProposal,
+  DurableProposalStatus,
+  ProposalRecord,
+  CreateProposalInput,
+  ListProposalFilter,
+  ApproveProposalInput,
+  RejectProposalInput,
+  ReviseCoreProposalInput,
+  StartProposalExecutionInput,
+} from "./proposal.js";
+
+export {
+  coreExecutionStatusSchema,
+  coreExecutionSchema,
+  createCoreExecutionFixture,
+  coreExecutionExamples,
+} from "./execution.js";
+export type {
+  CoreExecutionStatus,
+  CoreExecution,
+} from "./execution.js";
+
+export {
+  actorRoleSchema,
+  humanActorSchema,
+  agentActorSchema,
+  actorSchema,
+  createHumanActorFixture,
+  createAgentActorFixture,
+  actorExamples,
+} from "./actor.js";
+export type {
+  ActorRole,
+  HumanActor,
+  AgentActor,
+  Actor,
+} from "./actor.js";
+
+export {
+  artifactTypeSchema,
+  artifactSchema,
+  createArtifactFixture,
+  artifactExamples,
+} from "./artifact.js";
+export type {
+  ArtifactType,
+  Artifact,
+} from "./artifact.js";
+
+export {
+  emaEventTypeSchema,
+  emaEventSchema,
+  createEventFixture,
+  eventExamples,
+} from "./events.js";
+export type {
+  LoopEventType,
+  LoopEvent,
+} from "./events.js";

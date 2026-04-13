@@ -64,7 +64,14 @@ export function registerExecutionsChannel(): void {
 
         const execution = completeExecution(
           data.id,
-          typeof data.result_summary === 'string' ? data.result_summary : null,
+          {
+            ...(typeof data.result_summary === 'string'
+              ? { result_summary: data.result_summary }
+              : {}),
+            ...(typeof data.result_path === 'string'
+              ? { result_path: data.result_path }
+              : {}),
+          },
         );
         if (!execution) {
           reply({ error: 'execution_not_found' });

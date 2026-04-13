@@ -5,11 +5,20 @@
  * tray setup is handled in Rust (src-tauri/src/tray.rs) instead.
  */
 
-interface TrayMenu {
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+interface TrayMenuItem {
   label: string;
   click?: () => void;
-  type?: "normal" | "separator";
 }
+
+interface TrayMenuSeparator {
+  type: "separator";
+}
+
+type TrayMenu = TrayMenuItem | TrayMenuSeparator;
 
 interface BrowserWindow {
   show(): void;
@@ -23,12 +32,14 @@ interface TrayInstance {
   destroy(): void;
 }
 
+const require = createRequire(import.meta.url);
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+
 // Lazy-loaded to avoid crashes when Electron is not available
 function getElectron(): {
   Tray: new (iconPath: string) => TrayInstance;
   Menu: { buildFromTemplate(items: TrayMenu[]): unknown };
   app: { quit(): void };
-  nativeImage: { createFromPath(path: string): unknown };
 } | null {
   try {
     // Dynamic require — Electron must be the host process
@@ -45,7 +56,7 @@ export function createTray(mainWindow: BrowserWindow): TrayInstance | null {
     return null;
   }
 
-  const iconPath = `${__dirname}/../../assets/icon.png`;
+  const iconPath = join(MODULE_DIR, "../../assets/icon.png");
   const tray = new electron.Tray(iconPath);
 
   const menuItems: TrayMenu[] = [

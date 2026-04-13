@@ -16,10 +16,12 @@ import { z } from "zod";
 
 import {
   actorPhaseSchema,
+  executionStatusSchema,
   intentKindSchema,
   intentLevelSchema,
   intentStatusSchema,
 } from "@ema/shared/schemas";
+import { createExecutionFromIntent } from "../executions/executions.service.js";
 import {
   attachActor,
   attachExecution,
@@ -111,6 +113,16 @@ const attachActorBodySchema = z.object({
 const attachSessionBodySchema = z.object({
   session_id: z.string().min(1),
   relation: z.string().optional(),
+});
+
+const createExecutionForIntentBodySchema = z.object({
+  title: z.string().min(1).optional(),
+  objective: z.string().nullable().optional(),
+  mode: z.string().min(1).optional(),
+  status: executionStatusSchema.optional(),
+  requires_approval: z.boolean().optional(),
+  project_slug: z.string().min(1).nullable().optional(),
+  space_id: z.string().min(1).nullable().optional(),
 });
 
 function handleError(reply: FastifyReply, err: unknown): FastifyReply {
@@ -234,6 +246,38 @@ export function registerIntentsRoutes(app: FastifyInstance): void {
       return handleError(reply, err);
     }
   });
+
+  app.post(
+    "/:slug/executions",
+    async (
+      request: FastifyRequest<{ Params: { slug: string }; Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      try {
+        const { slug } = slugParamsSchema.parse(request.params);
+        const body = createExecutionForIntentBodySchema.parse(request.body ?? {});
+        const execution = createExecutionFromIntent(slug, {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.objective !== undefined ? { objective: body.objective } : {}),
+          ...(body.mode !== undefined ? { mode: body.mode } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.requires_approval !== undefined
+            ? { requires_approval: body.requires_approval }
+            : {}),
+          ...(body.project_slug !== undefined
+            ? { project_slug: body.project_slug }
+            : {}),
+          ...(body.space_id !== undefined ? { space_id: body.space_id } : {}),
+        });
+        return reply.code(201).send({
+          execution,
+          bundle: getRuntimeBundle(slug),
+        });
+      } catch (err) {
+        return handleError(reply, err);
+      }
+    },
+  );
 
   // --- Attachment verbs (DEC-007 intent_links) ---------------------------
 

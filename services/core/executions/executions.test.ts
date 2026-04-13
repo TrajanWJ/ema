@@ -51,6 +51,9 @@ vi.mock("../intents/service.js", () => ({
     kind: "implement",
   }),
   attachExecution: vi.fn(),
+  appendIntentEvent: vi.fn(),
+  transitionPhase: vi.fn(),
+  updateIntentStatus: vi.fn(),
 }));
 
 const {
@@ -58,12 +61,15 @@ const {
   appendStep,
   archiveExecution,
   createExecution,
+  createExecutionFromIntent,
+  completeExecution,
   executionsEvents,
   getExecution,
   getStepJournal,
   initExecutions,
   listExecutions,
   listPhaseTransitions,
+  recordExecutionResult,
   transitionPhase,
 } = await import("./executions.service.js");
 const { getReflexionContext, buildReflexionPrefix } = await import(
@@ -130,6 +136,17 @@ describe("Executions / createExecution", () => {
     const roundtrip = getExecution(execution.id);
     expect(roundtrip).not.toBeNull();
     expect(roundtrip?.objective).toBe("do the thing");
+  });
+
+  it("creates an execution directly from an intent slug", () => {
+    const execution = createExecutionFromIntent("GAC-001", {
+      mode: "implement",
+      title: "Ship the slice",
+    });
+
+    expect(execution.intent_slug).toBe("GAC-001");
+    expect(execution.title).toBe("Ship the slice");
+    expect(execution.mode).toBe("implement");
   });
 });
 
@@ -234,6 +251,34 @@ describe("Executions / step journal", () => {
     expect(journal[1]?.label).toBe("second");
     expect(journal[1]?.note).toBe("with a note");
     expect(journal[0]?.at).toMatch(/T/u);
+  });
+});
+
+describe("Executions / result attachment", () => {
+  it("records result_path and result_summary without completing the execution", () => {
+    const execution = createExecution({ title: "artifact", intent_slug: "GAC-001" });
+    const updated = recordExecutionResult(execution.id, {
+      result_path: "/tmp/result.md",
+      result_summary: "Result attached",
+    });
+
+    expect(updated.status).toBe("created");
+    expect(updated.result_path).toBe("/tmp/result.md");
+    expect(updated.result_summary).toBe("Result attached");
+  });
+
+  it("completes with a result artifact and keeps it on the execution row", () => {
+    const execution = createExecution({ title: "artifact", intent_slug: "GAC-001" });
+    const completed = completeExecution(execution.id, {
+      result_summary: "Done",
+      result_path: "/tmp/result.md",
+    });
+
+    expect(completed).not.toBeNull();
+    expect(completed?.status).toBe("completed");
+    expect(completed?.result_path).toBe("/tmp/result.md");
+    expect(completed?.result_summary).toBe("Done");
+    expect(completed?.completed_at).toMatch(/T/u);
   });
 });
 

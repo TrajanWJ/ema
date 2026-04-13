@@ -27,6 +27,10 @@ import type { ActorPhase, ExecutionStatus, Intent } from "@ema/shared/schemas";
 
 import { getDb } from "../../persistence/db.js";
 import {
+  syncExecutionCompletionToCalendar,
+  syncExecutionPhaseToCalendar,
+} from "../calendar/calendar.service.js";
+import {
   appendIntentEvent,
   attachExecution,
   getIntent,
@@ -89,6 +93,28 @@ export interface CreateExecutionInput {
   intent_slug?: string | null;
   intent_path?: string | null;
   proposal_id?: string | null;
+  space_id?: string | null;
+}
+
+export interface CreateExecutionFromIntentInput {
+  title?: string | null;
+  objective?: string | null;
+  mode?: string | null;
+  status?: ExecutionStatus | string | null;
+  requires_approval?: boolean | null;
+  project_slug?: string | null;
+  space_id?: string | null;
+}
+
+export interface CreateExecutionFromProposalInput {
+  proposal_id: string;
+  intent_slug: string;
+  title?: string | null;
+  objective?: string | null;
+  mode?: string | null;
+  status?: ExecutionStatus | string | null;
+  requires_approval?: boolean | null;
+  project_slug?: string | null;
   space_id?: string | null;
 }
 
@@ -409,6 +435,48 @@ export function createExecution(input: CreateExecutionInput): ExecutionRecord {
   return created;
 }
 
+export function createExecutionFromIntent(
+  intentSlug: string,
+  input: CreateExecutionFromIntentInput = {},
+): ExecutionRecord {
+  const intent = getIntent(intentSlug);
+  if (!intent) {
+    throw new Error(`intent_not_found: ${intentSlug}`);
+  }
+
+  return createExecution({
+    title: input.title ?? intent.title,
+    objective: input.objective ?? intent.description ?? null,
+    mode: input.mode ?? "research",
+    status: input.status ?? null,
+    requires_approval: input.requires_approval ?? null,
+    project_slug: input.project_slug ?? null,
+    intent_slug: intentSlug,
+    space_id: input.space_id ?? (intent.space_id ?? null),
+  });
+}
+
+export function createExecutionFromProposal(
+  input: CreateExecutionFromProposalInput,
+): ExecutionRecord {
+  const intent = getIntent(input.intent_slug);
+  if (!intent) {
+    throw new Error(`intent_not_found: ${input.intent_slug}`);
+  }
+
+  return createExecution({
+    title: input.title ?? `Execution for ${input.proposal_id}`,
+    objective: input.objective ?? intent.description ?? null,
+    mode: input.mode ?? "implement",
+    status: input.status ?? null,
+    requires_approval: input.requires_approval ?? null,
+    project_slug: input.project_slug ?? null,
+    intent_slug: input.intent_slug,
+    proposal_id: input.proposal_id,
+    space_id: input.space_id ?? (intent.space_id ?? null),
+  });
+}
+
 function updateStatus(
   id: string,
   status: ExecutionStatus,
@@ -464,6 +532,17 @@ function updateStatus(
           ? { result_summary: input.result_summary ?? next.result_summary }
           : {}),
       });
+      try {
+        syncExecutionCompletionToCalendar(next.id, "completed");
+      } catch {
+        // Derived side effect only.
+      }
+    } else if (status === "cancelled" || status === "failed") {
+      try {
+        syncExecutionCompletionToCalendar(next.id, status);
+      } catch {
+        // Derived side effect only.
+      }
     }
     return next;
   })();
@@ -628,6 +707,12 @@ export function transitionPhase(
     metadata: input.metadata ?? null,
     transitioned_at: now,
   };
+
+  try {
+    syncExecutionPhaseToCalendar(id, input.to);
+  } catch {
+    // Derived side effect only.
+  }
 
   executionsEvents.emit("execution:phase_transitioned", {
     type: "execution:phase_transitioned",

@@ -14,6 +14,9 @@ export function GoalCard({ goal }: GoalCardProps) {
   const completeGoal = useGoalsStore((s) => s.completeGoal);
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const deleteGoal = useGoalsStore((s) => s.deleteGoal);
+  const proposeGoal = useGoalsStore((s) => s.proposeGoal);
+  const executeGoal = useGoalsStore((s) => s.executeGoal);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const isCompleted = goal.status === "completed";
 
@@ -31,6 +34,25 @@ export function GoalCard({ goal }: GoalCardProps) {
     } else {
       setConfirming(true);
       setTimeout(() => setConfirming(false), 3000);
+    }
+  }
+
+  async function handlePropose() {
+    if (!goal.intent_slug) return;
+    setBusyAction("propose");
+    try {
+      await proposeGoal(goal.id);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleExecute() {
+    setBusyAction("execute");
+    try {
+      await executeGoal(goal.id, { mode: "implement", title: goal.title });
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -94,10 +116,44 @@ export function GoalCard({ goal }: GoalCardProps) {
             {goal.description}
           </p>
         )}
+        <div
+          className="flex flex-wrap gap-1.5 mt-2 text-[0.62rem] font-mono"
+          style={{ color: "var(--pn-text-tertiary)" }}
+        >
+          <span>{goal.owner_kind}:{goal.owner_id}</span>
+          {goal.intent_slug && <span>intent:{goal.intent_slug}</span>}
+          {goal.target_date && <span>target:{new Date(goal.target_date).toLocaleDateString()}</span>}
+        </div>
+        {goal.success_criteria && (
+          <p
+            className="text-[0.66rem] mt-2"
+            style={{ color: "var(--pn-text-tertiary)" }}
+          >
+            {goal.success_criteria}
+          </p>
+        )}
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {goal.intent_slug && (
+          <button
+            onClick={handlePropose}
+            disabled={busyAction !== null}
+            className="px-2 py-1 rounded text-[0.65rem] transition-colors hover:bg-white/5"
+            style={{ color: "#f59e0b" }}
+          >
+            {busyAction === "propose" ? "..." : "Propose"}
+          </button>
+        )}
+        <button
+          onClick={handleExecute}
+          disabled={busyAction !== null}
+          className="px-2 py-1 rounded text-[0.65rem] transition-colors hover:bg-white/5"
+          style={{ color: "#6b95f0" }}
+        >
+          {busyAction === "execute" ? "..." : "Execute"}
+        </button>
         <button
           onClick={() => setEditing(true)}
           className="px-2 py-1 rounded text-[0.65rem] transition-colors hover:bg-white/5"

@@ -44,7 +44,7 @@ interface InboxItemProps {
 }
 
 export const InboxItem = memo(function InboxItem({ item }: InboxItemProps) {
-  const { process, remove, approveExecution, queueExecution } =
+  const { process, promoteToTask, remove, approveExecution, queueExecution } =
     useBrainDumpStore();
   const execution = useBrainDumpStore((s) => s.itemExecutions[item.id]);
   const [hovered, setHovered] = useState(false);
@@ -141,7 +141,7 @@ export const InboxItem = memo(function InboxItem({ item }: InboxItemProps) {
           <ActionBtn
             label="-> Task"
             color="var(--color-pn-primary-400)"
-            onClick={() => process(item.id, "task")}
+            onClick={() => promoteToTask(item.id)}
           />
           <ActionBtn
             label="-> Journal"

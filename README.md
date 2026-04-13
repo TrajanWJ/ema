@@ -53,6 +53,30 @@ pnpm parity
 
 ## Current Direction
 
-The active architecture direction is documented in:
+The current backend truth is documented in:
+
+- `docs/backend/README.md`
+- `docs/backend/SOURCE-OF-TRUTH.md`
+- `docs/backend/DEDUPLICATION-DECISIONS.md`
+- `docs/backend/ENTITY-CONTRACTS.md`
+- `docs/backend/FUTURE-AGENT-HANDOFF-2026-04-12.md`
+
+Broader architecture planning remains in:
 
 - `docs/planning/ELECTRON_FOUNDATION_2026-04-10.md`
+- `docs/GROUND-TRUTH.md`
+- `docs/BLUEPRINT.md`
+
+## Current Verified State
+
+As of `2026-04-12`:
+
+- `pnpm build` is green across the Electron/TypeScript monorepo
+- `pnpm test` is green (`@ema/services` reports `132` passing tests)
+- the active backend spine is:
+  - filesystem canon in `ema-genesis/`
+  - pluralized services in `services/core/{intents,blueprint,executions,spaces,user-state}/`
+  - SQLite runtime persistence in `~/.local/share/ema/ema.db`
+- backend truth is inspectable at:
+  - `docs/backend/*`
+  - `GET /api/backend/manifest`

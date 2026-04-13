@@ -26,6 +26,14 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     minWidth: 800, minHeight: 600, accent: "#6366f1", icon: "⬡",
   },
   // ── Core Workflow ──
+  desk: {
+    title: "Desk", defaultWidth: 1280, defaultHeight: 860,
+    minWidth: 960, minHeight: 680, accent: "#2dd4a8", icon: "◫",
+  },
+  agenda: {
+    title: "Agenda", defaultWidth: 1180, defaultHeight: 820,
+    minWidth: 920, minHeight: 640, accent: "#6b95f0", icon: "☷",
+  },
   "brain-dump": {
     title: "Brain Dump", defaultWidth: 600, defaultHeight: 700,
     minWidth: 480, minHeight: 400, accent: "#6b95f0", icon: "◎",
@@ -63,6 +71,10 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   agents: {
     title: "Agents", defaultWidth: 900, defaultHeight: 700,
     minWidth: 700, minHeight: 500, accent: "#a78bfa", icon: "⊞",
+  },
+  feeds: {
+    title: "Feeds", defaultWidth: 1320, defaultHeight: 860,
+    minWidth: 980, minHeight: 640, accent: "#22c55e", icon: "∞",
   },
 
   // ── Creative ──
@@ -136,6 +148,10 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
   settings: {
     title: "Settings", defaultWidth: 600, defaultHeight: 600,
     minWidth: 500, minHeight: 400, accent: "rgba(255,255,255,0.50)", icon: "⚙",
+  },
+  "pattern-lab": {
+    title: "Pattern Lab", defaultWidth: 1360, defaultHeight: 900,
+    minWidth: 1040, minHeight: 720, accent: "#6B95F0", icon: "◈",
   },
   voice: {
     title: "Voice", defaultWidth: 900, defaultHeight: 700,

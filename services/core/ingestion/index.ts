@@ -1,8 +1,10 @@
 export {
+  buildChronicleImportFromFile,
   discoverAgentConfigs,
   generateBackfeed,
   getIngestionStatus,
   parseSessionTimeline,
+  type BuildChronicleImportFromFileInput,
   type IngestionAgentConfigSummary,
   type IngestionBackfeedProposal,
   type IngestionTimelineEntry,

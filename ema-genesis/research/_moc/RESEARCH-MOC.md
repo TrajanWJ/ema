@@ -32,6 +32,9 @@ connections:
 5. Tags at bottom.
 6. Each category folder has its own `_MOC.md` that indexes its children
    and rolls up insights.
+7. Future work enters through queue nodes first, especially
+   `[[research/research-ingestion/QUEUE]]`, before being promoted into
+   category research docs and extraction notes.
 
 ## Categories
 
@@ -43,7 +46,7 @@ connections:
 | CLI & terminal runtime | `[[research/cli-terminal/_MOC\|cli-terminal]]` | xterm.js, node-pty, tmux wrappers, Electron terminal apps, Warp, Wave, Tabby |
 | vApp & plugin architectures | `[[research/vapp-plugin/_MOC\|vapp-plugin]]` | Electron multi-window, web component apps, plugin runtimes, Raycast, Rofi, Übersicht |
 | Context & agent memory | `[[research/context-memory/_MOC\|context-memory]]` | Long-horizon memory, session continuity, compression, engram, open-mem, CONTINUITY |
-| Research ingestion & feeds | `[[research/research-ingestion/_MOC\|research-ingestion]]` | RSS aggregators, AI-curated feeds, Miniflux, FreshRSS, Readwise Reader |
+| Research ingestion & feeds | `[[research/research-ingestion/_MOC\|research-ingestion]]` | RSS aggregators, AI-curated feeds, Miniflux, FreshRSS, Readwise Reader, queue-driven intake |
 | Life OS / ADHD / exec function | `[[research/life-os-adhd/_MOC\|life-os-adhd]]` | Personal OS, ADHD tools, exec dysfunction aids, body doubling, brain dumps |
 | Self-building systems | `[[research/self-building/_MOC\|self-building]]` | Intent-proposal-execution systems, autonomous dev pipelines, blueprint tools |
 | Frontend patterns | `[[research/frontend-patterns/_MOC\|frontend-patterns]]` | Launchpad, HQ dashboard, Dock, CommandBar, AmbientStrip, glass tokens, vApp shell contract, iii-lite dual-surface — self-pollination from current renderer + old Tauri build |
@@ -70,6 +73,7 @@ connections:
 
 - `[[_meta/CANON-STATUS]]` — Why we're researching the full Genesis vision, not just V1
 - `[[intents/GAC-QUEUE-MOC]]` — GAC cards generated from research gaps
+- `[[research/research-ingestion/QUEUE]]` — queue of future clone/query/topic/domain passes
 - `[[_meta/CROSS-POLLINATION-REGISTRY]]` — Flat summary/ranking of all sources
 
 #moc #research #cross-pollination #index

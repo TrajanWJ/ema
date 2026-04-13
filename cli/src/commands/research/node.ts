@@ -8,6 +8,6 @@
 import ResearchGet from './get.js';
 
 export default class ResearchNode extends ResearchGet {
-  public static override readonly description =
+  public static override readonly description: string =
     'Alias for `research get` — print a research node by slug.';
 }

@@ -1,9 +1,28 @@
+export type ProposalStatus =
+  | "queued"
+  | "reviewing"
+  | "approved"
+  | "redirected"
+  | "killed"
+  | "generating"
+  | "failed";
+
+/**
+ * Renderer proposal view-model.
+ *
+ * The backend now returns durable proposal records from `/api/proposals`.
+ * This interface remains a UI-facing shape so existing proposal components can
+ * render without a full rewrite. Fields not present in the backend contract are
+ * derived placeholders, not storage truth.
+ */
 export interface Proposal {
   readonly id: string;
+  readonly intent_id: string;
   readonly title: string;
   readonly summary: string;
   readonly body: string;
-  readonly status: "queued" | "reviewing" | "approved" | "redirected" | "killed" | "generating" | "failed";
+  readonly status: ProposalStatus;
+  readonly source_status: DurableProposalStatus;
   readonly confidence: number;
   readonly risks: readonly string[];
   readonly benefits: readonly string[];
@@ -19,12 +38,13 @@ export interface Proposal {
   readonly parent_proposal_id: string | null;
   readonly children_count: number;
   readonly created_at: string;
-  // Batch 3: Pipeline fields
   readonly quality_score: number | null;
   readonly pipeline_stage: string | null;
   readonly pipeline_iteration: number | null;
   readonly cost_display: string | null;
   readonly generation_log: Record<string, unknown> | null;
+  readonly revision: number;
+  readonly plan_steps: readonly string[];
 }
 
 export interface ScoreBreakdown {
@@ -54,4 +74,87 @@ export interface Seed {
   readonly last_run_at: string | null;
   readonly run_count: number;
   readonly project_id: string | null;
+}
+
+export type DurableProposalStatus =
+  | "generated"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "revised"
+  | "superseded";
+
+export interface DurableProposalRecord {
+  readonly id: string;
+  readonly intent_id: string;
+  readonly title: string;
+  readonly summary: string;
+  readonly rationale: string;
+  readonly plan_steps: readonly string[];
+  readonly status: DurableProposalStatus;
+  readonly revision: number;
+  readonly parent_proposal_id: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly inserted_at: string;
+  readonly updated_at: string;
+}
+
+export function mapDurableProposalStatus(status: DurableProposalStatus): ProposalStatus {
+  switch (status) {
+    case "approved":
+      return "approved";
+    case "rejected":
+      return "killed";
+    case "revised":
+    case "superseded":
+      return "redirected";
+    case "generated":
+      return "generating";
+    case "pending_approval":
+    default:
+      return "queued";
+  }
+}
+
+export function mapDurableProposalRecord(record: DurableProposalRecord): Proposal {
+  const estimatedScope = record.plan_steps.length > 0 ? `${record.plan_steps.length} steps` : "unspecified";
+  const bodySections = [
+    record.summary,
+    record.rationale ? `Rationale:\n${record.rationale}` : null,
+    record.plan_steps.length > 0
+      ? `Plan:\n${record.plan_steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`
+      : null,
+  ].filter((section): section is string => section !== null && section.length > 0);
+
+  return {
+    id: record.id,
+    intent_id: record.intent_id,
+    title: record.title,
+    summary: record.summary,
+    body: bodySections.join("\n\n"),
+    status: mapDurableProposalStatus(record.status),
+    source_status: record.status,
+    confidence: 0.5,
+    risks: [],
+    benefits: [],
+    estimated_scope: estimatedScope,
+    steelman: null,
+    red_team: null,
+    synthesis: null,
+    idea_score: null,
+    prompt_quality_score: null,
+    score_breakdown: null,
+    tags: [],
+    project_id: null,
+    parent_proposal_id: record.parent_proposal_id,
+    children_count: 0,
+    created_at: record.inserted_at,
+    quality_score: null,
+    pipeline_stage: record.status,
+    pipeline_iteration: record.revision,
+    cost_display: null,
+    generation_log: record.metadata,
+    revision: record.revision,
+    plan_steps: [...record.plan_steps],
+  };
 }

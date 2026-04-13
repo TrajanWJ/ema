@@ -1,6 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
+
+import type {
+  ChronicleSourceKind,
+  CreateChronicleImportInput,
+} from "@ema/shared/schemas";
 
 export interface IngestionAgentConfigSummary {
   agent: string;
@@ -25,6 +30,13 @@ export interface IngestionBackfeedProposal {
   summary: string;
   source_session: string;
   source: "agent_session_import";
+}
+
+export interface BuildChronicleImportFromFileInput {
+  path: string;
+  agent?: string;
+  source_kind?: ChronicleSourceKind;
+  source_label?: string;
 }
 
 function candidateRoots(repoRoot: string): Array<{ agent: string; path: string }> {
@@ -111,6 +123,92 @@ export function getIngestionStatus(repoRoot: string = process.cwd()): {
     configs,
     session_count: timeline.length,
     latest_session: timeline[0] ?? null,
+  };
+}
+
+export function buildChronicleImportFromFile(
+  input: BuildChronicleImportFromFileInput,
+): CreateChronicleImportInput {
+  const raw = safeRead(input.path);
+  if (!raw) {
+    throw new Error(`ingestion_source_not_found ${input.path}`);
+  }
+
+  const sourceKind = input.source_kind ?? inferSourceKind(input.path, input.agent);
+  const sourceLabel = input.source_label ?? `${sourceKind}:${projectFromPath(input.path) ?? basename(input.path)}`;
+  const stamp = fileTimestamp(input.path);
+  const format = extname(input.path).toLowerCase();
+
+  if (format === ".md") {
+    const content = raw.trim();
+    return {
+      source: {
+        kind: sourceKind,
+        label: sourceLabel,
+        provenance_root: dirname(input.path),
+      },
+      session: {
+        title: titleFromPrompt(content || basename(input.path)),
+        summary: content.slice(0, 240) || null,
+        project_hint: projectFromPath(input.path),
+        started_at: stamp,
+        ended_at: stamp,
+        provenance_path: input.path,
+        metadata: {},
+        entries: [
+          {
+            occurred_at: stamp,
+            role: "user",
+            kind: "note",
+            content,
+            metadata: { imported_from: input.path, format: "markdown" },
+          },
+        ],
+        raw_payload: {
+          path: input.path,
+          format: "markdown",
+        },
+        artifacts: [],
+      },
+    };
+  }
+
+  const rows = format === ".json"
+    ? parseJsonEntries(raw)
+    : parseJsonlEntries(raw);
+  const entries = rows
+    .map((row) => recordToChronicleEntry(row, stamp))
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+  const title = titleFromPrompt(
+    entries.find((entry) => entry.role === "user")?.content
+    ?? entries[0]?.content
+    ?? basename(input.path),
+  );
+  const startedAt = entries.find((entry) => entry.occurred_at)?.occurred_at ?? stamp;
+  const endedAt = [...entries].reverse().find((entry) => entry.occurred_at)?.occurred_at ?? stamp;
+
+  return {
+    source: {
+      kind: sourceKind,
+      label: sourceLabel,
+      provenance_root: dirname(input.path),
+    },
+    session: {
+      title,
+      summary: entries[0]?.content.slice(0, 240) ?? null,
+      project_hint: projectFromPath(input.path),
+      started_at: startedAt,
+      ended_at: endedAt,
+      provenance_path: input.path,
+      metadata: {},
+      entries,
+      artifacts: [],
+      raw_payload: {
+        path: input.path,
+        format: format === ".json" ? "json" : "jsonl",
+      },
+    },
   };
 }
 
@@ -256,6 +354,72 @@ function safeJson(raw: string): unknown {
   } catch {
     return null;
   }
+}
+
+function parseJsonlEntries(raw: string): Record<string, unknown>[] {
+  return raw
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => safeJson(line))
+    .filter(isRecord);
+}
+
+function parseJsonEntries(raw: string): Record<string, unknown>[] {
+  const parsed = safeJson(raw);
+  if (Array.isArray(parsed)) return parsed.filter(isRecord);
+  if (isRecord(parsed) && Array.isArray(parsed.messages)) {
+    return parsed.messages.filter(isRecord);
+  }
+  if (isRecord(parsed)) return [parsed];
+  return [];
+}
+
+function inferSourceKind(path: string, agent?: string): ChronicleSourceKind {
+  if (agent === "claude" || path.includes("/.claude/")) return "claude";
+  if (agent === "codex" || path.includes("/.codex/")) return "codex";
+  if (agent === "cursor" || path.includes("/.cursor/")) return "cursor";
+  if (path.includes("shell")) return "shell";
+  if (path.includes("cli")) return "cli";
+  return "import";
+}
+
+function extractTimestamp(row: Record<string, unknown>, fallback: string | null): string | null {
+  if (typeof row.timestamp === "string") return row.timestamp;
+  if (typeof row.created_at === "string") return row.created_at;
+  if (typeof row.ts === "number") return new Date(row.ts * 1000).toISOString();
+  const message = row.message;
+  if (isRecord(message) && typeof message.created_at === "string") {
+    return message.created_at;
+  }
+  return fallback;
+}
+
+function normaliseRole(value: string): "user" | "assistant" | "system" | "tool" | "unknown" {
+  if (value === "user" || value === "assistant" || value === "system" || value === "tool") {
+    return value;
+  }
+  return "unknown";
+}
+
+function recordToChronicleEntry(
+  row: Record<string, unknown>,
+  fallbackTimestamp: string | null,
+): {
+  occurred_at: string | null;
+  role: "user" | "assistant" | "system" | "tool" | "unknown";
+  kind: "message";
+  content: string;
+  metadata: Record<string, unknown>;
+} | null {
+  const content = extractText(row).trim();
+  if (!content) return null;
+  return {
+    occurred_at: extractTimestamp(row, fallbackTimestamp),
+    role: normaliseRole(extractRole(row)),
+    kind: "message",
+    content,
+    metadata: row,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

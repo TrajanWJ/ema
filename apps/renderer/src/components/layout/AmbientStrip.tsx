@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { minimizeWindow, maximizeWindow, closeWindow } from "@/lib/electron-bridge";
+
 import { OrgSwitcher } from "@/components/org/OrgSwitcher";
+import { closeWindow, maximizeWindow, minimizeWindow } from "@/lib/electron-bridge";
+
+interface AmbientStripProps {
+  readonly onOpenQuickCapture?: () => void;
+}
 
 function Clock() {
   const [time, setTime] = useState(() => formatTime());
@@ -32,7 +37,7 @@ function formatTime(): string {
   return `${time} · ${date}`;
 }
 
-export function AmbientStrip() {
+export function AmbientStrip({ onOpenQuickCapture }: AmbientStripProps) {
   async function handleMinimize() {
     await minimizeWindow();
   }
@@ -58,23 +63,36 @@ export function AmbientStrip() {
       </span>
       <Clock />
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenQuickCapture}
+          className="rounded-full px-2.5 py-1 text-[0.62rem] font-medium transition-opacity hover:opacity-90"
+          style={{
+            WebkitAppRegion: "no-drag",
+            background: "rgba(107,149,240,0.12)",
+            color: "#dbe7ff",
+            border: "1px solid rgba(107,149,240,0.24)",
+          } as React.CSSProperties}
+        >
+          Capture
+        </button>
         <OrgSwitcher />
         <div className="flex items-center gap-2">
-        <button
-          onClick={handleMinimize}
-          className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-          style={{ background: "#EAB308" }}
-        />
-        <button
-          onClick={handleMaximize}
-          className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-          style={{ background: "#22C55E" }}
-        />
-        <button
-          onClick={handleClose}
-          className="w-3 h-3 rounded-full transition-opacity hover:opacity-100 opacity-80"
-          style={{ background: "#E24B4A" }}
-        />
+          <button
+            onClick={handleMinimize}
+            className="h-3 w-3 rounded-full opacity-80 transition-opacity hover:opacity-100"
+            style={{ background: "#EAB308" }}
+          />
+          <button
+            onClick={handleMaximize}
+            className="h-3 w-3 rounded-full opacity-80 transition-opacity hover:opacity-100"
+            style={{ background: "#22C55E" }}
+          />
+          <button
+            onClick={handleClose}
+            className="h-3 w-3 rounded-full opacity-80 transition-opacity hover:opacity-100"
+            style={{ background: "#E24B4A" }}
+          />
         </div>
       </div>
     </div>

@@ -1,12 +1,22 @@
 import {
   coreProposalSchema,
   createCoreProposalFixture,
+  type CreateProposalInput,
   reviseCoreProposalInputSchema,
+  type CoreIntent,
   type CoreProposal,
+  type Intent,
+  type ListProposalFilter,
   type ReviseCoreProposalInput,
+  type StartProposalExecutionInput,
 } from "@ema/shared/schemas";
 import { getDb } from "../../persistence/db.js";
-import { intentService, CoreIntentNotFoundError } from "../intent/service.js";
+import {
+  createExecutionFromProposal,
+  type ExecutionRecord,
+} from "../executions/executions.service.js";
+import { getIntent as getRuntimeIntent } from "../intents/service.js";
+import { intentService as bootstrapIntentService } from "../intent/service.js";
 import { emitLoopEvent } from "../loop/events.js";
 import { runLoopMigrations } from "../loop/migrations.js";
 import { pipeBus } from "../pipes/bus.js";
@@ -27,6 +37,37 @@ export class ProposalStateError extends Error {
     super(message);
     this.name = "ProposalStateError";
   }
+}
+
+export class ProposalIntentNotFoundError extends Error {
+  public readonly code = "proposal_intent_not_found";
+
+  constructor(public readonly intentId: string) {
+    super(`Proposal intent not found: ${intentId}`);
+    this.name = "ProposalIntentNotFoundError";
+  }
+}
+
+export class ProposalIntentNotRunnableError extends Error {
+  public readonly code = "proposal_intent_not_runnable";
+
+  constructor(public readonly intentId: string) {
+    super(`Proposal intent is not available in the active runtime: ${intentId}`);
+    this.name = "ProposalIntentNotRunnableError";
+  }
+}
+
+interface ResolvedProposalIntent {
+  id: string;
+  title: string;
+  description: string;
+  scope: string[];
+  generatedByActorId: string;
+  spaceId: string | null;
+  source: "runtime" | "bootstrap";
+  metadata: Record<string, unknown>;
+  insertedAt: string;
+  updatedAt: string;
 }
 
 function encode(value: unknown): string {
@@ -55,13 +96,36 @@ function mapRow(row: Record<string, unknown> | undefined): CoreProposal | null {
     plan_steps: decode<string[]>(row.plan_steps_json, []),
     status: row.status,
     revision: Number(row.revision),
-    parent_proposal_id: typeof row.parent_proposal_id === "string" ? row.parent_proposal_id : null,
+    parent_proposal_id:
+      typeof row.parent_proposal_id === "string" ? row.parent_proposal_id : null,
     generated_by_actor_id: String(row.generated_by_actor_id),
-    approved_by_actor_id: typeof row.approved_by_actor_id === "string" ? row.approved_by_actor_id : null,
-    rejected_by_actor_id: typeof row.rejected_by_actor_id === "string" ? row.rejected_by_actor_id : null,
-    rejection_reason: typeof row.rejection_reason === "string" ? row.rejection_reason : null,
+    approved_by_actor_id:
+      typeof row.approved_by_actor_id === "string" ? row.approved_by_actor_id : null,
+    rejected_by_actor_id:
+      typeof row.rejected_by_actor_id === "string" ? row.rejected_by_actor_id : null,
+    rejection_reason:
+      typeof row.rejection_reason === "string" ? row.rejection_reason : null,
     metadata: decode<Record<string, unknown>>(row.metadata_json, {}),
   });
+}
+
+function buildSearchText(intent: Pick<ResolvedProposalIntent, "title" | "description" | "scope">): string {
+  return [intent.title, intent.description, ...intent.scope].join(" ").toLowerCase();
+}
+
+function mapRuntimeIntentStatusToLoop(status: Intent["status"]): CoreIntent["status"] {
+  switch (status) {
+    case "draft":
+      return "draft";
+    case "completed":
+      return "completed";
+    case "abandoned":
+      return "archived";
+    case "paused":
+    case "active":
+    default:
+      return "active";
+  }
 }
 
 function defaultPlanSteps(scope: string[]): string[] {
@@ -80,22 +144,113 @@ function defaultPlanSteps(scope: string[]): string[] {
   ];
 }
 
+function resolveRuntimeIntent(intent: Intent): ResolvedProposalIntent {
+  return {
+    id: intent.id,
+    title: intent.title,
+    description: intent.description ?? "",
+    scope: intent.scope ?? [],
+    generatedByActorId: intent.actor_id ?? "actor_system",
+    spaceId: intent.space_id ?? null,
+    source: "runtime",
+    metadata: {
+      intent_level: intent.level,
+      intent_kind: intent.kind ?? null,
+      intent_status: intent.status,
+    },
+    insertedAt: intent.inserted_at,
+    updatedAt: intent.updated_at,
+  };
+}
+
+function resolveBootstrapIntent(intent: CoreIntent): ResolvedProposalIntent {
+  return {
+    id: intent.id,
+    title: intent.title,
+    description: intent.description,
+    scope: intent.scope,
+    generatedByActorId: intent.requested_by_actor_id,
+    spaceId: null,
+    source: "bootstrap",
+    metadata: {
+      intent_priority: intent.priority,
+      intent_source: intent.source,
+      constraints: intent.constraints,
+    },
+    insertedAt: intent.inserted_at,
+    updatedAt: intent.updated_at,
+  };
+}
+
+function ensureLoopIntentMirror(intent: ResolvedProposalIntent): void {
+  if (intent.source !== "runtime") return;
+
+  const db = getDb();
+  const existing = db.prepare("SELECT id FROM loop_intents WHERE id = ?").get(intent.id) as
+    | { id: string }
+    | undefined;
+  if (existing) return;
+
+  db.prepare(
+    `INSERT INTO loop_intents (
+       id, title, description, source, status, priority,
+       requested_by_actor_id, scope_json, constraints_json, search_text,
+       metadata_json, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    intent.id,
+    intent.title,
+    intent.description,
+    "system",
+    mapRuntimeIntentStatusToLoop(intent.metadata.intent_status as Intent["status"] ?? "active"),
+    "medium",
+    intent.generatedByActorId,
+    encode(intent.scope),
+    encode([]),
+    buildSearchText(intent),
+    encode({ ...intent.metadata, mirrored_from_runtime_intents: true }),
+    intent.insertedAt,
+    intent.updatedAt,
+  );
+}
+
+function resolveIntent(intentId: string): ResolvedProposalIntent {
+  const runtimeIntent = getRuntimeIntent(intentId);
+  if (runtimeIntent) {
+    return resolveRuntimeIntent(runtimeIntent);
+  }
+
+  const bootstrapIntent = bootstrapIntentService.get(intentId);
+  if (bootstrapIntent) {
+    return resolveBootstrapIntent(bootstrapIntent);
+  }
+
+  throw new ProposalIntentNotFoundError(intentId);
+}
+
 export class ProposalService {
-  generate(intentId: string): CoreProposal {
+  generate(
+    intentId: string,
+    options: Omit<CreateProposalInput, "intent_id"> = {},
+  ): CoreProposal {
     runLoopMigrations();
-    const intent = intentService.get(intentId);
-    if (!intent) throw new CoreIntentNotFoundError(intentId);
+    const intent = resolveIntent(intentId);
+    ensureLoopIntentMirror(intent);
 
     const proposal = createCoreProposalFixture({
       intent_id: intent.id,
-      title: `Proposal: ${intent.title}`,
-      summary: `Actionable plan for intent ${intent.id}`,
-      rationale: `Derived from intent scope and constraints for ${intent.title}.`,
-      plan_steps: defaultPlanSteps(intent.scope),
-      generated_by_actor_id: intent.requested_by_actor_id,
+      title: options.title ?? `Proposal: ${intent.title}`,
+      summary: options.summary ?? `Actionable plan for intent ${intent.id}`,
+      rationale:
+        options.rationale ??
+        `Derived from intent scope and constraints for ${intent.title}.`,
+      plan_steps: options.plan_steps ?? defaultPlanSteps(intent.scope),
+      generated_by_actor_id:
+        options.generated_by_actor_id ?? intent.generatedByActorId,
       metadata: {
-        intent_priority: intent.priority,
-        constraints: intent.constraints,
+        ...intent.metadata,
+        ...(options.metadata ?? {}),
+        proposal_source: intent.source,
       },
     });
 
@@ -129,7 +284,11 @@ export class ProposalService {
       type: "proposal.generated",
       entity_id: proposal.id,
       entity_type: "proposal",
-      payload: { intent_id: proposal.intent_id, revision: proposal.revision },
+      payload: {
+        intent_id: proposal.intent_id,
+        revision: proposal.revision,
+        source: intent.source,
+      },
     });
     pipeBus.trigger("proposals:generated", {
       proposal_id: proposal.id,
@@ -147,6 +306,29 @@ export class ProposalService {
       | Record<string, unknown>
       | undefined;
     return mapRow(row);
+  }
+
+  list(filter: ListProposalFilter = {}): CoreProposal[] {
+    runLoopMigrations();
+    const db = getDb();
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (filter.status) {
+      clauses.push("status = ?");
+      params.push(filter.status);
+    }
+    if (filter.intent_id) {
+      clauses.push("intent_id = ?");
+      params.push(filter.intent_id);
+    }
+
+    const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rows = db.prepare(
+      `SELECT * FROM loop_proposals ${whereSql} ORDER BY created_at DESC, updated_at DESC`,
+    ).all(...params) as Array<Record<string, unknown>>;
+
+    return rows.map((row) => mapRow(row)).filter((row): row is CoreProposal => row !== null);
   }
 
   approve(id: string, actorId: string): CoreProposal {
@@ -282,6 +464,44 @@ export class ProposalService {
     });
 
     return revised;
+  }
+
+  startExecution(id: string, input: StartProposalExecutionInput = {}): ExecutionRecord {
+    runLoopMigrations();
+    const proposal = this.get(id);
+    if (!proposal) throw new ProposalNotFoundError(id);
+    if (proposal.status !== "approved") {
+      throw new ProposalStateError(`Proposal ${id} must be approved before execution starts`);
+    }
+
+    const runtimeIntent = getRuntimeIntent(proposal.intent_id);
+    if (!runtimeIntent) {
+      throw new ProposalIntentNotRunnableError(proposal.intent_id);
+    }
+
+    const execution = createExecutionFromProposal({
+      proposal_id: proposal.id,
+      intent_slug: runtimeIntent.id,
+      title: input.title ?? proposal.title,
+      objective: input.objective ?? proposal.summary,
+      mode: input.mode ?? "implement",
+      requires_approval: input.requires_approval ?? false,
+      project_slug: input.project_slug ?? null,
+      space_id: input.space_id ?? (runtimeIntent.space_id ?? null),
+    });
+
+    emitLoopEvent({
+      type: "execution.started",
+      entity_id: execution.id,
+      entity_type: "execution",
+      payload: {
+        proposal_id: proposal.id,
+        intent_id: proposal.intent_id,
+        source: "proposal_service",
+      },
+    });
+
+    return execution;
   }
 }
 

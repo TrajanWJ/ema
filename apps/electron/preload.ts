@@ -27,5 +27,17 @@ contextBridge.exposeInMainWorld("ema", {
     };
   },
 
+  appearance: {
+    platform: process.platform,
+    transparencyMode:
+      process.platform === "darwin"
+        ? "native-vibrancy"
+        : process.platform === "win32"
+          ? "native-material"
+          : "simulated-glass",
+    nativeWindowEffects: process.platform === "darwin" || process.platform === "win32",
+    customChrome: true,
+  },
+
   platform: process.platform,
 });

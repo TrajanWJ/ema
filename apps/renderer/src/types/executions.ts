@@ -27,6 +27,7 @@ export interface Execution {
   readonly project_slug: string | null;
   readonly intent_slug: string | null;
   readonly intent_path: string | null;
+  readonly result_summary: string | null;
   readonly result_path: string | null;
   readonly requires_approval: boolean;
   readonly brain_dump_item_id: string | null;

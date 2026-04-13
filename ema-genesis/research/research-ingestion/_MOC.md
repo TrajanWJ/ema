@@ -2,25 +2,30 @@
 id: MOC-research-ingestion
 type: moc
 layer: research
-title: "Research Ingestion — Map of Content (placeholder)"
-status: draft
+title: "Research Ingestion — Map of Content"
+status: active
 created: 2026-04-12
 updated: 2026-04-12
 author: system
-tags: [moc, research, research-ingestion, placeholder]
+tags: [moc, research, research-ingestion, queue]
 connections:
   - { target: "[[research/_moc/RESEARCH-MOC]]", relation: references }
 ---
 
 # Research Ingestion — Map of Content
 
-> **Placeholder.** Round 1 + 2 + 3 did not include a dedicated agent for research ingestion (RSS aggregators, AI-curated feeds, content harvesting). EMA's Feeds vApp + research layer ingestion pipeline needs its own research round.
+> Research ingestion is now queue-backed. The category is still early, but it
+> is no longer empty: follow-up work lands first in
+> `[[research/research-ingestion/QUEUE]]`, then gets promoted into durable
+> research nodes and extraction docs.
 
 ## Status
 
-**Empty.** No nodes yet.
+Active intake surface:
 
-## Suggested Round 4 queries (if pursued)
+- `[[research/research-ingestion/QUEUE]]` — repo, query, topic, and domain backlog
+
+## Suggested Round 4 queries
 
 - RSS / Atom aggregators with AI curation: Miniflux, FreshRSS, Tiny Tiny RSS, Newsblur
 - Read-it-later with extraction: Wallabag, Omnivore, Readwise Reader (closed)
@@ -30,6 +35,9 @@ connections:
 - Anthropic Computer Use harvesting patterns
 - Web scraping with semantic dedup
 - Personal RAG over downloaded documents (PrivateGPT, Khoj — already cross-listed in context-memory)
+
+These should be added to the queue with explicit `kind`, `domain`, `topic`,
+and `depth` metadata rather than living as a static wish list.
 
 ## What this MOC will eventually cover
 
@@ -42,7 +50,8 @@ Per `[[canon/specs/EMA-GENESIS-PROMPT]]` §6 Research Ingestion:
 ## Connections
 
 - [[research/_moc/RESEARCH-MOC]]
+- [[research/research-ingestion/QUEUE]]
 - [[canon/specs/EMA-GENESIS-PROMPT]] §6
 - [[research/context-memory/_MOC]] — adjacent (Khoj, second-brain repos)
 
-#moc #research #research-ingestion #placeholder
+#moc #research #research-ingestion #queue

@@ -4,8 +4,8 @@
 #
 # Starts in this order:
 #   1. blueprint/server.js  (the live state API + SSE stream, :7777)
-#   2. apps/renderer Vite dev server  (React app at :1420)
-#   3. apps/electron main  (Electron shell — launchpad + vApp windows)
+#   2. apps/renderer build  (static renderer bundle for desktop startup)
+#   3. apps/electron main   (Electron shell — launchpad + vApp windows)
 #
 # Each step is skipped if the process is already running.
 
@@ -17,15 +17,23 @@ RENDERER_DIR="$REPO_ROOT/apps/renderer"
 ELECTRON_DIR="$REPO_ROOT/apps/electron"
 
 BLUEPRINT_PORT="${EMA_BLUEPRINT_PORT:-7777}"
-VITE_PORT="1420"
-
 BLUEPRINT_LOG="/tmp/ema-blueprint.log"
-VITE_LOG="/tmp/ema-vite.log"
+RENDERER_LOG="/tmp/ema-renderer.log"
 ELECTRON_LOG="/tmp/ema-electron.log"
+LAUNCHER_LOG="/tmp/ema-launcher.log"
+ELECTRON_BIN="$ELECTRON_DIR/node_modules/.bin/electron"
+RENDERER_INDEX="$RENDERER_DIR/dist/index.html"
+
+if [ "${EMA_LAUNCH_LOG_REDIRECTED:-0}" != "1" ]; then
+  export EMA_LAUNCH_LOG_REDIRECTED=1
+  exec >>"$LAUNCHER_LOG" 2>&1
+fi
 
 # Make sure node / npx are on PATH — desktop launchers sometimes strip it
 NVM_NODE_BIN="$(ls -1d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | tail -1 || true)"
 export PATH="/usr/local/bin:/usr/bin:/bin:$NVM_NODE_BIN:$PATH"
+NODE_BIN="$NVM_NODE_BIN/node"
+NPM_BIN="$NVM_NODE_BIN/npm"
 
 say() {
   echo "[ema] $*"
@@ -37,7 +45,7 @@ if curl -sSf "http://127.0.0.1:${BLUEPRINT_PORT}/health" >/dev/null 2>&1; then
   say "blueprint server already running on :${BLUEPRINT_PORT}"
 else
   say "starting blueprint server on :${BLUEPRINT_PORT}"
-  nohup node "$BLUEPRINT_SCRIPT" >"$BLUEPRINT_LOG" 2>&1 &
+  nohup "$NODE_BIN" "$BLUEPRINT_SCRIPT" >"$BLUEPRINT_LOG" 2>&1 &
   disown || true
   for _ in 1 2 3 4 5; do
     if curl -sSf "http://127.0.0.1:${BLUEPRINT_PORT}/health" >/dev/null 2>&1; then
@@ -53,27 +61,35 @@ else
   say "blueprint server ready"
 fi
 
-# ── 2. Vite renderer dev server (for React UI) ───────────────────────
+# ── 2. Static renderer bundle (for reliable desktop startup) ─────────
 
-if curl -sSf "http://127.0.0.1:${VITE_PORT}/" >/dev/null 2>&1; then
-  say "vite dev server already running on :${VITE_PORT}"
-else
-  say "starting vite renderer on :${VITE_PORT}"
-  (cd "$RENDERER_DIR" && nohup npm run dev >"$VITE_LOG" 2>&1 &)
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-    if curl -sSf "http://127.0.0.1:${VITE_PORT}/" >/dev/null 2>&1; then
-      break
-    fi
-    sleep 0.8
-  done
-  if ! curl -sSf "http://127.0.0.1:${VITE_PORT}/" >/dev/null 2>&1; then
-    say "vite didn't start — see $VITE_LOG"
-    command -v notify-send >/dev/null && notify-send "EMA" "Vite dev server failed — see $VITE_LOG"
-    # Continue anyway — Electron will error out with a visible message
-  else
-    say "vite ready"
-  fi
+say "building renderer bundle"
+if [ ! -x "$NPM_BIN" ]; then
+  say "npm binary missing at $NPM_BIN"
+  command -v notify-send >/dev/null && notify-send "EMA" "NPM binary missing — check Node install"
+  exit 1
 fi
+
+say "renderer build command: $NPM_BIN run build"
+(
+  cd "$RENDERER_DIR" &&
+    "$NPM_BIN" run build >"$RENDERER_LOG" 2>&1
+)
+build_status=$?
+if [ "$build_status" -ne 0 ]; then
+  say "renderer build exited with status $build_status"
+  say "renderer build failed — see $RENDERER_LOG"
+  command -v notify-send >/dev/null && notify-send "EMA" "Renderer build failed — see $RENDERER_LOG"
+  exit 1
+fi
+
+if [ ! -f "$RENDERER_INDEX" ]; then
+  say "renderer bundle missing at $RENDERER_INDEX"
+  command -v notify-send >/dev/null && notify-send "EMA" "Renderer bundle missing after build"
+  exit 1
+fi
+
+say "renderer bundle ready"
 
 # ── 3. Electron main (launchpad window + vApp windows) ───────────────
 
@@ -86,6 +102,7 @@ else
   cd "$ELECTRON_DIR" || exit 1
   # Skip the managed services/workers runtime — we don't have those yet
   export EMA_MANAGED_RUNTIME=external
+  export EMA_RENDERER_MODE=file
   # Build main process TypeScript if dist/main.js is stale or missing
   if [ ! -f "$ELECTRON_DIR/dist/main.js" ] || [ "$ELECTRON_DIR/main.ts" -nt "$ELECTRON_DIR/dist/main.js" ]; then
     say "building electron main"
@@ -94,7 +111,15 @@ else
       exit 1
     }
   fi
-  nohup "$ELECTRON_DIR/node_modules/.bin/electron" "$ELECTRON_DIR/dist/main.js" >>"$ELECTRON_LOG" 2>&1 &
+  # --no-sandbox: skip chrome-sandbox setuid root requirement for dev installs
+  # (pnpm/npm don't chown root the sandbox binary on unpriv installs)
+  if [ ! -x "$ELECTRON_BIN" ]; then
+    say "electron binary missing at $ELECTRON_BIN"
+    command -v notify-send >/dev/null && notify-send "EMA" "Electron binary missing — reinstall desktop deps"
+    exit 1
+  fi
+  nohup "$ELECTRON_BIN" --no-sandbox --disable-gpu-sandbox "$ELECTRON_DIR/dist/main.js" \
+    >>"$ELECTRON_LOG" 2>&1 </dev/null &
   disown || true
   say "electron spawned (see $ELECTRON_LOG)"
 fi

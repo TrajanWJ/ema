@@ -1,3 +1,10 @@
+/**
+ * Legacy renderer-era proposal schema.
+ *
+ * Keep this only for compatibility surfaces that still expect queue-oriented
+ * proposal view models. The active durable backend contract lives in
+ * `shared/schemas/proposal.ts` and is served by `/api/proposals`.
+ */
 import { z } from "zod";
 import {
   baseEntitySchema,

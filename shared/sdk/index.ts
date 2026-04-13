@@ -18,9 +18,31 @@
  */
 
 import type {
+  ChronicleSessionDetail,
+  ChronicleSessionSummary,
+  CreateChronicleImportInput,
+  CreatePromotionReceiptInput,
+  CreateProposalInput,
+  CreateReviewItemInput,
   Execution,
+  FeedAction,
+  FeedActionType,
+  FeedConversation,
+  FeedItem,
+  FeedView,
+  FeedWorkspace,
   Intent,
+  ListReviewItemsFilter,
+  PromotionReceipt,
+  ProposalRecord,
+  RejectProposalInput,
+  ReviewDecisionInput,
+  ReviewItem,
+  ReviewItemDetail,
+  ReviewItemSummary,
+  ReviseCoreProposalInput,
   Space,
+  StartProposalExecutionInput,
   UserStateSnapshot,
 } from "../schemas/index.js";
 
@@ -32,6 +54,8 @@ export interface EmaClientOptions {
 }
 
 export interface EmaClient {
+  chronicle: ChronicleApi;
+  review: ReviewApi;
   intents: IntentsApi;
   proposals: ProposalsApi;
   executions: ExecutionsApi;
@@ -40,6 +64,7 @@ export interface EmaClient {
   canon: CanonApi;
   agents: AgentsApi;
   spaces: SpacesApi;
+  feeds: FeedsApi;
   userState: UserStateApi;
   /** Cross-vApp pub/sub over the daemon's Phoenix-protocol WS bus. */
   events: EventsApi;
@@ -55,16 +80,48 @@ interface IntentsApi {
   update(id: string, patch: Partial<Intent>): Promise<Intent>;
 }
 
+interface ChronicleApi {
+  listSessions(filter?: {
+    source_kind?: string;
+    source_id?: string;
+    limit?: number;
+  }): Promise<ChronicleSessionSummary[]>;
+  getSession(id: string): Promise<ChronicleSessionDetail>;
+  importBundle(input: CreateChronicleImportInput): Promise<ChronicleSessionDetail>;
+  importFile(input: {
+    path: string;
+    agent?: string;
+    source_kind?: string;
+    source_label?: string;
+  }): Promise<ChronicleSessionDetail>;
+}
+
+interface ReviewApi {
+  listItems(filter?: ListReviewItemsFilter): Promise<ReviewItemSummary[]>;
+  getItem(id: string): Promise<ReviewItemDetail>;
+  createItem(input: CreateReviewItemInput): Promise<ReviewItemDetail>;
+  approve(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
+  reject(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
+  defer(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
+  recordReceipt(id: string, input: CreatePromotionReceiptInput): Promise<ReviewItemDetail>;
+}
+
 interface ProposalsApi {
+  list(filter?: { status?: ProposalRecord["status"]; intent_id?: string }): Promise<ProposalRecord[]>;
+  get(id: string): Promise<ProposalRecord>;
+  create(input: CreateProposalInput): Promise<ProposalRecord>;
+  approve(id: string, input?: { actor_id?: string }): Promise<ProposalRecord>;
+  reject(id: string, input: RejectProposalInput): Promise<ProposalRecord>;
+  revise(id: string, input: ReviseCoreProposalInput): Promise<ProposalRecord>;
+  startExecution(id: string, input?: StartProposalExecutionInput): Promise<Execution>;
   listSeeds(): Promise<unknown[]>;
   listHarvested(): Promise<unknown[]>;
-  create(input: unknown): Promise<unknown>;
-  approve(id: string): Promise<unknown>;
 }
 
 interface ExecutionsApi {
   list(): Promise<Execution[]>;
   get(id: string): Promise<Execution>;
+  /** Compatibility shortcut. Prefer `proposals.startExecution()` for the active loop. */
   create(input: {
     title: string;
     objective?: string | null;
@@ -113,6 +170,30 @@ interface SpacesApi {
     actor: string;
     activate?: boolean;
   }): Promise<Space>;
+}
+
+interface FeedsApi {
+  workspace(input?: {
+    surface?: FeedWorkspace["surface"];
+    scope_id?: string;
+    view_id?: string;
+    query?: string;
+    include_hidden?: boolean;
+  }): Promise<FeedWorkspace>;
+  updateViewPrompt(viewId: string, prompt: string): Promise<FeedView>;
+  actOnItem(
+    itemId: string,
+    input: {
+      action: FeedActionType;
+      actor: string;
+      note?: string | null;
+      target_scope_id?: string | null;
+    },
+  ): Promise<{
+    item: FeedItem;
+    action: FeedAction;
+    conversation?: FeedConversation;
+  }>;
 }
 
 interface UserStateApi {
@@ -174,8 +255,6 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
     throw new Error(`ema_sdk_deferred ${reason}`);
   }
 
-  // Lazy-imported so the shared package stays framework-free. Only vApps
-  // running inside a browser use the events API; workers stay on raw fetch.
   const eventBus: EventsApi = {
     on(_topic, _handler) {
       return () => {};
@@ -187,6 +266,94 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
 
   return {
     request,
+    chronicle: {
+      listSessions: async (filter = {}) => {
+        const query = new URLSearchParams();
+        if (filter.source_kind) query.set("source_kind", filter.source_kind);
+        if (filter.source_id) query.set("source_id", filter.source_id);
+        if (typeof filter.limit === "number") {
+          query.set("limit", String(filter.limit));
+        }
+        const suffix = query.size > 0 ? `?${query.toString()}` : "";
+        return unwrap<ChronicleSessionSummary[]>(
+          await request<Record<string, unknown>>(`/api/chronicle/sessions${suffix}`),
+          "sessions",
+        );
+      },
+      getSession: async (id) => unwrap<ChronicleSessionDetail>(
+        await request<Record<string, unknown>>(
+          `/api/chronicle/sessions/${encodeURIComponent(id)}`,
+        ),
+        "detail",
+      ),
+      importBundle: async (input) => unwrap<ChronicleSessionDetail>(
+        await post<Record<string, unknown>>("/api/chronicle/import", input),
+        "detail",
+      ),
+      importFile: async (input) => unwrap<ChronicleSessionDetail>(
+        await post<Record<string, unknown>>("/api/chronicle/import-file", input),
+        "detail",
+      ),
+    },
+    review: {
+      listItems: async (filter = {}) => {
+        const query = new URLSearchParams();
+        if (filter.status) query.set("status", filter.status);
+        if (filter.chronicle_session_id) {
+          query.set("chronicle_session_id", filter.chronicle_session_id);
+        }
+        if (filter.chronicle_entry_id) {
+          query.set("chronicle_entry_id", filter.chronicle_entry_id);
+        }
+        if (filter.decision) query.set("decision", filter.decision);
+        if (typeof filter.limit === "number") {
+          query.set("limit", String(filter.limit));
+        }
+        const suffix = query.size > 0 ? `?${query.toString()}` : "";
+        return unwrap<ReviewItemSummary[]>(
+          await request<Record<string, unknown>>(`/api/review/items${suffix}`),
+          "items",
+        );
+      },
+      getItem: async (id) => unwrap<ReviewItemDetail>(
+        await request<Record<string, unknown>>(
+          `/api/review/items/${encodeURIComponent(id)}`,
+        ),
+        "detail",
+      ),
+      createItem: async (input) => unwrap<ReviewItemDetail>(
+        await post<Record<string, unknown>>("/api/review/items", input),
+        "detail",
+      ),
+      approve: async (id, input) => unwrap<ReviewItem>(
+        await post<Record<string, unknown>>(
+          `/api/review/items/${encodeURIComponent(id)}/approve`,
+          input,
+        ),
+        "item",
+      ),
+      reject: async (id, input) => unwrap<ReviewItem>(
+        await post<Record<string, unknown>>(
+          `/api/review/items/${encodeURIComponent(id)}/reject`,
+          input,
+        ),
+        "item",
+      ),
+      defer: async (id, input) => unwrap<ReviewItem>(
+        await post<Record<string, unknown>>(
+          `/api/review/items/${encodeURIComponent(id)}/defer`,
+          input,
+        ),
+        "item",
+      ),
+      recordReceipt: async (id, input) => unwrap<ReviewItemDetail>(
+        await post<Record<string, unknown>>(
+          `/api/review/items/${encodeURIComponent(id)}/receipts`,
+          input,
+        ),
+        "detail",
+      ),
+    },
     intents: {
       list: async () => unwrap<Intent[]>(
         await request<Record<string, unknown>>("/api/intents"),
@@ -208,6 +375,54 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         ),
     },
     proposals: {
+      list: async (filter = {}) => {
+        const query = new URLSearchParams();
+        if (filter.status) query.set("status", filter.status);
+        if (filter.intent_id) query.set("intent_id", filter.intent_id);
+        const suffix = query.size > 0 ? `?${query.toString()}` : "";
+        return unwrap<ProposalRecord[]>(
+          await request<Record<string, unknown>>(`/api/proposals${suffix}`),
+          "proposals",
+        );
+      },
+      get: async (id) => unwrap<ProposalRecord>(
+        await request<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}`,
+        ),
+        "proposal",
+      ),
+      create: async (input) => unwrap<ProposalRecord>(
+        await post<Record<string, unknown>>("/api/proposals", input),
+        "proposal",
+      ),
+      approve: async (id, input = {}) => unwrap<ProposalRecord>(
+        await post<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}/approve`,
+          input,
+        ),
+        "proposal",
+      ),
+      reject: async (id, input) => unwrap<ProposalRecord>(
+        await post<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}/reject`,
+          input,
+        ),
+        "proposal",
+      ),
+      revise: async (id, input) => unwrap<ProposalRecord>(
+        await post<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}/revise`,
+          input,
+        ),
+        "proposal",
+      ),
+      startExecution: async (id, input = {}) => unwrap<Execution>(
+        await post<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}/executions`,
+          input,
+        ),
+        "execution",
+      ),
       listSeeds: async () => unwrap<unknown[]>(
         await request<Record<string, unknown>>("/api/proposals/seeds"),
         "seeds",
@@ -215,17 +430,6 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
       listHarvested: async () => unwrap<unknown[]>(
         await request<Record<string, unknown>>("/api/proposals/harvested"),
         "intents",
-      ),
-      create: async (input) => unwrap<unknown>(
-        await post<Record<string, unknown>>("/api/proposals", input),
-        "proposal",
-      ),
-      approve: async (id) => unwrap<unknown>(
-        await post<Record<string, unknown>>(
-          `/api/proposals/${encodeURIComponent(id)}/approve`,
-          {},
-        ),
-        "proposal",
       ),
     },
     executions: {
@@ -288,6 +492,42 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         await post<Record<string, unknown>>("/api/spaces", input),
         "space",
       ),
+    },
+    feeds: {
+      workspace: async (input = {}) => {
+        const params = new URLSearchParams();
+        if (input.surface) params.set("surface", input.surface);
+        if (input.scope_id) params.set("scope_id", input.scope_id);
+        if (input.view_id) params.set("view_id", input.view_id);
+        if (input.query) params.set("query", input.query);
+        if (input.include_hidden !== undefined) {
+          params.set("include_hidden", String(input.include_hidden));
+        }
+        const suffix = params.size > 0 ? `?${params.toString()}` : "";
+        return unwrap<FeedWorkspace>(
+          await request<Record<string, unknown>>(`/api/feeds${suffix}`),
+          "workspace",
+        );
+      },
+      updateViewPrompt: async (viewId, prompt) => unwrap<FeedView>(
+        await request<Record<string, unknown>>(
+          `/api/feeds/views/${encodeURIComponent(viewId)}/prompt`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ prompt }),
+          },
+        ),
+        "view",
+      ),
+      actOnItem: async (itemId, input) =>
+        await request<{
+          item: FeedItem;
+          action: FeedAction;
+          conversation?: FeedConversation;
+        }>(`/api/feeds/items/${encodeURIComponent(itemId)}/actions`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
     },
     userState: {
       latest: async (_actorId) => unwrap<UserStateSnapshot>(

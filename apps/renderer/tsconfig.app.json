@@ -21,8 +21,19 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@ema/glass": ["../../shared/glass/src/index.ts"],
+      "@ema/tokens": ["../../shared/tokens/src/index.ts"],
+      "@ema/tokens/css": ["../../shared/tokens/dist/tokens.css"],
+      "@ema/glass/styles/reset.css": ["../../shared/glass/src/styles/reset.css"],
+      "@ema/glass/styles/keyframes.css": ["../../shared/glass/src/styles/keyframes.css"]
     }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "../../shared/glass/src/**/*.ts",
+    "../../shared/glass/src/**/*.tsx",
+    "../../shared/glass/src/css-modules.d.ts",
+    "../../shared/tokens/src/**/*.ts"
+  ]
 }

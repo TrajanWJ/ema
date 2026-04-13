@@ -1,29 +1,45 @@
-import { useEffect, useState } from "react";
-import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { ProposalQueue } from "./ProposalQueue";
-import { ProposalLineage } from "./ProposalLineage";
-import { SeedList } from "./SeedList";
-import { EngineStatus } from "./EngineStatus";
-import { ScoreDashboard } from "./ScoreDashboard";
-import { ProposalCard } from "./ProposalCard";
-import { useProposalsStore } from "@/stores/proposals-store";
-import { useEvolutionStore } from "@/stores/evolution-store";
+import { useEffect, useMemo, useState } from "react";
+
+import {
+  ActivityTimeline,
+  AppWindowChrome,
+  GlassButton,
+  GlassSurface,
+  HeroBanner,
+  InspectorSection,
+  InspectorWorkspaceShell,
+  MetricCard,
+  StatStrip,
+  TagPill,
+  TopNavBar,
+} from "@ema/glass";
+
 import { useExecutionStore } from "@/stores/execution-store";
-import { api } from "@/lib/api";
+import { useEvolutionStore } from "@/stores/evolution-store";
+import { useProposalsStore } from "@/stores/proposals-store";
 import { APP_CONFIGS } from "@/types/workspace";
+import { EngineStatus } from "./EngineStatus";
+import { ProposalCard } from "./ProposalCard";
+import { ProposalLineage } from "./ProposalLineage";
+import { ProposalQueue } from "./ProposalQueue";
+import { ScoreDashboard } from "./ScoreDashboard";
+import { SeedList } from "./SeedList";
 
 const config = APP_CONFIGS.proposals;
 
 type Tab = "queue" | "lineage" | "evolution" | "seeds" | "scores" | "engine";
 
-const TAB_OPTIONS = [
-  { value: "queue" as const, label: "Queue" },
-  { value: "lineage" as const, label: "Lineage" },
-  { value: "evolution" as const, label: "Evolution" },
-  { value: "seeds" as const, label: "Seeds" },
-  { value: "scores" as const, label: "Scores" },
-  { value: "engine" as const, label: "Engine" },
+const TAB_OPTIONS: readonly {
+  readonly id: Tab;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  { id: "queue", label: "Queue", hint: "Live review queue" },
+  { id: "lineage", label: "Lineage", hint: "Proposal ancestry" },
+  { id: "evolution", label: "Evolution", hint: "Rule-linked work" },
+  { id: "seeds", label: "Seeds", hint: "Recurring generators" },
+  { id: "scores", label: "Scores", hint: "Rank quality" },
+  { id: "engine", label: "Engine", hint: "Pipeline posture" },
 ] as const;
 
 export function ProposalsApp() {
@@ -31,10 +47,16 @@ export function ProposalsApp() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("queue");
   const [generating, setGenerating] = useState(false);
+
+  const proposals = useProposalsStore((s) => s.proposals);
   const seeds = useProposalsStore((s) => s.seeds);
+  const connected = useProposalsStore((s) => s.connected);
+  const executions = useExecutionStore((s) => s.executions);
+  const rules = useEvolutionStore((s) => s.rules);
 
   useEffect(() => {
     let cancelled = false;
+
     async function init() {
       try {
         await Promise.all([
@@ -44,24 +66,81 @@ export function ProposalsApp() {
           useEvolutionStore.getState().loadRules().catch(() => {}),
         ]);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load proposals");
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load proposals");
+        }
       }
-      if (!cancelled) setReady(true);
+
+      if (!cancelled) {
+        setReady(true);
+      }
+
       useProposalsStore.getState().connect().catch(() => {
         console.warn("Proposals WebSocket failed, using REST");
       });
     }
+
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  const queuedCount = proposals.filter((proposal) => proposal.status === "queued").length;
+  const reviewingCount = proposals.filter((proposal) => proposal.status === "reviewing").length;
+  const approvedCount = proposals.filter((proposal) => proposal.status === "approved").length;
+  const activeSeeds = seeds.filter((seed) => seed.active).length;
+  const lineageCount = proposals.filter(
+    (proposal) => proposal.parent_proposal_id !== null || proposal.children_count > 0,
+  ).length;
+  const activeRuleCount = rules.filter((rule) => rule.status === "active").length;
+
+  const recentTimeline = useMemo(
+    () =>
+      [...proposals]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 6)
+        .map((proposal) => ({
+          id: proposal.id,
+          title: proposal.title,
+          meta: `${proposal.status.replace(/_/g, " ")} · rev ${proposal.revision}`,
+          body: proposal.summary || "Proposal created without summary text.",
+          tone:
+            proposal.status === "approved"
+              ? "var(--color-pn-success)"
+              : proposal.status === "killed" || proposal.status === "failed"
+                ? "var(--color-pn-error)"
+                : proposal.status === "reviewing"
+                  ? "var(--color-pn-warning)"
+                  : "var(--color-pn-purple-400)",
+        })),
+    [proposals],
+  );
+
+  const seedTags = seeds.slice(0, 6).map((seed) => ({
+    id: seed.id,
+    label: seed.name,
+    tone: seed.active ? "rgba(45,212,168,0.14)" : "rgba(255,255,255,0.05)",
+    color: seed.active ? "var(--color-pn-teal-300)" : "var(--pn-text-secondary)",
+  }));
+
+  const featuredProposal = proposals
+    .slice()
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+
   async function handleGenerate() {
-    const activeSeed = seeds.find((s) => s.active);
-    if (!activeSeed) { setError("No active seed to generate from"); return; }
+    const activeSeed = seeds.find((seed) => seed.active);
     setGenerating(true);
     setError(null);
+
     try {
-      await api.post("/proposals/generate", { seed_id: activeSeed.id });
+      if (!activeSeed) {
+        throw new Error("Proposal creation now starts from a concrete intent. Seed-driven generation is deferred.");
+      }
+
+      throw new Error(
+        `Seed ${activeSeed.name} is only a supporting input. Create a durable proposal from a runtime intent instead.`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -73,52 +152,184 @@ export function ProposalsApp() {
     return (
       <AppWindowChrome appId="proposals" title={config.title} icon={config.icon} accent={config.accent}>
         <div className="flex items-center justify-center h-full">
-          <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>Loading...</span>
+          <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>
+            Loading...
+          </span>
         </div>
       </AppWindowChrome>
     );
   }
 
   return (
-    <AppWindowChrome appId="proposals" title={config.title} icon={config.icon} accent={config.accent} breadcrumb={tab}>
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h2
-              className="text-[0.9rem] font-semibold"
-              style={{ color: "var(--pn-text-primary)" }}
-            >
-              Proposals
-            </h2>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="text-[0.6rem] font-medium px-2 py-1 rounded transition-opacity hover:opacity-80 disabled:opacity-40"
-              style={{
-                background: "rgba(167, 139, 250, 0.12)",
-                color: "#a78bfa",
-              }}
-            >
-              {generating ? "Generating..." : "Generate"}
-            </button>
-          </div>
-          <SegmentedControl options={TAB_OPTIONS} value={tab} onChange={setTab} />
+    <InspectorWorkspaceShell
+      appId="proposals"
+      title={config.title}
+      icon={config.icon}
+      accent={config.accent}
+      nav={
+        <TopNavBar
+          items={TAB_OPTIONS}
+          activeId={tab}
+          onChange={(value) => setTab(value as Tab)}
+          leftSlot={
+            <div>
+              <div
+                style={{
+                  fontSize: "0.66rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.16em",
+                  color: "var(--pn-text-muted)",
+                }}
+              >
+                Proposal Engine
+              </div>
+              <div style={{ fontSize: "1.08rem", fontWeight: 650 }}>
+                Proposals
+              </div>
+            </div>
+          }
+          rightSlot={
+            <>
+              <TagPill
+                label={connected ? "live queue" : "rest fallback"}
+                tone={connected ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)"}
+                color={connected ? "var(--color-pn-success)" : "var(--color-pn-warning)"}
+              />
+              <GlassButton uiSize="sm" variant="primary" onClick={handleGenerate} disabled={generating}>
+                {generating ? "Checking..." : "Intent Required"}
+              </GlassButton>
+            </>
+          }
+        />
+      }
+      hero={
+        <HeroBanner
+          eyebrow="List Detail Monitor"
+          title="Keep proposal flow inspectable before it becomes automatic."
+          description="This surface tracks queue pressure, lineage, recurring seeds, and scoring posture. Proposal generation is still intent-led, so the UI should expose context and constraints instead of pretending autonomy exists already."
+          tone="var(--color-pn-purple-400)"
+          actions={
+            <>
+              <TagPill label={`${queuedCount} queued`} tone="rgba(107,149,240,0.14)" color="var(--color-pn-blue-300)" />
+              <TagPill label={`${reviewingCount} reviewing`} tone="rgba(245,158,11,0.14)" color="var(--color-pn-warning)" />
+              <TagPill label={`${activeSeeds} active seeds`} tone="rgba(45,212,168,0.14)" color="var(--color-pn-teal-300)" />
+            </>
+          }
+          aside={
+            <div style={{ display: "grid", gap: "var(--pn-space-3)" }}>
+              <MetricCard
+                label="Proposals"
+                value={String(proposals.length)}
+                detail="Durable queue entries visible now."
+                tone="var(--color-pn-purple-400)"
+              />
+              <MetricCard
+                label="Executions"
+                value={String(executions.length)}
+                detail="Linked runtime work across proposal outcomes."
+                tone="var(--color-pn-blue-400)"
+              />
+            </div>
+          }
+        />
+      }
+      content={
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--pn-space-4)" }}>
+          <StatStrip
+            items={[
+              {
+                label: "Queued",
+                value: String(queuedCount),
+                detail: "Pending durable review",
+                tone: "var(--color-pn-blue-400)",
+              },
+              {
+                label: "Approved",
+                value: String(approvedCount),
+                detail: "Ready to drive work",
+                tone: "var(--color-pn-success)",
+              },
+              {
+                label: "Lineage",
+                value: String(lineageCount),
+                detail: "Entries with ancestry context",
+                tone: "var(--color-pn-indigo-400)",
+              },
+              {
+                label: "Active Rules",
+                value: String(activeRuleCount),
+                detail: "Evolution rules in effect",
+                tone: "var(--color-pn-teal-400)",
+              },
+            ]}
+          />
+
+          {error && (
+            <GlassSurface tier="surface" padding="md">
+              <div style={{ color: "var(--color-pn-error)", fontSize: "0.8rem", lineHeight: 1.5 }}>
+                {error}
+              </div>
+            </GlassSurface>
+          )}
+
+          <GlassSurface tier="surface" padding="lg">
+            <div style={{ minHeight: 560 }}>
+              {tab === "queue" && <ProposalQueue />}
+              {tab === "lineage" && <ProposalLineage />}
+              {tab === "evolution" && <EvolutionProposals />}
+              {tab === "seeds" && <SeedList />}
+              {tab === "scores" && <ScoreDashboard />}
+              {tab === "engine" && <EngineStatus />}
+            </div>
+          </GlassSurface>
         </div>
-        {error && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-[0.7rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-            {error}
-          </div>
-        )}
-        <div className="flex-1 min-h-0 overflow-auto">
-          {tab === "queue" && <ProposalQueue />}
-          {tab === "lineage" && <ProposalLineage />}
-          {tab === "evolution" && <EvolutionProposals />}
-          {tab === "seeds" && <SeedList />}
-          {tab === "scores" && <ScoreDashboard />}
-          {tab === "engine" && <EngineStatus />}
+      }
+      inspector={
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--pn-space-4)" }}>
+          <InspectorSection
+            title="Recent Proposal Activity"
+            description="Newest items and status shifts in the durable queue."
+          >
+            <ActivityTimeline items={recentTimeline} emptyLabel="No proposals have landed yet." />
+          </InspectorSection>
+
+          <InspectorSection
+            title="Seed Posture"
+            description="Recurring generators currently attached to the proposal system."
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--pn-space-2)" }}>
+              {seedTags.length > 0 ? (
+                seedTags.map((seed) => (
+                  <TagPill
+                    key={seed.id}
+                    label={seed.label}
+                    tone={seed.tone}
+                    color={seed.color}
+                  />
+                ))
+              ) : (
+                <div style={{ color: "var(--pn-text-muted)", fontSize: "0.78rem" }}>
+                  No seeds configured yet.
+                </div>
+              )}
+            </div>
+          </InspectorSection>
+
+          <InspectorSection
+            title="Featured Proposal"
+            description="Most recent durable proposal entry for quick inspection."
+          >
+            {featuredProposal ? (
+              <ProposalCard proposal={featuredProposal} />
+            ) : (
+              <div style={{ color: "var(--pn-text-muted)", fontSize: "0.78rem" }}>
+                No proposal selected yet.
+              </div>
+            )}
+          </InspectorSection>
         </div>
-      </div>
-    </AppWindowChrome>
+      }
+    />
   );
 }
 
@@ -126,17 +337,17 @@ function EvolutionProposals() {
   const proposals = useProposalsStore((s) => s.proposals);
   const rules = useEvolutionStore((s) => s.rules);
 
-  // Filter proposals linked to evolution rules
-  const ruleProposalIds = new Set(rules.map((r) => r.proposal_id).filter(Boolean));
+  const ruleProposalIds = new Set(rules.map((rule) => rule.proposal_id).filter(Boolean));
   const evolutionProposals = proposals.filter(
-    (p) => ruleProposalIds.has(p.id) || (p.tags ?? []).some((t) => t.label === "evolution")
+    (proposal) =>
+      ruleProposalIds.has(proposal.id) ||
+      (proposal.tags ?? []).some((tag) => tag.label === "evolution"),
   );
 
-  const activeRuleCount = rules.filter((r) => r.status === "active").length;
+  const activeRuleCount = rules.filter((rule) => rule.status === "active").length;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Evolution summary bar */}
       <div className="flex items-center gap-3 px-3 py-2 rounded-lg glass-surface">
         <div className="flex items-center gap-1.5">
           <span

@@ -77,8 +77,8 @@ export const useEvolutionStore = create<EvolutionState>((set) => ({
       const proposals = data.proposals ?? [];
       const counts: ProposalCounts = {
         generated: proposals.length,
-        accepted: proposals.filter((p) => p.status === "approved" || p.status === "accepted").length,
-        implemented: proposals.filter((p) => p.status === "implemented" || p.status === "completed").length,
+        accepted: proposals.filter((p) => p.status === "approved").length,
+        implemented: 0,
       };
       set({ proposals, proposalCounts: counts });
     } catch {
@@ -144,12 +144,13 @@ export const useEvolutionStore = create<EvolutionState>((set) => ({
   },
 
   async generateFromSignals() {
-    await api.post("/proposals/generate", { seed: "system self-improvement", mode: "refactor" });
-    await useEvolutionStore.getState().loadProposals();
+    throw new Error(
+      "Signal-driven proposal generation is deferred. Create durable proposals from runtime intents instead.",
+    );
   },
 
   async approveProposal(id: string) {
-    await api.post(`/proposals/${id}/approve`, {});
+    await api.post(`/proposals/${id}/approve`, { actor_id: "actor_human_owner" });
     await useEvolutionStore.getState().loadProposals();
   },
 }));

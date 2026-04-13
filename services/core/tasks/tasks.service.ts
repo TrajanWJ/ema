@@ -149,6 +149,17 @@ export function getTask(id: string): TaskRecord | null {
   return mapTask(row);
 }
 
+export function findTaskBySource(
+  sourceType: string,
+  sourceId: string,
+): TaskRecord | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM tasks WHERE source_type = ? AND source_id = ? ORDER BY created_at DESC LIMIT 1')
+    .get(sourceType, sourceId) as Record<string, unknown> | undefined;
+  return mapTask(row);
+}
+
 export function createTask(input: CreateTaskInput): TaskRecord {
   const db = getDb();
   const now = new Date().toISOString();

@@ -15,6 +15,9 @@ import {
  * (typed edges) and GAC-007 (flat-MVP space containment) can attach to
  * executions without a second migration.
  *
+ * `proposal_id` is now an active runtime linkage to the durable proposal
+ * lifecycle served by `/api/proposals`.
+ *
  * The service-layer row shape is a superset; this schema is the shared
  * surface the SDK and vApps consume.
  */
@@ -37,6 +40,7 @@ export const executionSchema = baseEntitySchema.extend({
   project_slug: z.string().nullable(),
   intent_slug: z.string().nullable(),
   intent_path: z.string().nullable(),
+  result_summary: z.string().nullable(),
   result_path: z.string().nullable(),
   requires_approval: z.boolean(),
   brain_dump_item_id: idSchema.nullable(),

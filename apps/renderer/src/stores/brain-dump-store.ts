@@ -16,6 +16,7 @@ interface BrainDumpState {
   connect: () => Promise<void>;
   add: (content: string, source?: InboxItem["source"], projectId?: string | null) => Promise<void>;
   process: (id: string, action: InboxItem["action"]) => Promise<void>;
+  promoteToTask: (id: string, title?: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   loadExecutions: () => Promise<void>;
   approveExecution: (id: string) => Promise<void>;
@@ -79,6 +80,10 @@ export const useBrainDumpStore = create<BrainDumpState>((set) => ({
 
   async process(id, action) {
     await api.patch(`/brain-dump/items/${id}/process`, { action });
+  },
+
+  async promoteToTask(id, title) {
+    await api.post(`/brain-dump/items/${id}/task`, title ? { title } : {});
   },
 
   async remove(id) {

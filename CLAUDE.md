@@ -86,4 +86,23 @@ Branch names: `type/description`
 
 ## Build & Dev Commands
 
-The new TypeScript/Electron stack is mid-bootstrap. The canonical build commands will be added once the foundation is in place. Until then, treat `ema-genesis/` as the only stable artifact.
+The verified commands are now:
+
+- `pnpm install`
+- `pnpm build`
+- `pnpm test`
+- `pnpm dev`
+
+`ema-genesis/` remains the canon source of truth, but the Electron/TypeScript runtime is no longer purely aspirational.
+
+## Verified Entry Points
+
+When you need the current post-audit system reality, start here after reading the canon:
+
+1. `docs/backend/README.md`
+2. `docs/backend/SOURCE-OF-TRUTH.md`
+3. `docs/backend/DEDUPLICATION-DECISIONS.md`
+4. `docs/backend/ENTITY-CONTRACTS.md`
+5. `services/core/backend/manifest.ts`
+6. `services/core/intents/service.ts`
+7. `services/core/executions/executions.service.ts`

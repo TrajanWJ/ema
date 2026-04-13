@@ -1,10 +1,11 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-import { readdirSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attachBearerAuth } from './middleware/auth.js';
 import { attachRequestId } from './middleware/request-id.js';
+import { activeBackendDomains } from '../core/backend/manifest.js';
 
 const PORT = 4488;
 const HOST = '0.0.0.0';
@@ -42,7 +43,7 @@ export async function startHttpServer(): Promise<FastifyInstance> {
     };
   });
 
-  // Auto-register domain routers
+  // Register the normalized backend surface from the explicit manifest.
   await registerCoreRouters(server);
 
   await server.listen({ port: PORT, host: HOST });
@@ -66,11 +67,7 @@ async function registerCoreRouters(app: FastifyInstance): Promise<void> {
 
   if (!existsSync(coreDir)) return;
 
-  const domains = readdirSync(coreDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-
-  for (const domain of domains) {
+  for (const domain of activeBackendDomains()) {
     // Convention: <domain>.router.ts or router.ts
     const candidates = [
       join(coreDir, domain, `${domain}.router.ts`),

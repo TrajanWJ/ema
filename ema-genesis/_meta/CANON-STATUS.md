@@ -67,11 +67,25 @@ Because Q1=B, cross-pollination research targets the **full Genesis vision**, no
 
 See `[[research/_moc/RESEARCH-MOC]]` for the live research index.
 
+## Reality Check — 2026-04-12
+
+The canonical target is still the Genesis vision, but the Electron/TypeScript repo is no longer just scaffolding:
+
+- root `pnpm build` is green
+- root `pnpm test` is green
+- a bootstrap intent → proposal → execution loop now exists in `services/core/{intent,proposal,execution,loop}/`
+- `docs/GROUND-TRUTH.md` is the current reality ledger
+- `docs/BLUEPRINT.md` is the current implementation blueprint
+
+This does **not** mean Genesis is complete. It means there is now a verified minimal loop inside the TypeScript runtime that future sessions should extend instead of rebuilding.
+
 ## Related Nodes
 
 - `[[research/_moc/RESEARCH-MOC]]` — Research layer map of content
 - `[[intents/GAC-QUEUE-MOC]]` — GAC cards surfaced by research
 - `[[_meta/CANON-DIFFS]]` — Proposed updates to the 7 canon docs
 - `[[_meta/SELF-POLLINATION-FINDINGS]]` — Patterns worth porting from the old build
+- `[[docs/GROUND-TRUTH]]` — Verified repo reality
+- `[[docs/BLUEPRINT]]` — Buildable Electron/TypeScript architecture
 
 #meta #canon-status #ruling #genesis #v1-spec

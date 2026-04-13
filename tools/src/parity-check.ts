@@ -2,7 +2,7 @@
  * Parity check: compare extracted Elixir routes against Node service routers.
  *
  * Reads the contracts JSON produced by extract-contracts.ts, then scans
- * services/core/*/router.ts files for matching route patterns.
+ * service router files under services/core/ for matching route patterns.
  * Reports which daemon routes have Node equivalents and overall coverage.
  */
 
@@ -33,7 +33,7 @@ async function loadContracts(): Promise<RouteContract[]> {
   } catch {
     console.error(`Cannot read contracts at ${CONTRACTS_PATH}`);
     console.error("Run `pnpm --filter @ema/tools extract` first.");
-    process.exit(1);
+    throw new Error(`contracts_not_found:${CONTRACTS_PATH}`);
   }
 }
 

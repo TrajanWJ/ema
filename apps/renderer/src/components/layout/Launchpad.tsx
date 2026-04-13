@@ -39,6 +39,8 @@ interface AppEntry {
 // EMA UI 2.0 — 22 active apps (5 more coming in Phase 5)
 const APP_REGISTRY: readonly AppEntry[] = [
   // Work
+  { id: "desk", name: "Desk", category: "work" },
+  { id: "agenda", name: "Agenda", category: "work" },
   { id: "brain-dump", name: "Brain Dump", category: "work" },
   { id: "tasks", name: "Tasks", category: "work" },
   { id: "projects", name: "Projects", category: "work" },
@@ -49,6 +51,7 @@ const APP_REGISTRY: readonly AppEntry[] = [
   { id: "intent-schematic", name: "Intent Schematic", category: "intelligence" },
   { id: "wiki", name: "Wiki", category: "intelligence" },
   { id: "agents", name: "Agents", category: "intelligence" },
+  { id: "feeds", name: "Feeds", category: "intelligence" },
   // Creative
   { id: "canvas", name: "Canvas", category: "creative" },
   { id: "pipes", name: "Pipes", category: "creative" },
@@ -69,6 +72,7 @@ const APP_REGISTRY: readonly AppEntry[] = [
   { id: "goals", name: "Goals", category: "life" },
   // System
   { id: "settings", name: "Settings", category: "system" },
+  { id: "pattern-lab", name: "Pattern Lab", category: "system" },
   { id: "voice", name: "Voice", category: "system" },
 ];
 
@@ -113,6 +117,8 @@ export function Launchpad() {
   // Dynamic status for apps based on live data
   function getAppStatus(id: string): { status?: string; badge?: number; progress?: number } {
     switch (id) {
+      case "desk": return { status: `${unprocessedCount} inbox · ${activeTasks} tasks` };
+      case "agenda": return { status: "schedule + action surface" };
       case "brain-dump": return { badge: unprocessedCount, status: `${unprocessedCount} unprocessed` };
       case "habits": return { status: `${completedToday}/${habitCount} today`, progress: habitProgress };
       case "journal": return { status: entry?.updated_at ? `last ${timeAgo(entry.updated_at)}` : "no entry today" };

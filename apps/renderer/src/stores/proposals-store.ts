@@ -2,7 +2,14 @@ import { create } from "zustand";
 import { joinChannel } from "@/lib/ws";
 import { api } from "@/lib/api";
 import type { Channel } from "phoenix";
-import type { Proposal, Seed, ProposalSortKey, ProposalSortDir } from "@/types/proposals";
+import {
+  mapDurableProposalRecord,
+  type DurableProposalRecord,
+  type Proposal,
+  type Seed,
+  type ProposalSortKey,
+  type ProposalSortDir,
+} from "@/types/proposals";
 
 interface ProposalsState {
   proposals: readonly Proposal[];
@@ -34,7 +41,17 @@ interface ProposalsState {
   compareProposals: (ids: string[]) => Promise<Proposal[]>;
 }
 
-export const useProposalsStore = create<ProposalsState>((set) => ({
+function replaceProposal(
+  proposals: readonly Proposal[],
+  proposal: Proposal,
+): readonly Proposal[] {
+  const existing = proposals.some((item) => item.id === proposal.id);
+  return existing
+    ? proposals.map((item) => (item.id === proposal.id ? proposal : item))
+    : [proposal, ...proposals];
+}
+
+export const useProposalsStore = create<ProposalsState>((set, get) => ({
   proposals: [],
   seeds: [],
   loading: false,
@@ -81,59 +98,92 @@ export const useProposalsStore = create<ProposalsState>((set) => ({
   },
 
   async compareProposals(ids) {
-    const params = ids.map((id) => `ids[]=${id}`).join("&");
-    const data = await api.get<{ proposals: Proposal[] }>(`/proposals/compare?${params}`);
-    return data.proposals;
+    const byId = new Map(get().proposals.map((proposal) => [proposal.id, proposal]));
+    return ids.map((id) => byId.get(id)).filter((proposal): proposal is Proposal => proposal !== undefined);
   },
 
   async loadViaRest() {
-    const data = await api.get<{ proposals: Proposal[] }>("/proposals");
-    set({ proposals: data.proposals });
+    set({ loading: true, error: null });
+    try {
+      const data = await api.get<{ proposals: DurableProposalRecord[] }>("/proposals");
+      set({
+        proposals: (data.proposals ?? []).map((proposal) => mapDurableProposalRecord(proposal)),
+        loading: false,
+      });
+    } catch (err) {
+      set({ error: String(err), loading: false });
+    }
   },
 
   async connect() {
-    const { channel, response } = await joinChannel("proposals:queue");
-    const data = response as { proposals: Proposal[] };
-    set({ channel, connected: true, proposals: data.proposals });
+    try {
+      const { channel, response } = await joinChannel("proposals:queue");
+      const data = response as { proposals: DurableProposalRecord[] };
+      set({
+        channel,
+        connected: true,
+        proposals: (data.proposals ?? []).map((proposal) => mapDurableProposalRecord(proposal)),
+      });
 
-    channel.on("proposal_created", (proposal: Proposal) => {
-      set((state) => ({ proposals: [proposal, ...state.proposals] }));
-    });
+      channel.on("proposal_created", (proposal: DurableProposalRecord) => {
+        set((state) => ({
+          proposals: replaceProposal(state.proposals, mapDurableProposalRecord(proposal)),
+        }));
+      });
 
-    channel.on("proposal_updated", (updated: Proposal) => {
-      set((state) => ({
-        proposals: state.proposals.map((p) => (p.id === updated.id ? updated : p)),
-      }));
-    });
+      channel.on("proposal_updated", (updated: DurableProposalRecord) => {
+        set((state) => ({
+          proposals: replaceProposal(state.proposals, mapDurableProposalRecord(updated)),
+        }));
+      });
 
-    channel.on("proposal_deleted", (payload: { id: string }) => {
-      set((state) => ({
-        proposals: state.proposals.filter((p) => p.id !== payload.id),
-      }));
-    });
+      channel.on("proposal_deleted", (payload: { id: string }) => {
+        set((state) => ({
+          proposals: state.proposals.filter((proposal) => proposal.id !== payload.id),
+        }));
+      });
 
-    channel.on("streaming_stage", (payload: { proposal_id: string; stage: string }) => {
-      const status = (payload.stage as "idle" | "generating" | "refining" | "reviewing") || "idle";
-      set((state) => ({
-        streamingStatus: { ...state.streamingStatus, [payload.proposal_id]: status },
-      }));
-    });
+      channel.on("streaming_stage", (payload: { proposal_id: string; stage: string }) => {
+        const status = (payload.stage as "idle" | "generating" | "refining" | "reviewing") || "idle";
+        set((state) => ({
+          streamingStatus: { ...state.streamingStatus, [payload.proposal_id]: status },
+        }));
+      });
+    } catch {
+      await get().loadViaRest();
+    }
   },
 
   async approve(id) {
-    await api.post(`/proposals/${id}/approve`, {});
+    const data = await api.post<{ proposal: DurableProposalRecord }>(`/proposals/${id}/approve`, {
+      actor_id: "actor_human_owner",
+    });
+    set((state) => ({
+      proposals: replaceProposal(state.proposals, mapDurableProposalRecord(data.proposal)),
+    }));
   },
 
   async redirect(id, note) {
-    await api.post(`/proposals/${id}/redirect`, { note });
+    const data = await api.post<{ proposal: DurableProposalRecord }>(`/proposals/${id}/revise`, {
+      rationale: note,
+    });
+    set((state) => ({
+      proposals: replaceProposal(state.proposals, mapDurableProposalRecord(data.proposal)),
+    }));
   },
 
   async kill(id) {
-    await api.post(`/proposals/${id}/kill`, {});
+    const data = await api.post<{ proposal: DurableProposalRecord }>(`/proposals/${id}/reject`, {
+      actor_id: "actor_human_owner",
+      reason: "Rejected from renderer proposal queue",
+    });
+    set((state) => ({
+      proposals: replaceProposal(state.proposals, mapDurableProposalRecord(data.proposal)),
+    }));
   },
 
   async loadSeeds() {
-    const data = await api.get<{ seeds: Seed[] }>("/seeds");
+    const data = await api.get<{ seeds: Seed[] }>("/proposals/seeds");
     set({ seeds: data.seeds });
   },
 

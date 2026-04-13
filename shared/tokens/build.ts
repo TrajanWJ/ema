@@ -83,6 +83,16 @@ for (const [k, v] of Object.entries(tokens.windowLayers)) {
   put(`pn-window-${k}`, v);
 }
 
+// ---- gradients ----
+for (const [k, v] of Object.entries(tokens.gradients)) {
+  put(`pn-gradient-${k}`, v);
+}
+
+// ---- layout ----
+for (const [k, v] of Object.entries(tokens.layout)) {
+  put(`pn-layout-${k.replace(/([A-Z])/g, "-$1").toLowerCase()}`, v);
+}
+
 // ---- motion ----
 put("ease-smooth", tokens.easing.smooth);
 for (const [k, v] of Object.entries(tokens.duration)) {

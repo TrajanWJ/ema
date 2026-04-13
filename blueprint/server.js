@@ -931,8 +931,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /health — liveness
-  if (parsed.pathname === "/health") {
+  // GET /health AND /api/health — liveness
+  // (/api/health is the path the renderer's Shell.tsx pings via DAEMON_HEALTH_URL.
+  // Point VITE_EMA_DAEMON_URL=http://127.0.0.1:7777 in apps/renderer/.env.local)
+  if (parsed.pathname === "/health" || parsed.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, genesis: GENESIS_ROOT, ts: Date.now() }));
     return;
@@ -952,37 +954,54 @@ server.listen(PORT, HOST, () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// File watcher — push SSE events on any ema-genesis/ .md change
-// Uses fs.watch recursive (Node 20+ supports it on Linux via inotify).
+// File watcher — push SSE events on canon/intents/_meta .md changes
+//
+// NOTE: research/ is deliberately excluded. It contains _clones/ with
+// thousands of files from Tier 3 cloned source trees, and recursive
+// watching blows through Linux's fs.inotify.max_user_watches on most
+// systems (ENOSPC). Research nodes update rarely and users can refresh.
 // ──────────────────────────────────────────────────────────────────────
 
 const watchTargets = [
   path.join(GENESIS_ROOT, "intents"),
   path.join(GENESIS_ROOT, "canon"),
   path.join(GENESIS_ROOT, "_meta"),
-  path.join(GENESIS_ROOT, "research"),
+  // research/ skipped — too many files under _clones/
 ];
 
-// Debounce rapid file events (agents writing many files in a burst)
+// Debounce rapid file events (editors often write via temp file + rename)
 let lastBroadcast = 0;
 const MIN_INTERVAL_MS = 300;
 
 for (const target of watchTargets) {
   try {
-    fsSync.watch(target, { recursive: true }, (event, filename) => {
-      if (!filename) return;
-      const fname = filename.toString();
-      if (!fname.endsWith(".md")) return;
-      const now = Date.now();
-      if (now - lastBroadcast < MIN_INTERVAL_MS) return;
-      lastBroadcast = now;
-      broadcastSSE({
-        type: "file-change",
-        event,
-        filename: path.join(path.basename(target), fname),
-        ts: now,
-      });
+    const watcher = fsSync.watch(
+      target,
+      { recursive: true },
+      (event, filename) => {
+        if (!filename) return;
+        const fname = filename.toString();
+        // Only .md changes; ignore editor/sed temp files
+        if (!fname.endsWith(".md")) return;
+        if (fname.includes("~") || fname.startsWith(".")) return;
+        const now = Date.now();
+        if (now - lastBroadcast < MIN_INTERVAL_MS) return;
+        lastBroadcast = now;
+        broadcastSSE({
+          type: "file-change",
+          event,
+          filename: path.join(path.basename(target), fname),
+          ts: now,
+        });
+      }
+    );
+
+    // CRITICAL: attach an error listener or ANY FSWatcher error
+    // (ENOSPC, EACCES, etc.) will crash the whole process.
+    watcher.on("error", (err) => {
+      console.warn(`[ema] watcher error on ${target}: ${err.message}`);
     });
+
     console.log(`[ema] watching ${target}`);
   } catch (e) {
     console.warn(`[ema] failed to watch ${target}: ${e.message}`);

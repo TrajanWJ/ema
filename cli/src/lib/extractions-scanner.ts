@@ -32,27 +32,29 @@ export interface ExtractionEntry {
 /** List every extraction doc, sorted by slug. */
 export function scanExtractions(): readonly ExtractionEntry[] {
   const dir = genesisPath('research', '_extractions');
-  let entries: ReturnType<typeof readdirSync>;
+  const out: ExtractionEntry[] = [];
+
+  let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
     return [];
   }
 
-  const out: ExtractionEntry[] = [];
   for (const entry of entries) {
     if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === '_TEMPLATE.md') continue;
-    if (entry.name.startsWith('_MOC')) continue;
+    const name = String(entry.name);
+    if (!name.endsWith('.md')) continue;
+    if (name === '_TEMPLATE.md') continue;
+    if (name.startsWith('_MOC')) continue;
 
-    const abs = join(dir, entry.name);
-    const slug = basename(entry.name, '.md');
+    const abs = join(dir, name);
+    const slug = basename(name, '.md');
     const parsed = safeParse(abs);
     out.push({
       slug,
       path: abs,
-      relPath: `ema-genesis/research/_extractions/${entry.name}`,
+      relPath: `ema-genesis/research/_extractions/${name}`,
       sourceUrl: asString(getNested(parsed, 'source', 'url')),
       clonePath: asString(parsed['clone_path']),
     });

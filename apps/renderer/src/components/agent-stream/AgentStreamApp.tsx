@@ -16,7 +16,6 @@ interface Proposal {
   id: string;
   title: string;
   status: string;
-  confidence?: number;
   inserted_at: string;
 }
 
@@ -45,7 +44,7 @@ function merge(executions: Execution[], proposals: Proposal[]): StreamItem[] {
       title: p.title,
       status: p.status,
       timestamp: p.inserted_at,
-      meta: p.confidence != null ? `${Math.round(p.confidence * 100)}%` : undefined,
+      meta: undefined,
     })),
   ];
   items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
@@ -59,6 +58,11 @@ const STATUS_COLORS: Record<string, string> = {
   queued: "#f59e0b",
   approved: "#2dd4a8",
   killed: "#ef4444",
+  generated: "#6b95f0",
+  pending_approval: "#f59e0b",
+  revised: "#8b5cf6",
+  superseded: "#8b5cf6",
+  rejected: "#ef4444",
 };
 
 export function AgentStreamApp() {
@@ -70,11 +74,11 @@ export function AgentStreamApp() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      api.get<Execution[]>("/executions").catch((): Execution[] => []),
-      api.get<Proposal[]>("/proposals").catch((): Proposal[] => []),
+      api.get<{ executions: Execution[] }>("/executions").catch((): { executions: Execution[] } => ({ executions: [] })),
+      api.get<{ proposals: Proposal[] }>("/proposals").catch((): { proposals: Proposal[] } => ({ proposals: [] })),
     ]).then(([ex, pr]) => {
-      setExecutions(ex);
-      setProposals(pr);
+      setExecutions(ex.executions ?? []);
+      setProposals(pr.proposals ?? []);
     }).finally(() => setLoading(false));
   };
 

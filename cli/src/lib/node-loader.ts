@@ -6,7 +6,7 @@
 //   - `_moc/`        category indexes, not nodes themselves
 //   - `_clones/`     cloned source trees — never parsed as research
 //   - `_extractions/` extraction docs (different entity, different loader)
-//   - `research-ingestion/_MOC.md`   placeholder category, no real node yet
+//   - `research-ingestion/_MOC.md`   category index; real nodes may now exist
 //
 // Results are cached in-process for the lifetime of a single CLI invocation.
 // Each command gets a fresh cache, so there's no stale-data risk between
@@ -61,7 +61,7 @@ const CACHE = new Map<string, readonly ResearchNode[]>();
 
 /**
  * Load every research node under `research/<category>/*.md`.
- * Excludes MOC files, clones, extractions, and the ingestion placeholder.
+ * Excludes MOC files, clones, and extraction docs.
  */
 export async function loadAllResearchNodes(): Promise<readonly ResearchNode[]> {
   const root = researchRoot();
@@ -79,10 +79,6 @@ export async function loadAllResearchNodes(): Promise<readonly ResearchNode[]> {
       if (!file.isFile()) continue;
       if (!file.name.endsWith('.md')) continue;
       if (file.name === '_MOC.md') continue;
-      // research-ingestion/ is still a placeholder — the only file in it is
-      // a MOC stub, but gate it generically in case someone drops a README.
-      if (entry.name === 'research-ingestion') continue;
-
       const abs = join(categoryDir, file.name);
       const node = tryLoadNode(abs, entry.name);
       if (node) nodes.push(node);

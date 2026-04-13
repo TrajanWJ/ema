@@ -11,6 +11,7 @@
  *   POST   /api/executions/:id/approve        — legacy status shortcut
  *   POST   /api/executions/:id/cancel         — legacy status shortcut
  *   POST   /api/executions/:id/complete       — legacy status shortcut
+ *   POST   /api/executions/:id/result         — attach result_path/result_summary
  *   POST   /api/executions/:id/archive        — soft-archive
  *   POST   /api/executions/:id/phase          — append a phase transition
  *   POST   /api/executions/:id/steps          — append a step journal entry
@@ -25,6 +26,7 @@ import { z } from "zod";
 import {
   actorPhaseSchema,
   executionStatusSchema,
+  intentStatusSchema,
 } from "@ema/shared/schemas";
 
 import { broadcast } from "../../realtime/server.js";
@@ -41,6 +43,7 @@ import {
   initExecutions,
   listExecutions,
   listPhaseTransitions,
+  recordExecutionResult,
   transitionPhase,
 } from "./executions.service.js";
 import {
@@ -88,6 +91,22 @@ const stepBodySchema = z.object({
   label: z.string().min(1),
   note: z.string().optional(),
   at: z.string().datetime().optional(),
+});
+
+const completeBodySchema = z.object({
+  result_summary: z.string().nullable().optional(),
+  result_path: z.string().min(1).optional(),
+  intent_status: intentStatusSchema.optional(),
+  intent_phase: actorPhaseSchema.optional(),
+  intent_event: z.string().min(1).optional(),
+});
+
+const resultBodySchema = z.object({
+  result_path: z.string().min(1),
+  result_summary: z.string().nullable().optional(),
+  intent_status: intentStatusSchema.optional(),
+  intent_phase: actorPhaseSchema.optional(),
+  intent_event: z.string().min(1).optional(),
 });
 
 const reflexionQuerySchema = z.object({
@@ -242,23 +261,67 @@ export function registerRoutes(app: FastifyInstance): void {
   app.post(
     "/api/executions/:id/complete",
     async (
-      request: FastifyRequest<{
-        Params: ExecutionParams;
-        Body: { result_summary?: string };
-      }>,
+      request: FastifyRequest<{ Params: ExecutionParams; Body: unknown }>,
       reply: FastifyReply,
     ) => {
-      const execution = completeExecution(
-        request.params.id,
-        typeof request.body?.result_summary === "string"
-          ? request.body.result_summary
-          : null,
-      );
-      if (!execution) {
-        return reply.code(404).send({ error: "execution_not_found" });
+      try {
+        const body = completeBodySchema.parse(request.body ?? {});
+        const execution = completeExecution(request.params.id, {
+          ...(body.result_summary !== undefined
+            ? { result_summary: body.result_summary }
+            : {}),
+          ...(body.result_path !== undefined
+            ? { result_path: body.result_path }
+            : {}),
+          ...(body.intent_status !== undefined
+            ? { intent_status: body.intent_status }
+            : {}),
+          ...(body.intent_phase !== undefined
+            ? { intent_phase: body.intent_phase }
+            : {}),
+          ...(body.intent_event !== undefined
+            ? { intent_event: body.intent_event }
+            : {}),
+        });
+        if (!execution) {
+          return reply.code(404).send({ error: "execution_not_found" });
+        }
+        broadcast("executions:all", "execution_completed", { execution });
+        return { execution };
+      } catch (err) {
+        return handleError(reply, err);
       }
-      broadcast("executions:all", "execution_completed", { execution });
-      return { execution };
+    },
+  );
+
+  app.post(
+    "/api/executions/:id/result",
+    async (
+      request: FastifyRequest<{ Params: ExecutionParams; Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      try {
+        const body = resultBodySchema.parse(request.body ?? {});
+        const execution = recordExecutionResult(request.params.id, {
+          result_path: body.result_path,
+          ...(body.result_summary !== undefined
+            ? { result_summary: body.result_summary }
+            : {}),
+          ...(body.intent_status !== undefined
+            ? { intent_status: body.intent_status }
+            : {}),
+          ...(body.intent_phase !== undefined
+            ? { intent_phase: body.intent_phase }
+            : {}),
+          ...(body.intent_event !== undefined
+            ? { intent_event: body.intent_event }
+            : {}),
+        });
+        broadcast("executions:all", "execution_updated", { execution });
+        return { execution };
+      } catch (err) {
+        return handleError(reply, err);
+      }
     },
   );
 

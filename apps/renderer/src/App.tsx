@@ -10,12 +10,15 @@ import { TasksApp } from "@/components/tasks/TasksApp";
 import { ProjectsApp } from "@/components/projects/ProjectsApp";
 import { ExecutionsApp } from "@/components/executions/ExecutionsApp";
 import { ProposalsApp } from "@/components/proposals/ProposalsApp";
+import { DeskApp } from "@/components/desk/DeskApp";
+import { AgendaApp } from "@/components/agenda/AgendaApp";
 
 // Intelligence
 import { BlueprintPlannerApp } from "@/components/blueprint-planner/BlueprintPlannerApp";
 import { IntentSchematicApp } from "@/components/intents/IntentSchematicApp";
 import { WikiApp } from "@/components/wiki/WikiApp";
 import { AgentsApp } from "@/components/agents/AgentsApp";
+import { FeedsApp } from "@/components/feeds/FeedsApp";
 
 // Creative
 import { CanvasApp } from "@/components/canvas/CanvasApp";
@@ -42,6 +45,7 @@ import { GoalsApp } from "@/components/goals/GoalsApp";
 import { SettingsApp } from "@/components/settings/SettingsApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
 import { HQApp } from "@/components/hq/HQApp";
+import { PatternLabApp } from "@/components/pattern-lab/PatternLabApp";
 
 // Chat
 import { OperatorChatApp } from "@/components/operator-chat/OperatorChatApp";
@@ -60,6 +64,8 @@ function AppContent() {
   const content = (() => {
     switch (route) {
       // Core Workflow
+      case "desk": return <DeskApp />;
+      case "agenda": return <AgendaApp />;
       case "brain-dump": return <BrainDumpApp />;
       case "tasks": return <TasksApp />;
       case "projects": return <ProjectsApp />;
@@ -71,6 +77,7 @@ function AppContent() {
       case "intent-schematic": return <IntentSchematicApp />;
       case "wiki": return <WikiApp />;
       case "agents": return <AgentsApp />;
+      case "feeds": return <FeedsApp />;
 
       // Creative
       case "canvas": return <CanvasApp />;
@@ -97,6 +104,7 @@ function AppContent() {
       case "settings": return <SettingsApp />;
       case "voice": return <VoiceApp />;
       case "hq": return <HQApp />;
+      case "pattern-lab": return <PatternLabApp />;
 
       // Chat
       case "operator-chat": return <OperatorChatApp />;
