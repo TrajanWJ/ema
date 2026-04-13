@@ -1,0 +1,14 @@
+{
+  "name": "@ema/platform",
+  "version": "4.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
