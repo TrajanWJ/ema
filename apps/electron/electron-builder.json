@@ -1,0 +1,41 @@
+{
+  "appId": "com.ema.desktop",
+  "productName": "EMA",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "../../apps/renderer/dist",
+      "to": "renderer"
+    },
+    {
+      "from": "../../services/dist",
+      "to": "services"
+    },
+    {
+      "from": "../../workers/dist",
+      "to": "workers"
+    },
+    {
+      "from": "../../assets/icons",
+      "to": "assets/icons"
+    }
+  ],
+  "linux": {
+    "target": ["deb", "AppImage"],
+    "category": "Utility",
+    "icon": "../../assets/icons/ema-512.png"
+  },
+  "mac": {
+    "target": ["dmg"],
+    "icon": "../../assets/icons/ema-512.png"
+  },
+  "win": {
+    "target": ["nsis"],
+    "icon": "../../assets/icons/ema-512.png"
+  }
+}

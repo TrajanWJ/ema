@@ -1,0 +1,20 @@
+{
+  "name": "@ema/electron",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.json",
+    "build": "pnpm run build:main",
+    "dist": "pnpm run build:main && electron-builder",
+    "start": "electron dist/main.js"
+  },
+  "dependencies": {
+    "electron": "^35.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^25.1.8",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,83 @@
+import { app } from "electron";
+import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
+
+const HEALTH_URL = "http://127.0.0.1:4488/api/health";
+
+let servicesProcess: ChildProcess | null = null;
+let workersProcess: ChildProcess | null = null;
+
+function isExternalRuntime(): boolean {
+  return process.env.EMA_MANAGED_RUNTIME === "external";
+}
+
+function repoRoot(): string {
+  return path.resolve(__dirname, "../../..");
+}
+
+function resolveRuntimeScript(packageName: "services" | "workers"): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, packageName, "startup.js");
+  }
+
+  return path.join(repoRoot(), packageName, "dist", "startup.js");
+}
+
+function spawnNodeProcess(scriptPath: string): ChildProcess {
+  return spawn(process.execPath, [scriptPath], {
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: "1",
+    },
+    stdio: "inherit",
+  });
+}
+
+async function waitForHealth(timeoutMs = 15_000): Promise<void> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(HEALTH_URL, {
+        signal: AbortSignal.timeout(1_000),
+      });
+
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Runtime not ready yet.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  throw new Error("Timed out waiting for local EMA services");
+}
+
+export async function startManagedRuntime(): Promise<void> {
+  if (isExternalRuntime()) {
+    return;
+  }
+
+  if (!servicesProcess) {
+    servicesProcess = spawnNodeProcess(resolveRuntimeScript("services"));
+  }
+
+  if (!workersProcess) {
+    workersProcess = spawnNodeProcess(resolveRuntimeScript("workers"));
+  }
+
+  await waitForHealth();
+}
+
+export async function stopManagedRuntime(): Promise<void> {
+  for (const child of [workersProcess, servicesProcess]) {
+    if (child && !child.killed) {
+      child.kill("SIGTERM");
+    }
+  }
+
+  workersProcess = null;
+  servicesProcess = null;
+}
