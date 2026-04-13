@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ema/shared": ["./shared/index.ts"],
+      "@ema/shared/*": ["./shared/*"],
+      "@ema/services/*": ["./services/*"],
+      "@ema/workers/*": ["./workers/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

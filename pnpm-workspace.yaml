@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "services"
+  - "shared"
+  - "shared/tokens"
+  - "shared/glass"
+  - "cli"
+  - "platform"
+  - "workers"
+  - "tools"

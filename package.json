@@ -1,15 +1,24 @@
 {
-  "name": "ema",
+  "name": "@ema/root",
   "private": true,
+  "packageManager": "pnpm@10.29.3",
   "scripts": {
-    "dev": "concurrently \"npm run dev:agents\" \"npm run dev:api\" \"npm run dev:ui\"",
-    "dev:agents": "cd agent-runtime && npm run dev",
-    "dev:api": "cd hq-api && npm run dev",
-    "dev:ui": "cd hq-frontend && npm run dev",
-    "install:all": "cd agent-runtime && npm install && cd ../hq-api && npm install && cd ../hq-frontend && npm install",
-    "companion": "cd companion && pnpm tauri dev"
+    "dev": "concurrently -k -n renderer,services,workers,electron \"pnpm --filter @ema/renderer dev\" \"pnpm --filter @ema/services dev\" \"pnpm --filter @ema/workers dev\" \"pnpm dev:electron\"",
+    "dev:electron": "pnpm --filter @ema/electron build:main && wait-on tcp:1420 tcp:4488 && cross-env EMA_MANAGED_RUNTIME=external pnpm --filter @ema/electron start",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "parity": "pnpm --filter @ema/tools parity",
+    "extract:contracts": "pnpm --filter @ema/tools extract",
+    "package:desktop": "pnpm build && pnpm --filter @ema/electron dist"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "turbo": "^2.5.3",
+    "wait-on": "^8.0.3"
   }
 }

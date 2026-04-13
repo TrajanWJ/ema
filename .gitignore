@@ -11,3 +11,5 @@ hq-api/.hq-data/
 .superpowers/brainstorm/**/state/
 target/
 dist/
+.turbo/
+*.tsbuildinfo
