@@ -809,6 +809,32 @@ export class GenesisStore {
       const raw = safeRead(file);
       if (!raw) continue;
       const lines = raw.split('\n').filter(Boolean);
+      if (basename(file) === 'history.jsonl') {
+        const firstBySession = new Map<string, Record<string, unknown>>();
+        for (const line of lines) {
+          const row = safeJson(line);
+          if (!isRecord(row)) continue;
+          const sessionId = typeof row.session_id === 'string' ? row.session_id : '';
+          if (!sessionId || firstBySession.has(sessionId)) continue;
+          firstBySession.set(sessionId, row);
+        }
+        for (const row of firstBySession.values()) {
+          const prompt = extractText(row);
+          if (!prompt) continue;
+          const ts = typeof row.ts === 'number'
+            ? new Date(row.ts * 1000).toISOString()
+            : fileTimestamp(file) || '';
+          entries.push({
+            timestamp: ts,
+            agent: 'codex',
+            sessionPath: file,
+            project: projectFromPath(file),
+            messageCount: lines.length,
+            openingPrompt: prompt,
+          });
+        }
+        continue;
+      }
       const opening = lines
         .map((line) => safeJson(line))
         .find((row) => {
@@ -1222,6 +1248,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function extractRole(row: Record<string, unknown>): string {
   if (typeof row.role === 'string') return row.role;
+  if (typeof row.text === 'string' && typeof row.session_id === 'string') {
+    return 'user';
+  }
   const message = row.message;
   if (isRecord(message) && typeof message.role === 'string') {
     return message.role;
