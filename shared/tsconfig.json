@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "declaration": true
+  },
+  "include": [
+    "schemas/**/*.ts",
+    "events/**/*.ts",
+    "constants/**/*.ts",
+    "types/**/*.ts",
+    "contracts/**/*.ts",
+    "sdk/**/*.ts",
+    "index.ts"
+  ]
+}

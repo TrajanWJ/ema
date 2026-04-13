@@ -1,0 +1,43 @@
+/*
+ * @ema/glass — minimal reset layered on top of @ema/tokens.
+ * Designed to be opt-in: import alongside @ema/tokens/css in an app shell.
+ * Keeps the glass components visually consistent without fighting host apps.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-pn-base);
+  color: var(--pn-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--pn-shadow-focus-ring);
+}

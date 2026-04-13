@@ -1,0 +1,41 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--pn-space-3);
+  padding: var(--pn-space-10) var(--pn-space-6);
+  color: var(--pn-text-tertiary);
+  animation: fadeSlideUp 200ms var(--ease-smooth);
+}
+
+.glyph {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--pn-text-muted);
+  letter-spacing: 0.06em;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--pn-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.description {
+  margin: 0;
+  max-width: 32ch;
+  font-size: 0.75rem;
+  color: var(--pn-text-tertiary);
+  line-height: 1.5;
+}
+
+.actions {
+  display: inline-flex;
+  gap: var(--pn-space-2);
+  margin-top: var(--pn-space-2);
+}

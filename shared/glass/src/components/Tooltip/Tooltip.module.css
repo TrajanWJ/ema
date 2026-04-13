@@ -1,0 +1,50 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.bubble {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--pn-space-2);
+  background: var(--pn-glass-elevated-bg);
+  backdrop-filter: blur(var(--pn-glass-elevated-blur)) saturate(var(--pn-glass-elevated-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-elevated-blur)) saturate(var(--pn-glass-elevated-saturate));
+  border: 1px solid var(--pn-glass-elevated-border);
+  border-radius: var(--pn-radius-sm);
+  padding: var(--pn-space-1) var(--pn-space-2);
+  font-size: 0.65rem;
+  color: var(--pn-text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  animation: glassDropIn var(--pn-duration-tooltip) var(--ease-smooth);
+}
+
+.bubbleTop {
+  left: 50%;
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-bottom: var(--pn-space-2);
+}
+
+.bubbleBottom {
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-top: var(--pn-space-2);
+}
+
+.bubbleLeft {
+  left: auto;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+  margin-right: var(--pn-space-2);
+}

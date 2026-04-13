@@ -1,0 +1,47 @@
+/*
+ * @ema/glass — shared keyframes.
+ * Ported verbatim from SELF-POLLINATION-FINDINGS Appendix A.10. Duration and
+ * easing are not hardcoded here — components apply them via --ease-smooth
+ * and --pn-duration-* from @ema/tokens.
+ */
+
+@keyframes glassDropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

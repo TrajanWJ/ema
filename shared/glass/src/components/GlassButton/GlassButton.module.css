@@ -1,0 +1,71 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pn-space-2);
+  border-radius: var(--pn-radius-md);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border: 1px solid var(--pn-border-default);
+  background: var(--pn-field-bg);
+  color: var(--pn-text-primary);
+  cursor: pointer;
+  transition:
+    background 160ms var(--ease-smooth),
+    border-color 160ms var(--ease-smooth),
+    color 160ms var(--ease-smooth);
+}
+
+.root:hover:not(:disabled) {
+  background: var(--pn-field-bg-hover);
+  border-color: var(--pn-border-strong);
+}
+
+.root:focus-visible {
+  outline: none;
+  box-shadow: var(--pn-shadow-focus-ring);
+}
+
+.root:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.size-sm {
+  font-size: 0.7rem;
+  padding: var(--pn-space-1_5) var(--pn-space-2_5);
+  min-height: 26px;
+}
+
+.size-md {
+  font-size: 0.8rem;
+  padding: var(--pn-space-2) var(--pn-space-3);
+  min-height: 32px;
+}
+
+.variant-primary {
+  background: color-mix(in srgb, var(--color-pn-teal-400) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-pn-teal-400) 35%, transparent);
+  color: var(--color-pn-teal-300);
+}
+
+.variant-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-pn-teal-400) 20%, transparent);
+}
+
+.variant-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--pn-text-secondary);
+}
+
+.variant-ghost:hover:not(:disabled) {
+  background: var(--pn-field-bg);
+  color: var(--pn-text-primary);
+}
+
+.variant-danger {
+  background: color-mix(in srgb, var(--color-pn-error) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-pn-error) 35%, transparent);
+  color: var(--color-pn-rose-300);
+}

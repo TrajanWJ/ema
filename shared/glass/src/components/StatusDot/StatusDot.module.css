@@ -1,0 +1,49 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pn-space-2);
+}
+
+.dot {
+  display: inline-block;
+  border-radius: var(--pn-radius-full);
+  flex-shrink: 0;
+}
+
+.size-sm {
+  width: 6px;
+  height: 6px;
+}
+.size-md {
+  width: 8px;
+  height: 8px;
+}
+
+.pulse {
+  animation: pulseDot 2s var(--ease-smooth) infinite;
+}
+
+.kind-idle {
+  background: var(--pn-text-muted);
+}
+.kind-running {
+  background: var(--color-pn-teal-400);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-pn-teal-400) 60%, transparent);
+}
+.kind-success {
+  background: var(--color-pn-success);
+}
+.kind-warning {
+  background: var(--color-pn-warning);
+}
+.kind-error {
+  background: var(--color-pn-error);
+}
+.kind-info {
+  background: var(--color-pn-blue-400);
+}
+
+.label {
+  font-size: 0.7rem;
+  color: var(--pn-text-secondary);
+}

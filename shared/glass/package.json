@@ -1,0 +1,33 @@
+{
+  "name": "@ema/glass",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "EMA glass component kit. Ports AmbientStrip, Dock, CommandBar, AppWindowChrome, GlassCard and friends from the old Elixir+Tauri build to React 19 + CSS modules. Consumes @ema/tokens — no hex values live here.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./styles/keyframes.css": "./src/styles/keyframes.css",
+    "./styles/reset.css": "./src/styles/reset.css"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@ema/tokens": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@ema/tokens": "workspace:*",
+    "@types/react": "^19.2.14",
+    "react": "^19.2.4",
+    "typescript": "~5.9.3"
+  }
+}

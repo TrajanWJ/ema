@@ -1,0 +1,64 @@
+/*
+ * GlassSurface — generic wrapper that applies any of the 6 glass tiers from
+ * @ema/tokens. Tiers map to CSS variables: the .tier-* classes reference them
+ * so tier values stay in tokens.
+ */
+
+.root {
+  position: relative;
+  border-radius: var(--pn-radius-lg);
+  transition: background 200ms var(--ease-smooth);
+}
+
+.tier-wash {
+  background: var(--pn-glass-wash-bg);
+  backdrop-filter: blur(var(--pn-glass-wash-blur)) saturate(var(--pn-glass-wash-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-wash-blur)) saturate(var(--pn-glass-wash-saturate));
+}
+
+.tier-ambient {
+  background: var(--pn-glass-ambient-bg);
+  backdrop-filter: blur(var(--pn-glass-ambient-blur)) saturate(var(--pn-glass-ambient-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-ambient-blur)) saturate(var(--pn-glass-ambient-saturate));
+}
+
+.tier-surface {
+  background: var(--pn-glass-surface-bg);
+  backdrop-filter: blur(var(--pn-glass-surface-blur)) saturate(var(--pn-glass-surface-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-surface-blur)) saturate(var(--pn-glass-surface-saturate));
+  border: 1px solid var(--pn-glass-surface-border);
+}
+
+.tier-panel {
+  background: var(--pn-glass-panel-bg);
+  backdrop-filter: blur(var(--pn-glass-panel-blur)) saturate(var(--pn-glass-panel-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-panel-blur)) saturate(var(--pn-glass-panel-saturate));
+  border: 1px solid var(--pn-glass-panel-border);
+}
+
+.tier-elevated {
+  background: var(--pn-glass-elevated-bg);
+  backdrop-filter: blur(var(--pn-glass-elevated-blur)) saturate(var(--pn-glass-elevated-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-elevated-blur)) saturate(var(--pn-glass-elevated-saturate));
+  border: 1px solid var(--pn-glass-elevated-border);
+}
+
+.tier-peak {
+  background: var(--pn-glass-peak-bg);
+  backdrop-filter: blur(var(--pn-glass-peak-blur)) saturate(var(--pn-glass-peak-saturate));
+  -webkit-backdrop-filter: blur(var(--pn-glass-peak-blur)) saturate(var(--pn-glass-peak-saturate));
+  border: 1px solid var(--pn-glass-peak-border);
+}
+
+.padding-none {
+  padding: 0;
+}
+.padding-sm {
+  padding: var(--pn-space-2);
+}
+.padding-md {
+  padding: var(--pn-space-4);
+}
+.padding-lg {
+  padding: var(--pn-space-6);
+}

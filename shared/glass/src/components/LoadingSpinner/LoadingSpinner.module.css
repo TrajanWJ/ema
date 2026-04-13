@@ -1,0 +1,48 @@
+.root {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pn-space-2);
+}
+
+.rootPadded {
+  padding: var(--pn-space-8) 0;
+}
+
+.spinner {
+  border-radius: var(--pn-radius-full);
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-pn-teal-400);
+  animation: glassSpin 800ms linear infinite;
+}
+
+@keyframes glassSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.size-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 1.5px;
+}
+
+.size-md {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.size-lg {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+}
+
+.label {
+  font-size: 0.7rem;
+  color: var(--pn-text-muted);
+}

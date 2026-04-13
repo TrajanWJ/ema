@@ -1,0 +1,114 @@
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.standalone {
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--color-pn-teal-400) 8%, transparent), transparent 24%),
+    radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--color-pn-blue-400) 7%, transparent), transparent 22%),
+    linear-gradient(180deg, var(--pn-window-core), var(--pn-window-deep)),
+    var(--pn-window-wash);
+  backdrop-filter: blur(20px) saturate(128%);
+  -webkit-backdrop-filter: blur(20px) saturate(128%);
+}
+
+.headerEmbedded {
+  display: flex;
+  align-items: center;
+  gap: var(--pn-space-2);
+  height: 32px;
+  padding: 0 var(--pn-space-3);
+  flex-shrink: 0;
+  background: var(--pn-window-header);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  border-bottom: 1px solid var(--pn-border-subtle);
+}
+
+.headerStandalone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 var(--pn-space-3_5);
+  flex-shrink: 0;
+  background: var(--pn-window-header);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid var(--pn-border-subtle);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--pn-space-2);
+}
+
+.icon {
+  font-size: 14px;
+}
+
+.title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.titleEmbedded {
+  font-size: 0.65rem;
+}
+
+.breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--pn-text-muted);
+}
+
+.breadcrumbEmbedded {
+  font-size: 0.55rem;
+}
+
+.lights {
+  display: flex;
+  align-items: center;
+  gap: var(--pn-space-2);
+  -webkit-app-region: no-drag;
+}
+
+.light {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--pn-radius-full);
+  opacity: 0.8;
+  transition: opacity 160ms var(--ease-smooth);
+  border: none;
+  padding: 0;
+}
+.light:hover {
+  opacity: 1;
+}
+.lightMin {
+  background: var(--color-pn-warning);
+}
+.lightMax {
+  background: var(--color-pn-success);
+}
+.lightClose {
+  background: var(--color-pn-error);
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+}
+.bodyEmbedded {
+  padding: var(--pn-space-3);
+}
+.bodyStandalone {
+  padding: var(--pn-space-2);
+}
