@@ -92,6 +92,18 @@ export interface RuntimeProposal {
   readonly updated_at: string;
 }
 
+export interface RuntimeTask {
+  readonly id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly priority: string | number | null;
+  readonly project_id: string | null;
+  readonly agent: string | null;
+  readonly intent: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
 export class BackendFlowClient {
   constructor(private readonly services: ServiceConnection) {}
 
@@ -144,8 +156,36 @@ export class BackendFlowClient {
     return this.services.request('POST', `/api/intents/${encodeURIComponent(slug)}/executions`, input);
   }
 
+  async listExecutions(filter: {
+    status?: string;
+    mode?: string;
+    intent_slug?: string;
+    project_slug?: string;
+    include_archived?: boolean;
+  } = {}): Promise<readonly RuntimeExecution[]> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filter)) {
+      if (typeof value === 'string' && value.length > 0) query.set(key, value);
+      if (typeof value === 'boolean') query.set(key, String(value));
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    const response = await this.services.request<{ executions: RuntimeExecution[] }>(
+      'GET',
+      `/api/executions${suffix}`,
+    );
+    return response.executions;
+  }
+
   async getExecution(id: string): Promise<RuntimeExecutionDetail> {
     return this.services.request('GET', `/api/executions/${encodeURIComponent(id)}`);
+  }
+
+  async approveExecution(id: string): Promise<{ execution: RuntimeExecution }> {
+    return this.services.request('POST', `/api/executions/${encodeURIComponent(id)}/approve`, {});
+  }
+
+  async cancelExecution(id: string): Promise<{ execution: RuntimeExecution }> {
+    return this.services.request('POST', `/api/executions/${encodeURIComponent(id)}/cancel`, {});
   }
 
   async listProposals(filter: {
@@ -263,5 +303,30 @@ export class BackendFlowClient {
     } = {},
   ): Promise<{ execution: RuntimeExecution }> {
     return this.services.request('POST', `/api/executions/${encodeURIComponent(id)}/complete`, input);
+  }
+
+  async listTasks(filter: {
+    project_id?: string;
+    status?: string;
+    priority?: string;
+  } = {}): Promise<readonly RuntimeTask[]> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filter)) {
+      if (typeof value === 'string' && value.length > 0) query.set(key, value);
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    const response = await this.services.request<{ tasks: RuntimeTask[] }>(
+      'GET',
+      `/api/tasks${suffix}`,
+    );
+    return response.tasks;
+  }
+
+  async getTask(id: string): Promise<RuntimeTask> {
+    return this.services.request('GET', `/api/tasks/${encodeURIComponent(id)}`);
+  }
+
+  async transitionTask(id: string, input: { status: string }): Promise<RuntimeTask> {
+    return this.services.request('POST', `/api/tasks/${encodeURIComponent(id)}/transition`, input);
   }
 }

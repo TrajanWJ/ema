@@ -104,7 +104,7 @@ The trigger/action registry is **domain-agnostic and clean**. It has no Elixir-s
 
 - **Exact 22/15/5 registry contents.** Follow-up extraction from old Elixir source required.
 - **Stock pipe definitions.** Same.
-- **Per-space pipe scoping.** Should pipes be space-scoped, global, or configurable per pipe? Old build was global; canon Three Truths model ([[canon/decisions/DEC-004-unified-intents-schema]]) implies space-scoping should be an option.
+- **Per-space pipe scoping.** Should pipes be space-scoped, global, or configurable per pipe? Old build was global; canon Three Truths model ([[canon/decisions/DEC-007-unified-intents-schema]]) implies space-scoping should be an option.
 - **Pipe priority default.** Old build had priorities but the default value isn't in the prose.
 - **Recursion guard.** If pipe A's action fires a trigger that pipe A subscribes to, you get infinite recursion. Old build had a guard — needs explicit documentation.
 

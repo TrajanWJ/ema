@@ -5,8 +5,14 @@ subtype: decision
 layer: canon
 title: "Actor work lifecycle = idle → plan → execute → review → retro (ported from old Elixir Actors)"
 status: active
+implementation_status: pending
+implementation_tracked_by: "[[intents/INT-RECOVERY-WAVE-1]] Stream 3"
+implementation_target_paths:
+  - "shared/schemas/actor-phase.ts"
+  - "services/core/actors/"
+  - "phase_transitions table in shared/schemas/"
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 author: recovery-wave-1
 decided_by: human
 supersedes:

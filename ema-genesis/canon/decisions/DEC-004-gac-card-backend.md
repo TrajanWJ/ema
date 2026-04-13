@@ -5,8 +5,13 @@ subtype: decision
 layer: canon
 title: "GACCard is a first-class backend primitive — Blueprint vApp operationalized"
 status: active
+implementation_status: pending
+implementation_tracked_by: "[[intents/INT-RECOVERY-WAVE-1]] Stream 3"
+implementation_target_paths:
+  - "services/core/blueprint/"
+  - "shared/schemas/gac-card.ts"
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 author: recovery-wave-1
 decided_by: human
 connections:

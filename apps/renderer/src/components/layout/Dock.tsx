@@ -1,36 +1,22 @@
-import { Tooltip } from "@/components/ui/Tooltip";
+import type { CSSProperties } from "react";
+
+import { DOCK_APPS } from "@/config/app-catalog";
+import { isDesktopEnvironment } from "@/lib/electron-bridge";
+import { navigateToRoute } from "@/lib/router";
+import { openApp } from "@/lib/window-manager";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { APP_CONFIGS } from "@/types/workspace";
-
-const DOCK_APPS = [
-  // Work
-  { id: "brain-dump", icon: "◎", label: "Brain Dump" },
-  { id: "tasks", icon: "☐", label: "Tasks" },
-  { id: "projects", icon: "▣", label: "Projects" },
-  { id: "executions", icon: "⚡", label: "Executions" },
-  { id: "proposals", icon: "◆", label: "Proposals" },
-  // Intelligence
-  { id: "intent-schematic", icon: "🗺️", label: "Intent Schematic" },
-  { id: "agents", icon: "⊞", label: "Agents" },
-  // Creative
-  { id: "canvas", icon: "◧", label: "Canvas" },
-  { id: "pipes", icon: "⟿", label: "Pipes" },
-  // Operations
-  { id: "decision-log", icon: "⚖", label: "Decisions" },
-  // Life
-  { id: "habits", icon: "↻", label: "Habits" },
-  { id: "journal", icon: "✎", label: "Journal" },
-  { id: "responsibilities", icon: "⚈", label: "Responsibilities" },
-  { id: "goals", icon: "◎", label: "Goals" },
-  // System
-  { id: "voice", icon: "◯", label: "Voice" },
-] as const;
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export function Dock() {
   const isOpen = useWorkspaceStore((s) => s.isOpen);
 
   function handleClick(appId: string) {
-    window.location.pathname = `/${appId}`;
+    if (isDesktopEnvironment()) {
+      void openApp(appId);
+      return;
+    }
+    navigateToRoute(appId);
   }
 
   return (
@@ -39,10 +25,11 @@ export function Dock() {
       style={{ width: "52px", borderRight: "1px solid var(--pn-border-subtle)" }}
     >
       <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-none">
-        {/* Launchpad home */}
         <Tooltip label="Launchpad">
           <button
-            onClick={() => { window.location.pathname = "/"; }}
+            onClick={() => {
+              navigateToRoute("launchpad");
+            }}
             className="dock-icon active"
             style={{ color: "var(--color-pn-primary-400)" }}
           >
@@ -53,24 +40,37 @@ export function Dock() {
 
         <div className="dock-sep" />
 
-        {DOCK_APPS.map(({ id, icon, label }) => {
-          const running = isOpen(id);
-          const config = APP_CONFIGS[id];
+        {DOCK_APPS.filter((app) => app.id !== "settings").map((app) => {
+          const running = isOpen(app.id);
+          const config = APP_CONFIGS[app.id];
           const accent = config?.accent ?? "var(--pn-text-tertiary)";
+          const icon = config?.icon ?? "□";
+          const isPreview = app.readiness === "preview";
 
           return (
-            <Tooltip key={id} label={label}>
+            <Tooltip key={app.id} label={`${app.name} · ${app.readiness}`}>
               <button
-                onClick={() => handleClick(id)}
+                onClick={() => handleClick(app.id)}
                 className={`dock-icon ${running ? "active" : ""}`}
                 style={{
                   "--dock-accent": accent,
                   color: running ? accent : "var(--pn-text-tertiary)",
-                } as React.CSSProperties}
+                  opacity: isPreview ? 0.64 : 1,
+                } as CSSProperties}
               >
                 {icon}
-                {running && (
-                  <span className="dock-dot" />
+                {running && <span className="dock-dot" />}
+                {!running && app.readiness === "partial" && (
+                  <span
+                    className="dock-dot"
+                    style={{
+                      width: 4,
+                      height: 4,
+                      bottom: 8,
+                      background: "#fbbf24",
+                      opacity: 0.85,
+                    }}
+                  />
                 )}
               </button>
             </Tooltip>

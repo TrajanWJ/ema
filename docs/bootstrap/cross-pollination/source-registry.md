@@ -54,17 +54,8 @@ Each source should eventually be typed by:
 - `/home/trajan/Documents/obsidian_first_stuff/twj1/Archive/Dead Weight/Prompts/Analysis/Architecture Evaluation Prompt.md`
 - `/home/trajan/Documents/obsidian_first_stuff/twj1/Archive/Dead Weight/Prompts/Analysis/Security Review Prompt.md`
 
-### External GitHub candidates — next IDE / blueprint / agent layer
+### External GitHub candidates — explicitly kept
 - `https://github.com/ysz7/Arcforge` — graph-first backend IDE, plugin parser runtime, architecture JSON, prompt export, rollback-backed forge
-- `https://github.com/CodeBoarding/CodeBoarding` — interactive architecture diagrams for codebases
-- `https://github.com/qodo-ai/open-aware` — deep code research agent exposed through MCP
-- `https://github.com/alvinveroy/CodeCompass` — codebase analysis and context tooling surface
-- `https://github.com/adithya-s-k/GitVizz` — LLM-friendly repository summaries plus dependency graphs
-- `https://github.com/sopaco/deepwiki-rs` — architecture-doc and code-wiki generation from repos
-- `https://github.com/microsoft/typespec` — spec-first API/system design language
-- `https://github.com/cline/cline` — IDE-embedded coding agent with explicit tool approval
-- `https://github.com/OpenHands/OpenHands` — AI-driven development runtime for longer-horizon coding tasks
-- `https://github.com/continuedev/continue` — open-source assistant / CI policy layer around AI coding
 
 ## Import posture vocabulary
 - `durable-bootstrap` — should be distilled into EMA bootstrap corpus

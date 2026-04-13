@@ -2,21 +2,19 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import {
-  createPromotionReceiptInputSchema,
-  createReviewItemInputSchema,
   listReviewItemsFilterSchema,
+  promoteReviewItemInputSchema,
   reviewDecisionInputSchema,
 } from "@ema/shared/schemas";
 
 import {
   approveReviewItem,
-  createReviewItem,
+  ChronicleExtractionNotFoundError,
   deferReviewItem,
   getReviewItemDetail,
   listReviewItems,
-  recordPromotionReceipt,
+  promoteReviewItem,
   rejectReviewItem,
-  ReviewDecisionNotFoundError,
   ReviewItemNotFoundError,
   ReviewStateError,
 } from "./service.js";
@@ -29,8 +27,8 @@ function handleError(reply: FastifyReply, err: unknown): FastifyReply {
   if (err instanceof ReviewItemNotFoundError) {
     return reply.code(404).send({ error: err.code, id: err.reviewItemId });
   }
-  if (err instanceof ReviewDecisionNotFoundError) {
-    return reply.code(404).send({ error: err.code, id: err.reviewDecisionId });
+  if (err instanceof ChronicleExtractionNotFoundError) {
+    return reply.code(404).send({ error: err.code, id: err.extractionId });
   }
   if (err instanceof ReviewStateError) {
     return reply.code(409).send({ error: err.code, detail: err.message });
@@ -67,21 +65,6 @@ export function registerReviewRoutes(app: FastifyInstance): void {
       try {
         const { id } = idParamsSchema.parse(request.params ?? {});
         return { detail: getReviewItemDetail(id) };
-      } catch (err) {
-        return handleError(reply, err);
-      }
-    },
-  );
-
-  app.post(
-    "/items",
-    async (
-      request: FastifyRequest<{ Body: unknown }>,
-      reply: FastifyReply,
-    ) => {
-      try {
-        const body = createReviewItemInputSchema.parse(request.body ?? {});
-        return { detail: createReviewItem(body) };
       } catch (err) {
         return handleError(reply, err);
       }
@@ -137,15 +120,15 @@ export function registerReviewRoutes(app: FastifyInstance): void {
   );
 
   app.post(
-    "/items/:id/receipts",
+    "/items/:id/promote",
     async (
       request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
       reply: FastifyReply,
     ) => {
       try {
         const { id } = idParamsSchema.parse(request.params ?? {});
-        const body = createPromotionReceiptInputSchema.parse(request.body ?? {});
-        return { detail: recordPromotionReceipt(id, body) };
+        const body = promoteReviewItemInputSchema.parse(request.body ?? {});
+        return { detail: promoteReviewItem(id, body) };
       } catch (err) {
         return handleError(reply, err);
       }

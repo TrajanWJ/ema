@@ -1,6 +1,15 @@
 import { create } from "zustand";
-import { joinChannel } from "@/lib/ws";
-import type { Channel } from "phoenix";
+import type { EncodedAudioChunk } from "@/lib/audio-capture";
+import { decodeBase64AudioChunks } from "@/lib/audio-capture";
+import { routeCommand } from "@/lib/voice/voice-router";
+import { transcribe } from "@/lib/voice/whisper-client";
+import {
+  onStateChange as onTtsStateChange,
+  setRate as setTtsRate,
+  setVoice as setTtsVoice,
+  speak,
+  stop as stopTts,
+} from "@/lib/voice/tts-engine";
 
 export type VoiceState = "idle" | "listening" | "processing" | "speaking" | "error";
 export type ListenMode = "push-to-talk" | "always-on";
@@ -26,29 +35,21 @@ export interface VoiceSettings {
 }
 
 interface VoiceStoreState {
-  // Connection
-  channel: Channel | null;
-  sessionId: string | null;
   connected: boolean;
-
-  // Voice state
   voiceState: VoiceState;
   transcript: readonly TranscriptEntry[];
   audioLevel: number;
-
-  // Floating orb
   orbVisible: boolean;
   historyOpen: boolean;
-
-  // Settings
   settings: VoiceSettings;
+  _pendingAudioChunks: readonly EncodedAudioChunk[];
+  _ttsCleanup: (() => void) | null;
 
-  // Actions
   connect: () => Promise<void>;
   disconnect: () => void;
-  sendAudioChunk: (base64Data: string) => void;
-  finishUtterance: () => void;
-  sendText: (text: string) => void;
+  sendAudioChunk: (chunk: EncodedAudioChunk) => void;
+  finishUtterance: () => Promise<void>;
+  sendText: (text: string) => Promise<void>;
   clearSession: () => void;
   setVoiceState: (state: VoiceState) => void;
   setAudioLevel: (level: number) => void;
@@ -77,7 +78,7 @@ function loadPersistedSettings(): VoiceSettings {
     silenceThreshold: 1.5,
     whisperModel: "tiny",
     wakeWord: "hey ema",
-    useLocalWhisper: false,
+    useLocalWhisper: true,
   };
 }
 
@@ -89,9 +90,91 @@ function persistSettings(settings: VoiceSettings): void {
   }
 }
 
+function makeId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+async function speakIfAllowed(
+  response: string,
+  set: (fn: Partial<VoiceStoreState> | ((state: VoiceStoreState) => Partial<VoiceStoreState>)) => void,
+  get: () => VoiceStoreState,
+): Promise<void> {
+  if (!response.trim() || get().settings.muted) {
+    set({ voiceState: "idle" });
+    return;
+  }
+
+  set({ voiceState: "speaking" });
+
+  try {
+    await speak(response);
+  } catch (err) {
+    console.error("Speech synthesis failed:", err);
+    set({ voiceState: "idle" });
+  }
+}
+
+async function runJarvisTurn(
+  text: string,
+  set: (fn: Partial<VoiceStoreState> | ((state: VoiceStoreState) => Partial<VoiceStoreState>)) => void,
+  get: () => VoiceStoreState,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    set({ voiceState: "idle" });
+    return;
+  }
+
+  const userEntry: TranscriptEntry = {
+    id: makeId("user"),
+    role: "user",
+    text: trimmed,
+    timestamp: new Date().toISOString(),
+  };
+
+  set((state) => ({
+    transcript: [...state.transcript, userEntry],
+    voiceState: "processing",
+  }));
+
+  try {
+    const result = await routeCommand(trimmed);
+    const assistantEntry: TranscriptEntry = {
+      id: makeId("assistant"),
+      role: "assistant",
+      text: result.response,
+      type: result.type,
+      timestamp: new Date().toISOString(),
+    };
+
+    set((state) => ({
+      transcript: [...state.transcript, assistantEntry],
+    }));
+
+    await speakIfAllowed(result.response, set, get);
+  } catch (err) {
+    console.error("Voice turn failed:", err);
+    const assistantEntry: TranscriptEntry = {
+      id: makeId("assistant"),
+      role: "assistant",
+      text: "I hit an error while processing that.",
+      type: "conversation",
+      timestamp: new Date().toISOString(),
+    };
+    set((state) => ({
+      transcript: [...state.transcript, assistantEntry],
+      voiceState: "error",
+    }));
+
+    setTimeout(() => {
+      if (get().voiceState === "error") {
+        set({ voiceState: "idle" });
+      }
+    }, 1500);
+  }
+}
+
 export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
-  channel: null,
-  sessionId: null,
   connected: false,
   voiceState: "idle",
   transcript: [],
@@ -99,127 +182,101 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
   orbVisible: true,
   historyOpen: false,
   settings: loadPersistedSettings(),
+  _pendingAudioChunks: [],
+  _ttsCleanup: null,
 
   async connect() {
-    try {
-      const { channel, response } = await joinChannel("voice:session");
-      const data = response as { session_id: string };
+    if (get().connected) return;
 
-      set({ channel, sessionId: data.session_id, connected: true });
+    const settings = get().settings;
+    setTtsVoice(settings.voice);
+    setTtsRate(settings.speed);
 
-      // Listen for voice events
-      channel.on("voice:ready", (payload: { session_id: string }) => {
-        set({ sessionId: payload.session_id });
-      });
+    const cleanup = onTtsStateChange((state) => {
+      const current = get();
+      if (state === "speaking") {
+        set({ voiceState: "speaking" });
+        return;
+      }
 
-      channel.on("voice:state", (payload: { state: string }) => {
-        set({ voiceState: payload.state as VoiceState });
-      });
+      if (state === "idle" && current.voiceState === "speaking") {
+        set({ voiceState: "idle", audioLevel: 0 });
+      }
+    });
 
-      channel.on("voice:transcription", (payload: { text: string; role: string }) => {
-        const entry: TranscriptEntry = {
-          id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          role: payload.role as "user" | "assistant",
-          text: payload.text,
-          timestamp: new Date().toISOString(),
-        };
-        set((s) => ({ transcript: [...s.transcript, entry] }));
-      });
-
-      channel.on(
-        "voice:response",
-        (payload: { text: string; role: string; type: string }) => {
-          const entry: TranscriptEntry = {
-            id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            role: "assistant",
-            text: payload.text,
-            type: payload.type as "command" | "conversation",
-            timestamp: new Date().toISOString(),
-          };
-          set((s) => ({
-            transcript: [...s.transcript, entry],
-            voiceState: "speaking",
-          }));
-        },
-      );
-
-      channel.on("voice:error", (payload: { error: string }) => {
-        console.error("Voice error:", payload.error);
-        set({ voiceState: "error" });
-        // Auto-recover to idle after 2s
-        setTimeout(() => {
-          const state = get();
-          if (state.voiceState === "error") set({ voiceState: "idle" });
-        }, 2000);
-      });
-
-      channel.on("tts:chunk", (payload: { data: string; final: boolean }) => {
-        // Dispatch to audio playback (handled by audio-capture module)
-        window.dispatchEvent(
-          new CustomEvent("ema:tts-chunk", {
-            detail: { data: payload.data, final: payload.final },
-          }),
-        );
-
-        if (payload.final) {
-          // When TTS finishes, return to idle after a short delay
-          setTimeout(() => set({ voiceState: "idle" }), 500);
-        }
-      });
-
-      channel.on("voice:session_cleared", (payload: { session_id: string }) => {
-        set({ sessionId: payload.session_id, transcript: [], voiceState: "idle" });
-      });
-
-      channel.on("voice:session_ended", () => {
-        set({ voiceState: "idle", connected: false, channel: null, sessionId: null });
-      });
-    } catch (err) {
-      console.error("Failed to connect voice channel:", err);
-      set({ voiceState: "error" });
-    }
+    set({
+      connected: true,
+      voiceState: "idle",
+      _ttsCleanup: cleanup,
+    });
   },
 
   disconnect() {
-    const { channel } = get();
-    if (channel) {
-      channel.leave();
-    }
-    set({ channel: null, connected: false, sessionId: null, voiceState: "idle" });
+    get()._ttsCleanup?.();
+    stopTts();
+    set({
+      connected: false,
+      voiceState: "idle",
+      audioLevel: 0,
+      _pendingAudioChunks: [],
+      _ttsCleanup: null,
+    });
   },
 
-  sendAudioChunk(base64Data: string) {
-    const { channel } = get();
-    channel?.push("audio:chunk", { data: base64Data });
-  },
-
-  finishUtterance() {
-    const { channel } = get();
-    channel?.push("audio:finish", {});
-    set({ voiceState: "processing" });
-  },
-
-  sendText(text: string) {
-    const { channel } = get();
-    if (!channel) return;
-
-    const entry: TranscriptEntry = {
-      id: `t-${Date.now()}`,
-      role: "user",
-      text,
-      timestamp: new Date().toISOString(),
-    };
-    set((s) => ({
-      transcript: [...s.transcript, entry],
-      voiceState: "processing",
+  sendAudioChunk(chunk: EncodedAudioChunk) {
+    set((state) => ({
+      _pendingAudioChunks: [...state._pendingAudioChunks, chunk],
+      voiceState:
+        state.voiceState === "processing" || state.voiceState === "speaking"
+          ? state.voiceState
+          : "listening",
     }));
+  },
 
-    channel.push("text:send", { text });
+  async finishUtterance() {
+    const chunks = [...get()._pendingAudioChunks];
+    set({ _pendingAudioChunks: [], audioLevel: 0 });
+
+    if (chunks.length === 0) {
+      set({ voiceState: "idle" });
+      return;
+    }
+
+    set({ voiceState: "processing" });
+
+    try {
+      const audio = await decodeBase64AudioChunks(chunks);
+      const result = await transcribe(audio, get().settings.whisperModel);
+
+      if (!result.text.trim()) {
+        set({ voiceState: "idle" });
+        return;
+      }
+
+      await runJarvisTurn(result.text, set, get);
+    } catch (err) {
+      console.error("Transcription pipeline failed:", err);
+      set({ voiceState: "error" });
+      setTimeout(() => {
+        if (get().voiceState === "error") {
+          set({ voiceState: "idle" });
+        }
+      }, 1500);
+    }
+  },
+
+  async sendText(text: string) {
+    await runJarvisTurn(text, set, get);
   },
 
   clearSession() {
-    const { channel } = get();
-    channel?.push("session:clear", {});
+    stopTts();
+    set({
+      transcript: [],
+      _pendingAudioChunks: [],
+      voiceState: "idle",
+      audioLevel: 0,
+    });
   },
 
   setVoiceState(voiceState: VoiceState) {
@@ -231,21 +288,34 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
   },
 
   updateSettings(partial: Partial<VoiceSettings>) {
-    const { channel, settings } = get();
-    const updated = { ...settings, ...partial };
-    set({ settings: updated });
-    persistSettings(updated);
+    const settings = { ...get().settings, ...partial };
+    persistSettings(settings);
+    set({ settings });
 
-    // Sync TTS config to backend
-    if (partial.voice !== undefined || partial.speed !== undefined) {
-      channel?.push("tts:config", { voice: updated.voice, speed: updated.speed });
+    if (partial.voice !== undefined) {
+      setTtsVoice(settings.voice);
+    }
+    if (partial.speed !== undefined) {
+      setTtsRate(settings.speed);
+    }
+    if (partial.muted === true) {
+      stopTts();
+      set({ voiceState: "idle" });
     }
   },
 
   toggleMute() {
-    set((s) => ({
-      settings: { ...s.settings, muted: !s.settings.muted },
-    }));
+    const settings = {
+      ...get().settings,
+      muted: !get().settings.muted,
+    };
+    persistSettings(settings);
+    set({ settings });
+
+    if (settings.muted) {
+      stopTts();
+      set({ voiceState: "idle" });
+    }
   },
 
   setOrbVisible(orbVisible: boolean) {
@@ -253,15 +323,15 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => ({
   },
 
   toggleHistory() {
-    set((s) => ({ historyOpen: !s.historyOpen }));
+    set((state) => ({ historyOpen: !state.historyOpen }));
   },
 
   addTranscriptEntry(entry: Omit<TranscriptEntry, "id" | "timestamp">) {
     const full: TranscriptEntry = {
       ...entry,
-      id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: makeId("entry"),
       timestamp: new Date().toISOString(),
     };
-    set((s) => ({ transcript: [...s.transcript, full] }));
+    set((state) => ({ transcript: [...state.transcript, full] }));
   },
 }));

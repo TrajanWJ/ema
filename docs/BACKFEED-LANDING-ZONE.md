@@ -61,8 +61,8 @@ Chronicle needs a first-class object model. The minimum set is:
 | `chronicle_artifact` | attached file or output | screenshots, logs, transcripts, result files, patch files | file path, mime type, hash, source, related entries |
 | `chronicle_trace` | structured operational trace | shell command, worker event, pipe event, file touch, service log | event type, actor, scope, timestamp, payload |
 | `chronicle_link` | tentative or confirmed relationship | project linkage, intent linkage, duplicate relation | source object, target object, relation, confidence, reviewer |
-| `review_item` | queued unit for human review | one Chronicle session or entry selected for structured decision | source provenance, status, suggested target, reviewer notes |
-| `review_decision` | append-only decision record | approve, reject, defer | review item, actor, rationale, decided_at |
+| `chronicle_extraction` | derived candidate before human review | intent candidate, goal candidate, calendar candidate, execution evidence candidate | Chronicle lineage, candidate kind, payload, confidence, suggested target |
+| `review_item` | queued unit for human review | one Chronicle extraction selected for structured decision | extraction id, status, suggested target, decision actor, decision note, decided_at |
 | `promotion_receipt` | durable record of what was promoted or linked | linked proposal, created intent, recorded follow-on target | target kind, source evidence, approver decision, timestamp |
 
 ## Arrival Lifecycle
@@ -262,8 +262,8 @@ Expected tables:
 - `chronicle_entries`
 - `chronicle_artifacts`
 - `chronicle_links`
+- `chronicle_extractions`
 - `review_items`
-- `review_decisions`
 - `promotion_receipts`
 
 ### 3. Canon-adjacent manifests

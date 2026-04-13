@@ -94,9 +94,10 @@ export function QuickCapture({ isOpen, onClose }: QuickCaptureProps) {
     <div
       className="fixed inset-0 z-[80] flex items-start justify-center pt-[14vh]"
       style={{
-        background: "rgba(6, 6, 16, 0.64)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
+        background:
+          "radial-gradient(circle at top, rgba(107,149,240,0.14), transparent 24%), rgba(6, 6, 16, 0.64)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
       }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -110,9 +111,10 @@ export function QuickCapture({ isOpen, onClose }: QuickCaptureProps) {
         }}
         className="w-full max-w-2xl overflow-hidden rounded-2xl"
         style={{
-          background: "rgba(14, 16, 23, 0.94)",
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.012)), rgba(14, 16, 23, 0.94)",
           border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.62)",
+          boxShadow: "0 28px 84px rgba(0,0,0,0.62)",
         }}
       >
         <div

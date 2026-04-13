@@ -19,21 +19,29 @@ SQLite is the primary runtime store for:
 - indexed intent rows
 - indexed GAC rows
 - chronicle sources/sessions/entries/artifacts metadata
-- review items, review decisions, and promotion receipts
+- chronicle extractions, review items, and promotion receipts
 - goals
 - calendar entries
+- runtime tool scans
+- managed runtime session metadata
 - spaces
 - executions
 - user state
 - projects/tasks/brain-dump
 - supporting runtime tables
 
-For `goal`, `calendar_entry`, `space`, `execution`, `review_item`, `review_decision`, `promotion_receipt`, `user_state`, `project`, `task`, and `brain_dump`, SQLite is the source of truth.
+For `goal`, `calendar_entry`, `space`, `execution`, `chronicle_extraction`, `review_item`, `promotion_receipt`, `user_state`, `project`, `task`, and `brain_dump`, SQLite is the source of truth.
+
+For runtime sessions:
+
+- tmux pane/session state is the live runtime truth
+- SQLite stores the durable mirror for managed session metadata and tool scans
+- the active service owner is `services/core/runtime-fabric`
 
 For Chronicle metadata:
 
 - raw imported payloads and stored Chronicle artifacts live under `~/.local/share/ema/chronicle/`
-- SQLite is the query/index layer for Chronicle sessions, entries, artifacts, review items, review decisions, and promotion receipts
+- SQLite is the query/index layer for Chronicle sessions, entries, artifacts, Chronicle extractions, review items, and promotion receipts
 - Chronicle remains the raw/source landing zone; Review must retain provenance back to Chronicle ids instead of replacing Chronicle storage
 
 ## Generated / Evidence Layers
@@ -73,7 +81,7 @@ This state is explicitly non-durable and must never be treated as a system sourc
 When layers disagree, trust them in this order:
 
 1. `ema-genesis/` and active filesystem intent/GAC sources
-2. Active TypeScript runtime code under `services/core/{intents,blueprint,chronicle,review,goals,calendar,spaces,executions,user-state}`
+2. Active TypeScript runtime code under `services/core/{intents,blueprint,chronicle,review,goals,calendar,spaces,executions,user-state,runtime-fabric}`
 3. SQLite operational state and Chronicle raw imports
 4. Generated artifacts/results
 5. Vault/wiki and legacy docs

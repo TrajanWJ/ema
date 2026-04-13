@@ -4,9 +4,12 @@ type: canon
 subtype: decision
 layer: canon
 title: "Unified Intents schema + Three Truths model (Semantic / Operational / Knowledge)"
-status: preliminary
+status: active
+upgraded_at: 2026-04-13
+upgraded_from: preliminary
+upgraded_reason: "Referenced as foundational by EMA-V1-SPEC, SELF-POLLINATION, EXECUTION-SYSTEM, and 3+ recovered intents without contradictions. Meets DOC-TRUST-HIERARCHY upgrade threshold (3+ canon-level references)."
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 decided_at: 2026-04-06
 author: recovery-agent
 recovered_from: "~/.local/share/ema/vault/wiki/User/Stack-Decisions.md"

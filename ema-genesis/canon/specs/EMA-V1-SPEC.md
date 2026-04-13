@@ -1,7 +1,12 @@
-# EMA v1 — Normalized System Specification
+# EMA v1 — Phase 1 Specification (minimum viable slice of Genesis)
 
-> Rewritten 2026-04-11. This document supersedes all prior extractions.
-> Purpose: Hand this to a coding/planning agent and have it build EMA.
+> Originally written 2026-04-11 as "Normalized System Specification" with a claim
+> to supersede all prior extractions. **Re-framed 2026-04-13** per the
+> [[_meta/CANON-STATUS]] ruling of 2026-04-12: this document specifies **Phase 1
+> of the Genesis vision**, not a replacement for it. The full maximalist vision
+> (35 vApps, P2P mesh, puppeteer runtime, distributed homelab, research ingestion)
+> lives in [[EMA-GENESIS-PROMPT]]. v1 is the minimum viable slice within Genesis.
+> Purpose: hand this to a coding or planning agent for Phase 1 implementation.
 
 ---
 

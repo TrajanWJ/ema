@@ -13,9 +13,12 @@ export interface Execution {
   id: string;
   title: string;
   status: string;
+  inserted_at?: string;
+  mode?: string;
   project_id?: string | null;
   project_name?: string | null;
   project_color?: string | null;
+  project_slug?: string | null;
   agent_model?: string | null;
   summary?: string | null;
   started_at?: number | null;

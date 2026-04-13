@@ -149,6 +149,10 @@ export const APP_CONFIGS: Record<string, WindowConfig> = {
     title: "Settings", defaultWidth: 600, defaultHeight: 600,
     minWidth: 500, minHeight: 400, accent: "rgba(255,255,255,0.50)", icon: "⚙",
   },
+  terminal: {
+    title: "Terminal", defaultWidth: 1240, defaultHeight: 840,
+    minWidth: 920, minHeight: 620, accent: "#7dd3fc", icon: "⌘",
+  },
   "pattern-lab": {
     title: "Pattern Lab", defaultWidth: 1360, defaultHeight: 900,
     minWidth: 1040, minHeight: 720, accent: "#6B95F0", icon: "◈",

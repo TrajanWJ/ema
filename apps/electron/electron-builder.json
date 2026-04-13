@@ -1,6 +1,10 @@
 {
   "appId": "com.ema.desktop",
   "productName": "EMA",
+  "artifactName": "EMA-${version}-${os}-${arch}.${ext}",
+  "asar": true,
+  "npmRebuild": false,
+  "buildDependenciesFromSource": false,
   "directories": {
     "output": "release"
   },
@@ -28,14 +32,17 @@
   "linux": {
     "target": ["deb", "AppImage"],
     "category": "Utility",
+    "executableName": "ema",
     "icon": "../../assets/icons/ema-512.png"
   },
   "mac": {
     "target": ["dmg"],
+    "category": "public.app-category.productivity",
     "icon": "../../assets/icons/ema-512.png"
   },
   "win": {
     "target": ["nsis"],
+    "artifactName": "EMA-Setup-${version}-${arch}.${ext}",
     "icon": "../../assets/icons/ema-512.png"
   }
 }

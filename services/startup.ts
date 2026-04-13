@@ -8,11 +8,14 @@ import { registerExecutionsChannel } from './core/executions/executions.channel.
 import { registerProjectsChannel } from './core/projects/projects.channel.js';
 import { registerSettingsChannel } from './core/settings/settings.channel.js';
 import { registerTasksChannel } from './core/tasks/tasks.channel.js';
+import { registerVoiceChannel } from './core/voice/voice.channel.js';
 import { registerWorkspaceChannel } from './core/workspace/workspace.channel.js';
+import { runIngestionBootstrap } from './core/ingestion/bootstrap.js';
 import { runLoopMigrations } from './core/loop/migrations.js';
 import { pipeBus } from './core/pipes/bus.js';
 
 let pubsub: PubSub | undefined;
+let bootstrapPromise: Promise<void> | null = null;
 
 function log(message: string): void {
   const timestamp = new Date().toISOString();
@@ -51,6 +54,7 @@ export async function startServices(): Promise<void> {
   registerProjectsChannel();
   registerSettingsChannel();
   registerTasksChannel();
+  registerVoiceChannel();
   registerWorkspaceChannel();
   log('Channels: registered');
 
@@ -60,6 +64,23 @@ export async function startServices(): Promise<void> {
     });
   } catch {
     // Boot must not fail if the pipe bus has no listeners yet.
+  }
+
+  if (shouldRunIngestionBootstrap()) {
+    bootstrapPromise = Promise.resolve()
+      .then(() => runIngestionBootstrap({
+        repoRoot: process.cwd(),
+      }))
+      .then((result) => {
+        const progress = result.backfill
+          ? `backfill ${result.backfill.offset} -> ${result.backfill.next_offset ?? 'done'}`
+          : 'backfill skipped';
+        log(`Bootstrap: Chronicle anchored (${progress})`);
+      })
+      .catch((err: unknown) => {
+        const detail = err instanceof Error ? err.message : 'unknown_error';
+        log(`Bootstrap: failed (${detail})`);
+      });
   }
 
   log('All services started.');
@@ -77,10 +98,19 @@ export async function stopServices(): Promise<void> {
   log('HTTP server: closed');
 
   log('Database: closing...');
+  if (bootstrapPromise) {
+    await bootstrapPromise.catch(() => {});
+    bootstrapPromise = null;
+  }
   closeDb();
   log('Database: closed');
 
   log('Shutdown complete.');
+}
+
+function shouldRunIngestionBootstrap(): boolean {
+  const flag = process.env.EMA_BOOTSTRAP_INGESTION?.trim().toLowerCase();
+  return flag !== '0' && flag !== 'false';
 }
 
 function handleShutdownSignal(signal: string): void {

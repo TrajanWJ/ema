@@ -1,8 +1,13 @@
-// EMA UI 2.0 — 28 apps
+// EMA Electron renderer entrypoint. App readiness and grouping now live in config/app-catalog.
 // VoiceOverlay removed — was causing mic permission errors and floating orb
 
+import { useEffect, useState } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { Launchpad } from "@/components/layout/Launchpad";
+import { isDesktopEnvironment } from "@/lib/electron-bridge";
+import { getCurrentRoute, isStandaloneWindow, navigateToRoute } from "@/lib/router";
+import { openApp } from "@/lib/window-manager";
+import { APP_CONFIGS } from "@/types/workspace";
 
 // Core Workflow
 import { BrainDumpApp } from "@/components/brain-dump/BrainDumpApp";
@@ -43,6 +48,7 @@ import { GoalsApp } from "@/components/goals/GoalsApp";
 
 // System
 import { SettingsApp } from "@/components/settings/SettingsApp";
+import { TerminalApp } from "@/components/terminal/TerminalApp";
 import { VoiceApp } from "@/components/voice/VoiceApp";
 import { HQApp } from "@/components/hq/HQApp";
 import { PatternLabApp } from "@/components/pattern-lab/PatternLabApp";
@@ -51,16 +57,34 @@ import { PatternLabApp } from "@/components/pattern-lab/PatternLabApp";
 import { OperatorChatApp } from "@/components/operator-chat/OperatorChatApp";
 import { AgentChatApp } from "@/components/agent-chat/AgentChatApp";
 
-function getRoute(): string {
-  const fromHash = window.location.hash.replace(/^#\/?/, "");
-  if (fromHash) return fromHash;
-  return window.location.pathname.replace(/^\/+/, "") || "launchpad";
-}
-
 function AppContent() {
-  const route = getRoute();
+  const [route, setRoute] = useState(() => getCurrentRoute());
+
+  useEffect(() => {
+    const syncRoute = () => setRoute(getCurrentRoute());
+
+    window.addEventListener("hashchange", syncRoute);
+    window.addEventListener("popstate", syncRoute);
+
+    return () => {
+      window.removeEventListener("hashchange", syncRoute);
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, []);
 
   const isLaunchpad = route === "launchpad" || route === "";
+  const needsDesktopPopout =
+    isDesktopEnvironment() &&
+    !isStandaloneWindow() &&
+    !isLaunchpad &&
+    Object.prototype.hasOwnProperty.call(APP_CONFIGS, route);
+
+  useEffect(() => {
+    if (!needsDesktopPopout) return;
+    void openApp(route);
+    navigateToRoute("launchpad");
+  }, [needsDesktopPopout, route]);
+
   const content = (() => {
     switch (route) {
       // Core Workflow
@@ -102,6 +126,7 @@ function AppContent() {
 
       // System
       case "settings": return <SettingsApp />;
+      case "terminal": return <TerminalApp />;
       case "voice": return <VoiceApp />;
       case "hq": return <HQApp />;
       case "pattern-lab": return <PatternLabApp />;
@@ -116,12 +141,12 @@ function AppContent() {
   })();
 
   return isLaunchpad ? (
-    <Shell>
+    <Shell showAmbientStrip>
       {content}
     </Shell>
   ) : (
-    <Shell hideDock>
-      {content}
+    <Shell hideDock showAmbientStrip={false}>
+      {needsDesktopPopout ? <Launchpad /> : content}
     </Shell>
   );
 }

@@ -1,411 +1,502 @@
-import { useEffect, useState, useMemo } from "react";
-import { useWikiEngineStore } from "@/stores/wiki-engine-store";
-import { WikiSidebar } from "./WikiSidebar";
-import { WikiEditor } from "./tiptap/WikiEditor";
-import { IntentChat } from "./IntentChat";
-import { WikiPageRenderer } from "./WikiPageRenderer";
-import { STATUS_COLORS, LEVEL_LABELS } from "@/types/intents";
-import "./wikipedia.css";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-const isStandalone =
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).get("mode") === "standalone";
+import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
+import { api } from "@/lib/api";
+import { APP_CONFIGS } from "@/types/workspace";
+
+const config = APP_CONFIGS["intent-schematic"];
+
+interface IntentRecord {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly level: string;
+  readonly status: string;
+  readonly kind: string | null;
+  readonly phase: string | null;
+  readonly parent_id: string | null;
+  readonly project_id: string | null;
+  readonly tags?: readonly string[];
+  readonly scope?: readonly string[];
+  readonly exit_condition?: string | null;
+}
+
+interface IntentTreeNode {
+  readonly intent: IntentRecord;
+  readonly children: readonly IntentTreeNode[];
+}
+
+interface IntentLinkRecord {
+  readonly id: string;
+  readonly source_slug: string;
+  readonly target_type: string;
+  readonly target_id: string;
+  readonly relation: string;
+  readonly provenance: string;
+  readonly created_at: string;
+}
+
+interface IntentPhaseTransitionRecord {
+  readonly id: string;
+  readonly intent_slug: string;
+  readonly from_phase: string | null;
+  readonly to_phase: string;
+  readonly reason: string;
+  readonly summary: string | null;
+  readonly transitioned_at: string;
+}
+
+interface IntentEventRecord {
+  readonly id: string;
+  readonly intent_slug: string;
+  readonly event_type: string;
+  readonly payload: Record<string, unknown>;
+  readonly actor: string;
+  readonly happened_at: string;
+}
+
+interface IntentRuntimeBundle {
+  readonly intent: IntentRecord;
+  readonly phase: string | null;
+  readonly links: {
+    readonly executions: readonly IntentLinkRecord[];
+    readonly proposals: readonly IntentLinkRecord[];
+    readonly actors: readonly IntentLinkRecord[];
+    readonly sessions: readonly IntentLinkRecord[];
+    readonly tasks: readonly IntentLinkRecord[];
+    readonly canon: readonly IntentLinkRecord[];
+  };
+  readonly phase_transitions: readonly IntentPhaseTransitionRecord[];
+  readonly recent_events: readonly IntentEventRecord[];
+}
+
+function labelize(value: string | null | undefined): string {
+  if (!value) return "unassigned";
+  return value.replace(/[_-]/g, " ");
+}
+
+function formatAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function flattenTree(nodes: readonly IntentTreeNode[]): IntentRecord[] {
+  const result: IntentRecord[] = [];
+  const visit = (node: IntentTreeNode) => {
+    result.push(node.intent);
+    node.children.forEach(visit);
+  };
+  nodes.forEach(visit);
+  return result;
+}
 
 export function IntentSchematicApp() {
-  const [ready, setReady] = useState(false);
+  const [tree, setTree] = useState<readonly IntentTreeNode[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bundle, setBundle] = useState<IntentRuntimeBundle | null>(null);
+  const [loadingTree, setLoadingTree] = useState(true);
+  const [loadingBundle, setLoadingBundle] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [tocOpen] = useState(true);
-  const [editMode, setEditMode] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [creatingExecution, setCreatingExecution] = useState(false);
 
-  const namespaces = useWikiEngineStore((s) => s.namespaces);
-  const selectedPath = useWikiEngineStore((s) => s.selectedPath);
-  const selectedContent = useWikiEngineStore((s) => s.selectedContent);
-  const selectedIntent = useWikiEngineStore((s) => s.selectedIntent);
-  const editContent = useWikiEngineStore((s) => s.editContent);
-  const searchQuery = useWikiEngineStore((s) => s.searchQuery);
-  const allNotes = useWikiEngineStore((s) => s.allNotes);
+  async function loadTree() {
+    setLoadingTree(true);
+    setError(null);
+    try {
+      const data = await api.get<{ tree: IntentTreeNode[] }>("/intents/tree");
+      setTree(data.tree ?? []);
+      setSelectedId((current) => current ?? data.tree?.[0]?.intent.id ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "intent_tree_failed");
+    } finally {
+      setLoadingTree(false);
+    }
+  }
+
+  async function loadBundle(intentId: string) {
+    setLoadingBundle(true);
+    setActionError(null);
+    try {
+      const data = await api.get<{ bundle: IntentRuntimeBundle }>(`/intents/${intentId}/runtime`);
+      setBundle(data.bundle);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "intent_bundle_failed");
+      setBundle(null);
+    } finally {
+      setLoadingBundle(false);
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    async function init() {
-      try {
-        await useWikiEngineStore.getState().loadWiki();
-      } catch (err) {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : "Failed to load");
-      }
-      if (!cancelled) setReady(true);
-    }
-    init();
-    return () => { cancelled = true; };
+    void loadTree();
   }, []);
 
-  const toc = useMemo(() => {
-    if (!selectedContent) return [];
-    const headings: { level: number; text: string }[] = [];
-    for (const line of selectedContent.split("\n")) {
-      const m = line.match(/^(#{1,4})\s+(.+)$/);
-      if (m) headings.push({ level: m[1].length, text: m[2].replace(/\*\*/g, "").replace(/`/g, "") });
+  useEffect(() => {
+    if (selectedId) void loadBundle(selectedId);
+  }, [selectedId]);
+
+  const flat = useMemo(() => flattenTree(tree), [tree]);
+  const counts = {
+    total: flat.length,
+    active: flat.filter((item) => item.status === "active").length,
+    implementing: flat.filter((item) => item.status === "implementing").length,
+    blocked: flat.filter((item) => item.status === "blocked").length,
+  };
+
+  async function handleStartExecution() {
+    if (!bundle) return;
+    setCreatingExecution(true);
+    setActionError(null);
+    try {
+      await api.post(`/intents/${bundle.intent.id}/executions`, {
+        title: bundle.intent.title,
+        objective: bundle.intent.description ?? bundle.intent.title,
+        mode: bundle.intent.kind === "research" ? "research" : "implement",
+      });
+      await loadBundle(bundle.intent.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "execution_start_failed");
+    } finally {
+      setCreatingExecution(false);
     }
-    return headings;
-  }, [selectedContent]);
-
-  const frontmatter = useMemo(() => {
-    if (!selectedContent) return {};
-    const match = selectedContent.match(/^---\n([\s\S]*?)---/m);
-    if (!match) return {};
-    const fm: Record<string, string> = {};
-    for (const line of match[1].split("\n")) {
-      const m = line.match(/^(\w[\w_-]*):\s*(.+)$/);
-      if (m) fm[m[1]] = m[2].trim().replace(/^"(.*)"$/, "$1");
-    }
-    return fm;
-  }, [selectedContent]);
-
-  function handleNavigate(slug: string) {
-    const match = allNotes.find((n) => {
-      const basename = n.file_path?.split("/").pop()?.replace(".md", "") ?? "";
-      const noteSlug = basename.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      return noteSlug === slug;
-    });
-    if (match) {
-      useWikiEngineStore.getState().selectPage(match.file_path);
-      setEditMode(false);
-    }
-  }
-
-  function handleSave() {
-    useWikiEngineStore.getState().savePage();
-    setEditMode(false);
-  }
-
-  if (!ready) {
-    return (
-      <div className={`wiki-page-layout ${isStandalone ? "wiki-light" : "wiki-ema"}`}
-        style={{ alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "var(--color-placeholder)", fontSize: "0.85rem" }}>
-          Loading wiki...
-        </span>
-      </div>
-    );
   }
 
   return (
-    <div
-      className={`wiki-page-layout ${isStandalone ? "wiki-light" : "wiki-ema"}`}
+    <AppWindowChrome
+      appId="intent-schematic"
+      title={config.title}
+      icon={config.icon}
+      accent={config.accent}
+      breadcrumb={bundle?.intent.title ?? "Intent Explorer"}
     >
-      {/* Header */}
-      <header className="wiki-header" data-tauri-drag-region>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen((o) => !o)}
-            className="text-[1rem] w-7 h-7 flex items-center justify-center rounded"
-            style={{ color: "var(--color-progressive)" }}
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(167,139,250,0.12), rgba(45,212,168,0.05))",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div className="text-[0.62rem] font-semibold uppercase tracking-[0.18em]" style={{ color: config.accent }}>
+            Intent Runtime Graph
+          </div>
+          <div className="mt-1 text-[1rem] font-semibold" style={{ color: "var(--pn-text-primary)" }}>
+            Inspect live intents and their proposal/execution attachments
+          </div>
+          <p className="mt-2 max-w-3xl text-[0.75rem] leading-[1.6]" style={{ color: "var(--pn-text-secondary)" }}>
+            This app now uses the active `/api/intents` runtime surface directly. The old vault/wiki editing layer has been removed from this view because it was built on routes that are not part of the live backend spine.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <MetricPill label="Total" value={counts.total} color="#a78bfa" />
+            <MetricPill label="Active" value={counts.active} color="#2dd4a8" />
+            <MetricPill label="Implementing" value={counts.implementing} color="#f59e0b" />
+            <MetricPill label="Blocked" value={counts.blocked} color="#ef4444" />
+          </div>
+        </div>
+
+        {error ? (
+          <div className="rounded-xl px-3 py-2 text-[0.72rem]" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+            {error}
+          </div>
+        ) : null}
+        {actionError ? (
+          <div className="rounded-xl px-3 py-2 text-[0.72rem]" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24" }}>
+            {actionError}
+          </div>
+        ) : null}
+
+        <div className="flex min-h-0 flex-1 gap-3">
+          <div
+            className="w-[23rem] shrink-0 overflow-y-auto rounded-2xl p-3"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
           >
-            ☰
-          </button>
-          <span className="wiki-header-logo">EMA</span>
-          <span className="text-[0.7rem]" style={{ color: "var(--color-placeholder)" }}>
-            Wiki · {allNotes.length} pages · {namespaces.length} namespaces
-          </span>
-        </div>
-
-        <div className="wiki-header-search">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => useWikiEngineStore.getState().setSearch(e.target.value)}
-            placeholder="Search wiki..."
-          />
-        </div>
-
-        <div className="flex items-center gap-1">
-          {selectedPath && (
-            <>
-              <TabBtn label="Read" active={!editMode} onClick={() => setEditMode(false)} />
-              <TabBtn
-                label="Edit"
-                active={editMode}
-                onClick={() => {
-                  useWikiEngineStore.getState().setEditMode(true);
-                  setEditMode(true);
-                }}
-              />
-              <TabBtn label="Talk" active={chatOpen} accent onClick={() => setChatOpen((o) => !o)} />
-            </>
-          )}
-        </div>
-      </header>
-
-      {error && (
-        <div className="px-5 py-2 text-[0.7rem]" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>
-          {error}
-        </div>
-      )}
-
-      {/* Main */}
-      <div className="flex-1 flex min-h-0">
-        {/* Sidebar: namespaces + page list */}
-        {sidebarOpen && (
-          <aside className="wiki-sidebar" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <WikiSidebar />
-          </aside>
-        )}
-
-        {/* Article area */}
-        <main className="flex-1 min-w-0 flex flex-col">
-          {/* Breadcrumb */}
-          {selectedPath && (
-            <div className="wiki-breadcrumb flex items-center gap-2">
-              <Breadcrumb path={selectedPath} />
-              {selectedIntent && (
-                <span
-                  className="ml-auto px-2 py-0.5 rounded-full text-[0.6rem]"
-                  style={{
-                    background: `${STATUS_COLORS[selectedIntent.status] ?? "#64748b"}20`,
-                    color: STATUS_COLORS[selectedIntent.status] ?? "#64748b",
-                  }}
-                >
-                  {selectedIntent.status} · {LEVEL_LABELS[selectedIntent.level]}
-                </span>
-              )}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="text-[0.58rem] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--pn-text-muted)" }}>
+                Intent Tree
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadTree()}
+                className="rounded-lg px-2.5 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.16em]"
+                style={{ background: "rgba(255,255,255,0.04)", color: "var(--pn-text-secondary)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                Refresh
+              </button>
             </div>
-          )}
+            {loadingTree ? (
+              <div className="text-[0.74rem]" style={{ color: "var(--pn-text-muted)" }}>Loading intents...</div>
+            ) : tree.length === 0 ? (
+              <div className="text-[0.74rem]" style={{ color: "var(--pn-text-muted)" }}>No intents indexed.</div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {tree.map((node) => (
+                  <TreeNodeButton
+                    key={node.intent.id}
+                    node={node}
+                    depth={0}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
-          <div className="flex-1 flex min-h-0">
-            {/* Content */}
-            <div className="flex-1 overflow-auto">
-              <div style={{ maxWidth: "860px", margin: "0 auto", padding: "1.5rem 2rem" }}>
-                {!selectedPath ? (
-                  <MainPage />
-                ) : editMode ? (
-                  <div className="mw-parser-output">
-                    <WikiEditor
-                      content={editContent || selectedContent || ""}
-                      editable
-                      onUpdate={(html) => useWikiEngineStore.getState().setEditContent(html)}
-                      onNavigate={handleNavigate}
-                    />
-                    <div className="flex justify-end mt-4 gap-2">
-                      <button type="button" onClick={() => setEditMode(false)}
-                        className="px-4 py-1.5 rounded text-[0.75rem]"
-                        style={{ color: "var(--color-placeholder)" }}>
-                        Cancel
-                      </button>
-                      <button type="button" onClick={handleSave}
-                        className="px-4 py-1.5 rounded text-[0.75rem] font-medium"
-                        style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
-                        Save changes
-                      </button>
-                    </div>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto rounded-2xl p-4"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            {loadingBundle ? (
+              <Empty label="Loading runtime bundle..." />
+            ) : !bundle ? (
+              <Empty label="Select an intent to inspect its runtime bundle." />
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Tag label={labelize(bundle.intent.level)} color="#a78bfa" />
+                  <Tag label={labelize(bundle.intent.status)} color={statusColor(bundle.intent.status)} />
+                  <Tag label={labelize(bundle.phase ?? bundle.intent.phase)} color="#60a5fa" />
+                  {bundle.intent.kind ? <Tag label={labelize(bundle.intent.kind)} color="#2dd4a8" /> : null}
+                  <button
+                    type="button"
+                    onClick={() => void handleStartExecution()}
+                    disabled={creatingExecution}
+                    className="ml-auto rounded-lg px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.16em]"
+                    style={{
+                      background: "rgba(99,102,241,0.14)",
+                      color: "#818cf8",
+                      border: "1px solid rgba(99,102,241,0.24)",
+                      opacity: creatingExecution ? 0.5 : 1,
+                    }}
+                  >
+                    {creatingExecution ? "Starting..." : "Start Execution"}
+                  </button>
+                </div>
+
+                <div>
+                  <div className="text-[0.64rem] font-semibold uppercase tracking-[0.18em]" style={{ color: config.accent }}>
+                    {bundle.intent.id}
                   </div>
-                ) : selectedContent ? (
-                  <div className="mw-parser-output">
-                    {frontmatter.intent_level && (
-                      <Infobox frontmatter={frontmatter} intent={selectedIntent} />
-                    )}
-                    <WikiPageRenderer content={selectedContent} onNavigate={handleNavigate} />
-                    {frontmatter.tags && (
-                      <div className="wiki-categories">
-                        <span className="wiki-categories-label">
-                          Categories:
+                  <h2 className="mt-1 text-[1.15rem] font-semibold" style={{ color: "var(--pn-text-primary)" }}>
+                    {bundle.intent.title}
+                  </h2>
+                  <p className="mt-3 text-[0.78rem] leading-[1.65]" style={{ color: "var(--pn-text-secondary)" }}>
+                    {bundle.intent.description ?? "No description recorded for this intent yet."}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <Panel title="Intent Fields">
+                    <DetailRow label="Kind" value={labelize(bundle.intent.kind)} />
+                    <DetailRow label="Phase" value={labelize(bundle.phase ?? bundle.intent.phase)} />
+                    <DetailRow label="Project" value={bundle.intent.project_id ?? "none"} mono />
+                    <DetailRow label="Parent" value={bundle.intent.parent_id ?? "root"} mono />
+                    <DetailRow label="Exit" value={bundle.intent.exit_condition ?? "not set"} />
+                  </Panel>
+
+                  <Panel title="Attachment Counts">
+                    <DetailRow label="Executions" value={String(bundle.links.executions.length)} />
+                    <DetailRow label="Proposals" value={String(bundle.links.proposals.length)} />
+                    <DetailRow label="Tasks" value={String(bundle.links.tasks.length)} />
+                    <DetailRow label="Actors" value={String(bundle.links.actors.length)} />
+                    <DetailRow label="Canon" value={String(bundle.links.canon.length)} />
+                  </Panel>
+                </div>
+
+                {bundle.intent.scope?.length ? (
+                  <Panel title="Scope">
+                    <div className="flex flex-wrap gap-2">
+                      {bundle.intent.scope.map((entry) => (
+                        <span key={entry} className="rounded-full px-2 py-1 text-[0.62rem] font-mono" style={{ background: "rgba(255,255,255,0.05)", color: "var(--pn-text-secondary)" }}>
+                          {entry}
                         </span>
-                        {parseTags(frontmatter.tags).map((tag) => (
-                          <span key={tag} className="wiki-category-tag">{tag}</span>
+                      ))}
+                    </div>
+                  </Panel>
+                ) : null}
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <Panel title="Linked Proposals">
+                    <LinkList items={bundle.links.proposals} emptyLabel="No proposal links yet." />
+                  </Panel>
+                  <Panel title="Linked Executions">
+                    <LinkList items={bundle.links.executions} emptyLabel="No execution links yet." />
+                  </Panel>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <Panel title="Phase History">
+                    {bundle.phase_transitions.length === 0 ? (
+                      <SmallMuted label="No phase transitions recorded." />
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {bundle.phase_transitions.map((transition) => (
+                          <TimelineRow
+                            key={transition.id}
+                            title={`${labelize(transition.from_phase)} → ${labelize(transition.to_phase)}`}
+                            detail={transition.reason}
+                            meta={formatAgo(transition.transitioned_at)}
+                          />
                         ))}
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center py-12">
-                    <span style={{ fontSize: "0.8rem", color: "var(--color-placeholder)" }}>
-                      Loading...
-                    </span>
-                  </div>
-                )}
+                  </Panel>
+                  <Panel title="Recent Events">
+                    {bundle.recent_events.length === 0 ? (
+                      <SmallMuted label="No intent events recorded." />
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {bundle.recent_events.slice(0, 8).map((event) => (
+                          <TimelineRow
+                            key={event.id}
+                            title={labelize(event.event_type)}
+                            detail={`actor: ${event.actor}`}
+                            meta={formatAgo(event.happened_at)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
+                </div>
               </div>
-            </div>
-
-            {/* Right sidebar: TOC or Chat */}
-            {(tocOpen || chatOpen) && selectedPath && (
-              <aside
-                className="wiki-right-sidebar"
-                style={{ width: chatOpen ? "320px" : undefined }}
-              >
-                {chatOpen ? (
-                  <IntentChat />
-                ) : (
-                  <div className="p-3">
-                    <div className="text-[0.55rem] uppercase tracking-wider font-semibold mb-2"
-                      style={{ color: "var(--color-placeholder)" }}>
-                      Contents
-                    </div>
-                    <nav className="wiki-toc">
-                      {toc.map((h, i) => (
-                        <button key={i} type="button" className="wiki-toc-item"
-                          style={{ paddingLeft: `${(h.level - 1) * 12}px` }}>
-                          {h.text}
-                        </button>
-                      ))}
-                    </nav>
-                  </div>
-                )}
-              </aside>
             )}
-          </div>
-        </main>
-      </div>
-
-      {/* Footer */}
-      {selectedPath && (
-        <footer className="wiki-footer">
-          <span>{selectedPath}</span>
-          <span>EMA Wiki · {allNotes.length} pages</span>
-        </footer>
-      )}
-    </div>
-  );
-}
-
-/* ── Subcomponents ───────────────────────────────── */
-
-function MainPage() {
-  const namespaces = useWikiEngineStore((s) => s.namespaces);
-  const allNotes = useWikiEngineStore((s) => s.allNotes);
-
-  return (
-    <div className="mw-parser-output">
-      <h1>EMA Wiki</h1>
-      <p>
-        Personal knowledge engine with {allNotes.length} pages across {namespaces.length} namespaces.
-        Browse by namespace or search to find any page.
-      </p>
-
-      <h2>Namespaces</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-        {namespaces.map((ns) => (
-          <button
-            key={ns.name}
-            type="button"
-            onClick={() => useWikiEngineStore.getState().setNamespace(ns.name)}
-            className="text-left p-3 rounded-lg transition-colors"
-            style={{
-              background: "var(--background-color-interactive-subtle)",
-              border: "1px solid var(--border-color-subtle)",
-            }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[1rem]">{ns.icon}</span>
-              <span className="text-[0.8rem] font-medium" style={{ color: ns.color }}>
-                {ns.name}
-              </span>
-              <span className="text-[0.6rem] ml-auto" style={{ color: "var(--color-disabled)" }}>
-                {ns.count} pages
-              </span>
-            </div>
-            {ns.description && (
-              <span className="text-[0.65rem]" style={{ color: "var(--color-placeholder)" }}>
-                {ns.description}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Infobox({
-  frontmatter,
-  intent,
-}: {
-  readonly frontmatter: Record<string, string>;
-  readonly intent: import("@/types/intents").IntentNode | null;
-}) {
-  const level = parseInt(frontmatter.intent_level ?? "4");
-  const status = frontmatter.intent_status ?? "planned";
-  const kind = frontmatter.intent_kind ?? "task";
-  const priority = frontmatter.intent_priority ?? "3";
-  const statusColor = STATUS_COLORS[status] ?? "#64748b";
-
-  return (
-    <div className="infobox">
-      <div className="infobox-title">{frontmatter.title ?? "Intent"}</div>
-      <Row label="Type" value={LEVEL_LABELS[level] ?? `L${level}`} />
-      <Row label="Kind" value={kind} />
-      <div className="infobox-row">
-        <span className="infobox-label">Status</span>
-        <span style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", borderRadius: "3px", background: `${statusColor}20`, color: statusColor }}>
-          {status}
-        </span>
-      </div>
-      <Row label="Priority" value={`P${priority}`} />
-      {intent && intent.completion_pct > 0 && (
-        <div style={{ padding: "0.3rem 0" }}>
-          <Row label="Progress" value={`${intent.completion_pct}%`} />
-          <div style={{ height: "3px", borderRadius: "2px", background: "var(--background-color-interactive)", marginTop: "0.2rem" }}>
-            <div style={{ height: "100%", borderRadius: "2px", width: `${intent.completion_pct}%`, background: statusColor }} />
           </div>
         </div>
-      )}
-      {frontmatter.project && <Row label="Project" value={frontmatter.project} />}
-      {frontmatter.parent && <Row label="Parent" value={frontmatter.parent.replace(/\[\[|\]\]/g, "")} />}
-    </div>
+      </div>
+    </AppWindowChrome>
   );
 }
 
-function Row({ label, value }: { readonly label: string; readonly value: string }) {
+function TreeNodeButton({
+  node,
+  depth,
+  selectedId,
+  onSelect,
+}: {
+  readonly node: IntentTreeNode;
+  readonly depth: number;
+  readonly selectedId: string | null;
+  readonly onSelect: (id: string) => void;
+}) {
+  const active = selectedId === node.intent.id;
   return (
-    <div className="infobox-row">
-      <span className="infobox-label">{label}</span>
-      <span className="infobox-value">{value}</span>
-    </div>
-  );
-}
-
-function Breadcrumb({ path }: { readonly path: string }) {
-  const parts = path.replace(/\.md$/, "").split("/");
-  return (
-    <div className="flex items-center gap-1">
-      {parts.map((part, i) => (
-        <span key={i} className="flex items-center gap-1">
-          {i > 0 && <span className="wiki-breadcrumb-sep">/</span>}
-          <span style={{
-            color: i === parts.length - 1 ? "var(--color-base)" : "var(--color-placeholder)",
-          }}>
-            {part}
+    <>
+      <button
+        type="button"
+        onClick={() => onSelect(node.intent.id)}
+        className="rounded-xl px-3 py-2 text-left"
+        style={{
+          marginLeft: depth * 14,
+          background: active ? "rgba(167,139,250,0.12)" : "transparent",
+          border: active ? "1px solid rgba(167,139,250,0.24)" : "1px solid transparent",
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-[0.72rem] font-semibold" style={{ color: "var(--pn-text-primary)" }}>
+              {node.intent.title}
+            </div>
+            <div className="truncate text-[0.6rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>
+              {node.intent.id} · {labelize(node.intent.status)}
+            </div>
+          </div>
+          <span className="text-[0.55rem] uppercase tracking-[0.14em]" style={{ color: statusColor(node.intent.status) }}>
+            {labelize(node.intent.level)}
           </span>
-        </span>
+        </div>
+      </button>
+      {node.children.map((child) => (
+        <TreeNodeButton key={child.intent.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} />
+      ))}
+    </>
+  );
+}
+
+function Panel({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  return (
+    <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="text-[0.58rem] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--pn-text-muted)" }}>
+        {title}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, mono = false }: { readonly label: string; readonly value: string; readonly mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5 text-[0.7rem]">
+      <span style={{ color: "var(--pn-text-muted)" }}>{label}</span>
+      <span className={mono ? "font-mono" : undefined} style={{ color: "var(--pn-text-secondary)", textAlign: "right" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TimelineRow({ title, detail, meta }: { readonly title: string; readonly detail: string; readonly meta: string }) {
+  return (
+    <div className="rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.03)" }}>
+      <div className="text-[0.7rem] font-medium" style={{ color: "var(--pn-text-primary)" }}>{title}</div>
+      <div className="mt-1 text-[0.66rem]" style={{ color: "var(--pn-text-secondary)" }}>{detail}</div>
+      <div className="mt-1 text-[0.58rem] font-mono" style={{ color: "var(--pn-text-muted)" }}>{meta}</div>
+    </div>
+  );
+}
+
+function LinkList({ items, emptyLabel }: { readonly items: readonly IntentLinkRecord[]; readonly emptyLabel: string }) {
+  if (items.length === 0) return <SmallMuted label={emptyLabel} />;
+  return (
+    <div className="flex flex-col gap-2">
+      {items.map((item) => (
+        <div key={item.id} className="rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <div className="text-[0.68rem] font-mono" style={{ color: "var(--pn-text-primary)" }}>{item.target_id}</div>
+          <div className="mt-1 text-[0.62rem]" style={{ color: "var(--pn-text-secondary)" }}>
+            {item.relation} · {item.provenance}
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
-function TabBtn({ label, active, accent, onClick }: {
-  readonly label: string;
-  readonly active: boolean;
-  readonly accent?: boolean;
-  readonly onClick: () => void;
-}) {
+function Tag({ label, color }: { readonly label: string; readonly color: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`wiki-header-tab ${active ? "active" : ""}`}
-      style={accent && active ? { color: "var(--color-progressive)", borderBottomColor: "var(--color-progressive)" } : undefined}
-    >
+    <span className="rounded-full px-2.5 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.16em]" style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}>
       {label}
-    </button>
+    </span>
   );
 }
 
-function parseTags(tagStr: string): string[] {
-  try {
-    const parsed = JSON.parse(tagStr);
-    if (Array.isArray(parsed)) return parsed;
-  } catch { /* not JSON */ }
-  return tagStr.replace(/[\[\]"]/g, "").split(",").map((t) => t.trim()).filter(Boolean);
+function MetricPill({ label, value, color }: { readonly label: string; readonly value: number; readonly color: string }) {
+  return (
+    <span className="rounded-full px-2.5 py-1 text-[0.6rem] font-medium" style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}>
+      {label}: {value}
+    </span>
+  );
+}
+
+function Empty({ label }: { readonly label: string }) {
+  return (
+    <div className="flex h-full items-center justify-center text-[0.75rem]" style={{ color: "var(--pn-text-muted)" }}>
+      {label}
+    </div>
+  );
+}
+
+function SmallMuted({ label }: { readonly label: string }) {
+  return <div className="text-[0.68rem]" style={{ color: "var(--pn-text-muted)" }}>{label}</div>;
+}
+
+function statusColor(status: string): string {
+  if (status === "active") return "#2dd4a8";
+  if (status === "implementing") return "#f59e0b";
+  if (status === "complete" || status === "completed") return "#22c55e";
+  if (status === "blocked") return "#ef4444";
+  return "#94a3b8";
 }

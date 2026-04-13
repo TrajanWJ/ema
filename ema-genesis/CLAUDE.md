@@ -21,22 +21,30 @@
 ## Project Structure
 
 ```
-project-root/
-├─ CLAUDE.md              ← YOU ARE HERE
-├─ ema-genesis/           ← Canonical knowledge (the graph's bootstrap state)
-│  ├─ EMA-GENESIS-PROMPT.md    Master spec / node zero
-│  ├─ SCHEMATIC-v0.md          Architecture overview
-│  ├─ _meta/                   Graph conventions, brainstorm log, deferred items
-│  ├─ canon/specs/             Deep-dive specs for major subsystems
-│  ├─ intents/                 Open work items (check here for what to do)
-│  ├─ proposals/               Plans awaiting approval
-│  ├─ executions/              Completed work records
-│  ├─ schemas/                 Entity data models (YAML)
-│  └─ vapps/                   vApp catalog
-├─ old-build/             ← Old Tauri/Elixir codebase (REFERENCE ONLY)
-│  └─ (preserved as-is for porting reference)
-└─ new-build/             ← The Electron/TypeScript rebuild (YOUR WORKSPACE)
-   └─ (this is where you write code)
+ema/
+├─ CLAUDE.md                    ← project-level instructions (NOT here — at repo root)
+├─ ema-genesis/                 ← Canonical knowledge graph (the bootstrap state)
+│  ├─ CLAUDE.md                 ← YOU ARE HERE — agent instructions for working in canon
+│  ├─ EMA-GENESIS-PROMPT.md     Master spec / node zero
+│  ├─ SCHEMATIC-v0.md           Architecture overview
+│  ├─ _meta/                    Graph conventions, status rulings, audit logs
+│  ├─ canon/specs/              Deep-dive specs (preliminary or active)
+│  ├─ canon/decisions/          DEC-NNN locked architectural decisions
+│  ├─ intents/                  Open work items (GAC cards + INT-* intents)
+│  ├─ executions/               Completed work records (EXE-*)
+│  ├─ research/                 Cross-pollination layer (external sources + frontend patterns)
+│  ├─ schemas/                  Entity data models (YAML)
+│  └─ vapps/                    vApp catalog
+├─ IGNORE_OLD_TAURI_BUILD/      ← Old Elixir/Tauri codebase (REFERENCE ONLY — do not run)
+├─ apps/                        ← Electron host + renderer (apps/electron + apps/renderer)
+├─ services/                    ← Local backend (HTTP + WebSocket compatibility surface)
+├─ workers/                     ← Background watchers and job runtime
+├─ cli/                         ← TypeScript CLI (@ema/cli) — see CLI-PARITY-GAP-2026-04-12.md
+├─ shared/                      ← Shared schemas, tokens, glass primitives
+├─ tools/                       ← Contract extraction, parity tooling, quality-metrics scan
+├─ hq-api/                      ← HQ subsystem API (separate scope)
+├─ hq-frontend/                 ← HQ subsystem frontend (separate scope)
+└─ docs/                        ← Project docs
 ```
 
 ## How To Work
@@ -44,14 +52,19 @@ project-root/
 ### Finding Work
 
 ```bash
-# Check open intents
+# Check open intents and GAC cards
 ls ema-genesis/intents/
 
-# Read an intent
-cat ema-genesis/intents/INT-002/README.md
+# Read a GAC card (Gap/Assumption/Clarification)
+cat ema-genesis/intents/GAC-001/README.md
 
-# Check for existing proposals (don't duplicate)
-ls ema-genesis/proposals/
+# Read the master recovery intent
+cat ema-genesis/intents/INT-RECOVERY-WAVE-1/README.md
+
+# Use the live CLI (preferred — reads canon directly)
+ema intent list
+ema intent show INT-RECOVERY-WAVE-1
+ema health check
 ```
 
 ### The Loop

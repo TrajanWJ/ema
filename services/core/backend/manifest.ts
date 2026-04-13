@@ -340,6 +340,15 @@ export const BACKEND_DOMAINS: readonly BackendDomainRegistration[] = [
       "Chronicle-backed decision queue that records review items, decision history, and promotion receipts with provenance.",
   },
   {
+    domain: "runtime-fabric",
+    router_entrypoint: "services/core/runtime-fabric/runtime-fabric.router.ts",
+    mount_prefixes: ["/api/runtime-fabric"],
+    category: "active",
+    owner: "tmux-backed local runtime fabric",
+    notes:
+      "Active runtime/session control plane for logged-in coding-agent CLIs, managed tmux sessions, prompt dispatch, input relay, and terminal capture.",
+  },
+  {
     domain: "settings",
     router_entrypoint: "services/core/settings/settings.router.ts",
     mount_prefixes: ["/api/settings"],
@@ -362,6 +371,14 @@ export const BACKEND_DOMAINS: readonly BackendDomainRegistration[] = [
     category: "supporting",
     owner: "tasks",
     notes: "Operational work items. Not the active semantic spine.",
+  },
+  {
+    domain: "voice",
+    router_entrypoint: "services/core/voice/voice.router.ts",
+    mount_prefixes: ["/api/voice", "/phone/voice"],
+    category: "supporting",
+    owner: "voice relay",
+    notes: "Phone pairing, QR generation, and local Jarvis mic relay.",
   },
   {
     domain: "user-state",
@@ -484,30 +501,30 @@ export const ACTIVE_BACKEND_ENTITIES: readonly BackendEntityDefinition[] = [
       "Chronicle is the arrival and provenance layer. Review, dedupe, and promotion should extend this domain rather than bypassing it.",
   },
   {
+    id: "chronicle_extraction",
+    purpose:
+      "Durable Chronicle-derived candidate extracted from session entries or artifacts before human review and promotion.",
+    source_of_truth: "SQLite",
+    persistence: ["sqlite:chronicle_extractions"],
+    owner: "services/core/review",
+    state_kind: "operational",
+    status: "active",
+    lifecycle: ["generated", "reviewed", "promoted/superseded"],
+    extension_notes:
+      "Chronicle extractions are candidate objects only. They must retain Chronicle lineage and never replace raw imported Chronicle storage.",
+  },
+  {
     id: "review_item",
     purpose:
-      "Durable human or agent review unit linked to a Chronicle session or entry before promotion into structured work.",
+      "Durable human or agent review unit linked to one Chronicle extraction before promotion into structured work.",
     source_of_truth: "SQLite",
     persistence: ["sqlite:review_items"],
     owner: "services/core/review",
     state_kind: "operational",
     status: "active",
-    lifecycle: ["created", "pending", "approved/rejected/deferred", "queried by provenance"],
+    lifecycle: ["created", "pending", "approved/rejected/deferred", "promoted/superseded"],
     extension_notes:
       "Review is the decision boundary above Chronicle. It should preserve provenance, not replace Chronicle raw/session storage.",
-  },
-  {
-    id: "review_decision",
-    purpose:
-      "Append-only decision record capturing approve, reject, or defer outcomes with actor and rationale provenance.",
-    source_of_truth: "SQLite",
-    persistence: ["sqlite:review_decisions"],
-    owner: "services/core/review",
-    state_kind: "operational",
-    status: "active",
-    lifecycle: ["recorded", "listed", "audited from review item detail"],
-    extension_notes:
-      "Decisions are immutable evidence. Current item status is a projection over the latest decision.",
   },
   {
     id: "promotion_receipt",
@@ -663,6 +680,30 @@ export const ACTIVE_BACKEND_ENTITIES: readonly BackendEntityDefinition[] = [
       "Keep the calendar ledger as storage truth. Agenda is a read/action surface, not a second planning store.",
   },
   {
+    id: "runtime_tool",
+    purpose: "Detected local CLI runtime/tool inventory, including auth-backed coding-agent CLIs.",
+    source_of_truth: "OS PATH + known config dirs, mirrored into SQLite on scan.",
+    persistence: ["sqlite:runtime_fabric_tools"],
+    owner: "services/core/runtime-fabric",
+    state_kind: "operational",
+    status: "active",
+    lifecycle: ["scanned", "re-scanned", "selected for launch"],
+    extension_notes:
+      "Tool detection is an operational convenience layer. Real auth still lives in the tool's existing local config and OAuth state.",
+  },
+  {
+    id: "runtime_session",
+    purpose: "Managed or discovered tmux-backed terminal session for a local coding agent or shell.",
+    source_of_truth: "Live tmux session/pane state, with managed metadata mirrored in SQLite.",
+    persistence: ["sqlite:runtime_fabric_sessions", "tmux server state"],
+    owner: "services/core/runtime-fabric",
+    state_kind: "operational",
+    status: "active",
+    lifecycle: ["discovered/created", "running", "interactive", "stopped/forgotten"],
+    extension_notes:
+      "Treat tmux as the runtime truth today. Future node-pty/xterm.js transport can layer on top without replacing the session contract.",
+  },
+  {
     id: "actor_runtime",
     purpose: "Supporting ingest surface for human/agent runtime state.",
     source_of_truth: "HTTP runtime transitions and worker heartbeats",
@@ -726,6 +767,14 @@ export const BACKEND_DEDUPLICATION_DECISIONS: readonly BackendDeduplicationDecis
     ignore_for_now: "scripts/ema and other legacy wrappers",
     rationale:
       "The packaged TypeScript CLI currently runs through cli/src/index.ts. Legacy wrappers describe a broader, older daemon surface.",
+  },
+  {
+    concept: "Runtime / session control surface",
+    active: "services/core/runtime-fabric/* + ema runtime ... + renderer Terminal app",
+    future: "node-pty/xterm.js transport, richer replay, and execution-dispatcher integration",
+    ignore_for_now: "SessionsApp, Claude Bridge, Agent Bridge, and CliManager as live backend truths",
+    rationale:
+      "The tmux-backed runtime fabric is now the single active path for local coding-agent tool detection, session launch, prompt dispatch, screen capture, and input relay.",
   },
   {
     concept: "Backend loop",

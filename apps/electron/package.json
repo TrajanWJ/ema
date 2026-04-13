@@ -2,17 +2,17 @@
   "name": "@ema/electron",
   "version": "0.1.0",
   "private": true,
+  "description": "EMA desktop shell",
+  "author": "EMA",
   "main": "dist/main.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
     "build": "pnpm run build:main",
     "dist": "pnpm run build:main && electron-builder",
-    "start": "electron --no-sandbox --disable-gpu-sandbox dist/main.js"
-  },
-  "dependencies": {
-    "electron": "^35.0.0"
+    "start": "electron dist/main.js"
   },
   "devDependencies": {
+    "electron": "^35.0.0",
     "electron-builder": "^25.1.8",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

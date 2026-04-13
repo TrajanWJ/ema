@@ -23,52 +23,60 @@ export function OrgSwitcher() {
   return (
     <div className="relative" ref={ref}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-white/5 transition-all"
-        style={{ color: "var(--pn-text-secondary)" }}
+        className="flex min-w-[164px] items-center gap-2.5 rounded-[12px] border px-3 py-1.5 hover:bg-white/5 transition-all"
+        style={{
+          color: "var(--pn-text-secondary)",
+          borderColor: "rgba(255,255,255,0.08)",
+          background: "rgba(14, 16, 23, 0.55)",
+          backdropFilter: "blur(20px) saturate(150%)",
+          WebkitBackdropFilter: "blur(20px) saturate(150%)",
+        }}
       >
         <span
-          className="w-4 h-4 rounded flex items-center justify-center text-[0.5rem] font-bold"
+          className="flex h-[20px] w-[20px] items-center justify-center rounded text-[0.58rem] font-bold"
           style={{ background: "rgba(45, 212, 168, 0.15)", color: "#2dd4a8" }}
         >
           {label.charAt(0).toUpperCase()}
         </span>
-        <span className="text-[0.6rem] font-medium max-w-[80px] truncate">{label}</span>
-        <span className="text-[0.5rem]" style={{ color: "var(--pn-text-muted)" }}>
+        <span className="max-w-[124px] flex-1 truncate text-left text-[0.72rem] font-medium">{label}</span>
+        <span className="text-[0.58rem]" style={{ color: "var(--pn-text-muted)" }}>
           {open ? "\u25B4" : "\u25BE"}
         </span>
       </button>
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 glass-elevated rounded-lg py-1 z-50 min-w-[180px] shadow-lg"
+          className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-xl py-1.5 shadow-lg glass-elevated"
           style={{ border: "1px solid var(--pn-border-subtle)" }}
         >
           {orgs.map((org) => (
             <button
               key={org.id}
+              type="button"
               onClick={() => { setActiveOrg(org); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-all"
+              className="flex w-full items-center gap-2 px-3.5 py-2 hover:bg-white/5 transition-all"
             >
               <span
-                className="w-5 h-5 rounded flex items-center justify-center text-[0.5rem] font-bold shrink-0"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[0.55rem] font-bold"
                 style={{ background: "rgba(45, 212, 168, 0.12)", color: "#2dd4a8" }}
               >
                 {org.name.charAt(0).toUpperCase()}
               </span>
-              <span className="text-[0.65rem] truncate" style={{
+              <span className="truncate text-[0.7rem]" style={{
                 color: activeOrg?.id === org.id ? "#2dd4a8" : "var(--pn-text-primary)"
               }}>
                 {org.name}
               </span>
               {activeOrg?.id === org.id && (
-                <span className="ml-auto text-[0.5rem]" style={{ color: "#2dd4a8" }}>&check;</span>
+                <span className="ml-auto text-[0.55rem]" style={{ color: "#2dd4a8" }}>&check;</span>
               )}
             </button>
           ))}
 
           {orgs.length === 0 && (
-            <div className="px-3 py-2 text-[0.6rem]" style={{ color: "var(--pn-text-muted)" }}>
+            <div className="px-3.5 py-2.5 text-[0.65rem]" style={{ color: "var(--pn-text-muted)" }}>
               No organizations
             </div>
           )}

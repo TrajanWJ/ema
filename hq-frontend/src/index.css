@@ -92,6 +92,18 @@ textarea { resize: vertical; min-height: 96px; }
 .dim { color: var(--dim); }
 .badge { border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; font-size: 11px; }
 .pill { border-radius: 999px; padding: 6px 10px; }
+.topbar-traffic button { width: 11px; height: 11px; border-radius: 999px; padding: 0; border: none; }
+.topbar-select {
+  width: auto;
+  min-width: 158px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+}
+.topbar-project-switcher {
+  min-width: 210px;
+  padding: 8px 14px;
+}
 .panel { padding: 14px; }
 .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }

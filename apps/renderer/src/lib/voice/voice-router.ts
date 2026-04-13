@@ -6,10 +6,9 @@ type RouteResult = {
 };
 
 type AgentSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  status?: string;
+  actor_id: string;
+  to_state: string;
+  reason?: string;
 };
 
 type DashboardToday = {
@@ -75,17 +74,19 @@ function matchesAny(text: string, patterns: string[]): boolean {
 
 async function handleStatus(): Promise<RouteResult> {
   try {
-    const agents = await api.get<AgentSummary[]>("/agents");
-    if (!agents || agents.length === 0) {
+    const data = await api.get<{ actors?: AgentSummary[]; count?: number }>("/agents/status");
+    const agents = data.actors ?? [];
+    if (agents.length === 0) {
       return { response: "No agents are currently configured.", type: "command" };
     }
 
     const summaries = agents
-      .map((a) => `${a.name}: ${a.status ?? "unknown"}`)
+      .slice(0, 5)
+      .map((a) => `${a.actor_id}: ${a.to_state}`)
       .join(", ");
 
     return {
-      response: `You have ${agents.length} agent${agents.length === 1 ? "" : "s"}. ${summaries}.`,
+      response: `You have ${data.count ?? agents.length} agent${agents.length === 1 ? "" : "s"}. ${summaries}.`,
       type: "command",
     };
   } catch {
@@ -173,6 +174,8 @@ function handleOpen(appName: string): RouteResult {
   const match = APP_NAMES.find((name) => lower.includes(name));
 
   if (match) {
+    const target = match === "brain dump" ? "brain-dump" : match;
+    window.location.pathname = `/${target.replace(/\s+/g, "-")}`;
     return {
       response: `Opening ${match}.`,
       type: "command",
@@ -194,8 +197,10 @@ async function handleFallback(text: string): Promise<RouteResult> {
     };
   } catch {
     return {
-      response: "Sorry, I couldn't process that right now.",
-      type: "conversation",
+      response:
+        `I can handle local commands like "status", "standup", "search ...", ` +
+        `"note ...", "task ...", and "open ...".`,
+      type: "command",
     };
   }
 }

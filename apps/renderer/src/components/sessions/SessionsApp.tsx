@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AppWindowChrome } from "@/components/layout/AppWindowChrome";
 import { APP_CONFIGS } from "@/types/workspace";
 import { useSessionsStore } from "@/stores/sessions-store";
+import { navigateToRoute } from "@/lib/router";
 
 const cfg = APP_CONFIGS["sessions"];
 
@@ -71,8 +72,9 @@ export function SessionsApp() {
                   </div>
                   <button
                     onClick={() => {
-                      const params = new URLSearchParams({ session_id: selected.id });
-                      window.location.pathname = "/claude-bridge?" + params.toString();
+                      navigateToRoute("claude-bridge", {
+                        searchParams: { session_id: selected.id },
+                      });
                     }}
                     style={{
                       padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(99,102,241,0.5)",

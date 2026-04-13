@@ -59,8 +59,9 @@ export function DispatchWidget() {
         </div>
       ) : (
         running.map((exec) => {
+          const insertedAt = exec.inserted_at ? new Date(exec.inserted_at).getTime() : tick;
           const elapsed = Math.floor(
-            (tick - new Date(exec.inserted_at).getTime()) / 1000
+            (tick - insertedAt) / 1000
           );
           const minutes = Math.floor(elapsed / 60);
           const seconds = elapsed % 60;
@@ -78,7 +79,7 @@ export function DispatchWidget() {
                       {exec.title}
                     </div>
                     <div className="muted" style={{ fontSize: 10 }}>
-                      {exec.mode} · {exec.project_slug || "no project"}
+                      {exec.mode || "dispatch"} · {exec.project_slug || "no project"}
                     </div>
                   </div>
                 </div>

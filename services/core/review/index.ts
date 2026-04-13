@@ -1,15 +1,15 @@
 export {
   __resetReviewForTests,
   approveReviewItem,
-  createReviewItem,
+  ChronicleExtractionNotFoundError,
   deferReviewItem,
+  extractChronicleSession,
   getChronicleReviewState,
   getReviewItemDetail,
   initReview,
   listReviewItems,
-  recordPromotionReceipt,
+  promoteReviewItem,
   rejectReviewItem,
-  ReviewDecisionNotFoundError,
   ReviewItemNotFoundError,
   ReviewStateError,
 } from "./service.js";

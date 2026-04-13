@@ -19,12 +19,27 @@ export async function startHttpServer(): Promise<FastifyInstance> {
 
   // Plugins
   await server.register(cors, {
-    origin: [
-      'http://localhost:1420',
-      'http://localhost:1421',
-      'http://localhost:4488',
-      /^https?:\/\/localhost:\d+$/,
-    ],
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalized = origin.toLowerCase();
+      const isLocalhost =
+        normalized === 'http://localhost:1420' ||
+        normalized === 'http://localhost:1421' ||
+        normalized === 'http://localhost:4488' ||
+        /^https?:\/\/localhost:\d+$/.test(normalized);
+
+      const isElectronLocalOrigin =
+        normalized === 'null' ||
+        normalized === 'file://' ||
+        normalized.startsWith('file://') ||
+        normalized.startsWith('app://');
+
+      callback(null, isLocalhost || isElectronLocalOrigin);
+    },
   });
 
   attachBearerAuth(server);

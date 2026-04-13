@@ -7,6 +7,20 @@ contextBridge.exposeInMainWorld("ema", {
   closeApp: (appId: string): Promise<void> =>
     ipcRenderer.invoke("ema:close-app", appId),
 
+  startWindowResize: (
+    edge: string,
+    screenX: number,
+    screenY: number,
+  ): Promise<boolean> => ipcRenderer.invoke("ema:window-resize-start", { edge, screenX, screenY }),
+
+  updateWindowResize: (screenX: number, screenY: number): void => {
+    ipcRenderer.send("ema:window-resize-update", { screenX, screenY });
+  },
+
+  endWindowResize: (): void => {
+    ipcRenderer.send("ema:window-resize-end");
+  },
+
   minimize: (): void => {
     ipcRenderer.send("ema:minimize");
   },

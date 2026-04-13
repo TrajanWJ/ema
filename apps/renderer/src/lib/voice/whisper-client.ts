@@ -55,10 +55,11 @@ const EMPTY_RESULT: WhisperResult = {
 
 export async function transcribe(
   audioData: Float32Array,
+  modelSize: ModelSize = "tiny",
 ): Promise<WhisperResult> {
   try {
     if (!loaded || !transcriber) {
-      await loadModel();
+      await loadModel(modelSize);
     }
 
     if (!transcriber) {

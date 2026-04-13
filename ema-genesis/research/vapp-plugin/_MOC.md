@@ -47,7 +47,6 @@ connections:
 5. **Typed IPC is mandatory** (ERB pattern). Without it, the SDK decays into stringly-typed proxies.
 6. **electron-vite** is the build tool that fits the BrowserWindow-per-vApp model.
 7. **Graph-first architecture surfaces should separate parse plugins from write blueprints.** Arcforge's plugin parser + Forge split is the right kind of seam, even if its current sandboxing is too permissive.
-
 ## Connections
 
 - [[research/_moc/RESEARCH-MOC]]

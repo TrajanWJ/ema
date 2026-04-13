@@ -10,7 +10,9 @@ import { FloatingWindow } from "./components/shell/FloatingWindow";
 import { Sidebar } from "./components/shell/Sidebar";
 import { TopBar } from "./components/shell/TopBar";
 import { useExecutionStore } from "./store/executionStore";
+import { useOrgStore } from "./store/orgStore";
 import { useProjectStore } from "./store/projectStore";
+import { useSpaceStore } from "./store/spaceStore";
 import { useUIStore } from "./store/uiStore";
 
 export default function App() {
@@ -18,6 +20,8 @@ export default function App() {
   const loadProjects = useProjectStore((state) => state.loadProjects);
   const refreshContext = useProjectStore((state) => state.refreshContext);
   const loadExecutions = useExecutionStore((state) => state.loadExecutions);
+  const loadOrgs = useOrgStore((state) => state.loadOrgs);
+  const loadSpaces = useSpaceStore((state) => state.loadSpaces);
   const addEvent = useExecutionStore((state) => state.addEvent);
   const addExecution = useExecutionStore((state) => state.addExecution);
   const updateExecution = useExecutionStore((state) => state.updateExecution);
@@ -26,6 +30,8 @@ export default function App() {
   useEffect(() => {
     void loadProjects();
     void loadExecutions();
+    void loadOrgs();
+    void loadSpaces();
     socketManager.connect();
 
     const onAgentEvent = (payload: any) => {
@@ -63,7 +69,7 @@ export default function App() {
       socketManager.off("execution_updated", onExecutionUpdated);
       socketManager.off("brain_dump_added", onBrainDumpAdded);
     };
-  }, [addEvent, addExecution, loadExecutions, loadProjects, refreshContext, updateExecution]);
+  }, [addEvent, addExecution, loadExecutions, loadOrgs, loadProjects, loadSpaces, refreshContext, updateExecution]);
 
   const page = useMemo(() => {
     switch (activePage) {

@@ -133,20 +133,20 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
   const triggerStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: "6px",
-    padding: "4px 8px",
-    borderRadius: "8px",
+    gap: "9px",
+    padding: "7px 12px",
+    borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(14, 16, 23, 0.55)",
     backdropFilter: "blur(20px) saturate(150%)",
     WebkitBackdropFilter: "blur(20px) saturate(150%)",
     cursor: "pointer",
     color: "rgba(255,255,255,0.87)",
-    fontSize: "0.75rem",
+    fontSize: "0.8rem",
     fontFamily: "system-ui, -apple-system, sans-serif",
     transition: "background 0.15s ease, border-color 0.15s ease",
     outline: "none",
-    minWidth: 0,
+    minWidth: "176px",
   };
 
   const dropdownStyle: React.CSSProperties = {
@@ -154,33 +154,33 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
     top: "calc(100% + 6px)",
     left: 0,
     zIndex: 9999,
-    minWidth: "220px",
+    minWidth: "260px",
     background: "rgba(10, 12, 20, 0.94)",
     backdropFilter: "blur(28px) saturate(180%)",
     WebkitBackdropFilter: "blur(28px) saturate(180%)",
     border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "10px",
+    borderRadius: "12px",
     boxShadow: "0 18px 48px rgba(0,0,0,0.48), 0 6px 18px rgba(0,0,0,0.26)",
-    padding: "6px",
+    padding: "8px",
     overflowY: "auto",
-    maxHeight: "320px",
+    maxHeight: "360px",
   };
 
   const sectionHeaderStyle: React.CSSProperties = {
-    fontSize: "0.6rem",
+    fontSize: "0.64rem",
     fontWeight: 600,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     color: "rgba(255,255,255,0.35)",
-    padding: "6px 8px 3px",
+    padding: "6px 10px 4px",
   };
 
   const spaceRowStyle = (isActive: boolean): React.CSSProperties => ({
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "6px 8px",
-    borderRadius: "6px",
+    gap: "10px",
+    padding: "8px 10px",
+    borderRadius: "8px",
     cursor: "pointer",
     background: isActive ? "rgba(45,212,168,0.06)" : "transparent",
     border: "none",
@@ -190,13 +190,13 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
   });
 
   const iconStyle = (color: string | null): React.CSSProperties => ({
-    width: "22px",
-    height: "22px",
-    borderRadius: "5px",
+    width: "24px",
+    height: "24px",
+    borderRadius: "6px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "0.6rem",
+    fontSize: "0.65rem",
     fontWeight: 700,
     flexShrink: 0,
     background: color ? `${color}26` : "rgba(45,212,168,0.12)",
@@ -206,9 +206,9 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
   const badgeStyle = (type: Space["space_type"]): React.CSSProperties => {
     const c = TYPE_BADGE_COLORS[type];
     return {
-      fontSize: "0.5rem",
+      fontSize: "0.54rem",
       fontWeight: 600,
-      padding: "1px 5px",
+      padding: "2px 6px",
       borderRadius: "4px",
       background: c.bg,
       color: c.text,
@@ -227,6 +227,7 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
     >
       {/* Trigger button */}
       <button
+        type="button"
         style={triggerStyle}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
@@ -248,9 +249,9 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
             <span
               style={{
                 ...iconStyle(currentSpace?.color ?? null),
-                width: "18px",
-                height: "18px",
-                fontSize: "0.55rem",
+                width: "22px",
+                height: "22px",
+                fontSize: "0.64rem",
               }}
             >
               {currentSpace ? spaceIcon(currentSpace) : "?"}
@@ -259,11 +260,13 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
             {/* Space name */}
             <span
               style={{
-                maxWidth: "120px",
+                maxWidth: "132px",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                fontSize: "0.72rem",
+                fontSize: "0.78rem",
+                textAlign: "left",
+                flex: 1,
               }}
             >
               {currentSpace?.name ?? "Select space"}
@@ -272,7 +275,7 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
             {/* Chevron */}
             <span
               style={{
-                fontSize: "0.55rem",
+                fontSize: "0.62rem",
                 color: "rgba(255,255,255,0.35)",
                 transition: "transform 0.15s ease",
                 transform: open ? "rotate(180deg)" : "rotate(0deg)",
@@ -305,6 +308,7 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
                 return (
                   <button
                     key={space.id}
+                    type="button"
                     style={spaceRowStyle(isActive)}
                     role="option"
                     aria-selected={isActive}
@@ -329,7 +333,7 @@ export function SpaceSwitcher({ onSpaceChange, className }: SpaceSwitcherProps) 
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        fontSize: "0.72rem",
+                        fontSize: "0.76rem",
                         color: isActive ? "#2dd4a8" : "rgba(255,255,255,0.87)",
                         fontWeight: isActive ? 500 : 400,
                       }}

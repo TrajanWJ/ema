@@ -123,7 +123,7 @@ This is the current entity contract for the active backend spine.
 ## Review Item
 
 - Purpose
-  - Human-reviewable decision unit over one Chronicle session or Chronicle entry.
+  - Human-reviewable decision unit over one Chronicle extraction.
 - Source of truth
   - SQLite
 - Runtime storage
@@ -137,23 +137,6 @@ This is the current entity contract for the active backend spine.
 - Extension notes
   - Review is the decision boundary above Chronicle.
   - It should preserve lineage back to Chronicle rather than replacing Chronicle storage.
-
-## Review Decision
-
-- Purpose
-  - Append-only approve, reject, or defer record tied to one review item.
-- Source of truth
-  - SQLite
-- Runtime storage
-  - `review_decisions`
-- Service owner
-  - `services/core/review`
-- Lifecycle
-  - recorded
-  - listed in review item detail
-  - used as provenance for promotion receipts
-- Extension notes
-  - Review item status is a projection over the latest decision, not a replacement for decision history.
 
 ## Promotion Receipt
 
@@ -235,6 +218,42 @@ This is the current entity contract for the active backend spine.
   - `user_state_snapshots`
 - Service owner
   - `services/core/user-state`
+
+## Runtime Tool
+
+- Purpose
+  - Operational inventory of local coding-agent CLIs and shell launch targets.
+- Source of truth
+  - OS PATH and known config dirs, mirrored into SQLite on scan.
+- Runtime storage
+  - `runtime_fabric_tools`
+- Service owner
+  - `services/core/runtime-fabric`
+- Lifecycle
+  - scanned
+  - selected for launch
+  - re-scanned
+- Extension notes
+  - Real auth remains owned by each tool's existing local OAuth/config state.
+
+## Runtime Session
+
+- Purpose
+  - Tmux-backed managed or discovered interactive session for a shell or coding agent.
+- Source of truth
+  - Live tmux session/pane state, with managed metadata mirrored in SQLite.
+- Runtime storage
+  - `runtime_fabric_sessions`
+  - tmux server state
+- Service owner
+  - `services/core/runtime-fabric`
+- Lifecycle
+  - created or discovered
+  - interactive
+  - stopped or forgotten
+- Extension notes
+  - This is the active session/control plane for local AI tools.
+  - Old `Sessions`, `Claude Bridge`, and `Cli Manager` shells are not backend truth.
 
 ## Supporting Entities
 

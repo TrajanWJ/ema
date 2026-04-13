@@ -1,5 +1,7 @@
 type Listener = (payload: any) => void;
 
+type ChannelListener = (payload: any) => void;
+
 class SocketManager {
   private ws: WebSocket | null = null;
   private listeners = new Map<string, Set<Listener>>();
@@ -48,3 +50,23 @@ class SocketManager {
 }
 
 export const socketManager = new SocketManager();
+
+export async function joinChannel(_topic: string): Promise<{
+  channel: any;
+  response: Record<string, unknown>;
+}> {
+  const listeners = new Map<string, Set<ChannelListener>>();
+
+  return {
+    channel: {
+      on(event: string, cb: ChannelListener) {
+        if (!listeners.has(event)) listeners.set(event, new Set());
+        listeners.get(event)?.add(cb);
+      },
+      leave() {
+        listeners.clear();
+      },
+    } as any,
+    response: {},
+  };
+}

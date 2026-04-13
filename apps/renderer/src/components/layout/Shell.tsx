@@ -3,6 +3,7 @@ import { AmbientStrip } from "./AmbientStrip";
 import { Dock } from "./Dock";
 import { CommandBar } from "./CommandBar";
 import { QuickCapture } from "./QuickCapture";
+import { WindowResizeFrame } from "./WindowResizeFrame";
 // EMA UI 2.0 — only stores for the 22 active apps
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useBrainDumpStore } from "@/stores/brain-dump-store";
@@ -29,17 +30,14 @@ import { DAEMON_HEALTH_URL } from "@/lib/daemon-config";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import { subscribeExecutionNotifications } from "@/lib/execution-notifications";
 import { isDesktopEnvironment } from "@/lib/electron-bridge";
+import { isStandaloneWindow } from "@/lib/router";
 
 const PING_INTERVAL = 1500;
 const INITIAL_RETRY_DELAY = 200;
 const MAX_RETRY_DELAY = 2000;
+const STORE_LOAD_TIMEOUT_MS = 2500;
 
 const isDesktop = isDesktopEnvironment();
-const isStandaloneWindow = () => {
-  if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.has("standalone");
-};
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -55,6 +53,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 interface ShellProps {
   readonly children: ReactNode;
   readonly hideDock?: boolean;
+  readonly showAmbientStrip?: boolean;
 }
 
 async function pingDaemon(): Promise<boolean> {
@@ -75,7 +74,16 @@ async function requestDaemonStart(): Promise<void> {
   }
 }
 
-export function Shell({ children, hideDock }: ShellProps) {
+async function settleWithTimeout(task: Promise<unknown>, timeoutMs = STORE_LOAD_TIMEOUT_MS): Promise<void> {
+  await Promise.race([
+    task.then(() => undefined).catch(() => undefined),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, timeoutMs);
+    }),
+  ]);
+}
+
+export function Shell({ children, hideDock, showAmbientStrip = true }: ShellProps) {
   const standaloneWindow = isDesktop && isStandaloneWindow();
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"connecting" | "waiting" | "error">("connecting");
@@ -86,25 +94,25 @@ export function Shell({ children, hideDock }: ShellProps) {
 
   const loadAllStores = useCallback(async () => {
     await Promise.all([
-      useDashboardStore.getState().loadViaRest().catch(() => {}),
-      useBrainDumpStore.getState().loadViaRest().catch(() => {}),
-      useHabitsStore.getState().loadViaRest().catch(() => {}),
-      useProposalsStore.getState().loadViaRest().catch(() => {}),
-      useProjectsStore.getState().loadViaRest().catch(() => {}),
-      useTasksStore.getState().loadViaRest().catch(() => {}),
-      useSettingsStore.getState().load().catch(() => {}),
-      useWorkspaceStore.getState().load().catch(() => {}),
-      useResponsibilitiesStore.getState().loadViaRest().catch(() => {}),
-      useAgentsStore.getState().loadViaRest().catch(() => {}),
-      useVaultStore.getState().loadViaRest().catch(() => {}),
-      useCanvasStore.getState().loadViaRest().catch(() => {}),
-      usePipesStore.getState().loadViaRest().catch(() => {}),
-      useGoalsStore.getState().loadViaRest().catch(() => {}),
-      useFocusStore.getState().loadViaRest().catch(() => {}),
-      useIntentStore.getState().loadViaRest().catch(() => {}),
-      useExecutionStore.getState().loadViaRest().catch(() => {}),
-      useDecisionLogStore.getState().loadViaRest().catch(() => {}),
-      useActorsStore.getState().loadViaRest().catch(() => {}),
+      settleWithTimeout(useDashboardStore.getState().loadViaRest()),
+      settleWithTimeout(useBrainDumpStore.getState().loadViaRest()),
+      settleWithTimeout(useHabitsStore.getState().loadViaRest()),
+      settleWithTimeout(useProposalsStore.getState().loadViaRest()),
+      settleWithTimeout(useProjectsStore.getState().loadViaRest()),
+      settleWithTimeout(useTasksStore.getState().loadViaRest()),
+      settleWithTimeout(useSettingsStore.getState().load()),
+      settleWithTimeout(useWorkspaceStore.getState().load()),
+      settleWithTimeout(useResponsibilitiesStore.getState().loadViaRest()),
+      settleWithTimeout(useAgentsStore.getState().loadViaRest()),
+      settleWithTimeout(useVaultStore.getState().loadViaRest()),
+      settleWithTimeout(useCanvasStore.getState().loadViaRest()),
+      settleWithTimeout(usePipesStore.getState().loadViaRest()),
+      settleWithTimeout(useGoalsStore.getState().loadViaRest()),
+      settleWithTimeout(useFocusStore.getState().loadViaRest()),
+      settleWithTimeout(useIntentStore.getState().loadViaRest()),
+      settleWithTimeout(useExecutionStore.getState().loadViaRest()),
+      settleWithTimeout(useDecisionLogStore.getState().loadViaRest()),
+      settleWithTimeout(useActorsStore.getState().loadViaRest()),
     ]);
   }, []);
 
@@ -223,62 +231,67 @@ export function Shell({ children, hideDock }: ShellProps) {
         : "Connecting to daemon\u2026";
 
     return (
-      <div
-        className={`h-screen flex flex-col items-center justify-center gap-3 overflow-hidden ${isStandalone ? "rounded-none" : "rounded-xl"}`}
-        style={{ background: "rgba(8, 9, 14, 0.85)" }}
-      >
-        <div
-          className="w-5 h-5 rounded-full border-2 animate-spin"
-          style={{
-            borderColor: "rgba(255,255,255,0.1)",
-            borderTopColor: "var(--pn-accent, #5eead4)",
-          }}
-        />
-        <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>
-          {label}
-        </span>
-        {(isWaiting || status === "error") && (
-          <button
-            type="button"
-            onClick={() => {
-              cancelledRef.current = true;
-              connectingRef.current = false;
-              setTimeout(() => {
-                cancelledRef.current = false;
-                tryConnect();
-              }, 50);
-            }}
-            className="mt-1 px-3 py-1 text-[0.75rem] rounded-md transition-all duration-200 hover:bg-white/10 active:scale-95"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              color: "var(--pn-text-secondary)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            Retry now
-          </button>
-        )}
-        {isWaiting && (
-          <span className="text-[0.65rem] mt-1" style={{ color: "var(--pn-text-muted)" }}>
-            Electron should start local services automatically. If you launched only the renderer, run `pnpm dev` from the repo root.
-          </span>
-        )}
+      <div className={`ema-window-stage ${isStandalone ? "ema-window-stage--standalone" : ""}`}>
+        <div className={`ema-shell ema-shell--loading ${isStandalone ? "ema-shell--standalone" : "ema-shell--launchpad"}`}>
+          <div className="h-full flex flex-col items-center justify-center gap-3 overflow-hidden">
+            <div
+              className="w-5 h-5 rounded-full border-2 animate-spin"
+              style={{
+                borderColor: "rgba(255,255,255,0.1)",
+                borderTopColor: "var(--pn-accent, #5eead4)",
+              }}
+            />
+            <span className="text-[0.8rem]" style={{ color: "var(--pn-text-secondary)" }}>
+              {label}
+            </span>
+            {(isWaiting || status === "error") && (
+              <button
+                type="button"
+                onClick={() => {
+                  cancelledRef.current = true;
+                  connectingRef.current = false;
+                  setTimeout(() => {
+                    cancelledRef.current = false;
+                    tryConnect();
+                  }, 50);
+                }}
+                className="mt-1 px-3 py-1 text-[0.75rem] rounded-md transition-all duration-200 hover:bg-white/10 active:scale-95"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--pn-text-secondary)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                Retry now
+              </button>
+            )}
+            {isWaiting && (
+              <span className="text-[0.65rem] mt-1" style={{ color: "var(--pn-text-muted)" }}>
+                Electron should start local services automatically. If you launched only the renderer, run `pnpm dev` from the repo root.
+              </span>
+            )}
+          </div>
+        </div>
+        <WindowResizeFrame />
       </div>
     );
   }
 
   return (
-    <div className={`h-screen flex flex-col overflow-hidden ${standaloneWindow ? "rounded-none" : "rounded-xl"}`}>
-      {!standaloneWindow && <AmbientStrip onOpenQuickCapture={() => setQuickCaptureOpen(true)} />}
-      <div className="flex flex-1 min-h-0">
-        {!hideDock && <Dock />}
-        <main className={`flex-1 overflow-auto ${standaloneWindow ? "p-0" : "p-4"}`}>{children}</main>
+    <div className={`ema-window-stage ${standaloneWindow ? "ema-window-stage--standalone" : ""}`}>
+      <div className={`ema-shell ${standaloneWindow ? "ema-shell--standalone" : "ema-shell--launchpad"}`}>
+        {!standaloneWindow && showAmbientStrip && <AmbientStrip onOpenQuickCapture={() => setQuickCaptureOpen(true)} />}
+        <div className="flex flex-1 min-h-0">
+          {!hideDock && <Dock />}
+          <main className={`flex-1 overflow-auto ${standaloneWindow ? "p-0" : "p-4"}`}>{children}</main>
+        </div>
+        {!standaloneWindow && showAmbientStrip && <CommandBar />}
+        {!standaloneWindow && showAmbientStrip && (
+          <QuickCapture isOpen={quickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} />
+        )}
+        <ToastOverlay />
       </div>
-      {!standaloneWindow && <CommandBar />}
-      {!standaloneWindow && (
-        <QuickCapture isOpen={quickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} />
-      )}
-      <ToastOverlay />
+      <WindowResizeFrame />
     </div>
   );
 }

@@ -56,10 +56,10 @@ That means the active backend is still the pluralized, filesystem-backed, SQLite
   - Operational run ledger linked back to intents and, when present, approved proposals.
 - `chronicle_session`
   - Durable imported-session and raw-history record backed by raw files plus SQLite metadata.
+- `chronicle_extraction`
+  - Durable Chronicle-derived candidate extracted from session entries or artifacts before promotion.
 - `review_item`
-  - Durable decision object linked to Chronicle session or entry provenance before later promotion.
-- `review_decision`
-  - Append-only decision record capturing approve, reject, or defer with actor and rationale provenance.
+  - Durable human decision object linked to one Chronicle extraction and its provenance.
 - `promotion_receipt`
   - Durable provenance bridge from an approved review item into a real runtime object or recorded follow-on target.
 - `goal`
@@ -70,6 +70,10 @@ That means the active backend is still the pluralized, filesystem-backed, SQLite
   - Filesystem output referenced from an execution via `result_path`.
 - `user_state`
   - Persisted runtime mode/signals.
+- `runtime_tool`
+  - Detected local coding-agent tool inventory.
+- `runtime_session`
+  - Tmux-backed managed or discovered runtime session.
 
 Supporting but not spine entities:
 
@@ -88,8 +92,8 @@ Supporting but not spine entities:
 5. An approved proposal starts an execution in the active execution ledger.
 6. The execution records progress and a `result_path` / `result_summary`.
 7. Imported session/history material lands in Chronicle raw storage and is indexed into SQLite for browse/query.
-8. A Chronicle session or entry becomes a durable review item when a human or agent marks it for review.
-9. Review records append-only approve, reject, or defer decisions with actor provenance.
+8. A Chronicle extraction pass derives candidate intents, goals, calendar items, evidence, and follow-ups from Chronicle provenance.
+9. Each extraction becomes one durable review item with explicit status plus human decision actor/timestamp fields.
 10. Promotion receipts link approved review items to downstream structured work without forcing automatic creation.
 11. Completion can optionally update linked intent state.
 12. Goals and calendar entries link planning back to intents, projects, spaces, and executions where needed.
@@ -123,4 +127,5 @@ That endpoint returns:
 - [GOLDEN-PATH-GOALS-CALENDAR.md](/home/trajan/Projects/ema/docs/backend/GOLDEN-PATH-GOALS-CALENDAR.md)
 - [GOLDEN-PATH-CHRONICLE-REVIEW.md](/home/trajan/Projects/ema/docs/backend/GOLDEN-PATH-CHRONICLE-REVIEW.md)
 - [EXTENSION-SEAMS.md](/home/trajan/Projects/ema/docs/backend/EXTENSION-SEAMS.md)
+- [RUNTIME-FABRIC.md](/home/trajan/Projects/ema/docs/backend/RUNTIME-FABRIC.md)
 - [FUTURE-AGENT-HANDOFF-2026-04-12.md](/home/trajan/Projects/ema/docs/backend/FUTURE-AGENT-HANDOFF-2026-04-12.md)

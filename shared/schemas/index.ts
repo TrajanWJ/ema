@@ -106,6 +106,33 @@ export type {
 } from "./human-ops.js";
 
 export {
+  runtimeToolKindSchema,
+  runtimeToolAuthStateSchema,
+  runtimeToolSourceSchema,
+  runtimeSessionSourceSchema,
+  runtimeSessionStatusSchema,
+  runtimeInputModeSchema,
+  runtimeSessionEventKindSchema,
+  runtimeToolSchema,
+  runtimeSessionSchema,
+  runtimeSessionScreenSchema,
+  runtimeSessionEventSchema,
+} from "./runtime-fabric.js";
+export type {
+  RuntimeToolKind,
+  RuntimeToolAuthState,
+  RuntimeToolSource,
+  RuntimeSessionSource,
+  RuntimeSessionStatus,
+  RuntimeInputMode,
+  RuntimeSessionEventKind,
+  RuntimeTool,
+  RuntimeSession,
+  RuntimeSessionScreen,
+  RuntimeSessionEvent,
+} from "./runtime-fabric.js";
+
+export {
   calendarEntrySchema,
   calendarEntryKindSchema,
   calendarEntryStatusSchema,

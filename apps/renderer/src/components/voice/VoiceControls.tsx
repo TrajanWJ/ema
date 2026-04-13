@@ -1,10 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useVoiceStore } from "@/stores/voice-store";
 import {
+  initCapture,
   startRecording,
   stopRecording,
   isRecording,
 } from "@/lib/audio-capture";
+import { getVoices } from "@/lib/voice/tts-engine";
 
 export function VoiceControls() {
   const voiceState = useVoiceStore((s) => s.voiceState);
@@ -15,19 +17,47 @@ export function VoiceControls() {
   const clearSession = useVoiceStore((s) => s.clearSession);
   const sendText = useVoiceStore((s) => s.sendText);
   const setVoiceState = useVoiceStore((s) => s.setVoiceState);
+  const sendAudioChunk = useVoiceStore((s) => s.sendAudioChunk);
+  const setAudioLevel = useVoiceStore((s) => s.setAudioLevel);
 
   const [textInput, setTextInput] = useState("");
+  const [ttsVoices, setTtsVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const selectedVoice =
+    ttsVoices.length > 0 && !ttsVoices.some((voice) => voice.name === settings.voice)
+      ? ""
+      : settings.voice;
+
+  useEffect(() => {
+    function loadVoices() {
+      setTtsVoices(getVoices());
+    }
+
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+    };
+  }, []);
 
   const handlePushToTalkDown = useCallback(() => {
     if (settings.muted || voiceState === "processing") return;
-    startRecording();
-    setVoiceState("listening");
-  }, [settings.muted, voiceState, setVoiceState]);
+    void initCapture(
+      (chunk) => sendAudioChunk(chunk),
+      (level) => setAudioLevel(level),
+    )
+      .then(() => {
+        startRecording();
+        setVoiceState("listening");
+      })
+      .catch((err) => {
+        console.error("Microphone access denied:", err);
+      });
+  }, [sendAudioChunk, setAudioLevel, settings.muted, voiceState, setVoiceState]);
 
   const handlePushToTalkUp = useCallback(() => {
     if (!isRecording()) return;
     stopRecording();
-    finishUtterance();
+    void finishUtterance();
   }, [finishUtterance]);
 
   const handleAlwaysListenToggle = useCallback(() => {
@@ -37,17 +67,26 @@ export function VoiceControls() {
       updateSettings({ listenMode: "push-to-talk" });
     } else {
       updateSettings({ listenMode: "always-on" });
-      startRecording();
-      setVoiceState("listening");
+      void initCapture(
+        (chunk) => sendAudioChunk(chunk),
+        (level) => setAudioLevel(level),
+      )
+        .then(() => {
+          startRecording();
+          setVoiceState("listening");
+        })
+        .catch((err) => {
+          console.error("Microphone access denied:", err);
+        });
     }
-  }, [settings.listenMode, updateSettings, setVoiceState]);
+  }, [sendAudioChunk, setAudioLevel, settings.listenMode, updateSettings, setVoiceState]);
 
   const handleTextSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       const text = textInput.trim();
       if (!text) return;
-      sendText(text);
+      void sendText(text);
       setTextInput("");
     },
     [textInput, sendText],
@@ -166,31 +205,28 @@ export function VoiceControls() {
         <span className="text-xs" style={{ color: "var(--pn-text-tertiary)" }}>
           Voice:
         </span>
-        {["onyx", "alloy", "echo", "fable", "nova", "shimmer"].map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => handleVoiceChange(v)}
-            className="px-2 py-1 rounded text-xs capitalize transition-all"
-            style={{
-              background:
-                settings.voice === v
-                  ? "rgba(30, 144, 255, 0.15)"
-                  : "transparent",
-              border: `1px solid ${
-                settings.voice === v
-                  ? "rgba(0, 210, 255, 0.3)"
-                  : "transparent"
-              }`,
-              color:
-                settings.voice === v
-                  ? "rgba(0, 210, 255, 0.8)"
-                  : "var(--pn-text-tertiary)",
-            }}
-          >
-            {v}
-          </button>
-        ))}
+        <select
+          value={selectedVoice}
+          onChange={(e) => handleVoiceChange(e.target.value)}
+          className="px-2 py-1 rounded text-xs"
+          style={{
+            background: "rgba(255, 255, 255, 0.05)",
+            border: "1px solid var(--pn-border-subtle)",
+            color: "var(--pn-text-secondary)",
+          }}
+        >
+          {ttsVoices.length > 0 && selectedVoice === "" && (
+            <option value="">System default</option>
+          )}
+          {ttsVoices.length === 0 && (
+            <option value={settings.voice}>{settings.voice}</option>
+          )}
+          {ttsVoices.map((voice) => (
+            <option key={voice.voiceURI} value={voice.name}>
+              {voice.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Text input fallback */}

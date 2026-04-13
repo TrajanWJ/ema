@@ -8,17 +8,28 @@ const config = APP_CONFIGS["brain-dump"];
 
 export function BrainDumpApp() {
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
     async function init() {
-      await useBrainDumpStore.getState().loadViaRest();
-      if (!cancelled) setReady(true);
+      try {
+        await useBrainDumpStore.getState().loadViaRest();
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load queue");
+        }
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+
       useBrainDumpStore.getState().connect().catch(() => {
         console.warn("Brain Dump WebSocket failed, using REST");
       });
     }
-    init();
+
+    void init();
     return () => { cancelled = true; };
   }, []);
 
@@ -34,7 +45,22 @@ export function BrainDumpApp() {
 
   return (
     <AppWindowChrome appId="brain-dump" title={config.title} icon={config.icon} accent={config.accent} breadcrumb="Queue">
-      <BrainDumpPage />
+      {loadError ? (
+        <div className="flex h-full flex-col gap-3 p-4">
+          <div className="text-[0.78rem] font-medium" style={{ color: "var(--color-pn-warning, #EAB308)" }}>
+            Queue failed to load
+          </div>
+          <div className="text-[0.72rem]" style={{ color: "var(--pn-text-secondary)" }}>
+            {loadError}
+          </div>
+          <div className="text-[0.7rem]" style={{ color: "var(--pn-text-muted)" }}>
+            Capture is still available. Existing queue items may be incomplete until the backend route is healthy.
+          </div>
+          <BrainDumpPage />
+        </div>
+      ) : (
+        <BrainDumpPage />
+      )}
     </AppWindowChrome>
   );
 }

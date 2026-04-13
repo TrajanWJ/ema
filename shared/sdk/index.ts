@@ -18,12 +18,11 @@
  */
 
 import type {
+  ChronicleExtractionRun,
   ChronicleSessionDetail,
   ChronicleSessionSummary,
   CreateChronicleImportInput,
-  CreatePromotionReceiptInput,
   CreateProposalInput,
-  CreateReviewItemInput,
   Execution,
   FeedAction,
   FeedActionType,
@@ -33,13 +32,16 @@ import type {
   FeedWorkspace,
   Intent,
   ListReviewItemsFilter,
-  PromotionReceipt,
   ProposalRecord,
+  PromoteReviewItemInput,
   RejectProposalInput,
   ReviewDecisionInput,
   ReviewItem,
   ReviewItemDetail,
   ReviewItemSummary,
+  RuntimeSession,
+  RuntimeSessionScreen,
+  RuntimeTool,
   ReviseCoreProposalInput,
   Space,
   StartProposalExecutionInput,
@@ -65,6 +67,7 @@ export interface EmaClient {
   agents: AgentsApi;
   spaces: SpacesApi;
   feeds: FeedsApi;
+  runtimeFabric: RuntimeFabricApi;
   userState: UserStateApi;
   /** Cross-vApp pub/sub over the daemon's Phoenix-protocol WS bus. */
   events: EventsApi;
@@ -94,16 +97,16 @@ interface ChronicleApi {
     source_kind?: string;
     source_label?: string;
   }): Promise<ChronicleSessionDetail>;
+  extractSession(id: string): Promise<ChronicleExtractionRun>;
 }
 
 interface ReviewApi {
   listItems(filter?: ListReviewItemsFilter): Promise<ReviewItemSummary[]>;
   getItem(id: string): Promise<ReviewItemDetail>;
-  createItem(input: CreateReviewItemInput): Promise<ReviewItemDetail>;
   approve(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
   reject(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
   defer(id: string, input: ReviewDecisionInput): Promise<ReviewItem>;
-  recordReceipt(id: string, input: CreatePromotionReceiptInput): Promise<ReviewItemDetail>;
+  promote(id: string, input: PromoteReviewItemInput): Promise<ReviewItemDetail>;
 }
 
 interface ProposalsApi {
@@ -210,6 +213,40 @@ interface UserStateApi {
   }): Promise<UserStateSnapshot>;
 }
 
+interface RuntimeFabricApi {
+  listTools(): Promise<RuntimeTool[]>;
+  scanTools(): Promise<RuntimeTool[]>;
+  listSessions(): Promise<RuntimeSession[]>;
+  getSession(id: string): Promise<RuntimeSession>;
+  getScreen(id: string, lines?: number): Promise<RuntimeSessionScreen>;
+  createSession(input: {
+    tool_kind: string;
+    cwd?: string;
+    session_name?: string;
+    startup_options?: string[];
+    command?: string;
+    initial_input?: string;
+    simulate_typing?: boolean;
+  }): Promise<RuntimeSession>;
+  dispatch(input: {
+    tool_kind: string;
+    prompt: string;
+    session_id?: string;
+    cwd?: string;
+    session_name?: string;
+    startup_options?: string[];
+    command?: string;
+    simulate_typing?: boolean;
+  }): Promise<{ session: RuntimeSession; screen: RuntimeSessionScreen }>;
+  sendInput(id: string, input: {
+    mode?: "paste" | "type" | "key";
+    text?: string;
+    key?: string;
+    submit?: boolean;
+  }): Promise<RuntimeSession>;
+  stopSession(id: string): Promise<RuntimeSession>;
+}
+
 interface EventsApi {
   on(topic: string, handler: (event: string, payload: unknown) => void): () => void;
   emit(topic: string, event: string, payload: unknown): void;
@@ -294,18 +331,29 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         await post<Record<string, unknown>>("/api/chronicle/import-file", input),
         "detail",
       ),
+      extractSession: async (id) => unwrap<ChronicleExtractionRun>(
+        await post<Record<string, unknown>>(
+          `/api/chronicle/sessions/${encodeURIComponent(id)}/extract`,
+          {},
+        ),
+        "run",
+      ),
     },
     review: {
       listItems: async (filter = {}) => {
         const query = new URLSearchParams();
         if (filter.status) query.set("status", filter.status);
-        if (filter.chronicle_session_id) {
-          query.set("chronicle_session_id", filter.chronicle_session_id);
+        if (filter.session_id) {
+          query.set("session_id", filter.session_id);
         }
-        if (filter.chronicle_entry_id) {
-          query.set("chronicle_entry_id", filter.chronicle_entry_id);
+        if (filter.entry_id) {
+          query.set("entry_id", filter.entry_id);
         }
-        if (filter.decision) query.set("decision", filter.decision);
+        if (filter.candidate_kind) query.set("candidate_kind", filter.candidate_kind);
+        if (filter.suggested_target_kind) {
+          query.set("suggested_target_kind", filter.suggested_target_kind);
+        }
+        if (filter.target_kind) query.set("target_kind", filter.target_kind);
         if (typeof filter.limit === "number") {
           query.set("limit", String(filter.limit));
         }
@@ -319,10 +367,6 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         await request<Record<string, unknown>>(
           `/api/review/items/${encodeURIComponent(id)}`,
         ),
-        "detail",
-      ),
-      createItem: async (input) => unwrap<ReviewItemDetail>(
-        await post<Record<string, unknown>>("/api/review/items", input),
         "detail",
       ),
       approve: async (id, input) => unwrap<ReviewItem>(
@@ -346,9 +390,9 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         ),
         "item",
       ),
-      recordReceipt: async (id, input) => unwrap<ReviewItemDetail>(
+      promote: async (id, input) => unwrap<ReviewItemDetail>(
         await post<Record<string, unknown>>(
-          `/api/review/items/${encodeURIComponent(id)}/receipts`,
+          `/api/review/items/${encodeURIComponent(id)}/promote`,
           input,
         ),
         "detail",
@@ -528,6 +572,55 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
           method: "POST",
           body: JSON.stringify(input),
         }),
+    },
+    runtimeFabric: {
+      listTools: async () => unwrap<RuntimeTool[]>(
+        await request<Record<string, unknown>>("/api/runtime-fabric/tools"),
+        "tools",
+      ),
+      scanTools: async () => unwrap<RuntimeTool[]>(
+        await post<Record<string, unknown>>("/api/runtime-fabric/tools/scan", {}),
+        "tools",
+      ),
+      listSessions: async () => unwrap<RuntimeSession[]>(
+        await request<Record<string, unknown>>("/api/runtime-fabric/sessions"),
+        "sessions",
+      ),
+      getSession: async (id) => unwrap<RuntimeSession>(
+        await request<Record<string, unknown>>(
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}`,
+        ),
+        "session",
+      ),
+      getScreen: async (id, lines = 220) => unwrap<RuntimeSessionScreen>(
+        await request<Record<string, unknown>>(
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/screen?lines=${lines}`,
+        ),
+        "screen",
+      ),
+      createSession: async (input) => unwrap<RuntimeSession>(
+        await post<Record<string, unknown>>("/api/runtime-fabric/sessions", input),
+        "session",
+      ),
+      dispatch: async (input) =>
+        await post<{ session: RuntimeSession; screen: RuntimeSessionScreen }>(
+          "/api/runtime-fabric/dispatch",
+          input,
+        ),
+      sendInput: async (id, input) => unwrap<RuntimeSession>(
+        await post<Record<string, unknown>>(
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/input`,
+          input,
+        ),
+        "session",
+      ),
+      stopSession: async (id) => unwrap<RuntimeSession>(
+        await post<Record<string, unknown>>(
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/stop`,
+          {},
+        ),
+        "session",
+      ),
     },
     userState: {
       latest: async (_actorId) => unwrap<UserStateSnapshot>(

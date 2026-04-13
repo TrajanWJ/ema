@@ -42,6 +42,41 @@ export interface ListChronicleSessionsFilter {
   limit?: number | undefined;
 }
 
+function existingSessionIdForImport(
+  sourceId: string,
+  input: CreateChronicleImportInput["session"],
+): string | null {
+  if (input.external_id) {
+    const byExternal = db()
+      .prepare(
+        `
+          SELECT id FROM chronicle_sessions
+          WHERE source_id = ? AND external_id = ?
+          ORDER BY inserted_at DESC
+          LIMIT 1
+        `,
+      )
+      .get(sourceId, input.external_id) as { id?: string } | undefined;
+    if (typeof byExternal?.id === "string") return byExternal.id;
+  }
+
+  if (input.provenance_path) {
+    const byPath = db()
+      .prepare(
+        `
+          SELECT id FROM chronicle_sessions
+          WHERE source_id = ? AND provenance_path = ?
+          ORDER BY inserted_at DESC
+          LIMIT 1
+        `,
+      )
+      .get(sourceId, input.provenance_path) as { id?: string } | undefined;
+    if (typeof byPath?.id === "string") return byPath.id;
+  }
+
+  return null;
+}
+
 export class ChronicleSessionNotFoundError extends Error {
   public readonly code = "chronicle_session_not_found";
   constructor(public readonly sessionId: string) {
@@ -297,6 +332,10 @@ export function importChronicleSession(rawInput: CreateChronicleImportInput): Ch
   const handle = db();
   const importedAt = nowIso();
   const sourceId = input.source.id ?? `source_${input.source.kind}_${slugify(input.source.label)}`;
+  const existingSessionId = existingSessionIdForImport(sourceId, input.session);
+  if (existingSessionId) {
+    return getChronicleSessionDetail(existingSessionId);
+  }
   const sessionId = nanoid();
   const sessionDir = ensureChronicleSessionDir(sessionId);
   const rawPath = join(sessionDir, "raw.json");

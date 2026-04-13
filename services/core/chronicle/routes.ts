@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { createChronicleImportInputSchema, chronicleSourceKindSchema } from "@ema/shared/schemas";
 import { buildChronicleImportFromFile } from "../ingestion/service.js";
-import { getChronicleReviewState } from "../review/service.js";
+import { extractChronicleSession, getChronicleReviewState } from "../review/service.js";
 import {
   ChronicleImportError,
   ChronicleSessionNotFoundError,
@@ -74,6 +74,21 @@ export function registerChronicleRoutes(app: FastifyInstance): void {
             ...getChronicleReviewState(id),
           },
         };
+      } catch (err) {
+        return handleError(reply, err);
+      }
+    },
+  );
+
+  app.post(
+    "/sessions/:id/extract",
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply,
+    ) => {
+      try {
+        const { id } = idParamsSchema.parse(request.params ?? {});
+        return { run: extractChronicleSession(id) };
       } catch (err) {
         return handleError(reply, err);
       }

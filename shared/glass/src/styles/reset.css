@@ -4,6 +4,15 @@
  * Keeps the glass components visually consistent without fighting host apps.
  */
 
+ :root {
+  --pn-scrollbar-size: 10px;
+  --pn-scrollbar-radius: 999px;
+  --pn-scrollbar-track: rgba(255, 255, 255, 0.035);
+  --pn-scrollbar-thumb-solid: rgba(172, 186, 216, 0.32);
+  --pn-scrollbar-thumb-hover: rgba(207, 220, 248, 0.48);
+  --pn-scrollbar-thumb-active: rgba(226, 236, 255, 0.62);
+}
+
 *,
 *::before,
 *::after {
@@ -40,4 +49,42 @@ textarea {
 :focus-visible {
   outline: none;
   box-shadow: var(--pn-shadow-focus-ring);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pn-scrollbar-thumb-solid) var(--pn-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--pn-scrollbar-size);
+  height: var(--pn-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--pn-scrollbar-track);
+  border-radius: var(--pn-scrollbar-radius);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--pn-scrollbar-radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    var(--pn-scrollbar-thumb-solid);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)),
+    var(--pn-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.10)),
+    var(--pn-scrollbar-thumb-active);
+  background-clip: padding-box;
 }

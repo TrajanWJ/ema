@@ -1,5 +1,6 @@
 import { app } from "electron";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 const HEALTH_URL = "http://127.0.0.1:4488/api/health";
@@ -15,6 +16,10 @@ function repoRoot(): string {
   return path.resolve(__dirname, "../../..");
 }
 
+function runtimeRoot(): string {
+  return app.isPackaged ? process.resourcesPath : repoRoot();
+}
+
 function resolveRuntimeScript(packageName: "services" | "workers"): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, packageName, "startup.js");
@@ -24,12 +29,44 @@ function resolveRuntimeScript(packageName: "services" | "workers"): string {
 }
 
 function spawnNodeProcess(scriptPath: string): ChildProcess {
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Runtime entrypoint not found: ${scriptPath}`);
+  }
+
   return spawn(process.execPath, [scriptPath], {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
     },
-    stdio: "inherit",
+    cwd: runtimeRoot(),
+    stdio: app.isPackaged ? "pipe" : "inherit",
+  });
+}
+
+async function terminateChildProcess(child: ChildProcess): Promise<void> {
+  if (child.killed || child.exitCode !== null) {
+    return;
+  }
+
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    return;
+  }
+
+  child.kill("SIGTERM");
+
+  await new Promise<void>((resolve) => {
+    const timeout = setTimeout(() => {
+      if (child.exitCode === null && !child.killed) {
+        child.kill("SIGKILL");
+      }
+      resolve();
+    }, 3_000);
+
+    child.once("exit", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
   });
 }
 
@@ -73,8 +110,8 @@ export async function startManagedRuntime(): Promise<void> {
 
 export async function stopManagedRuntime(): Promise<void> {
   for (const child of [workersProcess, servicesProcess]) {
-    if (child && !child.killed) {
-      child.kill("SIGTERM");
+    if (child) {
+      await terminateChildProcess(child);
     }
   }
 

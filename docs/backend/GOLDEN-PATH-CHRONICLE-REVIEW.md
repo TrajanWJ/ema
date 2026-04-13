@@ -48,14 +48,17 @@ These are receipt target categories, not automatic downstream creators in this p
 
 - Chronicle raw files remain the import landing zone.
 - SQLite review tables must always retain:
+  - `extraction_id`
   - `chronicle_session_id`
   - `chronicle_entry_id` where applicable
-  - append-only decision history for approve / reject / defer
+  - `chronicle_artifact_id` where applicable
+  - human decision actor/timestamp fields on the review item
 - Promotion receipts must always retain:
   - `review_item_id`
-  - `review_decision_id`
+  - `extraction_id`
   - `chronicle_session_id`
   - `chronicle_entry_id` where applicable
+  - `chronicle_artifact_id` where applicable
   - `target_kind`
   - `target_id`
 
@@ -64,6 +67,6 @@ These are receipt target categories, not automatic downstream creators in this p
 The current Review layer is intentionally thin:
 
 - Chronicle remains the raw landing zone and browse surface.
-- Review creates durable items only when a human or agent explicitly selects a session or entry.
-- Review decisions are append-only provenance.
+- Chronicle extraction creates durable candidate rows before human review.
+- Review creates one durable review item per extraction and preserves explicit human decision fields.
 - Promotion receipts record downstream linkage without auto-creating intents, proposals, executions, or canon writes.

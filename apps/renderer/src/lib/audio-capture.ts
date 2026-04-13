@@ -6,7 +6,12 @@
  * Also handles TTS audio playback from incoming chunks.
  */
 
-type AudioChunkCallback = (base64Chunk: string) => void;
+export interface EncodedAudioChunk {
+  data: string;
+  mimeType: string;
+}
+
+type AudioChunkCallback = (chunk: EncodedAudioChunk) => void;
 type AudioLevelCallback = (level: number) => void;
 type SpeechCallback = () => void;
 
@@ -91,7 +96,10 @@ export async function initCapture(
     if (event.data.size > 0) {
       const buffer = await event.data.arrayBuffer();
       const base64 = arrayBufferToBase64(buffer);
-      onChunk(base64);
+      onChunk({
+        data: base64,
+        mimeType: event.data.type || recorder.mimeType || getSupportedMimeType(),
+      });
     }
   };
 
@@ -179,6 +187,32 @@ export function getRawAudioData(): Float32Array | null {
   const data = new Float32Array(state.analyser.fftSize);
   state.analyser.getFloatTimeDomainData(data);
   return data;
+}
+
+/**
+ * Decode MediaRecorder chunks into mono 16kHz PCM for local Whisper.
+ */
+export async function decodeBase64AudioChunks(
+  chunks: readonly EncodedAudioChunk[],
+): Promise<Float32Array> {
+  if (chunks.length === 0) return new Float32Array(0);
+
+  const blob = new Blob(chunks.map((chunk) => base64ToArrayBuffer(chunk.data)), {
+    type: chunks[0]?.mimeType || getSupportedMimeType(),
+  });
+  const encoded = await blob.arrayBuffer();
+  const audioContext = new AudioContext();
+
+  try {
+    const decoded = await audioContext.decodeAudioData(encoded.slice(0));
+    const mono = mixToMono(decoded);
+    if (decoded.sampleRate === 16000) {
+      return mono;
+    }
+    return resampleTo16k(mono, decoded.sampleRate);
+  } finally {
+    await audioContext.close();
+  }
 }
 
 /**
@@ -317,7 +351,12 @@ function startLevelMonitoring(): void {
 // ── Utilities ──
 
 function getSupportedMimeType(): string {
-  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
   for (const type of types) {
     if (MediaRecorder.isTypeSupported(type)) return type;
   }
@@ -340,4 +379,42 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes.buffer;
+}
+
+function mixToMono(buffer: AudioBuffer): Float32Array {
+  if (buffer.numberOfChannels === 1) {
+    return buffer.getChannelData(0).slice();
+  }
+
+  const mono = new Float32Array(buffer.length);
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const data = buffer.getChannelData(channel);
+    for (let i = 0; i < data.length; i++) {
+      mono[i] += data[i];
+    }
+  }
+
+  for (let i = 0; i < mono.length; i++) {
+    mono[i] /= buffer.numberOfChannels;
+  }
+
+  return mono;
+}
+
+function resampleTo16k(input: Float32Array, sourceSampleRate: number): Float32Array {
+  if (sourceSampleRate === 16000 || input.length === 0) return input;
+
+  const ratio = sourceSampleRate / 16000;
+  const targetLength = Math.max(1, Math.round(input.length / ratio));
+  const output = new Float32Array(targetLength);
+
+  for (let i = 0; i < targetLength; i++) {
+    const position = i * ratio;
+    const left = Math.floor(position);
+    const right = Math.min(left + 1, input.length - 1);
+    const mix = position - left;
+    output[i] = input[left] * (1 - mix) + input[right] * mix;
+  }
+
+  return output;
 }

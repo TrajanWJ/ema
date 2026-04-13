@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EMA Chronicle Helper</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #08131f;
+        --panel: #102033;
+        --panel-2: #13283f;
+        --text: #f3f8fb;
+        --muted: #9fb4c8;
+        --accent: #52d2ff;
+        --accent-2: #1a88b5;
+        --danger: #ff7d7d;
+        --success: #7dffa4;
+      }
+
+      body {
+        margin: 0;
+        min-width: 400px;
+        font: 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+        background: radial-gradient(circle at top, rgba(82, 210, 255, 0.18), transparent 40%), var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        padding: 14px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      p {
+        margin: 0 0 10px;
+        color: var(--muted);
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 12px;
+        margin-top: 10px;
+      }
+
+      .section {
+        margin-top: 12px;
+      }
+
+      .section:first-child {
+        margin-top: 0;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        padding: 9px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: var(--panel-2);
+        color: var(--text);
+        box-sizing: border-box;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .row > * {
+        flex: 1;
+      }
+
+      button {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(180deg, var(--accent), var(--accent-2));
+        color: #04131d;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+
+      .meta {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: pre-wrap;
+      }
+
+      .status {
+        margin-top: 10px;
+        white-space: pre-wrap;
+        color: var(--success);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>EMA Chronicle Helper</h1>
+      <p>Capture the current chat, harvest past sessions, and tag imports by source account before they land in Chronicle.</p>
+
+      <div class="card">
+        <div class="section">
+          <label for="ema-url">EMA service URL</label>
+          <input id="ema-url" type="text" placeholder="http://127.0.0.1:4488" />
+        </div>
+        <div class="section">
+          <label>
+            <input id="run-extract" type="checkbox" checked />
+            Run Chronicle extraction after import
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section">
+          <label for="account-source">Source</label>
+          <select id="account-source">
+            <option value="chatgpt">ChatGPT</option>
+            <option value="claude.ai">Claude</option>
+          </select>
+        </div>
+        <div class="section">
+          <label for="account-select">Saved account label</label>
+          <select id="account-select"></select>
+        </div>
+        <div class="section">
+          <label for="account-label">New account label</label>
+          <input id="account-label" type="text" placeholder="chatgpt-work or claude-personal" />
+        </div>
+        <div class="row">
+          <button id="save-account" class="secondary">Save Account</button>
+          <button id="open-login" class="secondary">Open Login</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="source-meta" class="meta">Waiting for supported tab…</div>
+        <div class="section">
+          <div id="preview-meta" class="meta">Preview not loaded yet.</div>
+        </div>
+        <div class="row">
+          <button id="refresh" class="secondary">Refresh Preview</button>
+          <button id="download" class="secondary">Download Current</button>
+        </div>
+        <div class="row">
+          <button id="send">Send Current</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section">
+          <label for="harvest-limit">Harvest limit</label>
+          <input id="harvest-limit" type="number" min="1" max="5000" value="500" />
+        </div>
+        <div class="row">
+          <button id="harvest">Harvest History</button>
+        </div>
+        <div id="harvest-meta" class="meta">idle</div>
+        <div id="status" class="status"></div>
+      </div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

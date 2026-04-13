@@ -12,7 +12,7 @@ recovered_from: "~/.local/share/ema/vault/wiki/Architecture/Execution-System.md"
 recovered_at: 2026-04-12
 connections:
   - { target: "[[canon/specs/EMA-V1-SPEC]]", relation: references }
-  - { target: "[[canon/decisions/DEC-004-unified-intents-schema]]", relation: references }
+  - { target: "[[canon/decisions/DEC-007-unified-intents-schema]]", relation: references }
   - { target: "[[intents/INT-FEEDBACK-LOOP-INTEGRATION]]", relation: references }
   - { target: "[[intents/INT-NERVOUS-SYSTEM-WIRING]]", relation: references }
 tags: [canon, spec, executions, dispatcher, intent-folder, reflexion, recovered, preliminary]
@@ -20,7 +20,7 @@ tags: [canon, spec, executions, dispatcher, intent-folder, reflexion, recovered,
 
 # Execution System
 
-> **Recovery status:** Preliminary. Core runtime. An Execution is the **operational-truth record** of work that actually happened or is happening — the Operational domain in [[canon/decisions/DEC-004-unified-intents-schema]]'s Three Truths model.
+> **Recovery status:** Preliminary. Core runtime. An Execution is the **operational-truth record** of work that actually happened or is happening — the Operational domain in [[canon/decisions/DEC-007-unified-intents-schema]]'s Three Truths model.
 
 ## What an Execution is
 
@@ -48,7 +48,7 @@ Executions close the loop: brain dump → (via proposal pipeline) → proposal �
 | `result_path` | string | Filesystem path where execution results land |
 | `session_id` | string | FK to the Claude session that ran this |
 | `git_diff` | text | Captured diff if the execution produced code changes |
-| `space_id` | string | FK to the Space (scoping — per [[canon/decisions/DEC-004-unified-intents-schema]]) |
+| `space_id` | string | FK to the Space (scoping — per [[canon/decisions/DEC-007-unified-intents-schema]]) |
 | `actor_id` | string | FK to the Actor (human or agent) responsible |
 | `created_at` | timestamp | When the execution was created |
 | `completed_at` | timestamp\|nil | When it finished (nil if still running) |
@@ -94,7 +94,7 @@ A per-intent filesystem folder at `.superman/intents/<slug>/` containing (per th
 | `plan.md` | The active plan |
 | `execution-log.md` | Append-only log of execution events |
 
-**The IntentFolder is the filesystem canonical layer** of the two-layer architecture from [[canon/decisions/DEC-004-unified-intents-schema]]. The DB index is derived; if the DB is wiped, the IntentFolder alone can rebuild it.
+**The IntentFolder is the filesystem canonical layer** of the two-layer architecture from [[canon/decisions/DEC-007-unified-intents-schema]]. The DB index is derived; if the DB is wiped, the IntentFolder alone can rebuild it.
 
 ## Reflexion injector
 
@@ -133,7 +133,7 @@ The pattern is EMA-native and well-tested. The TS port swaps GenServer→Node wo
 ## Related
 
 - [[canon/specs/EMA-V1-SPEC]] — parent spec
-- [[canon/decisions/DEC-004-unified-intents-schema]] — Three Truths Operational domain
+- [[canon/decisions/DEC-007-unified-intents-schema]] — Three Truths Operational domain
 - [[intents/INT-FEEDBACK-LOOP-INTEGRATION]] — the integration test covering this system
 - [[intents/INT-NERVOUS-SYSTEM-WIRING]] — the 4 wires touching this system
 - [[canon/specs/ACTOR-WORKSPACE-SYSTEM]] — `actor_id` FK

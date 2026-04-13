@@ -89,6 +89,22 @@ Reason: the live route wiring now includes durable proposals, but the intent and
 
 Reason: the packaged TypeScript CLI currently runs through `cli/src/index.ts`.
 
+## Runtime / Session Control
+
+- Active
+  - `services/core/runtime-fabric/*`
+  - `ema runtime ...`
+  - renderer `Terminal` app
+- Future
+  - richer node-pty/xterm.js transport and replay on the same contract
+- Ignore for now
+  - `SessionsApp`
+  - `Claude Bridge`
+  - `Agent Bridge`
+  - `Cli Manager`
+
+Reason: the tmux-backed runtime fabric is now the single active path for tool detection, session launch, prompt dispatch, screen capture, and input relay. The older session surfaces remain historical shells unless intentionally migrated.
+
 ## Docs
 
 - Active

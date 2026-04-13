@@ -79,6 +79,45 @@ The canonical target is still the Genesis vision, but the Electron/TypeScript re
 
 This does **not** mean Genesis is complete. It means there is now a verified minimal loop inside the TypeScript runtime that future sessions should extend instead of rebuilding.
 
+## Preliminary Additions 2026-04-12 / Repair Pass 2026-04-13
+
+Two waves of additions and one repair pass landed across 2026-04-12 and 2026-04-13. None alter the original Q1 ruling — Genesis still wins. They expand the canon graph and reconcile its self-references.
+
+### Wave A — Recovery pass (canon specs, 2026-04-12)
+
+Recovered from the old Elixir build. All started `status: preliminary`:
+
+- `canon/specs/EMA-CORE-PROMPT` — the "soul" system prompt (verbatim port)
+- `canon/specs/agents/_MOC` — agent prompt index
+- `canon/specs/agents/AGENT-ARCHIVIST` — knowledge consolidation role
+- `canon/specs/agents/AGENT-STRATEGIST` — goal decomposition role
+- `canon/specs/agents/AGENT-COACH` — reflective practice role
+- `canon/specs/BABYSITTER-SYSTEM` — 7-lane observability subsystem
+- `canon/specs/PROPOSAL-TEMPLATES` — 5-template seed library
+- `canon/specs/PROPOSAL-QUALITY-GATE` — preflight 100-point rubric
+- `canon/specs/PIPES-SYSTEM` — 22 triggers + 15 actions + 5 transforms
+- `canon/specs/ACTOR-WORKSPACE-SYSTEM` — 5-phase cadence + EntityData + tags
+- `canon/specs/EXECUTION-SYSTEM` — 15-field execution schema + Dispatcher + IntentFolder
+
+### Wave B — ID collision fix (2026-04-12, EXE-002)
+
+- `canon/decisions/DEC-007-unified-intents-schema` (renamed from a same-day-DEC-004 collision)
+- `canon/decisions/DEC-008-daily-validation-ritual` (renamed from a same-day-DEC-005 collision)
+
+The original `DEC-004-gac-card-backend.md` and `DEC-005-actor-phases.md` keep their IDs. See `[[executions/EXE-002-canon-id-collisions]]` for the rename rationale.
+
+### Repair pass (2026-04-13, EXE-003)
+
+- `canon/specs/EMA-V1-SPEC` header re-framed: no longer claims to supersede Genesis; now states Phase 1 of the Genesis vision per this ruling.
+- `canon/specs/EXECUTION-SYSTEM` and `canon/specs/PIPES-SYSTEM` cross-references updated from the old DEC-004 name to the renamed `DEC-007-unified-intents-schema`.
+- `canon/decisions/DEC-004-gac-card-backend` and `canon/decisions/DEC-005-actor-phases` gained `implementation_status: pending` frontmatter fields pointing at INT-RECOVERY-WAVE-1 Stream 3.
+- `canon/decisions/DEC-007-unified-intents-schema` upgraded from `status: preliminary` to `status: active` per the DOC-TRUST-HIERARCHY upgrade rule (3+ foundational references without contradictions).
+- This index updated to list every canon spec and decision now in the graph.
+
+The full canon spec list as of 2026-04-13: `EMA-V1-SPEC`, `EMA-VOICE`, `AGENT-RUNTIME`, `BLUEPRINT-PLANNER`, `EMA-CORE-PROMPT`, `BABYSITTER-SYSTEM`, `PROPOSAL-TEMPLATES`, `PROPOSAL-QUALITY-GATE`, `PIPES-SYSTEM`, `ACTOR-WORKSPACE-SYSTEM`, `EXECUTION-SYSTEM`, `agents/_MOC`, `agents/AGENT-ARCHIVIST`, `agents/AGENT-STRATEGIST`, `agents/AGENT-COACH`.
+
+The full decision list: `DEC-001` (graph engine), `DEC-002` (CRDT/filesync split), `DEC-003` (aspiration detection), `DEC-004` (GACCard backend, implementation_status: pending), `DEC-005` (actor phases, implementation_status: pending), `DEC-006` (deferred CLI features), `DEC-007` (unified intents, status: active as of 2026-04-13), `DEC-008` (daily validation ritual).
+
 ## Related Nodes
 
 - `[[research/_moc/RESEARCH-MOC]]` — Research layer map of content
@@ -87,5 +126,6 @@ This does **not** mean Genesis is complete. It means there is now a verified min
 - `[[_meta/SELF-POLLINATION-FINDINGS]]` — Patterns worth porting from the old build
 - `[[docs/GROUND-TRUTH]]` — Verified repo reality
 - `[[docs/BLUEPRINT]]` — Buildable Electron/TypeScript architecture
+- `[[executions/EXE-003-canon-repair-batch-2026-04-13]]` — execution record for the 2026-04-13 repair pass
 
 #meta #canon-status #ruling #genesis #v1-spec

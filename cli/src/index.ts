@@ -112,6 +112,7 @@ function buildProgram(): Command {
   registerVaultCommands(program);
   registerPipeCommands(program);
   registerAgentCommands(program);
+  registerRuntimeCommands(program);
   registerChronicleCommands(program);
   registerIngestCommands(program);
   registerServiceCommands(program);
@@ -445,6 +446,65 @@ function registerBackendCommands(program: Command): void {
       );
     }));
 
+  const executions = backend.command('execution').description(
+    'Active backend execution inspection and intervention',
+  );
+
+  executions.command('list')
+    .option('--status <status>')
+    .option('--mode <mode>')
+    .option('--intent <intentSlug>')
+    .option('--project <projectSlug>')
+    .option('--include-archived')
+    .description('List backend execution records')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [options] = values as [Record<string, unknown>];
+      const rows = await client.listExecutions({
+        ...(typeof options.status === 'string' ? { status: options.status } : {}),
+        ...(typeof options.mode === 'string' ? { mode: options.mode } : {}),
+        ...(typeof options.intent === 'string' ? { intent_slug: options.intent } : {}),
+        ...(typeof options.project === 'string' ? { project_slug: options.project } : {}),
+        ...(options.includeArchived === true ? { include_archived: true } : {}),
+      });
+      emit(
+        ctx,
+        rows.map((execution) => ({
+          id: execution.id,
+          status: execution.status,
+          mode: execution.mode,
+          intent_slug: execution.intent_slug,
+          updated_at: execution.updated_at,
+          title: execution.title,
+        })),
+        ['id', 'status', 'mode', 'intent_slug', 'updated_at', 'title'],
+      );
+    }));
+
+  executions.command('view <id>')
+    .description('Show one backend execution with transitions')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.getExecution(id));
+    }));
+
+  executions.command('approve <id>')
+    .description('Approve a backend execution waiting on human review')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.approveExecution(id));
+    }));
+
+  executions.command('cancel <id>')
+    .description('Cancel a backend execution')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.cancelExecution(id));
+    }));
+
   const proposals = backend.command('proposal').description(
     'Active durable proposal lifecycle used by the current backend',
   );
@@ -534,6 +594,54 @@ function registerBackendCommands(program: Command): void {
           ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
         }),
       );
+    }));
+
+  const tasks = backend.command('task').description(
+    'Active backend task inspection and status transitions',
+  );
+
+  tasks.command('list')
+    .option('--status <status>')
+    .option('--priority <priority>')
+    .option('--project-id <projectId>')
+    .description('List backend task records')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [options] = values as [Record<string, unknown>];
+      const rows = await client.listTasks({
+        ...(typeof options.status === 'string' ? { status: options.status } : {}),
+        ...(typeof options.priority === 'string' ? { priority: options.priority } : {}),
+        ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+      });
+      emit(
+        ctx,
+        rows.map((task) => ({
+          id: task.id,
+          status: task.status,
+          priority: task.priority,
+          project_id: task.project_id,
+          updated_at: task.updated_at,
+          title: task.title,
+        })),
+        ['id', 'status', 'priority', 'project_id', 'updated_at', 'title'],
+      );
+    }));
+
+  tasks.command('view <id>')
+    .description('Show one backend task')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id] = values as [string];
+      emit(ctx, await client.getTask(id));
+    }));
+
+  tasks.command('transition <id>')
+    .requiredOption('--status <status>')
+    .description('Transition a backend task to a new status')
+    .action(runWithContext(async (ctx, values) => {
+      const client = new BackendFlowClient(ctx.services);
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(ctx, await client.transitionTask(id, { status: String(options.status) }));
     }));
 }
 
@@ -1361,9 +1469,13 @@ function registerAgentCommands(program: Command): void {
     .description('Show agent-related service status')
     .action(runWithContext(async (ctx) => {
       const probe = await ctx.services.probe();
+      const ingestion = probe.available
+        ? await ctx.services.get<Record<string, unknown>>('/api/ingestion/status')
+        : null;
       emit(ctx, {
         service_available: probe.available,
         runtime_endpoint: `${ctx.serviceUrl}/api/agents/runtime-transition`,
+        ingestion,
         configs: ctx.store.agentConfigs(),
       });
     }));
@@ -1372,6 +1484,160 @@ function registerAgentCommands(program: Command): void {
     .description('Show local agent configuration inventory')
     .action(runWithContext(async (ctx) => {
       emit(ctx, ctx.store.agentConfigs());
+    }));
+}
+
+function registerRuntimeCommands(program: Command): void {
+  const runtime = program.command('runtime').description('Tmux-backed local runtime fabric');
+  const tool = runtime.command('tool').description('Discover local coding-agent tools');
+  const session = runtime.command('session').description('Manage tmux-backed runtime sessions');
+
+  tool.command('list')
+    .description('List detected local tools and auth-backed CLIs')
+    .action(runWithContext(async (ctx) => {
+      emit(
+        ctx,
+        await ctx.services.request('GET', '/api/runtime-fabric/tools'),
+      );
+    }));
+
+  tool.command('scan')
+    .description('Rescan local tools on PATH and config dirs')
+    .action(runWithContext(async (ctx) => {
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/runtime-fabric/tools/scan', {}),
+      );
+    }));
+
+  session.command('list')
+    .description('List managed and externally discovered tmux sessions')
+    .action(runWithContext(async (ctx) => {
+      emit(
+        ctx,
+        await ctx.services.request('GET', '/api/runtime-fabric/sessions'),
+      );
+    }));
+
+  session.command('start')
+    .requiredOption('--tool <tool>')
+    .option('--cwd <path>')
+    .option('--name <sessionName>')
+    .option('--command <command>')
+    .option('--option <value...>')
+    .option('--input <text>')
+    .option('--type', 'simulate typing instead of paste-buffer')
+    .description('Start a managed runtime session inside tmux')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/runtime-fabric/sessions', {
+          tool_kind: String(options.tool),
+          ...(typeof options.cwd === 'string' ? { cwd: options.cwd } : {}),
+          ...(typeof options.name === 'string' ? { session_name: options.name } : {}),
+          ...(typeof options.command === 'string' ? { command: options.command } : {}),
+          ...(Array.isArray(options.option) ? { startup_options: options.option.filter(isString) } : {}),
+          ...(typeof options.input === 'string' ? { initial_input: options.input } : {}),
+          ...(options.type === true ? { simulate_typing: true } : {}),
+        }),
+      );
+    }));
+
+  runtime.command('dispatch')
+    .requiredOption('--tool <tool>')
+    .requiredOption('--prompt <prompt>')
+    .option('--cwd <path>')
+    .option('--name <sessionName>')
+    .option('--command <command>')
+    .option('--option <value...>')
+    .option('--session <id>')
+    .option('--type', 'simulate typing instead of paste-buffer')
+    .description('Start or continue a coding-agent session with one prompt dispatch')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', '/api/runtime-fabric/dispatch', {
+          tool_kind: String(options.tool),
+          prompt: String(options.prompt),
+          ...(typeof options.cwd === 'string' ? { cwd: options.cwd } : {}),
+          ...(typeof options.name === 'string' ? { session_name: options.name } : {}),
+          ...(typeof options.command === 'string' ? { command: options.command } : {}),
+          ...(typeof options.session === 'string' ? { session_id: options.session } : {}),
+          ...(Array.isArray(options.option) ? { startup_options: options.option.filter(isString) } : {}),
+          ...(options.type === true ? { simulate_typing: true } : {}),
+        }),
+      );
+    }));
+
+  session.command('read <id>')
+    .option('--lines <n>', 'lines of tmux history to capture', parseInteger, 160)
+    .description('Read the current screen from a runtime session')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, { lines: number }];
+      emit(
+        ctx,
+        await ctx.services.request(
+          'GET',
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/screen?lines=${options.lines}`,
+        ),
+      );
+    }));
+
+  session.command('events <id>')
+    .option('--limit <n>', 'number of events to show', parseInteger, 25)
+    .description('Show recorded runtime activity for one session')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, { limit: number }];
+      emit(
+        ctx,
+        await ctx.services.request(
+          'GET',
+          `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/events?limit=${options.limit}`,
+        ),
+      );
+    }));
+
+  session.command('send <id>')
+    .requiredOption('--text <text>')
+    .option('--type', 'simulate typing instead of paste-buffer')
+    .option('--submit', 'press Enter after sending')
+    .description('Send text into a runtime session')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, Record<string, unknown>];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/input`, {
+          text: String(options.text),
+          mode: options.type === true ? 'type' : 'paste',
+          submit: options.submit === true,
+        }),
+      );
+    }));
+
+  session.command('key <id>')
+    .requiredOption('--key <key>')
+    .description('Send one control key to a runtime session (Enter, ctrl-c, Tab, Up, Down)')
+    .action(runWithContext(async (ctx, values) => {
+      const [id, options] = values as [string, { key: string }];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/input`, {
+          mode: 'key',
+          key: options.key,
+        }),
+      );
+    }));
+
+  session.command('stop <id>')
+    .description('Stop a managed runtime session')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(
+        ctx,
+        await ctx.services.request('POST', `/api/runtime-fabric/sessions/${encodeURIComponent(id)}/stop`, {}),
+      );
     }));
 }
 
@@ -1417,6 +1683,13 @@ function registerChronicleCommands(program: Command): void {
       emit(ctx, await ctx.services.request('GET', `/api/chronicle/sessions/${encodeURIComponent(id)}`));
     }));
 
+  chronicle.command('extract <id>')
+    .description('Run the Chronicle extraction pass for one session')
+    .action(runWithContext(async (ctx, values) => {
+      const [id] = values as [string];
+      emit(ctx, await ctx.services.request('POST', `/api/chronicle/sessions/${encodeURIComponent(id)}/extract`, {}));
+    }));
+
   chronicle.command('import-file <path>')
     .option('--agent <agent>')
     .option('--source-kind <kind>')
@@ -1450,49 +1723,29 @@ function registerReviewCommands(program: Command): void {
     .option('--status <status>')
     .option('--session-id <id>')
     .option('--entry-id <id>')
-    .option('--decision <decision>')
+    .option('--candidate-kind <kind>')
+    .option('--suggested-target-kind <kind>')
+    .option('--target-kind <kind>')
     .option('--limit <n>', 'maximum items', parseInteger, 25)
     .description('List review items from the services layer')
     .action(runWithContext(async (ctx, values) => {
       const [options] = values as [Record<string, unknown>];
       const query = new URLSearchParams();
       if (typeof options.status === 'string') query.set('status', options.status);
-      if (typeof options.sessionId === 'string') query.set('chronicle_session_id', options.sessionId);
-      if (typeof options.entryId === 'string') query.set('chronicle_entry_id', options.entryId);
-      if (typeof options.decision === 'string') query.set('decision', options.decision);
+      if (typeof options.sessionId === 'string') query.set('session_id', options.sessionId);
+      if (typeof options.entryId === 'string') query.set('entry_id', options.entryId);
+      if (typeof options.candidateKind === 'string') query.set('candidate_kind', options.candidateKind);
+      if (typeof options.suggestedTargetKind === 'string') query.set('suggested_target_kind', options.suggestedTargetKind);
+      if (typeof options.targetKind === 'string') query.set('target_kind', options.targetKind);
       if (typeof options.limit === 'number') query.set('limit', String(options.limit));
       emit(ctx, await ctx.services.request('GET', `/api/review/items${query.size > 0 ? `?${query.toString()}` : ''}`));
     }));
 
   review.command('view <id>')
-    .description('Inspect one review item with Chronicle linkage, decisions, and receipts')
+    .description('Inspect one review item with Chronicle provenance, extraction, and receipts')
     .action(runWithContext(async (ctx, values) => {
       const [id] = values as [string];
       emit(ctx, await ctx.services.request('GET', `/api/review/items/${encodeURIComponent(id)}`));
-    }));
-
-  review.command('create')
-    .requiredOption('--session-id <id>')
-    .option('--entry-id <id>')
-    .option('--title <title>')
-    .option('--summary <summary>')
-    .option('--source-excerpt <text>')
-    .option('--suggested-target-kind <kind>')
-    .option('--actor <actor>', 'creator actor id', 'actor_human_owner')
-    .description('Create or reuse a review item from Chronicle session or entry provenance')
-    .action(runWithContext(async (ctx, values) => {
-      const [options] = values as [Record<string, unknown>];
-      emit(ctx, await ctx.services.request('POST', '/api/review/items', {
-        chronicle_session_id: String(options.sessionId),
-        ...(typeof options.entryId === 'string' ? { chronicle_entry_id: options.entryId } : {}),
-        ...(typeof options.title === 'string' ? { title: options.title } : {}),
-        ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
-        ...(typeof options.sourceExcerpt === 'string' ? { source_excerpt: options.sourceExcerpt } : {}),
-        ...(typeof options.suggestedTargetKind === 'string'
-          ? { suggested_target_kind: options.suggestedTargetKind }
-          : {}),
-        created_by_actor_id: String(options.actor),
-      }));
     }));
 
   review.command('approve <id>')
@@ -1531,21 +1784,43 @@ function registerReviewCommands(program: Command): void {
       }));
     }));
 
-  review.command('receipt <id>')
-    .requiredOption('--target-kind <kind>')
-    .option('--decision-id <id>')
-    .option('--target-id <id>')
-    .option('--status <status>', 'recorded|linked', 'recorded')
-    .option('--summary <summary>')
-    .description('Record a promotion receipt for an approved review item')
+  review.command('promote <id>')
+    .requiredOption('--to <kind>')
+    .requiredOption('--actor <actor>')
+    .option('--mode <mode>')
+    .option('--existing-target-id <id>')
+    .option('--owner-id <id>')
+    .option('--owner-kind <kind>')
+    .option('--timeframe <timeframe>')
+    .option('--starts-at <datetime>')
+    .option('--ends-at <datetime>')
+    .option('--target-date <datetime>')
+    .option('--entry-kind <kind>')
+    .option('--project-id <id>')
+    .option('--space-id <id>')
+    .option('--intent-slug <slug>')
+    .option('--execution-id <id>')
+    .option('--note <text>')
+    .description('Promote an approved review item into a real runtime target')
     .action(runWithContext(async (ctx, values) => {
       const [id, options] = values as [string, Record<string, unknown>];
-      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/receipts`, {
-        target_kind: String(options.targetKind),
-        ...(typeof options.decisionId === 'string' ? { review_decision_id: options.decisionId } : {}),
-        ...(typeof options.targetId === 'string' ? { target_id: options.targetId } : {}),
-        ...(typeof options.status === 'string' ? { status: options.status } : {}),
-        ...(typeof options.summary === 'string' ? { summary: options.summary } : {}),
+      emit(ctx, await ctx.services.request('POST', `/api/review/items/${encodeURIComponent(id)}/promote`, {
+        to: String(options.to),
+        actor_id: String(options.actor),
+        ...(typeof options.mode === 'string' ? { mode: options.mode } : {}),
+        ...(typeof options.existingTargetId === 'string' ? { existing_target_id: options.existingTargetId } : {}),
+        ...(typeof options.ownerId === 'string' ? { owner_id: options.ownerId } : {}),
+        ...(typeof options.ownerKind === 'string' ? { owner_kind: options.ownerKind } : {}),
+        ...(typeof options.timeframe === 'string' ? { timeframe: options.timeframe } : {}),
+        ...(typeof options.startsAt === 'string' ? { starts_at: options.startsAt } : {}),
+        ...(typeof options.endsAt === 'string' ? { ends_at: options.endsAt } : {}),
+        ...(typeof options.targetDate === 'string' ? { target_date: options.targetDate } : {}),
+        ...(typeof options.entryKind === 'string' ? { entry_kind: options.entryKind } : {}),
+        ...(typeof options.projectId === 'string' ? { project_id: options.projectId } : {}),
+        ...(typeof options.spaceId === 'string' ? { space_id: options.spaceId } : {}),
+        ...(typeof options.intentSlug === 'string' ? { intent_slug: options.intentSlug } : {}),
+        ...(typeof options.executionId === 'string' ? { execution_id: options.executionId } : {}),
+        ...(typeof options.note === 'string' ? { note: options.note } : {}),
       }));
     }));
 }
@@ -1555,7 +1830,25 @@ function registerIngestCommands(program: Command): void {
   ingest.command('scan')
     .description('Discover local agent configs')
     .action(runWithContext(async (ctx) => {
+      const payload = await ctx.services.get<{ configs: unknown[] }>('/api/ingestion/scan');
+      if (payload) {
+        emit(ctx, payload.configs, ['agent', 'path', 'sessions', 'first_activity', 'last_activity']);
+        return;
+      }
       emit(ctx, ctx.store.agentConfigs(), ['agent', 'path', 'sessions', 'firstActivity', 'lastActivity']);
+    }));
+
+  ingest.command('discover')
+    .option('--agent <agent>')
+    .description('List local session files that can be imported into Chronicle')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      const query = new URLSearchParams();
+      if (typeof options.agent === 'string') query.set('agent', options.agent);
+      emit(
+        ctx,
+        await ctx.services.request('GET', `/api/ingestion/discover${query.size > 0 ? `?${query.toString()}` : ''}`),
+      );
     }));
 
   ingest.command('sessions')
@@ -1563,6 +1856,15 @@ function registerIngestCommands(program: Command): void {
     .description('Parse local session histories into a timeline')
     .action(runWithContext(async (ctx, values) => {
       const [options] = values as [Record<string, unknown>];
+      const query = new URLSearchParams();
+      if (typeof options.agent === 'string') query.set('agent', options.agent);
+      const payload = await ctx.services.get<{ timeline: unknown[] }>(
+        `/api/ingestion/sessions${query.size > 0 ? `?${query.toString()}` : ''}`,
+      );
+      if (payload) {
+        emit(ctx, payload.timeline);
+        return;
+      }
       const timeline = ctx.store.parseAgentTimeline(
         typeof options.agent === 'string' ? options.agent : undefined,
       );
@@ -1578,14 +1880,60 @@ function registerIngestCommands(program: Command): void {
     .description('Generate draft backfeed proposals from session openings')
     .action(runWithContext(async (ctx, values) => {
       const [options] = values as [Record<string, unknown>];
+      const payload = await ctx.services.get<{ timeline?: unknown[]; proposals?: unknown[] }>(
+        `/api/ingestion/sessions${typeof options.agent === 'string' ? `?agent=${encodeURIComponent(options.agent)}` : ''}`,
+      );
+      if (payload) {
+        emit(ctx, await ctx.services.request('POST', '/api/ingestion/backfeed', {
+          ...(typeof options.agent === 'string' ? { agent: options.agent } : {}),
+        }));
+        return;
+      }
       emit(ctx, ctx.store.backfeedFromTimeline(
         typeof options.agent === 'string' ? options.agent : undefined,
       ));
     }));
 
+  ingest.command('import')
+    .option('--agent <agent>')
+    .option('--limit <n>', 'maximum discovered session files to import', parseInteger, 50)
+    .option('--offset <n>', 'skip the first N discovered session files before importing', parseInteger, 0)
+    .description('Import discovered local session files into Chronicle')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', '/api/ingestion/import-discovered', {
+        ...(typeof options.agent === 'string' ? { agent: options.agent } : {}),
+        ...(typeof options.limit === 'number' ? { limit: options.limit } : {}),
+        ...(typeof options.offset === 'number' ? { offset: options.offset } : {}),
+      }));
+    }));
+
+  ingest.command('bootstrap')
+    .option('--limit <n>', 'maximum discovered session files to import during this bootstrap pass', parseInteger, 500)
+    .option('--force', 'restart bootstrap backfill from offset 0')
+    .description('Run EMA default ingestion bootstrap: machine snapshot, tool discovery, and a paged Chronicle backfill batch')
+    .action(runWithContext(async (ctx, values) => {
+      const [options] = values as [Record<string, unknown>];
+      emit(ctx, await ctx.services.request('POST', '/api/ingestion/bootstrap', {
+        ...(typeof options.limit === 'number' ? { limit: options.limit } : {}),
+        ...(typeof options.force === 'boolean' ? { force: options.force } : {}),
+      }));
+    }));
+
+  ingest.command('machine-snapshot')
+    .description('Capture the current host-machine state into Chronicle as a repeatable system snapshot')
+    .action(runWithContext(async (ctx) => {
+      emit(ctx, await ctx.services.request('POST', '/api/ingestion/machine-snapshot', {}));
+    }));
+
   ingest.command('status')
     .description('Show ingestion coverage status')
     .action(runWithContext(async (ctx) => {
+      const payload = await ctx.services.get<Record<string, unknown>>('/api/ingestion/status');
+      if (payload) {
+        emit(ctx, payload);
+        return;
+      }
       const timeline = ctx.store.parseAgentTimeline();
       emit(ctx, {
         configs: ctx.store.agentConfigs().length,
