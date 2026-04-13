@@ -1,0 +1,30 @@
+{
+  "name": "@ema/services",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch startup.ts",
+    "build": "tsc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@ema/shared": "workspace:*",
+    "fastify": "^5.3.3",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/bearer-auth": "^10.1.2",
+    "ws": "^8.18.0",
+    "better-sqlite3": "^11.9.1",
+    "drizzle-orm": "^0.44.2",
+    "drizzle-kit": "^0.31.3",
+    "zod": "^3.24.4",
+    "nanoid": "^5.1.5",
+    "node-cron": "^4.0.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/ws": "^8.18.1",
+    "vitest": "^3.1.3"
+  }
+}
