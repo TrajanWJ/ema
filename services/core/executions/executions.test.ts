@@ -38,6 +38,21 @@ vi.mock("../../realtime/server.js", () => ({
   registerChannelHandler: vi.fn(),
 }));
 
+// The executions service now enforces a FK check against intents.getIntent
+// (DEC-007 unified-intents schema + intent seam closure in EXE-003). Stub it
+// here so the hermetic tests can use placeholder intent slugs like GAC-001
+// without having to bootstrap the intents service in-process.
+vi.mock("../intents/service.js", () => ({
+  getIntent: (slug: string) => ({
+    slug,
+    title: `Stub intent ${slug}`,
+    status: "active",
+    phase: "execute",
+    kind: "implement",
+  }),
+  attachExecution: vi.fn(),
+}));
+
 const {
   __resetExecutionsInit,
   appendStep,
