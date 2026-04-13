@@ -1,0 +1,23 @@
+# Build artifacts and dependencies — never commit, but kept on disk
+# for reference. Safe to `rm -rf` to reclaim ~7 GB.
+
+# Rust / Tauri
+**/target/
+**/Cargo.lock.bak
+
+# Node
+**/node_modules/
+**/dist/
+**/.pnpm-store/
+**/.next/
+
+# Elixir / Phoenix
+**/_build/
+**/deps/
+**/.elixir_ls/
+**/cover/
+**/erl_crash.dump
+
+# Misc
+**/.DS_Store
+**/*.log

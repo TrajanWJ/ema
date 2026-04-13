@@ -1,0 +1,3 @@
+# Intent
+
+TOP STEALS from task-master (concrete, with Elixir translations): 1) Task dependency graph — add dependencies field to Task schema, build DependencyGraph module with build_blocks_map/filter_ready. 2) Workflow state machine — serializable execution phases with guard conditions, auto-persistence, attempt counting. 3) Loop presets — structured prompts for autonomous Claude loops (default, test-coverage, entropy, proposals, brain-dump-triage). 4) Preflight checker — validate environment before dispatching executions. 5) MCP withToolContext wrapper — centralized error handling. 6) CLI command registry with categories.

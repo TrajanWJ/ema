@@ -1,0 +1,3 @@
+# Intent
+
+CODE ANALYSIS COMPLETE — Top steals ranked by impact: 1) Pure agent/directive split (Jido) — testable agent logic. 2) Typed tool definitions (LangChain) — eliminate string dispatch. 3) Loop detection (open-multi-agent) — catch stuck agents, 137 lines. 4) Guardrail rules table (harness) — R01-R13 declarative deny/warn/ask. 5) Agent gotchas system (Waza) — cumulative failure history per agent. 6) Evidence-before-claims (PAUL) — verification checklist in prompts. 7) Filesystem surface with _by-* indexes (crm.cli) — navigable state for agents. 8) TSV iteration log (autoresearch) — keep/discard tracking. 9) UNIFY reconciliation phase (PAUL) — plan vs actual comparison. 10) Auto task decomposition (open-multi-agent) — coordinator agent for proposals.

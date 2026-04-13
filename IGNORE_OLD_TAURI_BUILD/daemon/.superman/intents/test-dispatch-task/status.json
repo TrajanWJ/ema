@@ -1,0 +1,11 @@
+{
+  "status": "idle",
+  "phase": 1,
+  "slug": "test-dispatch-task",
+  "latest_execution_id": null,
+  "completion_pct": 0,
+  "last_updated": "2026-04-06T21:28:05.419008Z",
+  "energy": 0,
+  "clarity": 0,
+  "open_questions": []
+}
