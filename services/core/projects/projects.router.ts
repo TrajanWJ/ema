@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { broadcast } from '../../realtime/server.js';
+import { pipeBus } from '../pipes/bus.js';
 import {
   createProject,
   getProject,
@@ -74,6 +75,10 @@ export function registerRoutes(app: FastifyInstance): void {
 
       broadcast('projects:lobby', 'project_created', project);
       broadcast(`projects:${project.id}`, 'project_updated', project);
+      pipeBus.trigger('projects:created', {
+        project_id: project.id,
+        status: project.status,
+      });
 
       return { project };
     },
@@ -103,6 +108,10 @@ export function registerRoutes(app: FastifyInstance): void {
 
       broadcast('projects:lobby', 'project_updated', project);
       broadcast(`projects:${project.id}`, 'project_updated', project);
+      pipeBus.trigger('projects:status_changed', {
+        project_id: project.id,
+        status: project.status,
+      });
 
       return { project };
     },

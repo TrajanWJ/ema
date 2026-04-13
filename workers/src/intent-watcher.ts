@@ -31,12 +31,15 @@ import { join, resolve } from "node:path";
 
 import type { Worker } from "./worker-manager.js";
 
-const ENABLED = process.env["EMA_WORKERS_WATCH_INTENTS"] === "1";
-
-const SERVICES_BASE_URL =
-  process.env["EMA_SERVICES_URL"] ?? "http://127.0.0.1:4488";
-
 const DEBOUNCE_MS = 200;
+
+function isEnabled(): boolean {
+  return process.env["EMA_WORKERS_WATCH_INTENTS"] === "1";
+}
+
+function servicesBaseUrl(): string {
+  return process.env["EMA_SERVICES_URL"] ?? "http://127.0.0.1:4488";
+}
 
 function intentRootsFromCwd(root: string): string[] {
   const candidates = [
@@ -48,7 +51,7 @@ function intentRootsFromCwd(root: string): string[] {
 
 async function forwardReindex(): Promise<void> {
   try {
-    await fetch(`${SERVICES_BASE_URL}/api/intents/reindex`, {
+    await fetch(`${servicesBaseUrl()}/api/intents/reindex`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: "{}",
@@ -86,7 +89,7 @@ export function createIntentWatcher(): Worker {
   return {
     name: "intent-watcher",
     async start(): Promise<void> {
-      if (!ENABLED) return; // explicit no-op when disabled
+      if (!isEnabled()) return; // explicit no-op when disabled
       const repoRoot = process.cwd();
       const roots = intentRootsFromCwd(repoRoot);
       if (roots.length === 0) return;

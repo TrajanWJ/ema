@@ -23,10 +23,17 @@ import { EventEmitter } from "node:events";
 import type Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 
-import type { ActorPhase, ExecutionStatus } from "@ema/shared/schemas";
+import type { ActorPhase, ExecutionStatus, Intent } from "@ema/shared/schemas";
 
 import { getDb } from "../../persistence/db.js";
-import { attachExecution, getIntent } from "../intents/service.js";
+import {
+  appendIntentEvent,
+  attachExecution,
+  getIntent,
+  transitionPhase as transitionIntentPhase,
+  updateIntentStatus,
+} from "../intents/service.js";
+import type { IntentPhase } from "../intents/state-machine.js";
 import { pipeBus } from "../pipes/bus.js";
 import { applyExecutionsDdl } from "./executions.schema.js";
 import {
@@ -55,6 +62,7 @@ export interface ExecutionRecord {
   project_slug: string | null;
   intent_slug: string | null;
   intent_path: string | null;
+  result_summary: string | null;
   result_path: string | null;
   requires_approval: boolean;
   brain_dump_item_id: string | null;
@@ -82,6 +90,22 @@ export interface CreateExecutionInput {
   intent_path?: string | null;
   proposal_id?: string | null;
   space_id?: string | null;
+}
+
+export interface RecordExecutionResultInput {
+  result_path: string;
+  result_summary?: string | null;
+  intent_status?: Intent["status"] | null;
+  intent_phase?: IntentPhase | null;
+  intent_event?: string | null;
+}
+
+export interface CompleteExecutionInput {
+  result_summary?: string | null;
+  result_path?: string | null;
+  intent_status?: Intent["status"] | null;
+  intent_phase?: IntentPhase | null;
+  intent_event?: string | null;
 }
 
 export interface ListExecutionsFilter {
@@ -182,6 +206,7 @@ export function mapExecutionRow(row: DbRow | undefined): ExecutionRecord | null 
     project_slug: nullableString(row.project_slug),
     intent_slug: nullableString(row.intent_slug),
     intent_path: nullableString(row.intent_path),
+    result_summary: nullableString(row.result_summary),
     result_path: nullableString(row.result_path),
     requires_approval: toBool(row.requires_approval),
     brain_dump_item_id: nullableString(row.brain_dump_item_id),
@@ -256,6 +281,49 @@ function requireExecution(id: string): ExecutionRecord {
   const found = getExecution(id);
   if (!found) throw new ExecutionNotFoundError(id);
   return found;
+}
+
+function syncIntentFromExecution(
+  execution: ExecutionRecord,
+  input: {
+    intent_status?: Intent["status"] | null;
+    intent_phase?: IntentPhase | null;
+    intent_event?: string | null;
+    result_path?: string | null;
+    result_summary?: string | null;
+    event_type: string;
+  },
+): void {
+  if (!execution.intent_slug) return;
+
+  if (input.intent_phase) {
+    transitionIntentPhase(execution.intent_slug, {
+      to: input.intent_phase,
+      reason: `execution:${execution.id}:${input.event_type}`,
+      summary: input.intent_event ?? undefined,
+      metadata: {
+        execution_id: execution.id,
+        ...(input.result_path ? { result_path: input.result_path } : {}),
+      },
+    });
+  }
+
+  if (input.intent_status) {
+    updateIntentStatus(execution.intent_slug, {
+      status: input.intent_status,
+      reason: input.intent_event ?? `${input.event_type}:${execution.id}`,
+    });
+  }
+
+  appendIntentEvent({
+    intentSlug: execution.intent_slug,
+    eventType: input.event_type,
+    payload: {
+      execution_id: execution.id,
+      ...(input.result_path ? { result_path: input.result_path } : {}),
+      ...(input.result_summary ? { result_summary: input.result_summary } : {}),
+    },
+  });
 }
 
 // ---------------------------------------------------------------- mutations
@@ -344,23 +412,62 @@ export function createExecution(input: CreateExecutionInput): ExecutionRecord {
 function updateStatus(
   id: string,
   status: ExecutionStatus,
-  resultSummary?: string | null,
+  input: {
+    result_summary?: string | null;
+    result_path?: string | null;
+    intent_status?: Intent["status"] | null;
+    intent_phase?: IntentPhase | null;
+    intent_event?: string | null;
+  } = {},
 ): ExecutionRecord {
   const handle = db();
-  requireExecution(id);
-  const now = nowIso();
-  handle
-    .prepare(
-      `UPDATE executions
-          SET status = ?,
-              result_summary = COALESCE(?, result_summary),
-              completed_at = CASE WHEN ? = 'completed' THEN ? ELSE completed_at END,
-              updated_at = ?
-        WHERE id = ?`,
-    )
-    .run(status, resultSummary ?? null, status, now, now, id);
+  const updated = handle.transaction(() => {
+    requireExecution(id);
+    const now = nowIso();
+    handle
+      .prepare(
+        `UPDATE executions
+            SET status = ?,
+                result_summary = COALESCE(?, result_summary),
+                result_path = COALESCE(?, result_path),
+                completed_at = CASE WHEN ? = 'completed' THEN ? ELSE completed_at END,
+                updated_at = ?
+          WHERE id = ?`,
+      )
+      .run(
+        status,
+        input.result_summary ?? null,
+        input.result_path ?? null,
+        status,
+        now,
+        now,
+        id,
+      );
 
-  const updated = requireExecution(id);
+    const next = requireExecution(id);
+    if (status === "completed") {
+      syncIntentFromExecution(next, {
+        event_type: "execution_completed",
+        ...(input.intent_status !== undefined
+          ? { intent_status: input.intent_status }
+          : {}),
+        ...(input.intent_phase !== undefined
+          ? { intent_phase: input.intent_phase }
+          : {}),
+        ...(input.intent_event !== undefined
+          ? { intent_event: input.intent_event }
+          : {}),
+        ...(input.result_path !== undefined || next.result_path !== null
+          ? { result_path: input.result_path ?? next.result_path }
+          : {}),
+        ...(input.result_summary !== undefined || next.result_summary !== null
+          ? { result_summary: input.result_summary ?? next.result_summary }
+          : {}),
+      });
+    }
+    return next;
+  })();
+
   const eventType =
     status === "completed" ? "execution:completed" : "execution:updated";
   executionsEvents.emit(eventType, {
@@ -382,18 +489,66 @@ export function cancelExecution(id: string): ExecutionRecord | null {
 
 export function completeExecution(
   id: string,
-  resultSummary?: string | null,
+  input: CompleteExecutionInput = {},
 ): ExecutionRecord | null {
   if (!getExecution(id)) return null;
-  return updateStatus(id, "completed", resultSummary);
+  return updateStatus(id, "completed", input);
 }
 
 export function updateExecutionStatus(
   id: string,
   status: ExecutionStatus,
-  resultSummary?: string | null,
+  input: {
+    result_summary?: string | null;
+    result_path?: string | null;
+  } = {},
 ): ExecutionRecord {
-  return updateStatus(id, status, resultSummary);
+  return updateStatus(id, status, input);
+}
+
+export function recordExecutionResult(
+  id: string,
+  input: RecordExecutionResultInput,
+): ExecutionRecord {
+  const handle = db();
+  const updated = handle.transaction(() => {
+    requireExecution(id);
+    const now = nowIso();
+    handle
+      .prepare(
+        `UPDATE executions
+            SET result_path = ?,
+                result_summary = COALESCE(?, result_summary),
+                updated_at = ?
+          WHERE id = ?`,
+      )
+      .run(input.result_path, input.result_summary ?? null, now, id);
+
+    const next = requireExecution(id);
+    syncIntentFromExecution(next, {
+      event_type: "execution_result_recorded",
+      ...(input.intent_status !== undefined
+        ? { intent_status: input.intent_status }
+        : {}),
+      ...(input.intent_phase !== undefined
+        ? { intent_phase: input.intent_phase }
+        : {}),
+      ...(input.intent_event !== undefined
+        ? { intent_event: input.intent_event }
+        : {}),
+      result_path: input.result_path,
+      ...(input.result_summary !== undefined || next.result_summary !== null
+        ? { result_summary: input.result_summary ?? next.result_summary }
+        : {}),
+    });
+    return next;
+  })();
+
+  executionsEvents.emit("execution:updated", {
+    type: "execution:updated",
+    execution: updated,
+  } satisfies ExecutionEvent);
+  return updated;
 }
 
 export function archiveExecution(id: string): ExecutionRecord {

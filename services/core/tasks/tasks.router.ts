@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { broadcast } from '../../realtime/server.js';
+import { pipeBus } from '../pipes/bus.js';
 import {
   addTaskComment,
   createTask,
@@ -96,6 +97,12 @@ export function registerRoutes(app: FastifyInstance): void {
       });
 
       broadcast('tasks:lobby', 'task_created', task);
+      pipeBus.trigger('tasks:created', {
+        task_id: task.id,
+        title: task.title,
+        status: task.status,
+        project_id: task.project_id,
+      });
       if (task.project_id) {
         broadcast(`tasks:${task.project_id}`, 'task_created', task);
         broadcast(`projects:${task.project_id}`, 'task_created', task);
@@ -121,6 +128,20 @@ export function registerRoutes(app: FastifyInstance): void {
       }
 
       broadcast('tasks:lobby', 'task_updated', task);
+      pipeBus.trigger('tasks:status_changed', {
+        task_id: task.id,
+        title: task.title,
+        status: task.status,
+        project_id: task.project_id,
+      });
+      if (task.status === 'done' || task.status === 'completed') {
+        pipeBus.trigger('tasks:completed', {
+          task_id: task.id,
+          title: task.title,
+          status: task.status,
+          project_id: task.project_id,
+        });
+      }
       if (task.project_id) {
         broadcast(`tasks:${task.project_id}`, 'task_updated', task);
         broadcast(`projects:${task.project_id}`, 'task_updated', task);

@@ -23,6 +23,16 @@ import { agentRuntimeStateSchema } from "@ema/shared/schemas";
 
 import { broadcast } from "../../realtime/server.js";
 
+const runtimeStates = new Map<
+  string,
+  {
+    from_state: z.infer<typeof agentRuntimeStateSchema> | null;
+    to_state: z.infer<typeof agentRuntimeStateSchema>;
+    reason: string;
+    observed_at: string;
+  }
+>();
+
 const transitionBodySchema = z.object({
   actor_id: z.string().min(1),
   from_state: agentRuntimeStateSchema.nullable().optional(),
@@ -32,6 +42,17 @@ const transitionBodySchema = z.object({
 });
 
 export function registerRoutes(app: FastifyInstance): void {
+  app.get(
+    "/api/agents/status",
+    async () => ({
+      actors: [...runtimeStates.entries()].map(([actor_id, state]) => ({
+        actor_id,
+        ...state,
+      })),
+      count: runtimeStates.size,
+    }),
+  );
+
   app.post(
     "/api/agents/runtime-transition",
     async (
@@ -46,6 +67,12 @@ export function registerRoutes(app: FastifyInstance): void {
         });
       }
 
+      runtimeStates.set(parsed.data.actor_id, {
+        from_state: parsed.data.from_state ?? null,
+        to_state: parsed.data.to_state,
+        reason: parsed.data.reason,
+        observed_at: parsed.data.observed_at,
+      });
       broadcast("agents:runtime", "state_transition", parsed.data);
       return reply.code(202).send({ status: "accepted" });
     },

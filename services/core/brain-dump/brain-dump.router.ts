@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { broadcast } from '../../realtime/server.js';
 import { getTodaySnapshot } from '../dashboard/dashboard.service.js';
+import { pipeBus } from '../pipes/bus.js';
 import {
   createInboxItem,
   deleteInboxItem,
@@ -36,6 +37,7 @@ export function registerRoutes(app: FastifyInstance): void {
       });
 
       broadcast('brain_dump:queue', 'item_created', item);
+      pipeBus.trigger('brain_dump:item_created', item);
       publishDashboardSnapshot();
 
       return { item };
@@ -58,6 +60,7 @@ export function registerRoutes(app: FastifyInstance): void {
       }
 
       broadcast('brain_dump:queue', 'item_processed', item);
+      pipeBus.trigger('brain_dump:item_processed', item);
       publishDashboardSnapshot();
 
       return { item };

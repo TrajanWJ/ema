@@ -9,6 +9,8 @@ import { registerProjectsChannel } from './core/projects/projects.channel.js';
 import { registerSettingsChannel } from './core/settings/settings.channel.js';
 import { registerTasksChannel } from './core/tasks/tasks.channel.js';
 import { registerWorkspaceChannel } from './core/workspace/workspace.channel.js';
+import { runLoopMigrations } from './core/loop/migrations.js';
+import { pipeBus } from './core/pipes/bus.js';
 
 let pubsub: PubSub | undefined;
 
@@ -23,6 +25,7 @@ export async function startServices(): Promise<void> {
   // 1. Database
   log('Database: connecting...');
   getDb();
+  runLoopMigrations();
   log('Database: connected (WAL mode)');
 
   // 2. PubSub
@@ -50,6 +53,14 @@ export async function startServices(): Promise<void> {
   registerTasksChannel();
   registerWorkspaceChannel();
   log('Channels: registered');
+
+  try {
+    pipeBus.trigger('system:daemon_started', {
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Boot must not fail if the pipe bus has no listeners yet.
+  }
 
   log('All services started.');
 }

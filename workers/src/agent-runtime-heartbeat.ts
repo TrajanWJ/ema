@@ -104,8 +104,9 @@ function classify(snapshot: RuntimeSnapshot): AgentRuntimeState {
 
 // --- Transition forwarder ----------------------------------------------
 
-const SERVICES_BASE_URL =
-  process.env["EMA_SERVICES_URL"] ?? "http://127.0.0.1:4488";
+function servicesBaseUrl(): string {
+  return process.env["EMA_SERVICES_URL"] ?? "http://127.0.0.1:4488";
+}
 
 async function forwardTransition(
   actorId: string,
@@ -114,7 +115,7 @@ async function forwardTransition(
   observedAt: number,
 ): Promise<void> {
   try {
-    await fetch(`${SERVICES_BASE_URL}/api/agents/runtime-transition`, {
+    await fetch(`${servicesBaseUrl()}/api/agents/runtime-transition`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -133,9 +134,9 @@ async function forwardTransition(
 
 // --- Worker lifecycle --------------------------------------------------
 
-const HEARTBEAT_INTERVAL_MS = Number(
-  process.env["EMA_HEARTBEAT_INTERVAL_MS"] ?? "1000",
-);
+function heartbeatIntervalMs(): number {
+  return Number(process.env["EMA_HEARTBEAT_INTERVAL_MS"] ?? "1000");
+}
 
 async function tick(): Promise<void> {
   if (targets.size === 0) return;
@@ -178,7 +179,7 @@ function registerSystemBootstrapTarget(): void {
       let activeIntents = 0;
       try {
         const res = await fetch(
-          `${SERVICES_BASE_URL}/api/intents?status=active`,
+          `${servicesBaseUrl()}/api/intents?status=active`,
         );
         if (res.ok) {
           const body = (await res.json()) as { intents?: unknown[] };
@@ -205,7 +206,7 @@ export function createAgentRuntimeHeartbeat(): Worker {
     name: "agent-runtime-heartbeat",
     async start(): Promise<void> {
       registerSystemBootstrapTarget();
-      timer = setInterval(() => void tick(), HEARTBEAT_INTERVAL_MS);
+      timer = setInterval(() => void tick(), heartbeatIntervalMs());
     },
     async stop(): Promise<void> {
       if (timer) {

@@ -13,16 +13,15 @@
  * Stability:
  * - The method names are the public contract — rename through a proposal only.
  * - Route paths are an implementation detail — the facade absorbs path drift.
- * - Endpoints that do not yet exist are marked `@pending`. They still have a
- *   typed signature so vApps can import them today; calling an unimplemented
- *   endpoint returns the raw HTTP error from the daemon.
+ * - Surfaces without a live backend are marked `@deferred` and throw a
+ *   directive SDK error naming the missing service seam.
  */
 
 import type {
   Execution,
   Intent,
   Space,
-  UserState,
+  UserStateSnapshot,
 } from "../schemas/index.js";
 
 export interface EmaClientOptions {
@@ -51,18 +50,15 @@ export interface EmaClient {
 interface IntentsApi {
   list(): Promise<Intent[]>;
   get(id: string): Promise<Intent>;
-  /** @pending `/api/intents` POST does not yet exist in services/core/intents. */
   create(input: Partial<Intent>): Promise<Intent>;
-  /** @pending Depends on intent-engine route recovery. */
+  /** @deferred Missing generic PATCH route in `services/core/intents`. */
   update(id: string, patch: Partial<Intent>): Promise<Intent>;
 }
 
 interface ProposalsApi {
   listSeeds(): Promise<unknown[]>;
   listHarvested(): Promise<unknown[]>;
-  /** @pending POST /api/proposals route not yet registered. */
   create(input: unknown): Promise<unknown>;
-  /** @pending */
   approve(id: string): Promise<unknown>;
 }
 
@@ -83,23 +79,22 @@ interface BrainDumpApi {
 }
 
 interface VaultApi {
-  /** @pending `/api/vault/search` route not yet registered. */
+  /** @deferred Missing `services/core/vault` HTTP surface. */
   search(query: string): Promise<unknown>;
-  /** @pending */
+  /** @deferred Missing `services/core/vault` HTTP surface. */
   read(path: string): Promise<string>;
-  /** @pending */
+  /** @deferred Missing `services/core/vault` HTTP surface. */
   write(path: string, contents: string): Promise<void>;
 }
 
 interface CanonApi {
-  /** @pending Reads from `ema-genesis/`. Route not yet registered. */
+  /** @deferred Missing `services/core/canon` HTTP surface. */
   read(path: string): Promise<string>;
-  /** @pending Active canon writes require GAC approval. */
+  /** @deferred Missing `services/core/canon` HTTP surface. */
   write(path: string, contents: string): Promise<void>;
 }
 
 interface AgentsApi {
-  /** @pending GET /api/agents/status. */
   status(): Promise<unknown>;
   /** Runtime-state transition emit hook used by the heartbeat poller. */
   emitRuntimeTransition(input: {
@@ -112,19 +107,26 @@ interface AgentsApi {
 }
 
 interface SpacesApi {
-  /** @pending GAC-007 schema just landed; routes follow. */
   list(): Promise<Space[]>;
-  /** @pending */
   get(id: string): Promise<Space>;
-  /** @pending */
-  create(input: Omit<Space, "id" | "inserted_at" | "updated_at">): Promise<Space>;
+  create(input: Omit<Space, "id" | "inserted_at" | "updated_at"> & {
+    actor: string;
+    activate?: boolean;
+  }): Promise<Space>;
 }
 
 interface UserStateApi {
-  /** @pending GAC-010 observer pipeline not yet built. */
-  latest(actorId: string): Promise<UserState | null>;
-  /** @pending */
-  report(input: Omit<UserState, "id" | "inserted_at" | "updated_at">): Promise<UserState>;
+  latest(actorId?: string): Promise<UserStateSnapshot>;
+  report(input: {
+    mode?: UserStateSnapshot["mode"];
+    focus_score?: number;
+    energy_score?: number;
+    distress_flag?: boolean;
+    drift_score?: number;
+    current_intent_slug?: string | null;
+    updated_by?: UserStateSnapshot["updated_by"];
+    reason?: string;
+  }): Promise<UserStateSnapshot>;
 }
 
 interface EventsApi {
@@ -164,6 +166,14 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
     return request<T>(path, { method: "POST", body: JSON.stringify(body) });
   }
 
+  function unwrap<T>(payload: Record<string, unknown>, key: string): T {
+    return payload[key] as T;
+  }
+
+  async function deferred<T>(reason: string): Promise<T> {
+    throw new Error(`ema_sdk_deferred ${reason}`);
+  }
+
   // Lazy-imported so the shared package stays framework-free. Only vApps
   // running inside a browser use the events API; workers stay on raw fetch.
   const eventBus: EventsApi = {
@@ -178,40 +188,85 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
   return {
     request,
     intents: {
-      list: () => request<Intent[]>("/api/intents"),
-      get: (id) => request<Intent>(`/api/intents/${encodeURIComponent(id)}`),
-      create: (input) => post<Intent>("/api/intents", input),
-      update: (id, patch) =>
-        request<Intent>(`/api/intents/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          body: JSON.stringify(patch),
-        }),
+      list: async () => unwrap<Intent[]>(
+        await request<Record<string, unknown>>("/api/intents"),
+        "intents",
+      ),
+      get: async (id) => unwrap<Intent>(
+        await request<Record<string, unknown>>(
+          `/api/intents/${encodeURIComponent(id)}`,
+        ),
+        "intent",
+      ),
+      create: async (input) => unwrap<Intent>(
+        await post<Record<string, unknown>>("/api/intents", input),
+        "intent",
+      ),
+      update: (_id, _patch) =>
+        deferred<Intent>(
+          "Missing generic PATCH route in services/core/intents; use create + status/phase routes for now.",
+        ),
     },
     proposals: {
-      listSeeds: () => request<unknown[]>("/api/proposals/seeds"),
-      listHarvested: () => request<unknown[]>("/api/proposals/harvested"),
-      create: (input) => post("/api/proposals", input),
-      approve: (id) => post(`/api/proposals/${encodeURIComponent(id)}/approve`, {}),
+      listSeeds: async () => unwrap<unknown[]>(
+        await request<Record<string, unknown>>("/api/proposals/seeds"),
+        "seeds",
+      ),
+      listHarvested: async () => unwrap<unknown[]>(
+        await request<Record<string, unknown>>("/api/proposals/harvested"),
+        "intents",
+      ),
+      create: async (input) => unwrap<unknown>(
+        await post<Record<string, unknown>>("/api/proposals", input),
+        "proposal",
+      ),
+      approve: async (id) => unwrap<unknown>(
+        await post<Record<string, unknown>>(
+          `/api/proposals/${encodeURIComponent(id)}/approve`,
+          {},
+        ),
+        "proposal",
+      ),
     },
     executions: {
-      list: () => request<Execution[]>("/api/executions"),
-      get: (id) => request<Execution>(`/api/executions/${encodeURIComponent(id)}`),
-      create: (input) => post<Execution>("/api/executions", input),
+      list: async () => unwrap<Execution[]>(
+        await request<Record<string, unknown>>("/api/executions"),
+        "executions",
+      ),
+      get: async (id) => unwrap<Execution>(
+        await request<Record<string, unknown>>(
+          `/api/executions/${encodeURIComponent(id)}`,
+        ),
+        "execution",
+      ),
+      create: async (input) => unwrap<Execution>(
+        await post<Record<string, unknown>>("/api/executions", input),
+        "execution",
+      ),
     },
     brainDump: {
-      list: () => request<unknown[]>("/api/brain-dump/items"),
-      create: (text) => post("/api/brain-dump/items", { text }),
+      list: async () => unwrap<unknown[]>(
+        await request<Record<string, unknown>>("/api/brain-dump/items"),
+        "items",
+      ),
+      create: async (text) => unwrap<unknown>(
+        await post<Record<string, unknown>>("/api/brain-dump/items", { content: text }),
+        "item",
+      ),
     },
     vault: {
-      search: (query) => request(`/api/vault/search?q=${encodeURIComponent(query)}`),
+      search: (query) =>
+        deferred(`Missing services/core/vault search route for query=${query}`),
       read: (path) =>
-        request<string>(`/api/vault/read?path=${encodeURIComponent(path)}`),
-      write: (path, contents) => post("/api/vault/write", { path, contents }),
+        deferred(`Missing services/core/vault read route for path=${path}`),
+      write: (path, _contents) =>
+        deferred(`Missing services/core/vault write route for path=${path}`),
     },
     canon: {
       read: (path) =>
-        request<string>(`/api/canon/read?path=${encodeURIComponent(path)}`),
-      write: (path, contents) => post("/api/canon/write", { path, contents }),
+        deferred(`Missing services/core/canon read route for path=${path}`),
+      write: (path, _contents) =>
+        deferred(`Missing services/core/canon write route for path=${path}`),
     },
     agents: {
       status: () => request("/api/agents/status"),
@@ -219,16 +274,30 @@ export function createEmaClient(opts: EmaClientOptions = {}): EmaClient {
         post<void>("/api/agents/runtime-transition", input),
     },
     spaces: {
-      list: () => request<Space[]>("/api/spaces"),
-      get: (id) => request<Space>(`/api/spaces/${encodeURIComponent(id)}`),
-      create: (input) => post<Space>("/api/spaces", input),
+      list: async () => unwrap<Space[]>(
+        await request<Record<string, unknown>>("/api/spaces"),
+        "spaces",
+      ),
+      get: async (id) => unwrap<Space>(
+        await request<Record<string, unknown>>(
+          `/api/spaces/${encodeURIComponent(id)}`,
+        ),
+        "space",
+      ),
+      create: async (input) => unwrap<Space>(
+        await post<Record<string, unknown>>("/api/spaces", input),
+        "space",
+      ),
     },
     userState: {
-      latest: (actorId) =>
-        request<UserState | null>(
-          `/api/user-state/latest?actor_id=${encodeURIComponent(actorId)}`,
-        ),
-      report: (input) => post<UserState>("/api/user-state", input),
+      latest: async (_actorId) => unwrap<UserStateSnapshot>(
+        await request<Record<string, unknown>>("/api/user-state/current"),
+        "state",
+      ),
+      report: async (input) => unwrap<UserStateSnapshot>(
+        await post<Record<string, unknown>>("/api/user-state/update", input),
+        "state",
+      ),
     },
     events: eventBus,
   };

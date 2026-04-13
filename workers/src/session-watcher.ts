@@ -2,10 +2,6 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Worker } from "./worker-manager.js";
 
-const CLAUDE_PROJECTS_DIR =
-  process.env["CLAUDE_PROJECTS_DIR"] ??
-  `${process.env["HOME"] ?? "~"}/.claude/projects`;
-
 const POLL_INTERVAL_MS = 30_000;
 
 interface SessionFile {
@@ -42,6 +38,13 @@ function emit(event: SessionEvent): void {
 
 const knownModTimes = new Map<string, number>();
 
+function claudeProjectsDir(): string {
+  return (
+    process.env["CLAUDE_PROJECTS_DIR"] ??
+    `${process.env["HOME"] ?? "~"}/.claude/projects`
+  );
+}
+
 async function findJsonlFiles(dir: string): Promise<SessionFile[]> {
   const results: SessionFile[] = [];
 
@@ -67,7 +70,7 @@ async function findJsonlFiles(dir: string): Promise<SessionFile[]> {
 }
 
 async function poll(): Promise<void> {
-  const files = await findJsonlFiles(CLAUDE_PROJECTS_DIR);
+  const files = await findJsonlFiles(claudeProjectsDir());
 
   for (const file of files) {
     const lastMod = knownModTimes.get(file.path);

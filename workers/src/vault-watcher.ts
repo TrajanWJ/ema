@@ -11,10 +11,11 @@ export interface VaultEvent {
 
 export type VaultEventHandler = (event: VaultEvent) => void;
 
-const VAULT_PATH =
-  process.env["EMA_VAULT_PATH"] ?? `${process.env["HOME"] ?? "~"}/.local/share/ema/vault`;
-
 const listeners = new Set<VaultEventHandler>();
+
+function vaultPath(): string {
+  return process.env["EMA_VAULT_PATH"] ?? `${process.env["HOME"] ?? "~"}/.local/share/ema/vault`;
+}
 
 export function onVaultEvent(handler: VaultEventHandler): () => void {
   listeners.add(handler);
@@ -41,7 +42,7 @@ export function createVaultWatcher(): Worker {
     name: "vault-watcher",
 
     async start(): Promise<void> {
-      watcher = watch(VAULT_PATH, {
+      watcher = watch(vaultPath(), {
         ignoreInitial: true,
         persistent: true,
         depth: 10,
