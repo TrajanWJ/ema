@@ -1,0 +1,4 @@
+# Everything in _clones/ is ignored — actual cloned source trees.
+# The tracked artifacts live in _extractions/ (sibling folder).
+*
+!.gitignore
